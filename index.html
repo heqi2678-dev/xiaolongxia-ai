@@ -2978,7 +2978,8 @@ XLX.tools = (function () {
     if (!mod) throw new Error("无法加载语音识别库（网络受限），请重试");
     const { pipeline, env } = mod;
     env.allowLocalModels = false;
-    env.remoteHost = "https://hf-mirror.com";
+    env.remoteHost = "https://hf-mirror.com/";
+    env.remotePathTemplate = "{model}/resolve/{revision}/";
     if (onProgress) onProgress("正在下载语音识别模型（" + ASR_MODELS[modelKey].size + "）…");
     asrPipeline = await pipeline("automatic-speech-recognition", ASR_MODELS[modelKey].id, {
       progress_callback: (p) => { if (onProgress && p && typeof p.progress === "number") onProgress("正在下载语音识别模型… " + Math.round(p.progress) + "%"); }
