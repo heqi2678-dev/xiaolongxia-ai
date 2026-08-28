@@ -1,5 +1,5 @@
 /* 铜龙电商小龙虾AI Service Worker：离线缓存，保证链接稳定 */
-const CACHE = "xiaolongxia-v23";
+const CACHE = "xiaolongxia-v24";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {

@@ -1440,7 +1440,7 @@ XLX.SKILLS = [
     prompt: "" },
   { id: "video-watermark", cat: "video", name: "视频去水印", icon: "wand", desc: "免费解析抖音/快手/B站/淘宝等视频链接，去水印下载", action: "tool", tool: "videowm",
     prompt: "" },
-  { id: "video-text", cat: "video", name: "视频提取文案", icon: "mic", desc: "免费根据视频链接提取说话内容文案（AI转写）", action: "tool", tool: "vidtxt",
+  { id: "video-text", cat: "video", name: "视频提取文案", icon: "mic", desc: "选择本地视频/音频文件，浏览器本地AI转写说话内容（免费不上传）", action: "tool", tool: "vidtxt",
     prompt: "" }
 ];
 
@@ -2952,27 +2952,180 @@ XLX.tools = (function () {
     return out;
   }
 
+  /* ===================== 视频提取文案：浏览器本地 Whisper 转写 ===================== */
+
+  const ASR_CDNS = [
+    "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0",
+    "https://unpkg.com/@huggingface/transformers@4.2.0",
+    "https://esm.sh/@huggingface/transformers@4.2.0"
+  ];
+  const ASR_MODELS = {
+    tiny: { id: "Xenova/whisper-tiny", size: "约 39MB，极速（推荐手机）" },
+    base: { id: "Xenova/whisper-base", size: "约 145MB，更准确（推荐电脑）" }
+  };
+  let asrPipeline = null;
+  let asrModelKey = null;
+
+  async function loadAsr(modelKey, onProgress) {
+    if (asrPipeline && asrModelKey === modelKey) return asrPipeline;
+    let mod = null, lastErr = null;
+    for (const url of ASR_CDNS) {
+      try {
+        mod = await import(url);
+        break;
+      } catch (e) { lastErr = e; }
+    }
+    if (!mod) throw new Error("无法加载语音识别库（网络受限），请重试");
+    const { pipeline, env } = mod;
+    env.allowLocalModels = false;
+    env.remoteHost = "https://hf-mirror.com";
+    if (onProgress) onProgress("正在下载语音识别模型（" + ASR_MODELS[modelKey].size + "）…");
+    asrPipeline = await pipeline("automatic-speech-recognition", ASR_MODELS[modelKey].id, {
+      progress_callback: (p) => { if (onProgress && p && typeof p.progress === "number") onProgress("正在下载语音识别模型… " + Math.round(p.progress) + "%"); }
+    });
+    asrModelKey = modelKey;
+    return asrPipeline;
+  }
+
+  async function decodeAudioFile(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) throw new Error("当前浏览器不支持音频解码，请用 Chrome/Edge");
+    const ctx = new AC();
+    let audioBuffer = null;
+    try {
+      audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    } catch (e) {
+      audioBuffer = null;
+    }
+    if (!audioBuffer) {
+      /* 视频容器：用 <video> + OfflineAudioContext 提取音轨 */
+      audioBuffer = await extractVideoAudio(file, ctx);
+    }
+    const targetRate = 16000;
+    const srcRate = audioBuffer.sampleRate;
+    const channels = Math.min(audioBuffer.numberOfChannels, 2);
+    const length = Math.ceil(audioBuffer.duration * targetRate);
+    const data = new Float32Array(length);
+    const chData = [];
+    for (let c = 0; c < channels; c++) chData.push(audioBuffer.getChannelData(c));
+    for (let i = 0; i < length; i++) {
+      const srcIdx = (i / targetRate) * srcRate;
+      const i0 = Math.floor(srcIdx);
+      const i1 = Math.min(i0 + 1, audioBuffer.length - 1);
+      const frac = srcIdx - i0;
+      let sample = 0;
+      for (let c = 0; c < channels; c++) {
+        sample += chData[c][i0] * (1 - frac) + chData[c][i1] * frac;
+      }
+      data[i] = sample / channels;
+    }
+    if (typeof ctx.close === "function") try { ctx.close(); } catch (e) {}
+    return data;
+  }
+
+  async function extractVideoAudio(file) {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    await new Promise((res, rej) => {
+      video.onloadedmetadata = res;
+      video.onerror = () => rej(new Error("无法读取视频文件"));
+    });
+    const duration = isFinite(video.duration) ? video.duration : 60;
+    const sampleRate = 16000;
+    const offCtx = new OfflineAudioContext(1, Math.ceil(duration * sampleRate), sampleRate);
+    const src = offCtx.createMediaElementSource(video);
+    const gain = offCtx.createGain();
+    src.connect(gain);
+    gain.connect(offCtx.destination);
+    video.play().catch(() => {});
+    const buffer = await offCtx.startRendering();
+    URL.revokeObjectURL(url);
+    video.src = "";
+    return buffer;
+  }
+
   function renderVidTxt(box) {
     box.innerHTML = ''
       + '<div class="notice" style="font-size:12px;color:var(--text2);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:12px">'
-      + '粘贴<b>视频链接</b>，自动提取视频中的<b>说话内容文案</b>（AI语音转文字，免费）。'
-      + '<br>方式：一键生成「视频转文案」本地工具（用开源的 faster-whisper，识别准确、支持中文）。</div>'
+      + '选择视频/音频文件，<b>浏览器本地 AI 转写</b>说话内容（Whisper 开源模型，<b>免费、不上传</b>）。'
+      + '<br>首次使用需联网下载语音模型，之后离线可用。</div>'
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
-      + '<div style="flex:1;min-width:260px"><label class="label">视频 / 音频链接</label>'
-      + '<input id="vtUrl" class="inp" placeholder="粘贴抖音/快手/B站/喜马拉雅等链接…"></div>'
-      + '<button class="btn primary" id="vtGenBtn">' + svg("download", 15) + ' 生成视频转文案工具</button>'
+      + '<div style="flex:1;min-width:240px"><label class="label">选择视频 / 音频文件</label>'
+      + '<input type="file" id="vtFile" accept="video/*,audio/*,.mp3,.wav,.m4a,.mp4,.mov,.flac" class="inp" style="padding:8px"></div>'
+      + '<div style="flex:0 0 auto"><label class="label">识别精度</label>'
+      + '<select id="vtModel" class="inp" style="min-width:200px">'
+      + '<option value="tiny">极速 · ' + ASR_MODELS.tiny.size + '</option>'
+      + '<option value="base">标准 · ' + ASR_MODELS.base.size + '</option>'
+      + '</select></div>'
+      + '<button class="btn primary" id="vtRunBtn">' + svg("mic", 15) + ' 转写说话内容</button>'
       + '</div>'
-      + '<div id="vtResult" style="margin-top:14px"></div>';
+      + '<div id="vtProgress" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>'
+      + '<div id="vtResult" style="margin-top:10px"></div>'
+      + '<details style="margin-top:12px;font-size:12px;color:var(--text3)">'
+      + '<summary>备用：电脑批处理版（粘贴链接生成工具包）</summary>'
+      + '<div style="margin-top:8px">'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
+      + '<div style="flex:1;min-width:240px"><label class="label">视频 / 音频链接</label>'
+      + '<input id="vtUrl" class="inp" placeholder="粘贴抖音/快手/B站/喜马拉雅等链接…"></div>'
+      + '<button class="btn ghost" id="vtGenBtn">' + svg("download", 14) + ' 生成视频转文案工具</button>'
+      + '</div></div></details>';
+
+    const fileEl = document.getElementById("vtFile");
+    const modelEl = document.getElementById("vtModel");
+    const progEl = document.getElementById("vtProgress");
+    const result = document.getElementById("vtResult");
+    const runBtn = document.getElementById("vtRunBtn");
+
+    runBtn.onclick = async () => {
+      const file = fileEl.files && fileEl.files[0];
+      if (!file) { XLX.util.toast("请先选择视频或音频文件", "warn"); return; }
+      const modelKey = modelEl.value;
+      runBtn.disabled = true; runBtn.innerHTML = svg("mic", 15) + ' 转写中…';
+      progEl.innerHTML = "正在准备…";
+      result.innerHTML = "";
+      try {
+        const pipe = await loadAsr(modelKey, (msg) => { progEl.innerHTML = XLX.util.esc(msg); });
+        progEl.innerHTML = "正在解析音频…";
+        const audio = await decodeAudioFile(file);
+        progEl.innerHTML = "正在识别说话内容（文件时长较长可能需要一些时间）…";
+        const out = await pipe(audio, { language: "zh", task: "transcribe", chunk_length_s: 30, stride_length_s: 5 });
+        const text = (out && out.text || "").trim();
+        if (!text) throw new Error("未识别到说话内容（请确认文件含人声）");
+        progEl.innerHTML = '<span style="color:var(--ok)">✅ 转写完成</span>';
+        result.innerHTML = ''
+          + '<textarea class="inp" id="vtOut" style="min-height:180px">' + XLX.util.esc(text) + '</textarea>'
+          + '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">'
+          + '<button class="btn small primary" id="vtCopy">' + svg("copy", 13) + ' 复制文案</button>'
+          + '<button class="btn small" id="vtDl">' + svg("download", 13) + ' 下载文案.txt</button>'
+          + '</div>';
+        document.getElementById("vtCopy").onclick = () => {
+          const el = document.getElementById("vtOut");
+          el.select(); el.setSelectionRange(0, 999999);
+          try { document.execCommand("copy"); XLX.util.toast("已复制到剪贴板", "ok"); } catch (e) { XLX.util.toast("复制失败，请手动复制", "err"); }
+        };
+        document.getElementById("vtDl").onclick = () => {
+          XLX.util.download("文案.txt", document.getElementById("vtOut").value, "text/plain;charset=utf-8");
+          XLX.util.toast("已下载文案.txt", "ok");
+        };
+      } catch (e) {
+        progEl.innerHTML = "";
+        result.innerHTML = '<div style="color:var(--warn);font-size:12.5px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px">转写失败：' + XLX.util.esc(e.message || e) + '</div>';
+      }
+      runBtn.disabled = false; runBtn.innerHTML = svg("mic", 15) + ' 转写说话内容';
+    };
 
     const urlEl = document.getElementById("vtUrl");
-    const result = document.getElementById("vtResult");
     document.getElementById("vtGenBtn").onclick = () => {
       const url = urlEl.value.trim();
       if (!/^https?:\/\//i.test(url)) { XLX.util.toast("请输入正确的视频链接", "warn"); return; }
       const files = makeVidTxtScript(url);
       const zip = XLX.util.ZIP.make(files);
       XLX.util.download("视频转文案工具.zip", zip, "application/zip");
-      result.innerHTML = '<div class="ok-box" style="color:var(--ok);font-size:13px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px">'
+      result.innerHTML = '<div style="color:var(--ok);font-size:13px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px">'
         + '✅ 已生成「视频转文案工具.zip」并开始下载。<br><br>'
         + '<b>使用方法：</b><br>1) 电脑安装 Python3<br>'
         + '2) 解压后打开终端执行：<code style="background:#111827;padding:2px 6px;border-radius:5px">pip install -r requirements.txt</code><br>'
