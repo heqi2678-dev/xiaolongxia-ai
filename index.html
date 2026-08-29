@@ -3346,7 +3346,10 @@ XLX.tools = (function () {
       const grid = document.getElementById("dramaShots");
       await renderShots(T, shots, grid, () => stopFlag, aborter.signal);
       genBtn.disabled = false; stopBtn.style.display = "none";
-      if (!stopFlag) XLX.util.toast("剧作生成完成", "ok");
+      if (!stopFlag) {
+        XLX.util.toast("剧作生成完成", "ok");
+        await renderCompose(T, shots, box);
+      }
     };
     stopBtn.onclick = () => { stopFlag = true; };
     renderInput();
@@ -3405,6 +3408,7 @@ XLX.tools = (function () {
         const url = await XLX.image.generate(prompt, { aspect: "wide", image: i === 0 ? null : refUrl, signal });
         if (shouldStop && shouldStop()) return;
         if (i === 0) refUrl = url;
+        shots[i].imgUrl = url;
         item.innerHTML = '<img loading="lazy" src="' + url + '" style="aspect-ratio:auto"><div class="iact">'
           + '<button data-a="dl" title="下载">' + svg("download", 14) + '</button></div>'
           + '<div class="ilab">' + XLX.util.esc((s.name || "镜头" + (i + 1)).slice(0, 40)) + '</div>';
@@ -3432,6 +3436,86 @@ XLX.tools = (function () {
       })());
     }
     await Promise.all(workers);
+  }
+
+  /* 一键成片：配音 + 合成视频（方案B 纯前端） */
+  async function renderCompose(T, shots, box) {
+    if (!XLX.video || !XLX.video.isSupported()) {
+      box.insertAdjacentHTML("beforeend",
+        '<div style="color:var(--warn);font-size:12px;margin-top:10px">当前浏览器不支持视频合成，请用 Chrome/Edge 最新版。</div>');
+      return;
+    }
+    const hasImg = shots.some(s => s.imgUrl);
+    if (!hasImg) return;
+    box.insertAdjacentHTML("beforeend",
+      '<div class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px;margin-top:12px" id="composeBox">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
+      + '<div style="font-size:13px"><b>一键成片（免费·纯本地合成）</b>'
+      + '<div style="font-size:11.5px;color:var(--text3);margin-top:3px">浏览器 TTS 配音 + 镜头运动 + 字幕，输出 WebM 视频</div></div>'
+      + '<button class="btn primary" id="composeBtn">' + svg("clapper", 15) + ' 合成视频</button></div>'
+      + '<div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">'
+      + '<label class="label" style="margin:0">每镜时长</label>'
+      + '<select class="inp" id="composeDur" style="width:110px;padding:6px">'
+      + '<option value="3">3 秒</option><option value="4" selected>4 秒</option><option value="5">5 秒</option><option value="6">6 秒</option></select>'
+      + '<label class="label" style="margin:0">画幅</label>'
+      + '<select class="inp" id="composeOrient" style="width:130px;padding:6px">'
+      + '<option value="vertical" selected>竖屏 720x1280</option><option value="landscape">横屏 1280x720</option></select>'
+      + '<button class="btn ghost" id="composeCancelBtn" style="display:none">' + svg("x", 14) + ' 取消</button></div>'
+      + '<div id="composeProgress" style="margin-top:10px;display:none">'
+      + '<div class="progress-bar" style="height:8px;background:var(--bg);border-radius:6px;overflow:hidden;border:1px solid var(--border)">'
+      + '<div id="composeBar" style="width:0%;height:100%;background:var(--accent);transition:width .2s"></div></div>'
+      + '<div style="font-size:11.5px;color:var(--text3);margin-top:5px" id="composeStatus">准备中…</div></div>'
+      + '</div>');
+
+    const cBtn = document.getElementById("composeBtn");
+    const cCancel = document.getElementById("composeCancelBtn");
+    const prog = document.getElementById("composeProgress");
+    const bar = document.getElementById("composeBar");
+    const status = document.getElementById("composeStatus");
+    let cAborter = null;
+
+    cBtn.onclick = async () => {
+      cAborter = new AbortController();
+      cBtn.disabled = true; cCancel.style.display = "";
+      prog.style.display = "block"; bar.style.width = "0%";
+      status.textContent = "准备配音与剧照…";
+      try {
+        /* 每镜配音 */
+        const scenes = [];
+        for (let i = 0; i < shots.length; i++) {
+          const s = shots[i];
+          const duration = parseInt(document.getElementById("composeDur").value, 10) || 4;
+          status.textContent = "合成配音 " + (i + 1) + "/" + shots.length + "…";
+          const audioBuffer = s.line ? await XLX.video.ttsToBuffer(s.line) : null;
+          scenes.push({ url: s.imgUrl, text: s.line || "", audioBuffer, duration });
+        }
+        status.textContent = "正在渲染视频（' + T.name + '）…";
+        const orient = document.getElementById("composeOrient").value;
+        const result = await XLX.video.composeVideo(scenes, {
+          width: orient === "vertical" ? 720 : 1280,
+          height: orient === "vertical" ? 1280 : 720,
+          fps: 30,
+          signal: cAborter.signal,
+          onProgress: (p) => { bar.style.width = Math.round(p * 100) + "%"; }
+        });
+        cCancel.style.display = "none";
+        XLX.video.renderOutput(document.getElementById("composeBox"), result);
+        prog.style.display = "none";
+        XLX.util.toast("成片生成完成", "ok");
+      } catch (e) {
+        cCancel.style.display = "none";
+        prog.style.display = "none";
+        if (e.message === "已取消") {
+          XLX.util.toast("已取消合成", "info");
+        } else {
+          status.textContent = "";
+          box.insertAdjacentHTML("beforeend", '<div style="color:var(--warn);font-size:12px;margin-top:8px">合成失败：' + XLX.util.esc(e.message) + '</div>');
+        }
+      } finally {
+        cBtn.disabled = false;
+      }
+    };
+    cCancel.onclick = () => { if (cAborter) cAborter.abort(); };
   }
 
   /* 生成视频去水印本地脚本（yt-dlp 免费开源） */
@@ -3578,6 +3662,235 @@ if __name__ == "__main__":
   }
 
   return { render, runImage, runDrama, openTool, __testParseShots: parseShots };
+})();
+
+</script>
+<script>
+/* ===== 一键成片：剧照 + TTS配音 + 字幕 + 镜头运动 合成视频（纯前端 WebM） ===== */
+
+XLX.video = (function () {
+  function icon(n, s) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:' + s + 'px;height:' + s + 'px">' + (XLX.ICONS[n] || "") + '</svg>'; }
+
+  function isSupported() {
+    return !!(window.MediaRecorder && HTMLCanvasElement.prototype.captureStream &&
+      window.AudioContext && window.speechSynthesis);
+  }
+
+  /* 把文字用浏览器 TTS 合成并录制为 AudioBuffer；无中文语音/失败时返回 null */
+  function ttsToBuffer(text) {
+    return new Promise((resolve) => {
+      try {
+        if (!window.speechSynthesis || !text) return resolve(null);
+        const voices = speechSynthesis.getVoices();
+        const zh = voices.find(v => /zh|cmn|Chinese/i.test(v.lang + " " + v.name)) || voices[0];
+        if (!zh) return resolve(null);
+        const AC = new AudioContext();
+        const dest = AC.createMediaStreamDestination();
+        const src = AC.createBufferSource();
+        const chunks = [];
+        const rec = new MediaRecorder(dest.stream, { mimeType: (window.MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "") });
+        rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+        rec.onstop = async () => {
+          try {
+            const blob = new Blob(chunks, { type: "audio/webm" });
+            const ab = await blob.arrayBuffer();
+            const buf = await AC.decodeAudioData(ab);
+            await AC.close();
+            resolve(buf);
+          } catch (e) { try { await AC.close(); } catch (_) {} resolve(null); }
+        };
+        rec.onerror = () => { try { AC.close(); } catch (_) {} resolve(null); };
+        /* 先写一帧静音占位，否则 MediaRecorder 不产出数据 */
+        src.connect(dest);
+        src.start();
+        rec.start();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.voice = zh;
+        utter.lang = zh.lang || "zh-CN";
+        utter.rate = 1.0;
+        utter.pitch = 1.0;
+        utter.onend = () => {
+          setTimeout(() => { try { rec.stop(); } catch (e) {} }, 120);
+        };
+        utter.onerror = () => {
+          setTimeout(() => { try { rec.stop(); } catch (e) {} }, 120);
+        };
+        speechSynthesis.speak(utter);
+        /* 超时兜底（长句最多 40 秒） */
+        setTimeout(() => { try { if (rec.state === "recording") rec.stop(); } catch (e) {} }, 40000);
+      } catch (e) {
+        resolve(null);
+      }
+    });
+  }
+
+  /* 预加载一张图片 */
+  function loadImage(url) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+
+  /* 字幕按宽度换行，最多两行 */
+  function wrapText(ctx, text, maxWidth, maxLines) {
+    const lines = [];
+    let cur = "";
+    for (const ch of text) {
+      const test = cur + ch;
+      if (ctx.measureText(test).width > maxWidth && cur) {
+        lines.push(cur);
+        cur = ch;
+        if (lines.length >= maxLines) break;
+      } else cur = test;
+    }
+    if (cur) lines.push(cur);
+    return lines.slice(0, maxLines);
+  }
+
+  /* 核心：把场景列表合成视频。
+     scenes: [{ url, text, audioBuffer, duration }]
+     opts: { width, height, fps, onProgress, signal }
+     返回 { blob, duration } */
+  async function composeVideo(scenes, opts = {}) {
+    const width = opts.width || 1280;
+    const height = opts.height || 720;
+    const fps = opts.fps || 30;
+    if (!isSupported()) throw new Error("当前浏览器不支持视频合成，请用 Chrome/Edge 最新版");
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    const stream = canvas.captureStream(fps);
+
+    /* 音频轨：把各镜配音按时间轴合到混音总线 */
+    const AC = new AudioContext();
+    const master = AC.createMediaStreamDestination();
+    const totalSec = scenes.reduce((acc, s) => acc + (s.duration || 4), 0);
+    let t = 0;
+    for (const s of scenes) {
+      if (s.audioBuffer) {
+        const srcNode = AC.createBufferSource();
+        srcNode.buffer = s.audioBuffer;
+        const gain = AC.createGain();
+        gain.gain.value = 1.0;
+        srcNode.connect(gain).connect(master);
+        srcNode.start(AC.currentTime + t);
+      }
+      t += (s.duration || 4);
+    }
+    stream.addTrack(master.stream.getAudioTracks()[0]);
+
+    /* 录制 */
+    const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "video/webm";
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6 * 1024 * 1024 });
+    const chunks = [];
+    rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise((res) => { rec.onstop = res; });
+    rec.start(1000);
+
+    /* 预加载所有剧照 */
+    const imgs = [];
+    for (let i = 0; i < scenes.length; i++) {
+      if (opts.signal && opts.signal.aborted) { rec.stop(); throw new Error("已取消"); }
+      imgs.push(await loadImage(scenes[i].url));
+    }
+
+    const totalFrames = Math.round(totalSec * fps);
+    const KENBURNS = 1.12;
+
+    const drawScene = (scene, img, frame, sceneFrames) => {
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, width, height);
+      if (img) {
+        const p = frame / Math.max(sceneFrames - 1, 1);
+        const scale = 1 + (KENBURNS - 1) * p;
+        const iw = img.naturalWidth || width, ih = img.naturalHeight || height;
+        const cover = Math.max(width / iw, height / ih) * scale;
+        const dw = iw * cover, dh = ih * cover;
+        const maxOffX = (dw - width) / 2, maxOffY = (dh - height) / 2;
+        const dirX = scene._dir === "even" ? -1 : 1;
+        const dirY = scene._dir === "even" ? 1 : -1;
+        const offX = maxOffX * (1 - Math.abs(1 - 2 * p)) * dirX;
+        const offY = maxOffY * (1 - Math.abs(1 - 2 * p)) * dirY;
+        ctx.drawImage(img, (width - dw) / 2 + offX, (height - dh) / 2 + offY, dw, dh);
+      }
+      /* 字幕 */
+      if (scene.text) {
+        const fs = Math.max(22, Math.round(width * 0.028));
+        ctx.font = "600 " + fs + "px system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        const maxW = width * 0.84;
+        const lines = wrapText(ctx, scene.text, maxW, 2);
+        const lh = fs * 1.4;
+        const blockH = lines.length * lh + 16;
+        const baseY = height - 20;
+        ctx.fillStyle = "rgba(0,0,0,0.45)";
+        ctx.fillRect(width * 0.04, baseY - blockH, width * 0.92, blockH + 8);
+        ctx.fillStyle = "#fff";
+        ctx.shadowColor = "rgba(0,0,0,0.8)"; ctx.shadowBlur = 4;
+        lines.forEach((ln, i) => {
+          ctx.fillText(ln, width / 2, baseY - 10 - (lines.length - i - 1) * lh);
+        });
+        ctx.shadowBlur = 0;
+      }
+    };
+
+    /* 逐帧渲染，requestFrame 保证 captureStream 每帧都采集 */
+    let frame = 0;
+    const track = stream.getVideoTracks()[0];
+    for (let si = 0; si < scenes.length; si++) {
+      const scene = scenes[si];
+      const sceneFrames = Math.round((scene.duration || 4) * fps);
+      scene._dir = si % 2 === 0 ? "even" : "odd";
+      for (let f = 0; f < sceneFrames; f++) {
+        if (opts.signal && opts.signal.aborted) {
+          try { rec.stop(); } catch (e) {}
+          throw new Error("已取消");
+        }
+        drawScene(scene, imgs[si], f, sceneFrames);
+        if (track.requestFrame) track.requestFrame();
+        else await new Promise(r => setTimeout(r, 1000 / fps));
+        frame++;
+        if (opts.onProgress) opts.onProgress(frame / totalFrames);
+        /* 让事件循环有机会消费数据 */
+        if (f % 5 === 4) await new Promise(r => setTimeout(r, 0));
+      }
+    }
+
+    rec.stop();
+    await stopped;
+    try { await AC.close(); } catch (e) {}
+    if (opts.signal && opts.signal.aborted) throw new Error("已取消");
+    const blob = new Blob(chunks, { type: mime.split(";")[0] });
+    return { blob, duration: totalSec };
+  }
+
+  function renderOutput(box, result) {
+    const url = URL.createObjectURL(result.blob);
+    box.innerHTML = ''
+      + '<div class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px;margin-top:12px">'
+      + '<div class="label" style="margin-bottom:8px">成片完成（' + result.duration.toFixed(1) + ' 秒 · WebM）</div>'
+      + '<video controls style="width:100%;max-height:420px;border-radius:9px;background:#000" src="' + url + '"></video>'
+      + '<div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">'
+      + '<button class="btn primary" id="vidDownload">' + icon("download", 14) + ' 下载视频</button>'
+      + '<button class="btn ghost" id="vidPreview">' + icon("play", 14) + ' 在线预览</button></div></div>';
+    box.querySelector("#vidDownload").onclick = () => {
+      const a = document.createElement("a");
+      a.href = url; a.download = "剧作成片_" + Date.now() + ".webm";
+      a.click();
+    };
+    box.querySelector("#vidPreview").onclick = () => {
+      const v = box.querySelector("video");
+      if (v) { v.scrollIntoView({ behavior: "smooth", block: "center" }); v.play(); }
+    };
+  }
+
+  return { isSupported, ttsToBuffer, composeVideo, renderOutput };
 })();
 
 </script>
