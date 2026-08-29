@@ -3363,18 +3363,26 @@ XLX.tools = (function () {
       + '【分镜1】镜头描述\n画面：<用于AI绘图的画面描述，写实/动漫均可，含主体、场景、动作、光线>\n对白：<该镜台词或旁白>\n'
       + '【分镜2】…（共 4-6 个分镜）';
     const user = '剧种：' + T.name + '（' + T.desc + '）\n驱动方式：' + D.name + '\n素材：\n' + source.slice(0, 3500);
-    return new Promise((resolve, reject) => {
+    const once = () => new Promise((resolve, reject) => {
       if (!XLX.llm || !XLX.llm.chat) { reject(new Error("LLM 未加载")); return; }
       let full = "";
-      const timer = setTimeout(() => reject(new Error("生成超时，请重试")), 120000);
-      if (signal) signal.addEventListener("abort", () => { clearTimeout(timer); reject(new Error("已取消")); });
+      let timer = null;
+      let settled = false;
+      const clearT = () => { if (timer) { clearTimeout(timer); timer = null; } };
+      const startT = () => { clearT(); timer = setTimeout(() => { if (!settled) { settled = true; reject(new Error("生成超时，请重试")); } }, 90000); };
+      startT();
+      if (signal) signal.addEventListener("abort", () => { if (!settled) { settled = true; clearT(); reject(new Error("已取消")); } });
       XLX.llm.chat([{ role: "system", content: sys }, { role: "user", content: user }], {
         temperature: 0.85,
         signal,
-        onDelta: () => {},
-        onDone: (t) => { clearTimeout(timer); resolve(t); },
-        onError: (e) => { clearTimeout(timer); reject(e); }
-      }).catch(e => { clearTimeout(timer); reject(e); });
+        onDelta: () => startT(),
+        onDone: (t) => { if (!settled) { settled = true; clearT(); resolve(t); } },
+        onError: (e) => { if (!settled) { settled = true; clearT(); reject(e); } }
+      }).catch(e => { if (!settled) { settled = true; clearT(); reject(e); } });
+    });
+    return once().catch(e => {
+      if (e.message === "已取消") throw e;
+      return once();
     });
   }
 
