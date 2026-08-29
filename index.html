@@ -3167,23 +3167,25 @@ XLX.tools = (function () {
     };
   }
 
-  /* ===================== AI 视频生成（付费 · 火山方舟 Seedance） ===================== */
+  /* ===================== AI 视频生成（付费 · 火山方舟/可灵） ===================== */
   const VIDEO_RATIOS = ["16:9", "9:16", "1:1"];
-  const VIDEO_RESOS = ["720p", "480p"];
   const VIDEO_DURS = [5, 10];
   const DRAMA_DRIVERS = [
-    { id: "wenan", name: "文案", icon: "pen", ph: "输入剧情想法/故事梗概，例如：一对中年夫妻在小龙虾夜市摊重燃爱情火花……", tip: "输入一段剧情想法，AI 先写出完整分镜剧本，再逐镜生成剧照" },
-    { id: "juben", name: "脚本", icon: "story", ph: "粘贴已有剧本/对白/分场……", tip: "粘贴已写好的剧本或对白，AI 拆分为分镜剧本并逐镜生成剧照" },
+    { id: "wenan", name: "文案", icon: "pen", ph: "输入剧情想法/故事梗概，例如：一对中年夫妻在小龙虾夜市摊重燃爱情火花……", tip: "输入一段剧情想法，AI 提炼成适合视频模型的提示词，再生成真实视频" },
+    { id: "juben", name: "脚本", icon: "story", ph: "粘贴已有剧本/对白/分场……", tip: "粘贴已写好的剧本或对白，AI 提炼成视频提示词并生成真实视频" },
     { id: "audio", name: "音频", icon: "mic", ph: "", tip: "上传音频文件，浏览器端直接语音转写为文案（Chrome/Edge），或粘贴音频里的台词" },
-    { id: "search", name: "搜索", icon: "search", ph: "输入主题/关键词，联网搜索网感素材……", tip: "输入一个主题关键词，联网搜索热门网感元素，再生成剧本与剧照" }
+    { id: "search", name: "搜索", icon: "search", ph: "输入主题/关键词，联网搜索网感素材……", tip: "输入一个主题关键词，联网搜索热门网感元素，再提炼成视频提示词" }
   ];
 
   function renderDrama(box) {
     let dDriver = "wenan";
     let stopFlag = false;
+    const vpName = XLX.videogen.providerDef().name;
+    const resoOpts = XLX.videogen.resoOptions();
+    const defReso = (XLX.videogen.cfg().reso) || (resoOpts[0] ? resoOpts[0].v : "720p");
     box.innerHTML = ''
       + '<div class="notice" style="font-size:12px;color:var(--text2);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:12px">'
-      + '<b>AI 视频生成</b>（付费 · 火山方舟 Seedance）：选一种驱动方式（<b>文案 / 脚本 / 音频 / 联网搜索</b>）→ AI 提炼视频提示词 → 生成真实视频。'
+      + '<b>AI 视频生成</b>（付费 · ' + vpName + '）：选一种驱动方式（<b>文案 / 脚本 / 音频 / 联网搜索</b>）→ AI 提炼视频提示词 → 生成真实视频。'
       + '<br>' + (XLX.videogen.isConfigured() ? '已配置视频平台，可直接生成。' : '<span style="color:var(--warn)">尚未配置视频平台 Key，请先到「设置」页填写。</span>')
       + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
@@ -3194,7 +3196,7 @@ XLX.tools = (function () {
       + '<label class="label" style="margin:0">画幅</label>'
       + '<select class="inp" id="vdRatio" style="width:92px;padding:6px">' + VIDEO_RATIOS.map(r => '<option' + (r === "16:9" ? " selected" : "") + '>' + r + '</option>').join("") + '</select>'
       + '<label class="label" style="margin:0">清晰度</label>'
-      + '<select class="inp" id="vdReso" style="width:84px;padding:6px">' + VIDEO_RESOS.map(r => '<option' + (r === "720p" ? " selected" : "") + '>' + r + '</option>').join("") + '</select>'
+      + '<select class="inp" id="vdReso" style="width:110px;padding:6px">' + resoOpts.map(r => '<option value="' + r.v + '"' + (r.v === defReso ? " selected" : "") + '>' + r.l + '</option>').join("") + '</select>'
       + '<label class="label" style="margin:0">时长</label>'
       + '<select class="inp" id="vdDur" style="width:76px;padding:6px">' + VIDEO_DURS.map(r => '<option' + (r === 5 ? " selected" : "") + '>' + r + '秒</option>').join("") + '</select>'
       + '</div>'
@@ -3818,18 +3820,43 @@ XLX.video = (function () {
 
 </script>
 <script>
-/* ===== 付费 AI 视频生成：火山方舟 Seedance 异步任务 API =====
- * 创建任务 POST /api/v3/contents/generations/tasks → 轮询 GET /tasks/{id}
- * 成功返回 content.video_url（有效期 24 小时）
+/* ===== 付费 AI 视频生成：火山方舟 Seedance / 阿里云百炼可灵 Kling（异步任务 API）=====
+ * 火山方舟：POST /api/v3/contents/generations/tasks → GET /tasks/{id}，成功 content.video_url
+ * 阿里云百炼(可灵)：POST /api/v1/services/aigc/video-generation/video-synthesis → GET /api/v1/tasks/{id}，成功 output.video_url
  */
 XLX.videogen = (function () {
-  const DEFAULT_BASE = "https://ark.cn-beijing.volces.com";
-  const DEFAULT_MODEL = "doubao-seedance-2-0-mini-260615";
-  const MODELS = [
-    { id: "doubao-seedance-2-0-mini-260615", name: "Seedance 2.0 mini（最便宜，约0.2元/秒@720p 限时4折）" },
-    { id: "doubao-seedance-2-0-fast-260128", name: "Seedance 2.0 fast（快速，约0.6元/秒@720p 限时75折）" },
-    { id: "doubao-seedance-2-0-260128", name: "Seedance 2.0（标准）" },
-    { id: "doubao-seedance-2-5-260628", name: "Seedance 2.5（旗舰，4-30秒有声）" }
+  const PROVIDERS = [
+    { id: "volcengine", name: "火山方舟 Seedance", color: "#3370ff",
+      base: "https://ark.cn-beijing.volces.com",
+      defaultModel: "doubao-seedance-2-0-mini-260615",
+      keyPlaceholder: "sk-...（火山方舟 API Key）",
+      keyLink: "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey",
+      baseHint: "火山方舟官方地址已预置，通常无需修改",
+      models: [
+        { id: "doubao-seedance-2-0-mini-260615", name: "Seedance 2.0 mini（最便宜，约0.2元/秒@720p 限时4折）" },
+        { id: "doubao-seedance-2-0-fast-260128", name: "Seedance 2.0 fast（快速，约0.6元/秒@720p 限时75折）" },
+        { id: "doubao-seedance-2-0-260128", name: "Seedance 2.0（标准）" },
+        { id: "doubao-seedance-2-5-260628", name: "Seedance 2.5（旗舰，4-30秒有声）" }
+      ],
+      resoOptions: [
+        { v: "720p", l: "720p 高清" },
+        { v: "480p", l: "480p 标清" }
+      ] },
+    { id: "aliyun", name: "可灵 Kling（阿里云百炼）", color: "#ff6a3d",
+      base: "https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com",
+      defaultModel: "kling/kling-v3-turbo-video-generation",
+      keyPlaceholder: "sk-...（阿里云百炼 API Key）",
+      keyLink: "https://bailian.console.aliyun.com/",
+      baseHint: "必填：将 {WorkspaceId} 替换为你的百炼业务空间 ID，如 https://maas-xxx.cn-beijing.maas.aliyuncs.com",
+      models: [
+        { id: "kling/kling-v3-turbo-video-generation", name: "可灵 V3 turbo（高速版，3-15秒）" },
+        { id: "kling/kling-v3-video-generation", name: "可灵 V3 标准版（std720p/pro1080p/4k）" },
+        { id: "kling/kling-v3-omni-video-generation", name: "可灵 V3 全能版（参考生视频/视频编辑）" }
+      ],
+      resoOptions: [
+        { v: "std", l: "720p 标清" },
+        { v: "pro", l: "1080p 高清" }
+      ] }
   ];
 
   function getSettings() {
@@ -3840,25 +3867,36 @@ XLX.videogen = (function () {
   function saveSettings(s) {
     localStorage.setItem(XLX.K.SETTINGS, JSON.stringify(s));
   }
+  function providerDef(pid) {
+    const p = PROVIDERS.find(x => x.id === pid);
+    return p || PROVIDERS[0];
+  }
   function cfg() {
     const s = getSettings();
+    const p = providerDef(s.videoProvider || "volcengine");
     return {
-      base: (s.videoBase || DEFAULT_BASE).replace(/\/+$/, ""),
+      provider: p.id,
+      base: ((s.videoBase && s.videoBase.trim()) ? s.videoBase.trim() : p.base).replace(/\/+$/, ""),
       key: s.videoKey || "",
-      model: s.videoModel || DEFAULT_MODEL,
-      resolution: s.videoResolution || "720p",
+      model: s.videoModel || p.defaultModel,
       ratio: s.videoRatio || "16:9",
+      reso: s.videoReso || (p.resoOptions[0] ? p.resoOptions[0].v : ""),
       duration: parseInt(s.videoDuration, 10) || 5
     };
   }
   function isConfigured() {
     return !!cfg().key;
   }
-  function getHeaders() {
-    return { "Content-Type": "application/json", "Authorization": "Bearer " + cfg().key };
+  function resoOptions(pid) {
+    return providerDef(pid || cfg().provider).resoOptions;
+  }
+  function getHeaders(extra) {
+    const h = { "Content-Type": "application/json", "Authorization": "Bearer " + cfg().key };
+    if (extra) Object.assign(h, extra);
+    return h;
   }
   async function request(path, options) {
-    const res = await fetch(cfg().base + path, Object.assign({ headers: getHeaders() }, options));
+    const res = await fetch(cfg().base + path, options);
     let data = null;
     try { data = await res.json(); } catch (e) {}
     if (!res.ok) {
@@ -3867,22 +3905,70 @@ XLX.videogen = (function () {
     }
     return data;
   }
-  async function createTask(prompt, opts) {
+  function buildCreateBody(prompt, opts) {
     const c = cfg();
-    const body = {
+    if (c.provider === "aliyun") {
+      return {
+        model: c.model,
+        input: { prompt: prompt },
+        parameters: {
+          mode: (opts && opts.resolution) || c.reso,
+          aspect_ratio: (opts && opts.ratio) || c.ratio,
+          duration: (opts && opts.duration) || c.duration,
+          audio: false,
+          watermark: true
+        }
+      };
+    }
+    return {
       model: c.model,
       content: [{ type: "text", text: prompt }],
       ratio: (opts && opts.ratio) || c.ratio,
-      resolution: (opts && opts.resolution) || c.resolution,
+      resolution: (opts && opts.resolution) || c.reso,
       duration: (opts && opts.duration) || c.duration
     };
-    const data = await request("/api/v3/contents/generations/tasks", { method: "POST", body: JSON.stringify(body) });
+  }
+  async function createTask(prompt, opts) {
+    const c = cfg();
+    if (c.provider === "aliyun") {
+      const data = await request("/api/v1/services/aigc/video-generation/video-synthesis", {
+        method: "POST",
+        headers: getHeaders({ "X-DashScope-Async": "enable" }),
+        body: JSON.stringify(buildCreateBody(prompt, opts))
+      });
+      const id = (data.output && data.output.task_id) || null;
+      if (!id) throw new Error("创建任务失败：接口未返回 task_id");
+      return id;
+    }
+    const data = await request("/api/v3/contents/generations/tasks", {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(buildCreateBody(prompt, opts))
+    });
     const id = data.id || (data.data && data.data.id) || null;
     if (!id) throw new Error("创建任务失败：接口未返回任务 ID");
     return id;
   }
   async function getTask(taskId) {
-    return await request("/api/v3/contents/generations/tasks/" + encodeURIComponent(taskId), { method: "GET" });
+    const c = cfg();
+    if (c.provider === "aliyun") {
+      return await request("/api/v1/tasks/" + encodeURIComponent(taskId), { method: "GET", headers: getHeaders() });
+    }
+    return await request("/api/v3/contents/generations/tasks/" + encodeURIComponent(taskId), { method: "GET", headers: getHeaders() });
+  }
+  function parseStatus(data) {
+    if (cfg().provider === "aliyun") {
+      const o = data.output || {};
+      const st = o.task_status || "";
+      if (st === "SUCCEEDED") return { done: true, url: o.video_url || null };
+      if (st === "FAILED" || st === "CANCELED") throw new Error((o.message || o.code || "视频生成失败").toString());
+      if (st === "UNKNOWN") throw new Error("任务不存在或已过期，请重新生成");
+      return { done: false, status: st };
+    }
+    const st = data.status || "";
+    if (st === "succeeded") return { done: true, url: (data.content && data.content.video_url) || null };
+    if (st === "failed") throw new Error((data.error && data.error.message) || data.message || "视频生成失败");
+    return { done: false, status: st || "running" };
   }
   /* 完整流程：创建任务 → 轮询 → 返回 { taskId, videoUrl, data } */
   async function generate(prompt, opts) {
@@ -3891,31 +3977,26 @@ XLX.videogen = (function () {
     const onStatus = opts && opts.onStatus;
     const taskId = await createTask(prompt, opts);
     if (onStatus) onStatus({ phase: "created", taskId: taskId });
-    const timeoutMs = (opts && opts.timeout) || 360000;
-    const intervalMs = (opts && opts.interval) || 5000;
+    const timeoutMs = (opts && opts.timeout) || 420000;
+    const intervalMs = (opts && opts.interval) || 8000;
     const start = Date.now();
     for (;;) {
-      if (Date.now() - start > timeoutMs) throw new Error("视频生成超时（任务仍在后台，可稍后重试），请稍后再试");
+      if (Date.now() - start > timeoutMs) throw new Error("视频生成超时（任务仍在后台，可稍后重试）");
       const data = await getTask(taskId);
-      const status = data.status || "";
-      if (status === "succeeded") {
-        const videoUrl = (data.content && data.content.video_url) || null;
-        if (!videoUrl) throw new Error("任务成功但未返回视频地址");
-        if (onStatus) onStatus({ phase: "done", videoUrl: videoUrl, data: data });
-        return { taskId: taskId, videoUrl: videoUrl, data: data };
+      const r = parseStatus(data);
+      if (r.done) {
+        if (!r.url) throw new Error("任务成功但未返回视频地址");
+        if (onStatus) onStatus({ phase: "done", videoUrl: r.url, data: data });
+        return { taskId: taskId, videoUrl: r.url, data: data };
       }
-      if (status === "failed") {
-        throw new Error((data.error && data.error.message) || data.message || "视频生成失败");
-      }
-      if (onStatus) onStatus({ phase: "polling", status: status || "running", data: data });
-      await new Promise(r => setTimeout(r, intervalMs));
+      if (onStatus) onStatus({ phase: "polling", status: r.status, data: data });
+      await new Promise(res => setTimeout(res, intervalMs));
     }
   }
 
   return {
-    getSettings, saveSettings, cfg, isConfigured,
-    createTask, getTask, generate,
-    DEFAULT_BASE, DEFAULT_MODEL, MODELS
+    PROVIDERS, providerDef, getSettings, saveSettings, cfg, isConfigured, resoOptions,
+    createTask, getTask, generate
   };
 })();
 
@@ -4258,10 +4339,13 @@ XLX.studio = (function () {
 
 XLX.settings = (function () {
   let curProvider = null;
+  let curVProvider = null;
 
   function render() {
     const s = XLX.llm.getSettings();
-    const vc = (XLX.videogen && XLX.videogen.cfg) ? XLX.videogen.cfg() : { key: "", base: "", model: "" };
+    const vc = (XLX.videogen && XLX.videogen.cfg) ? XLX.videogen.cfg() : { key: "", base: "", model: "", provider: "volcengine" };
+    if (!curVProvider) curVProvider = vc.provider;
+    const vp = (XLX.videogen && XLX.videogen.providerDef) ? XLX.videogen.providerDef(curVProvider) : { name: "", keyLink: "", keyPlaceholder: "", baseHint: "", base: "", defaultModel: "", models: [] };
     if (!curProvider) curProvider = s.provider || "openrouter";
     const box = document.getElementById("settingsContent");
     const provList = s.providers || [];
@@ -4297,16 +4381,24 @@ XLX.settings = (function () {
       + '</div>'
 
       + '<div class="set-card">'
-      + '<h3><span class="hic">' + svg("film", 15) + '</span>AI 视频生成（付费 · 火山方舟 Seedance）</h3>'
-      + '<p class="sd">视频由外部付费平台生成，<b>按用量计费</b>（Seedance 2.0 mini @720p 限时约 0.2 元/秒，需账户余额 &gt;200 元或购买资源包）。'
-      + '去 <a href="https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey" target="_blank" rel="noopener" style="color:var(--green)">火山方舟控制台</a> 申请 API Key，填入下方即可使用。Key 只保存在你的浏览器本地。</p>'
-      + '<div class="set-row"><div class="lab"><div class="t">火山方舟 API Key</div><div class="d">格式如 sk-...，用于调用 Seedance 视频生成</div></div>'
-      + '<div class="val"><input class="inp" id="setVKey" type="password" placeholder="sk-..." value="' + XLX.util.esc(vc.key || "") + '"></div></div>'
-      + '<div class="set-row"><div class="lab"><div class="t">Base URL</div><div class="d">火山方舟官方地址已预置，通常无需修改</div></div>'
-      + '<div class="val"><input class="inp" id="setVBase" placeholder="https://ark.cn-beijing.volces.com" value="' + XLX.util.esc(vc.base || "") + '"></div></div>'
+      + '<h3><span class="hic">' + svg("film", 15) + '</span>AI 视频生成（付费 · 火山方舟 / 可灵）</h3>'
+      + '<p class="sd">视频由外部付费平台生成，<b>按用量计费</b>，选择平台后填入 Key 即可使用。Key 只保存在你的浏览器本地。</p>'
+      + '<div class="provider-tabs">'
+      + XLX.videogen.PROVIDERS.map(pr => {
+        const saved = s.videoProvider === pr.id && s.videoKey;
+        return '<button class="provider-tab' + (pr.id === curVProvider ? " active" : "") + '" data-vpid="' + pr.id + '">'
+          + '<span class="plogo" style="background:' + pr.color + '">' + pr.name.charAt(0) + '</span>' + pr.name
+          + (saved ? ' <span style="color:var(--green)">●</span>' : '')
+          + '</button>';
+      }).join("")
+      + '</div>'
+      + '<div class="set-row"><div class="lab"><div class="t">' + vp.name + ' · API Key</div><div class="d">去 <a href="' + vp.keyLink + '" target="_blank" rel="noopener" style="color:var(--green)">' + vp.name + '控制台</a> 申请，格式如 sk-...</div></div>'
+      + '<div class="val"><input class="inp" id="setVKey" type="password" placeholder="' + vp.keyPlaceholder + '" value="' + XLX.util.esc(vc.key || "") + '"></div></div>'
+      + '<div class="set-row"><div class="lab"><div class="t">Base URL</div><div class="d">' + vp.baseHint + '</div></div>'
+      + '<div class="val"><input class="inp" id="setVBase" placeholder="' + vp.base + '" value="' + XLX.util.esc((s.videoBase && s.videoBase.trim()) ? s.videoBase : "") + '"></div></div>'
       + '<div class="set-row"><div class="lab"><div class="t">模型</div><div class="d">不同模型画质/价格/速度不同</div></div>'
       + '<div class="val"><select class="inp" id="setVModel">'
-      + XLX.videogen.MODELS.map(m => '<option value="' + m.id + '"' + (m.id === (vc.model || XLX.videogen.DEFAULT_MODEL) ? " selected" : "") + '>' + m.name + '</option>').join("")
+      + vp.models.map(m => '<option value="' + m.id + '"' + (m.id === (vc.model || vp.defaultModel) ? " selected" : "") + '>' + m.name + '</option>').join("")
       + '</select></div></div>'
       + '<div class="set-row"><div class="lab"><div class="t">保存</div><div class="d">保存后即可在「AI 视频生成」工具中使用</div></div>'
       + '<div class="val"><button class="btn primary small" id="setVSave">' + (vc.key ? "更新视频配置" : "保存视频配置") + '</button></div></div>'
@@ -4368,6 +4460,7 @@ XLX.settings = (function () {
     document.getElementById("setClear").onclick = clearAll;
     renderCustEngines();
     document.getElementById("ceAdd").onclick = addCustomEngine;
+    box.querySelectorAll("[data-vpid]").forEach(b => b.onclick = () => { curVProvider = b.dataset.vpid; render(); });
     const svBtn = document.getElementById("setVSave");
     if (svBtn) svBtn.onclick = saveVideoConfig;
   }
@@ -4377,8 +4470,10 @@ XLX.settings = (function () {
     const key = document.getElementById("setVKey").value.trim();
     const base = document.getElementById("setVBase").value.trim();
     const model = document.getElementById("setVModel").value;
+    const vp = XLX.videogen.providerDef(curVProvider);
+    s.videoProvider = curVProvider;
     s.videoKey = key;
-    s.videoBase = base && base !== XLX.videogen.DEFAULT_BASE ? base : "";
+    s.videoBase = (base && base !== vp.base) ? base : "";
     s.videoModel = model;
     XLX.llm.saveSettings(s);
     XLX.util.toast(key ? "视频生成配置已保存" : "已清空视频生成配置", "ok");
