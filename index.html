@@ -1802,25 +1802,33 @@ XLX.search = (function () {
       { name: "allorigins", parse: parseDuckDuckGo, url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(ddgUrl) },
       { name: "corsproxy", parse: parseDuckDuckGo, url: "https://corsproxy.io/?url=" + encodeURIComponent(ddgUrl) }
     );
-    let lastErr = null;
-    for (const a of attempts) {
-      try {
-        const text = await fetchText(a.url, 15000);
-        const res = a.parse(text);
-        if (res && res.length) return res;
-      } catch (e) { lastErr = e; }
-    }
-    /* 自定义搜索渠道（用户自行接入的 API，经同源代理转发） */
-    const custom = (s && Array.isArray(s.customEngines)) ? s.customEngines : [];
-    if (custom.length) {
-      for (const ce of custom) {
-        try {
-          const res = await searchCustomEngine(query, ce);
-          if (res && res.length) return res;
-        } catch (e) { lastErr = e; }
-      }
-    }
-    throw new Error("搜索服务暂不可用" + (lastErr ? "：" + lastErr.message : "") + "，AI 将基于自身知识回答");
+    const lastErr = null;
+    const results = await Promise.race([
+      (async () => {
+        const timeout = new Promise(res => setTimeout(() => res([]), 3000));
+        return Promise.all(attempts.map(async (a) => {
+          try {
+            const text = await fetchText(a.url, 3000);
+            const res = a.parse(text);
+            if (res && res.length) return res;
+          } catch (e) { return []; }
+          return [];
+        })).then(lists => lists.reduce((acc, l) => acc.concat(l), []));
+      })(),
+      (async () => {
+        const custom = (s && Array.isArray(s.customEngines)) ? s.customEngines : [];
+        if (custom.length) {
+          for (const ce of custom) {
+            try {
+              const res = await searchCustomEngine(query, ce);
+              if (res && res.length) return res;
+            } catch (e) { return []; }
+          }
+        }
+        return [];
+      })()
+    ]);
+    return results.slice(0, 12);
   }
 
   async function searchCustomEngine(query, ce) {
@@ -2152,12 +2160,18 @@ XLX.chat = (function () {
     let finalText = "";
     try {
       if (opts.search) {
-        mdEl.innerHTML = '<div class="typing-dots"><i></i><i></i><i></i></div><div style="font-size:12px;color:var(--text3);margin-top:6px">正在搜索网页资料...</div>';
-        let results = null;
-        try { results = await XLX.search.search(text); } catch (e) {}
-        if (results && results.length) {
-          userMsg.content += "\n\n【自动搜索到的网页资料】\n" + XLX.search.toText(results);
-        }
+        mdEl.innerHTML = '<div class="typing-dots"><i></i><i></i><i></i></div><div style="font-size:12px;color:var(--text3);margin-top:6px">正在联网搜索（不超过2秒）...</div>';
+        const sTimer = setTimeout(() => { userMsg.content += "\n\n【搜索未在2秒内完成，AI 直接基于自身知识回答】"; }, 2200);
+        try {
+          const results = await Promise.race([
+            XLX.search.search(text),
+            new Promise(res => setTimeout(() => res(null), 2200))
+          ]);
+          clearTimeout(sTimer);
+          if (results && results.length) {
+            userMsg.content += "\n\n【自动搜索到的网页资料】\n" + XLX.search.toText(results);
+          }
+        } catch (e) { clearTimeout(sTimer); }
       }
       mdEl.innerHTML = "";
       XLX.util.mdStream(mdEl);
