@@ -3882,6 +3882,32 @@ XLX.videogen = (function () {
   function saveSettings(s) {
     localStorage.setItem(XLX.K.SETTINGS, JSON.stringify(s));
   }
+  function getQuickServices() {
+    const s = getSettings();
+    return (s.videoQuickServices && Array.isArray(s.videoQuickServices)) ? s.videoQuickServices : [];
+  }
+  function saveQuickService(name, cfg) {
+    const s = getSettings();
+    const list = getQuickServices();
+    const item = {
+      name: name,
+      base: cfg.base || "",
+      key: cfg.key || "",
+      model: cfg.model || "",
+      protocol: cfg.protocol || "task"
+    };
+    const i = list.findIndex(q => q.name === name);
+    if (i >= 0) list[i] = item; else list.push(item);
+    s.videoQuickServices = list;
+    saveSettings(s);
+  }
+  function removeQuickService(i) {
+    const s = getSettings();
+    const list = getQuickServices();
+    if (i >= 0 && i < list.length) list.splice(i, 1);
+    s.videoQuickServices = list;
+    saveSettings(s);
+  }
   function providerDef(pid) {
     const p = PROVIDERS.find(x => x.id === pid);
     return p || PROVIDERS[0];
@@ -4030,7 +4056,7 @@ XLX.videogen = (function () {
 
   return {
     PROVIDERS, providerDef, getSettings, saveSettings, cfg, isConfigured, resoOptions,
-    createTask, getTask, generate
+    createTask, getTask, generate, getQuickServices, saveQuickService, removeQuickService
   };
 })();
 
@@ -4435,6 +4461,26 @@ XLX.settings = (function () {
         + '<option value="task"' + (vc.protocol !== "sync" ? " selected" : "") + '>任务式（创建任务+轮询）</option>'
         + '<option value="sync"' + (vc.protocol === "sync" ? " selected" : "") + '>同步式（直接返回视频）</option>'
         + '</select></div></div>' : '')
+      + (curVProvider === "custom" ? (function () {
+        const qs = XLX.videogen.getQuickServices();
+        return '<div class="set-row"><div class="lab"><div class="t">常用服务（快捷切换）</div><div class="d">保存多台机器地址，点一下即切换</div></div>'
+          + '<div class="val" id="vQuickList" style="display:flex;flex-direction:column;gap:6px">'
+          + (qs.length ? qs.map((q, i) =>
+            '<div style="display:flex;gap:6px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 9px;font-size:12px">'
+            + '<b style="flex:0 0 auto;color:var(--green)">' + XLX.util.esc(q.name) + '</b>'
+            + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text3)" title="' + XLX.util.esc(q.base) + '">' + XLX.util.esc(q.base) + '</span>'
+            + '<span style="flex:0 0 auto;color:var(--text3)">' + (q.protocol === "sync" ? "同步" : "任务") + '</span>'
+            + '<button class="btn small" data-vqa="use" data-i="' + i + '" style="padding:3px 8px">切换</button>'
+            + '<button class="btn small danger" data-vqa="del" data-i="' + i + '" style="padding:3px 8px">删除</button>'
+            + '</div>').join("")
+            : '<div style="color:var(--text3);font-size:12px">还没有保存的服务，在下面给它存一个</div>')
+          + '</div></div>'
+          + '<div class="set-row"><div class="lab"><div class="t">保存当前配置</div><div class="d">给当前填写的地址起个名，之后一键切换</div></div>'
+          + '<div class="val" style="display:flex;gap:6px;flex-wrap:wrap">'
+          + '<input class="inp" id="setVQName" placeholder="名称，如 家用机 / 云端GPU" style="flex:1;min-width:120px">'
+          + '<button class="btn small" id="setVQSave">保存</button>'
+          + '</div></div>';
+      })() : '')
       + '<div class="set-row"><div class="lab"><div class="t">模型</div><div class="d">不同模型画质/价格/速度不同</div></div>'
       + '<div class="val">'
       + (vp.models && vp.models.length
@@ -4504,6 +4550,13 @@ XLX.settings = (function () {
     box.querySelectorAll("[data-vpid]").forEach(b => b.onclick = () => { curVProvider = b.dataset.vpid; render(); });
     const svBtn = document.getElementById("setVSave");
     if (svBtn) svBtn.onclick = saveVideoConfig;
+    const vqSave = document.getElementById("setVQSave");
+    if (vqSave) vqSave.onclick = saveAsQuick;
+    const vqList = document.getElementById("vQuickList");
+    if (vqList) vqList.querySelectorAll("[data-vqa]").forEach(b => b.onclick = () => {
+      if (b.dataset.vqa === "use") applyQuick(parseInt(b.dataset.i, 10));
+      else removeQuick(parseInt(b.dataset.i, 10));
+    });
   }
 
   function saveVideoConfig() {
@@ -4520,6 +4573,41 @@ XLX.settings = (function () {
     if (proto) s.videoProtocol = proto.value;
     XLX.llm.saveSettings(s);
     XLX.util.toast(key ? "视频生成配置已保存" : "已清空视频生成配置", "ok");
+    render();
+  }
+
+  function saveAsQuick() {
+    const name = document.getElementById("setVQName").value.trim();
+    if (!name) { XLX.util.toast("请先输入服务名称", "warn"); return; }
+    const cfg = {
+      base: document.getElementById("setVBase").value.trim(),
+      key: document.getElementById("setVKey").value.trim(),
+      model: document.getElementById("setVModel").value,
+      protocol: (document.getElementById("setVProto") || {}).value || "task"
+    };
+    XLX.videogen.saveQuickService(name, cfg);
+    XLX.util.toast("已保存快捷服务「" + name + "」", "ok");
+    render();
+  }
+
+  function applyQuick(i) {
+    const s = XLX.llm.getSettings();
+    const q = XLX.videogen.getQuickServices()[i];
+    if (!q) return;
+    s.videoProvider = "custom";
+    s.videoKey = q.key || "";
+    s.videoBase = q.base || "";
+    s.videoModel = q.model || "";
+    if (q.protocol) s.videoProtocol = q.protocol;
+    XLX.llm.saveSettings(s);
+    curVProvider = "custom";
+    XLX.util.toast("已切换到「" + q.name + "」", "ok");
+    render();
+  }
+
+  function removeQuick(i) {
+    XLX.videogen.removeQuickService(i);
+    XLX.util.toast("已删除快捷服务", "ok");
     render();
   }
 
