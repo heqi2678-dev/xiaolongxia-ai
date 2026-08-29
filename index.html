@@ -1064,7 +1064,7 @@ XLX.llm = (function () {
   function getSettings() {
     let s = {};
     try { s = JSON.parse(localStorage.getItem(XLX.K.SETTINGS) || "{}"); } catch (e) {}
-    return Object.assign({ provider: "openrouter", model: "", system: XLX.DEFAULT_SYSTEM, temperature: 0.7, maxTokens: 4000 }, s);
+    return Object.assign({ provider: "deepseek", model: "", system: XLX.DEFAULT_SYSTEM, temperature: 0.7, maxTokens: 800 }, s);
   }
   function saveSettings(s) {
     localStorage.setItem(XLX.K.SETTINGS, JSON.stringify(s));
@@ -2077,7 +2077,7 @@ XLX.chat = (function () {
   async function send(text, opts = {}) {
     if (state.busy) return;
     if (!XLX.llm.isConfigured()) {
-      XLX.util.toast("请先在「设置」中填写 API Key（推荐免费平台：智谱GLM-4-Flash、OpenRouter免费模型、硅基流动）", "warn");
+      XLX.util.toast("请先在「设置」中填写 API Key（推荐：DeepSeek 响应快价格低；免费可选智谱GLM-4-Flash、硅基流动）", "warn");
       openSettingsGuide();
       return;
     }
@@ -3882,7 +3882,7 @@ XLX.settings = (function () {
     box.innerHTML = ''
       + '<div class="set-card">'
       + '<h3><span class="hic">' + svg("key", 15) + '</span>模型平台接入（自带Key，免费使用）</h3>'
-      + '<p class="sd">选择一个平台，填入你在该平台申请的 API Key（免费申请）。推荐免费平台：<b style="color:var(--green)">智谱GLM-4-Flash / OpenRouter(:free模型) / 硅基流动</b>。Key 只保存在你的浏览器本地，不会上传。</p>'
+      + '<p class="sd">选择一个平台，填入你在该平台申请的 API Key。推荐 <b style="color:var(--green)">DeepSeek</b>（国内直连·响应快·价格极低），或免费平台：<b style="color:var(--green)">智谱GLM-4-Flash / 硅基流动</b>。Key 只保存在你的浏览器本地，不会上传。</p>'
       + '<div class="provider-tabs">'
       + XLX.PROVIDERS.map(pr => {
         const saved = provList.find(x => x.id === pr.id);
