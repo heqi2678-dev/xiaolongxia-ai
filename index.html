@@ -3316,7 +3316,7 @@ XLX.tools = (function () {
       }
       if (!source) { XLX.util.toast("请先填写内容或素材", "warn"); return; }
       if (!XLX.videogen.isConfigured()) {
-        XLX.util.toast("请先到「设置」页配置视频生成平台 Key", "warn");
+        XLX.util.toast("请先到「设置」页配置视频生成平台", "warn");
         if (XLX.app && XLX.app.showView) XLX.app.showView("settings");
         return;
       }
@@ -3820,9 +3820,10 @@ XLX.video = (function () {
 
 </script>
 <script>
-/* ===== 付费 AI 视频生成：火山方舟 Seedance / 阿里云百炼可灵 Kling（异步任务 API）=====
+/* ===== 付费 AI 视频生成：火山方舟 Seedance / 阿里云百炼可灵 Kling / 自定义服务（异步任务 API）=====
  * 火山方舟：POST /api/v3/contents/generations/tasks → GET /tasks/{id}，成功 content.video_url
  * 阿里云百炼(可灵)：POST /api/v1/services/aigc/video-generation/video-synthesis → GET /api/v1/tasks/{id}，成功 output.video_url
+ * 自定义服务：任务式（与火山同协议）/ 同步式（POST /api/video 直接返回 video_url）
  */
 XLX.videogen = (function () {
   const PROVIDERS = [
@@ -3832,6 +3833,7 @@ XLX.videogen = (function () {
       keyPlaceholder: "sk-...（火山方舟 API Key）",
       keyLink: "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey",
       baseHint: "火山方舟官方地址已预置，通常无需修改",
+      protocol: "task",
       models: [
         { id: "doubao-seedance-2-0-mini-260615", name: "Seedance 2.0 mini（最便宜，约0.2元/秒@720p 限时4折）" },
         { id: "doubao-seedance-2-0-fast-260128", name: "Seedance 2.0 fast（快速，约0.6元/秒@720p 限时75折）" },
@@ -3848,6 +3850,7 @@ XLX.videogen = (function () {
       keyPlaceholder: "sk-...（阿里云百炼 API Key）",
       keyLink: "https://bailian.console.aliyun.com/",
       baseHint: "必填：将 {WorkspaceId} 替换为你的百炼业务空间 ID，如 https://maas-xxx.cn-beijing.maas.aliyuncs.com",
+      protocol: "task",
       models: [
         { id: "kling/kling-v3-turbo-video-generation", name: "可灵 V3 turbo（高速版，3-15秒）" },
         { id: "kling/kling-v3-video-generation", name: "可灵 V3 标准版（std720p/pro1080p/4k）" },
@@ -3856,6 +3859,18 @@ XLX.videogen = (function () {
       resoOptions: [
         { v: "std", l: "720p 标清" },
         { v: "pro", l: "1080p 高清" }
+      ] },
+    { id: "custom", name: "自定义服务（自托管）", color: "#10b981",
+      base: "https://your-server.example.com",
+      defaultModel: "your-video-model",
+      keyPlaceholder: "API Key（可选，若你的服务需要）",
+      keyLink: "",
+      baseHint: "填你自己的视频服务地址。任务式：POST {base}/api/v3/contents/generations/tasks 创建、GET /tasks/{id} 轮询、成功返回 content.video_url；同步式：POST {base}/api/video 直接返回 {video_url}",
+      protocol: "task",
+      models: [],
+      resoOptions: [
+        { v: "720p", l: "720p 高清" },
+        { v: "480p", l: "480p 标清" }
       ] }
   ];
 
@@ -3876,6 +3891,7 @@ XLX.videogen = (function () {
     const p = providerDef(s.videoProvider || "volcengine");
     return {
       provider: p.id,
+      protocol: (s.videoProvider === "custom" ? (s.videoProtocol || "task") : "task"),
       base: ((s.videoBase && s.videoBase.trim()) ? s.videoBase.trim() : p.base).replace(/\/+$/, ""),
       key: s.videoKey || "",
       model: s.videoModel || p.defaultModel,
@@ -3885,13 +3901,17 @@ XLX.videogen = (function () {
     };
   }
   function isConfigured() {
-    return !!cfg().key;
+    const c = cfg();
+    if (c.provider === "custom") return !!c.base && c.base.indexOf("your-server") < 0;
+    return !!c.key;
   }
   function resoOptions(pid) {
     return providerDef(pid || cfg().provider).resoOptions;
   }
   function getHeaders(extra) {
-    const h = { "Content-Type": "application/json", "Authorization": "Bearer " + cfg().key };
+    const h = { "Content-Type": "application/json" };
+    const c = cfg();
+    if (c.key) h["Authorization"] = "Bearer " + c.key;
     if (extra) Object.assign(h, extra);
     return h;
   }
@@ -3907,25 +3927,26 @@ XLX.videogen = (function () {
   }
   function buildCreateBody(prompt, opts) {
     const c = cfg();
+    const ratio = (opts && opts.ratio) || c.ratio;
+    const resolution = (opts && opts.resolution) || c.reso;
+    const duration = (opts && opts.duration) || c.duration;
     if (c.provider === "aliyun") {
       return {
         model: c.model,
         input: { prompt: prompt },
-        parameters: {
-          mode: (opts && opts.resolution) || c.reso,
-          aspect_ratio: (opts && opts.ratio) || c.ratio,
-          duration: (opts && opts.duration) || c.duration,
-          audio: false,
-          watermark: true
-        }
+        parameters: { mode: resolution, aspect_ratio: ratio, duration: duration, audio: false, watermark: true }
       };
     }
+    if (c.provider === "custom" && c.protocol === "sync") {
+      return { model: c.model, prompt: prompt, ratio: ratio, resolution: resolution, duration: duration };
+    }
+    /* 火山方舟 / 自定义任务式：同协议 */
     return {
       model: c.model,
       content: [{ type: "text", text: prompt }],
-      ratio: (opts && opts.ratio) || c.ratio,
-      resolution: (opts && opts.resolution) || c.reso,
-      duration: (opts && opts.duration) || c.duration
+      ratio: ratio,
+      resolution: resolution,
+      duration: duration
     };
   }
   async function createTask(prompt, opts) {
@@ -3975,6 +3996,19 @@ XLX.videogen = (function () {
     if (!prompt || !prompt.trim()) throw new Error("视频提示词为空");
     if (!isConfigured()) throw new Error("未配置视频生成平台 Key");
     const onStatus = opts && opts.onStatus;
+    const c = cfg();
+    /* 自定义服务·同步式：POST 单请求直接返回视频 */
+    if (c.provider === "custom" && c.protocol === "sync") {
+      const res = await request("/api/video", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(buildCreateBody(prompt, opts))
+      });
+      const url = res.video_url || (res.output && res.output.video_url) || (res.data && res.data.video_url) || null;
+      if (!url) throw new Error("同步接口未返回 video_url");
+      if (onStatus) onStatus({ phase: "done", videoUrl: url, data: res });
+      return { taskId: "", videoUrl: url, data: res };
+    }
     const taskId = await createTask(prompt, opts);
     if (onStatus) onStatus({ phase: "created", taskId: taskId });
     const timeoutMs = (opts && opts.timeout) || 420000;
@@ -4396,10 +4430,17 @@ XLX.settings = (function () {
       + '<div class="val"><input class="inp" id="setVKey" type="password" placeholder="' + vp.keyPlaceholder + '" value="' + XLX.util.esc(vc.key || "") + '"></div></div>'
       + '<div class="set-row"><div class="lab"><div class="t">Base URL</div><div class="d">' + vp.baseHint + '</div></div>'
       + '<div class="val"><input class="inp" id="setVBase" placeholder="' + vp.base + '" value="' + XLX.util.esc((s.videoBase && s.videoBase.trim()) ? s.videoBase : "") + '"></div></div>'
+      + (curVProvider === "custom" ? '<div class="set-row"><div class="lab"><div class="t">接入协议</div><div class="d">任务式与火山同协议（创建任务+轮询）；同步式 POST {base}/api/video 直接返回 video_url</div></div>'
+        + '<div class="val"><select class="inp" id="setVProto">'
+        + '<option value="task"' + (vc.protocol !== "sync" ? " selected" : "") + '>任务式（创建任务+轮询）</option>'
+        + '<option value="sync"' + (vc.protocol === "sync" ? " selected" : "") + '>同步式（直接返回视频）</option>'
+        + '</select></div></div>' : '')
       + '<div class="set-row"><div class="lab"><div class="t">模型</div><div class="d">不同模型画质/价格/速度不同</div></div>'
-      + '<div class="val"><select class="inp" id="setVModel">'
-      + vp.models.map(m => '<option value="' + m.id + '"' + (m.id === (vc.model || vp.defaultModel) ? " selected" : "") + '>' + m.name + '</option>').join("")
-      + '</select></div></div>'
+      + '<div class="val">'
+      + (vp.models && vp.models.length
+          ? '<select class="inp" id="setVModel">' + vp.models.map(m => '<option value="' + m.id + '"' + (m.id === (vc.model || vp.defaultModel) ? " selected" : "") + '>' + m.name + '</option>').join("") + '</select>'
+          : '<input class="inp" id="setVModel" placeholder="输入你的视频模型名称" value="' + XLX.util.esc(vc.model || "") + '">')
+      + '</div></div>'
       + '<div class="set-row"><div class="lab"><div class="t">保存</div><div class="d">保存后即可在「AI 视频生成」工具中使用</div></div>'
       + '<div class="val"><button class="btn primary small" id="setVSave">' + (vc.key ? "更新视频配置" : "保存视频配置") + '</button></div></div>'
       + '</div>'
@@ -4475,6 +4516,8 @@ XLX.settings = (function () {
     s.videoKey = key;
     s.videoBase = (base && base !== vp.base) ? base : "";
     s.videoModel = model;
+    const proto = document.getElementById("setVProto");
+    if (proto) s.videoProtocol = proto.value;
     XLX.llm.saveSettings(s);
     XLX.util.toast(key ? "视频生成配置已保存" : "已清空视频生成配置", "ok");
     render();
