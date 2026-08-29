@@ -1112,7 +1112,8 @@ XLX.llm = (function () {
       temperature: opts.temperature != null ? opts.temperature : (s.temperature || 0.7),
       stream: useStream
     };
-    if (s.maxTokens) payload.max_tokens = parseInt(s.maxTokens) || 4000;
+    if (opts.maxTokens != null) payload.max_tokens = opts.maxTokens;
+    else if (s.maxTokens) payload.max_tokens = parseInt(s.maxTokens) || 4000;
     if (opts.response_format) payload.response_format = opts.response_format;
 
     const endpoint = buildEndpoint(provider);
@@ -1139,6 +1140,7 @@ XLX.llm = (function () {
     if (!useStream) {
       const j = await res.json();
       const text = j.choices && j.choices[0] && j.choices[0].message ? j.choices[0].message.content : "";
+      if (opts.onDone) opts.onDone(text);
       return text;
     }
     const reader = res.body.getReader();
@@ -3365,17 +3367,16 @@ XLX.tools = (function () {
     const user = '剧种：' + T.name + '（' + T.desc + '）\n驱动方式：' + D.name + '\n素材：\n' + source.slice(0, 3500);
     const once = () => new Promise((resolve, reject) => {
       if (!XLX.llm || !XLX.llm.chat) { reject(new Error("LLM 未加载")); return; }
-      let full = "";
       let timer = null;
       let settled = false;
       const clearT = () => { if (timer) { clearTimeout(timer); timer = null; } };
-      const startT = () => { clearT(); timer = setTimeout(() => { if (!settled) { settled = true; reject(new Error("生成超时，请重试")); } }, 90000); };
-      startT();
+      timer = setTimeout(() => { if (!settled) { settled = true; reject(new Error("生成超时，请重试")); } }, 120000);
       if (signal) signal.addEventListener("abort", () => { if (!settled) { settled = true; clearT(); reject(new Error("已取消")); } });
       XLX.llm.chat([{ role: "system", content: sys }, { role: "user", content: user }], {
         temperature: 0.85,
+        maxTokens: 2500,
+        stream: false,
         signal,
-        onDelta: () => startT(),
         onDone: (t) => { if (!settled) { settled = true; clearT(); resolve(t); } },
         onError: (e) => { if (!settled) { settled = true; clearT(); reject(e); } }
       }).catch(e => { if (!settled) { settled = true; clearT(); reject(e); } });
