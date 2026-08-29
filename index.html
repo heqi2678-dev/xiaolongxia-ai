@@ -1374,11 +1374,7 @@ XLX.SKILLS = [
     prompt: "请为我的账号策划短视频选题：账号定位/领域：{input}。输出：①30个选题库（按系列分类）②前7天的更新计划（每天主题+爆点设计）③选题的选题理由与预期数据。" },
   { id: "dubbing", cat: "video", name: "配音/台词润色", icon: "mic", desc: "文案转配音稿、台词口语化润色、情绪标注", action: "chat",
     prompt: "请帮我处理配音/台词稿：{input}。要求：①台词口语化、自然不书面 ②标注每句情绪（兴奋/低沉/惊讶等）③标注重音与停顿（用/符号）④控制句长便于配音 ⑤输出可直接念的成稿。" },
-  { id: "manju-gen", cat: "video", name: "AI漫剧生成", icon: "story", desc: "动漫二次元画风，输入文案/脚本/音频/关键词，生成漫剧剧本+分镜剧照", action: "tool", tool: "aidrama", drama: "manju",
-    prompt: "" },
-  { id: "duanju-gen", cat: "video", name: "AI短剧生成", icon: "clapper", desc: "写实短剧质感，输入文案/脚本/音频/关键词，生成短剧剧本+分镜剧照", action: "tool", tool: "aidrama", drama: "duanju",
-    prompt: "" },
-  { id: "zhenrenju-gen", cat: "video", name: "AI真人剧生成", icon: "theater", desc: "超写实真人影像，输入文案/脚本/音频/关键词，生成真人剧剧本+分镜剧照", action: "tool", tool: "aidrama", drama: "zhenrenju",
+  { id: "ai-video-gen", cat: "video", name: "AI视频生成", icon: "clapper", desc: "接入火山方舟 Seedance，输入文案/脚本/音频/关键词，AI提炼提示词并生成真实视频", action: "tool", tool: "aidrama",
     prompt: "" },
 
   /* ===== 办公 ===== */
@@ -1908,15 +1904,11 @@ XLX.chat = (function () {
   /* 对话驱动剧作：识别「生成漫剧/短剧/真人剧」意图 */
   function detectDramaIntent(text) {
     const t = (text || "").trim();
-    const act = /(生成|制作|创作|做|写|拍|编排|导演|策划).{0,8}(漫剧|短剧|真人剧)/;
-    const act2 = /(漫剧|短剧|真人剧).{0,8}(生成|制作|创作|做|写|拍|来|部)/;
-    let m = t.match(act) || t.match(act2);
+    const act = /(生成|制作|创作|做|写|拍|编排|导演|策划|制作).{0,8}(漫剧|短剧|真人剧|视频)/;
+    const act2 = /(漫剧|短剧|真人剧|视频).{0,8}(生成|制作|创作|做|写|拍|来|部)/;
+    const m = t.match(act) || t.match(act2);
     if (!m) return null;
-    const body = (m[0] || "") + " " + t;
-    if (/真人剧/.test(body)) return { type: "zhenrenju", label: "AI真人剧" };
-    if (/漫剧/.test(body)) return { type: "manju", label: "AI漫剧" };
-    if (/短剧/.test(body)) return { type: "duanju", label: "AI短剧" };
-    return null;
+    return { type: "aidrama", label: "AI视频" };
   }
   function getDevMode() {
     try {
@@ -2141,11 +2133,11 @@ XLX.chat = (function () {
         card.innerHTML = ''
           + '<div style="display:flex;align-items:center;gap:10px">'
           + '<div style="width:36px;height:36px;border-radius:10px;background:#a78bfa22;border:1px solid #a78bfa55;display:flex;align-items:center;justify-content:center;color:#a78bfa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">' + (XLX.ICONS.clapper || "") + '</svg></div>'
-          + '<div style="flex:1"><div style="font-size:13.5px;font-weight:700">AI 剧作工作站</div>'
-          + '<div style="font-size:11.5px;color:var(--text3);margin-top:2px">免费生成「' + dramaMatch.label + '」：完整分镜剧本 + 逐镜剧照（支持文案 / 脚本 / 音频 / 联网搜索驱动）</div></div></div>'
+          + '<div style="flex:1"><div style="font-size:13.5px;font-weight:700">AI 视频生成工作站</div>'
+          + '<div style="font-size:11.5px;color:var(--text3);margin-top:2px">接入火山方舟 Seedance 生成真实视频（付费 · 约 0.2 元/秒起）：支持文案 / 脚本 / 音频 / 联网搜索驱动</div></div></div>'
           + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
-          + '<button class="btn primary small" data-a="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px">' + (XLX.ICONS.clapper || "") + '</svg> 打开剧作面板</button>'
-          + '<button class="btn small" data-a="copy">发送剧本创意</button>'
+          + '<button class="btn primary small" data-a="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px">' + (XLX.ICONS.clapper || "") + '</svg> 打开视频生成面板</button>'
+          + '<button class="btn small" data-a="copy">发送视频创意</button>'
           + '</div>';
         card.querySelector('[data-a=go]').onclick = () => {
           XLX.router.go("tools");
@@ -2153,7 +2145,7 @@ XLX.chat = (function () {
         };
         card.querySelector('[data-a=copy]').onclick = () => {
           const inp = document.getElementById("chatInput");
-          if (inp) { inp.value = "帮我写" + dramaMatch.label + "的剧情文案：" + text; inp.focus(); }
+          if (inp) { inp.value = "帮我写" + dramaMatch.label + "的视频创意：" + text; inp.focus(); }
         };
         cwrap.appendChild(card);
       }
@@ -3175,12 +3167,10 @@ XLX.tools = (function () {
     };
   }
 
-  /* ===================== AI 剧作（漫剧/短剧/真人剧 × 文案/脚本/音频/搜索） ===================== */
-  const DRAMA_TYPES = [
-    { id: "manju", name: "AI漫剧", desc: "动漫二次元画风，人物造型接近日系动漫", style: "二次元动漫风格, 日系动画电影质感, 细腻上色, 高清动漫剧照", color: "#7c5cff" },
-    { id: "duanju", name: "AI短剧", desc: "写实电影感画面，仿若真实竖屏短剧片段", style: "写实电影感, 自然光影, 竖屏短剧质感, 高清晰度", color: "#ff7a45" },
-    { id: "zhenrenju", name: "AI真人剧", desc: "超写实真人影像，更加逼真的影视级画面", style: "超写实真人影像, 电影级真实感, 8K高清人像摄影, 真实皮肤质感", color: "#ff5c7a" }
-  ];
+  /* ===================== AI 视频生成（付费 · 火山方舟 Seedance） ===================== */
+  const VIDEO_RATIOS = ["16:9", "9:16", "1:1"];
+  const VIDEO_RESOS = ["720p", "480p"];
+  const VIDEO_DURS = [5, 10];
   const DRAMA_DRIVERS = [
     { id: "wenan", name: "文案", icon: "pen", ph: "输入剧情想法/故事梗概，例如：一对中年夫妻在小龙虾夜市摊重燃爱情火花……", tip: "输入一段剧情想法，AI 先写出完整分镜剧本，再逐镜生成剧照" },
     { id: "juben", name: "脚本", icon: "story", ph: "粘贴已有剧本/对白/分场……", tip: "粘贴已写好的剧本或对白，AI 拆分为分镜剧本并逐镜生成剧照" },
@@ -3189,34 +3179,31 @@ XLX.tools = (function () {
   ];
 
   function renderDrama(box) {
-    let dType = "manju";
     let dDriver = "wenan";
     let stopFlag = false;
     box.innerHTML = ''
       + '<div class="notice" style="font-size:12px;color:var(--text2);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:12px">'
-      + '<b>AI 剧作工作站</b>（免费）：选一种剧种 → 选一种驱动方式（<b>文案 / 脚本 / 音频 / 联网搜索</b>）→ AI 生成完整<b>分镜剧本 + 逐镜剧照</b>，一键下载。'
-      + '<br>当前为「剧本 + 分镜剧照」方案（免费接口暂不支持直接出视频），剧照可自行用视频合成工具拼接。</div>'
-      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
-      + DRAMA_TYPES.map(t => '<button class="preset-chip drama-type" data-t="' + t.id + '" style="' + (t.id === dType ? 'background:' + t.color + ';color:#fff;border-color:' + t.color : '') + '">' + t.name + '<span style="opacity:.75;font-size:11px;margin-left:4px">' + t.desc + '</span></button>').join("")
+      + '<b>AI 视频生成</b>（付费 · 火山方舟 Seedance）：选一种驱动方式（<b>文案 / 脚本 / 音频 / 联网搜索</b>）→ AI 提炼视频提示词 → 生成真实视频。'
+      + '<br>' + (XLX.videogen.isConfigured() ? '已配置视频平台，可直接生成。' : '<span style="color:var(--warn)">尚未配置视频平台 Key，请先到「设置」页填写。</span>')
       + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
       + DRAMA_DRIVERS.map(d => '<button class="btn ghost drama-driver" data-d="' + d.id + '" style="' + (d.id === dDriver ? 'background:var(--accent);color:#fff;border-color:var(--accent)' : '') + '">' + svg(d.icon, 13) + ' ' + d.name + '</button>').join("")
       + '</div>'
       + '<div id="dramaInput" class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px;margin-bottom:12px"></div>'
       + '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">'
-      + '<button class="btn primary" id="dramaGenBtn" style="flex:1;min-width:200px">' + svg("clapper", 15) + ' 生成剧作（剧本 + 剧照）</button>'
+      + '<label class="label" style="margin:0">画幅</label>'
+      + '<select class="inp" id="vdRatio" style="width:92px;padding:6px">' + VIDEO_RATIOS.map(r => '<option' + (r === "16:9" ? " selected" : "") + '>' + r + '</option>').join("") + '</select>'
+      + '<label class="label" style="margin:0">清晰度</label>'
+      + '<select class="inp" id="vdReso" style="width:84px;padding:6px">' + VIDEO_RESOS.map(r => '<option' + (r === "720p" ? " selected" : "") + '>' + r + '</option>').join("") + '</select>'
+      + '<label class="label" style="margin:0">时长</label>'
+      + '<select class="inp" id="vdDur" style="width:76px;padding:6px">' + VIDEO_DURS.map(r => '<option' + (r === 5 ? " selected" : "") + '>' + r + '秒</option>').join("") + '</select>'
+      + '</div>'
+      + '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">'
+      + '<button class="btn primary" id="dramaGenBtn" style="flex:1;min-width:200px">' + svg("clapper", 15) + ' 生成视频</button>'
       + '<button class="btn ghost" id="dramaStopBtn" style="display:none">' + svg("x", 14) + ' 停止</button>'
       + '</div>'
       + '<div id="dramaOutput"></div>';
 
-    const typeBox = box;
-    box.querySelectorAll(".drama-type").forEach(b => b.onclick = () => {
-      dType = b.dataset.t;
-      box.querySelectorAll(".drama-type").forEach(x => { x.style.background = ""; x.style.color = ""; x.style.borderColor = ""; });
-      const t = DRAMA_TYPES.find(x => x.id === dType);
-      b.style.background = t.color; b.style.color = "#fff"; b.style.borderColor = t.color;
-      renderInput();
-    });
     box.querySelectorAll(".drama-driver").forEach(b => b.onclick = () => {
       dDriver = b.dataset.d;
       box.querySelectorAll(".drama-driver").forEach(x => { x.style.background = ""; x.style.color = ""; x.style.borderColor = ""; });
@@ -3226,10 +3213,9 @@ XLX.tools = (function () {
 
     const renderInput = () => {
       const D = DRAMA_DRIVERS.find(x => x.id === dDriver);
-      const T = DRAMA_TYPES.find(x => x.id === dType);
       const inp = document.getElementById("dramaInput");
       if (!inp) return;
-      let html = '<div style="font-size:11.5px;color:var(--text3);margin-bottom:8px">' + T.name + ' · ' + D.name + '：' + D.tip + '</div>';
+      let html = '<div style="font-size:11.5px;color:var(--text3);margin-bottom:8px">' + D.name + '：' + D.tip + '</div>';
       if (D.id === "audio") {
         html += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
           + '<div style="flex:1;min-width:240px"><label class="label">上传音频（AI 自动转写为文案）</label>'
@@ -3314,7 +3300,6 @@ XLX.tools = (function () {
     const genBtn = document.getElementById("dramaGenBtn");
     const stopBtn = document.getElementById("dramaStopBtn");
     genBtn.onclick = async () => {
-      const T = DRAMA_TYPES.find(x => x.id === dType);
       const D = DRAMA_DRIVERS.find(x => x.id === dDriver);
       let source = "";
       if (D.id === "audio") {
@@ -3328,55 +3313,108 @@ XLX.tools = (function () {
         source = c ? c.value.trim() : "";
       }
       if (!source) { XLX.util.toast("请先填写内容或素材", "warn"); return; }
+      if (!XLX.videogen.isConfigured()) {
+        XLX.util.toast("请先到「设置」页配置视频生成平台 Key", "warn");
+        if (XLX.app && XLX.app.showView) XLX.app.showView("settings");
+        return;
+      }
       stopFlag = false;
       const aborter = new AbortController();
       genBtn.disabled = true; stopBtn.style.display = "";
       stopBtn.onclick = () => { stopFlag = true; aborter.abort(); };
+      const genStart = Date.now();
       out.innerHTML = '<div class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px">'
-        + '<div class="label">步骤 1/2 · AI 正在生成分镜剧本…</div>'
-        + '<div class="iload" style="padding:18px 0"><div class="spinner"></div>正在构思剧情与分镜，请稍候…</div></div>';
-      let script = null;
+        + '<div class="label">步骤 1/2 · AI 提炼视频提示词…</div>'
+        + '<div class="iload" style="padding:18px 0"><div class="spinner"></div>正在根据素材构思画面、动作与运镜，请稍候…</div></div>';
+      let prompt = null;
       try {
-        script = await writeScript(T, D, source, aborter.signal);
+        prompt = await writeVideoPrompt(D, source, aborter.signal);
       } catch (e) {
         genBtn.disabled = false; stopBtn.style.display = "none";
-        out.innerHTML = '<div style="color:var(--warn)">' + (e.message === "已取消" ? "已停止生成" : "剧本生成失败：" + e.message) + '</div>';
+        out.innerHTML = '<div style="color:var(--warn)">' + (e.message === "已取消" ? "已停止生成" : "提示词生成失败：" + e.message) + '</div>';
         return;
       }
       if (stopFlag) { genBtn.disabled = false; stopBtn.style.display = "none"; return; }
-      const shots = parseShots(script);
-      if (!shots.length) {
-        out.innerHTML = '<div style="color:var(--warn)">未能解析出分镜，请重试或更换模型平台。</div>';
-        genBtn.disabled = false; stopBtn.style.display = "none"; return;
-      }
+      const vopts = {
+        ratio: document.getElementById("vdRatio").value,
+        resolution: document.getElementById("vdReso").value,
+        duration: parseInt(document.getElementById("vdDur").value, 10) || 5
+      };
       out.innerHTML = '<div class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px;margin-bottom:12px">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
-        + '<div class="label">剧本完成（' + shots.length + ' 个分镜）</div>'
-        + '<button class="btn ghost" id="dramaDlScript">' + svg("download", 13) + ' 下载剧本</button></div>'
-        + '<pre style="white-space:pre-wrap;font-family:inherit;font-size:12.5px;color:var(--text2);margin:0;max-height:260px;overflow:auto;line-height:1.6">' + XLX.util.esc(script) + '</pre></div>'
-        + '<div class="label" style="margin:10px 0 8px">步骤 2/2 · 逐镜生成剧照（' + shots.length + ' 张，免费接口约需 3-10 秒/张）…</div>'
-        + '<div class="img-grid" id="dramaShots"></div>';
-      document.getElementById("dramaDlScript").onclick = () => XLX.util.download(T.name + "_" + (script.slice(0, 12).replace(/[^\w\u4e00-\u9fa5]/g, "") || "剧本") + ".txt", script, "text/plain;charset=utf-8");
-      const grid = document.getElementById("dramaShots");
-      await renderShots(T, shots, grid, () => stopFlag, aborter.signal);
-      genBtn.disabled = false; stopBtn.style.display = "none";
-      if (!stopFlag) {
-        XLX.util.toast("剧作生成完成", "ok");
-        await renderCompose(T, shots, box);
+        + '<div class="label">视频提示词（可手动修改）</div>'
+        + '<button class="btn ghost" id="dramaRePrompt">' + svg("refresh", 13) + ' 重新生成</button></div>'
+        + '<textarea id="vdPrompt" class="inp" style="min-height:90px;font-size:12.5px">' + XLX.util.esc(prompt) + '</textarea></div>'
+        + '<div class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px">'
+        + '<div class="label">步骤 2/2 · 提交视频生成任务（' + vopts.resolution + ' · ' + vopts.ratio + ' · ' + vopts.duration + ' 秒）…</div>'
+        + '<div class="iload" style="padding:14px 0"><div class="spinner"></div><span id="vdStatus">正在创建任务…</span></div>'
+        + '<div class="progress-bar" style="height:8px;background:var(--bg);border-radius:6px;overflow:hidden;border:1px solid var(--border)">'
+        + '<div id="vdBar" style="width:0%;height:100%;background:var(--accent);transition:width .2s"></div></div></div>';
+      document.getElementById("dramaRePrompt").onclick = async () => {
+        const ta = document.getElementById("vdPrompt");
+        ta.value = "正在重新生成…";
+        try {
+          ta.value = await writeVideoPrompt(D, source, null);
+        } catch (e) {
+          ta.value = prompt;
+          XLX.util.toast("重新生成失败：" + e.message, "err");
+        }
+      };
+      const vdStatus = document.getElementById("vdStatus");
+      const vdBar = document.getElementById("vdBar");
+      let lastPct = 0;
+      try {
+        const result = await XLX.videogen.generate(document.getElementById("vdPrompt").value.trim(), {
+          ratio: vopts.ratio, resolution: vopts.resolution, duration: vopts.duration,
+          onStatus: (st) => {
+            if (stopFlag) return;
+            if (st.phase === "created") {
+              vdStatus.textContent = "任务已提交（" + String(st.taskId).slice(0, 10) + "…），AI 正在生成，通常需 1-3 分钟…";
+              vdBar.style.width = "8%";
+            } else if (st.phase === "polling") {
+              lastPct = Math.min(85, lastPct + 3 + Math.random() * 4);
+              vdBar.style.width = lastPct + "%";
+              vdStatus.textContent = "AI 绘制中…（已等待约 " + Math.round((Date.now() - genStart) / 1000) + " 秒）";
+            }
+          }
+        });
+        if (stopFlag) return;
+        vdBar.style.width = "100%";
+        vdStatus.textContent = "";
+        out.insertAdjacentHTML("beforeend",
+          '<div class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px;margin-top:12px">'
+          + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
+          + '<div class="label">生成完成</div>'
+          + '<button class="btn primary" id="vdDl">' + svg("download", 14) + ' 下载视频</button></div>'
+          + '<video src="' + result.videoUrl + '" controls playsinline style="width:100%;border-radius:9px;background:#000;max-height:480px"></video>'
+          + '<div style="font-size:11.5px;color:var(--text3);margin-top:6px">视频链接 24 小时内有效，请及时下载保存。</div></div>');
+        document.getElementById("vdDl").onclick = () => {
+          const a = document.createElement("a");
+          a.href = result.videoUrl; a.download = "ai-video-" + Date.now() + ".mp4";
+          a.target = "_blank"; a.rel = "noopener"; a.click();
+        };
+        XLX.util.toast("视频生成完成", "ok");
+      } catch (e) {
+        if (e.message === "已取消") {
+          XLX.util.toast("已停止生成", "info");
+        } else {
+          out.insertAdjacentHTML("beforeend", '<div style="color:var(--warn);font-size:12px;margin-top:8px">生成失败：' + XLX.util.esc(e.message) + '</div>');
+        }
+      } finally {
+        genBtn.disabled = false; stopBtn.style.display = "none";
       }
     };
     stopBtn.onclick = () => { stopFlag = true; };
     renderInput();
   }
 
-  /* 调用 LLM 写出分镜剧本（结构化可解析） */
-  function writeScript(T, D, source, signal) {
-    const sys = '你是一位资深短视频编导。根据素材创作一部「' + T.name + '」分镜剧本。'
-      + '要求：①剧情完整有钩子有反转，符合短视频网感；②输出格式严格如下（不要多余说明）：\n'
-      + '【剧名】xxx\n【梗概】xxx\n'
-      + '【分镜1】镜头描述\n画面：<用于AI绘图的画面描述，写实/动漫均可，含主体、场景、动作、光线>\n对白：<该镜台词或旁白>\n'
-      + '【分镜2】…（共 4-6 个分镜）';
-    const user = '剧种：' + T.name + '（' + T.desc + '）\n驱动方式：' + D.name + '\n素材：\n' + source.slice(0, 3500);
+  /* 调用 LLM 把素材提炼成文生视频提示词 */
+  function writeVideoPrompt(D, source, signal) {
+    const sys = '你是一位资深 AI 视频导演与提示词工程师。根据素材写出一段适合文生视频大模型（如 Seedance）的提示词。'
+      + '要求：①单镜头、可生成，描述主体、场景、动作、运镜、光线、氛围，画面要有动态感，避免静态长镜头；'
+      + '②如素材含对白/台词，把关键台词嵌入人物口型与动作描述中；'
+      + '③300 字以内，直接输出提示词正文，不要任何前缀、标签或解释。';
+    const user = '驱动方式：' + D.name + '\n素材：\n' + source.slice(0, 3500);
     const once = () => new Promise((resolve, reject) => {
       if (!XLX.llm || !XLX.llm.chat) { reject(new Error("LLM 未加载")); return; }
       let timer = null;
@@ -3386,7 +3424,7 @@ XLX.tools = (function () {
       if (signal) signal.addEventListener("abort", () => { if (!settled) { settled = true; clearT(); reject(new Error("已取消")); } });
       XLX.llm.chat([{ role: "system", content: sys }, { role: "user", content: user }], {
         temperature: 0.85,
-        maxTokens: 2500,
+        maxTokens: 1200,
         stream: false,
         signal,
         onDone: (t) => { if (!settled) { settled = true; clearT(); resolve(t); } },
@@ -3397,157 +3435,6 @@ XLX.tools = (function () {
       if (e.message === "已取消") throw e;
       return once();
     });
-  }
-
-  /* 解析结构化剧本 → 镜头列表 */
-  function parseShots(text) {
-    const shots = [];
-    const re = /【分镜\s*\d+\s*】\s*([^\n]*)\n?([\s\S]*?)(?=【分镜\s*\d+\s*】|【剧名】|$)/g;
-    let m;
-    while ((m = re.exec(text)) !== null) {
-      const name = m[1].trim();
-      const body = m[2];
-      const pic = (body.match(/画面[:：]\s*([^\n]+)/) || [])[1] || "";
-      const line = (body.match(/对白[:：]\s*([^\n]+)/) || [])[1] || "";
-      if (pic || line) shots.push({ name: name || ("镜头" + (shots.length + 1)), pic: pic.trim(), line: line.trim() });
-    }
-    return shots;
-  }
-
-  /* 逐镜生成剧照；首镜参考图作为后续镜头 img2img 参考以保持角色一致 */
-  async function renderShots(T, shots, grid, shouldStop, signal) {
-    let refUrl = null;
-    const renderOne = async (i) => {
-      const s = shots[i];
-      const item = document.createElement("div");
-      item.className = "img-item";
-      item.innerHTML = '<div class="iload"><div class="spinner"></div>生成镜头 ' + (i + 1) + '/' + shots.length + '…</div>'
-        + '<div class="ilab">' + XLX.util.esc((s.name || "镜头" + (i + 1)).slice(0, 40)) + '</div>';
-      grid.appendChild(item);
-      let prompt = (s.pic || s.line || s.name) + ", " + T.style;
-      try {
-        let url = null;
-        for (let attempt = 0; attempt < 2 && !url; attempt++) {
-          try {
-            url = await XLX.image.generate(prompt, { aspect: "wide", image: i === 0 ? null : refUrl, signal, strict: true });
-          } catch (e) {
-            if (attempt === 0 && !(shouldStop && shouldStop())) {
-              await new Promise(r => setTimeout(r, 1500));
-            } else throw e;
-          }
-        }
-        if (shouldStop && shouldStop()) return;
-        if (i === 0) refUrl = url;
-        shots[i].imgUrl = url;
-        item.innerHTML = '<img loading="lazy" src="' + url + '" style="aspect-ratio:auto"><div class="iact">'
-          + '<button data-a="dl" title="下载">' + svg("download", 14) + '</button></div>'
-          + '<div class="ilab">' + XLX.util.esc((s.name || "镜头" + (i + 1)).slice(0, 40)) + '</div>';
-        item.querySelector("[data-a=dl]").onclick = () => XLX.image.downloadByUrl(url, "shot" + (i + 1) + "-" + Date.now() + ".png");
-      } catch (e) {
-        if (shouldStop && shouldStop()) return;
-        item.innerHTML = '<div class="iload" style="color:var(--warn);font-size:11.5px">镜头 ' + (i + 1) + ' 生成失败（免费接口偶发超时）</div>'
-          + '<div class="ilab">' + XLX.util.esc((s.name || "").slice(0, 40)) + '</div>';
-      }
-    };
-    await renderOne(0);
-    if (shouldStop && shouldStop()) return;
-    /* 首张生成后，剩余镜头并发生成（免费接口并发上限按3路，避免限流） */
-    const rest = [];
-    for (let i = 1; i < shots.length; i++) rest.push(i);
-    let idx = 0;
-    const CONCURRENCY = 3;
-    const workers = [];
-    for (let k = 0; k < Math.min(CONCURRENCY, rest.length); k++) {
-      workers.push((async () => {
-        while (idx < rest.length && !(shouldStop && shouldStop())) {
-          const i = rest[idx++];
-          await renderOne(i);
-        }
-      })());
-    }
-    await Promise.all(workers);
-  }
-
-  /* 一键成片：配音 + 合成视频（方案B 纯前端） */
-  async function renderCompose(T, shots, box) {
-    if (!XLX.video || !XLX.video.isSupported()) {
-      box.insertAdjacentHTML("beforeend",
-        '<div style="color:var(--warn);font-size:12px;margin-top:10px">当前浏览器不支持视频合成，请用 Chrome/Edge 最新版。</div>');
-      return;
-    }
-    const hasImg = shots.some(s => s.imgUrl);
-    if (!hasImg) return;
-    box.insertAdjacentHTML("beforeend",
-      '<div class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px;margin-top:12px" id="composeBox">'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
-      + '<div style="font-size:13px"><b>一键成片（免费·纯本地合成）</b>'
-      + '<div style="font-size:11.5px;color:var(--text3);margin-top:3px">剧照连播 + 镜头运动 + 字幕，输出 WebM（浏览器限制，暂为无声视频）</div></div>'
-      + '<button class="btn primary" id="composeBtn">' + svg("clapper", 15) + ' 合成视频</button></div>'
-      + '<div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">'
-      + '<label class="label" style="margin:0">每镜时长</label>'
-      + '<select class="inp" id="composeDur" style="width:110px;padding:6px">'
-      + '<option value="3">3 秒</option><option value="4" selected>4 秒</option><option value="5">5 秒</option><option value="6">6 秒</option></select>'
-      + '<label class="label" style="margin:0">画幅</label>'
-      + '<select class="inp" id="composeOrient" style="width:130px;padding:6px">'
-      + '<option value="vertical" selected>竖屏 720x1280</option><option value="landscape">横屏 1280x720</option></select>'
-      + '<button class="btn ghost" id="composeCancelBtn" style="display:none">' + svg("x", 14) + ' 取消</button></div>'
-      + '<div id="composeProgress" style="margin-top:10px;display:none">'
-      + '<div class="progress-bar" style="height:8px;background:var(--bg);border-radius:6px;overflow:hidden;border:1px solid var(--border)">'
-      + '<div id="composeBar" style="width:0%;height:100%;background:var(--accent);transition:width .2s"></div></div>'
-      + '<div style="font-size:11.5px;color:var(--text3);margin-top:5px" id="composeStatus">准备中…</div></div>'
-      + '</div>');
-
-    const cBtn = document.getElementById("composeBtn");
-    const cCancel = document.getElementById("composeCancelBtn");
-    const prog = document.getElementById("composeProgress");
-    const bar = document.getElementById("composeBar");
-    const status = document.getElementById("composeStatus");
-    let cAborter = null;
-
-    cBtn.onclick = async () => {
-      cAborter = new AbortController();
-      cBtn.disabled = true; cCancel.style.display = "";
-      prog.style.display = "block"; bar.style.width = "0%";
-      status.textContent = "准备配音与剧照…";
-      try {
-        /* 只合成有剧照的镜头，跳过生成失败的镜头 */
-        const valid = shots.filter(s => s.imgUrl);
-        if (!valid.length) throw new Error("没有可用的剧照，请重试生成剧作");
-        const scenes = [];
-        for (let i = 0; i < valid.length; i++) {
-          const s = valid[i];
-          const duration = parseInt(document.getElementById("composeDur").value, 10) || 4;
-          status.textContent = "合成配音 " + (i + 1) + "/" + valid.length + "…";
-          const audioBuffer = s.line ? await XLX.video.ttsToBuffer(s.line) : null;
-          scenes.push({ url: s.imgUrl, text: s.line || "", audioBuffer, duration });
-        }
-        status.textContent = "正在渲染视频（' + T.name + '）…";
-        const orient = document.getElementById("composeOrient").value;
-        const result = await XLX.video.composeVideo(scenes, {
-          width: orient === "vertical" ? 720 : 1280,
-          height: orient === "vertical" ? 1280 : 720,
-          fps: 30,
-          signal: cAborter.signal,
-          onProgress: (p) => { bar.style.width = Math.round(p * 100) + "%"; }
-        });
-        cCancel.style.display = "none";
-        XLX.video.renderOutput(document.getElementById("composeBox"), result);
-        prog.style.display = "none";
-        XLX.util.toast("成片生成完成", "ok");
-      } catch (e) {
-        cCancel.style.display = "none";
-        prog.style.display = "none";
-        if (e.message === "已取消") {
-          XLX.util.toast("已取消合成", "info");
-        } else {
-          status.textContent = "";
-          box.insertAdjacentHTML("beforeend", '<div style="color:var(--warn);font-size:12px;margin-top:8px">合成失败：' + XLX.util.esc(e.message) + '</div>');
-        }
-      } finally {
-        cBtn.disabled = false;
-      }
-    };
-    cCancel.onclick = () => { if (cAborter) cAborter.abort(); };
   }
 
   /* 生成视频去水印本地脚本（yt-dlp 免费开源） */
@@ -3679,13 +3566,11 @@ if __name__ == "__main__":
     }, 100);
   }
 
-  /* 供剧作技能跳转：切到指定剧种，预填文案/脚本素材 */
+  /* 供视频生成技能跳转：切到工具页，预填素材 */
   function runDrama(type, source) {
     curTab = "aidrama";
     render();
     setTimeout(() => {
-      const t = document.querySelector('.drama-type[data-t="' + type + '"]');
-      if (t) t.click();
       const c = document.getElementById("dramaCtx");
       if (c && source) c.value = source;
       const b = document.getElementById("dramaGenBtn");
@@ -3693,7 +3578,7 @@ if __name__ == "__main__":
     }, 120);
   }
 
-  return { render, runImage, runDrama, openTool, __testParseShots: parseShots };
+  return { render, runImage, runDrama, openTool };
 })();
 
 </script>
@@ -3929,6 +3814,109 @@ XLX.video = (function () {
   }
 
   return { isSupported, ttsToBuffer, composeVideo, renderOutput };
+})();
+
+</script>
+<script>
+/* ===== 付费 AI 视频生成：火山方舟 Seedance 异步任务 API =====
+ * 创建任务 POST /api/v3/contents/generations/tasks → 轮询 GET /tasks/{id}
+ * 成功返回 content.video_url（有效期 24 小时）
+ */
+XLX.videogen = (function () {
+  const DEFAULT_BASE = "https://ark.cn-beijing.volces.com";
+  const DEFAULT_MODEL = "doubao-seedance-2-0-mini-260615";
+  const MODELS = [
+    { id: "doubao-seedance-2-0-mini-260615", name: "Seedance 2.0 mini（最便宜，约0.2元/秒@720p 限时4折）" },
+    { id: "doubao-seedance-2-0-fast-260128", name: "Seedance 2.0 fast（快速，约0.6元/秒@720p 限时75折）" },
+    { id: "doubao-seedance-2-0-260128", name: "Seedance 2.0（标准）" },
+    { id: "doubao-seedance-2-5-260628", name: "Seedance 2.5（旗舰，4-30秒有声）" }
+  ];
+
+  function getSettings() {
+    let s = {};
+    try { s = JSON.parse(localStorage.getItem(XLX.K.SETTINGS) || "{}"); } catch (e) {}
+    return s;
+  }
+  function saveSettings(s) {
+    localStorage.setItem(XLX.K.SETTINGS, JSON.stringify(s));
+  }
+  function cfg() {
+    const s = getSettings();
+    return {
+      base: (s.videoBase || DEFAULT_BASE).replace(/\/+$/, ""),
+      key: s.videoKey || "",
+      model: s.videoModel || DEFAULT_MODEL,
+      resolution: s.videoResolution || "720p",
+      ratio: s.videoRatio || "16:9",
+      duration: parseInt(s.videoDuration, 10) || 5
+    };
+  }
+  function isConfigured() {
+    return !!cfg().key;
+  }
+  function getHeaders() {
+    return { "Content-Type": "application/json", "Authorization": "Bearer " + cfg().key };
+  }
+  async function request(path, options) {
+    const res = await fetch(cfg().base + path, Object.assign({ headers: getHeaders() }, options));
+    let data = null;
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) {
+      const msg = (data && ((data.error && (data.error.message || data.error.msg)) || data.message)) || ("HTTP " + res.status);
+      throw new Error(msg);
+    }
+    return data;
+  }
+  async function createTask(prompt, opts) {
+    const c = cfg();
+    const body = {
+      model: c.model,
+      content: [{ type: "text", text: prompt }],
+      ratio: (opts && opts.ratio) || c.ratio,
+      resolution: (opts && opts.resolution) || c.resolution,
+      duration: (opts && opts.duration) || c.duration
+    };
+    const data = await request("/api/v3/contents/generations/tasks", { method: "POST", body: JSON.stringify(body) });
+    const id = data.id || (data.data && data.data.id) || null;
+    if (!id) throw new Error("创建任务失败：接口未返回任务 ID");
+    return id;
+  }
+  async function getTask(taskId) {
+    return await request("/api/v3/contents/generations/tasks/" + encodeURIComponent(taskId), { method: "GET" });
+  }
+  /* 完整流程：创建任务 → 轮询 → 返回 { taskId, videoUrl, data } */
+  async function generate(prompt, opts) {
+    if (!prompt || !prompt.trim()) throw new Error("视频提示词为空");
+    if (!isConfigured()) throw new Error("未配置视频生成平台 Key");
+    const onStatus = opts && opts.onStatus;
+    const taskId = await createTask(prompt, opts);
+    if (onStatus) onStatus({ phase: "created", taskId: taskId });
+    const timeoutMs = (opts && opts.timeout) || 360000;
+    const intervalMs = (opts && opts.interval) || 5000;
+    const start = Date.now();
+    for (;;) {
+      if (Date.now() - start > timeoutMs) throw new Error("视频生成超时（任务仍在后台，可稍后重试），请稍后再试");
+      const data = await getTask(taskId);
+      const status = data.status || "";
+      if (status === "succeeded") {
+        const videoUrl = (data.content && data.content.video_url) || null;
+        if (!videoUrl) throw new Error("任务成功但未返回视频地址");
+        if (onStatus) onStatus({ phase: "done", videoUrl: videoUrl, data: data });
+        return { taskId: taskId, videoUrl: videoUrl, data: data };
+      }
+      if (status === "failed") {
+        throw new Error((data.error && data.error.message) || data.message || "视频生成失败");
+      }
+      if (onStatus) onStatus({ phase: "polling", status: status || "running", data: data });
+      await new Promise(r => setTimeout(r, intervalMs));
+    }
+  }
+
+  return {
+    getSettings, saveSettings, cfg, isConfigured,
+    createTask, getTask, generate,
+    DEFAULT_BASE, DEFAULT_MODEL, MODELS
+  };
 })();
 
 </script>
@@ -4273,6 +4261,7 @@ XLX.settings = (function () {
 
   function render() {
     const s = XLX.llm.getSettings();
+    const vc = (XLX.videogen && XLX.videogen.cfg) ? XLX.videogen.cfg() : { key: "", base: "", model: "" };
     if (!curProvider) curProvider = s.provider || "openrouter";
     const box = document.getElementById("settingsContent");
     const provList = s.providers || [];
@@ -4305,6 +4294,22 @@ XLX.settings = (function () {
       + '</div></div>'
       + '<div class="set-row"><div class="lab"><div class="t">设为当前使用平台</div><div class="d">对话默认使用该平台</div></div>'
       + '<div class="val"><button class="btn primary small" id="setUse">使用此平台</button> <button class="btn small" id="setTest">测试连接</button></div></div>'
+      + '</div>'
+
+      + '<div class="set-card">'
+      + '<h3><span class="hic">' + svg("film", 15) + '</span>AI 视频生成（付费 · 火山方舟 Seedance）</h3>'
+      + '<p class="sd">视频由外部付费平台生成，<b>按用量计费</b>（Seedance 2.0 mini @720p 限时约 0.2 元/秒，需账户余额 &gt;200 元或购买资源包）。'
+      + '去 <a href="https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey" target="_blank" rel="noopener" style="color:var(--green)">火山方舟控制台</a> 申请 API Key，填入下方即可使用。Key 只保存在你的浏览器本地。</p>'
+      + '<div class="set-row"><div class="lab"><div class="t">火山方舟 API Key</div><div class="d">格式如 sk-...，用于调用 Seedance 视频生成</div></div>'
+      + '<div class="val"><input class="inp" id="setVKey" type="password" placeholder="sk-..." value="' + XLX.util.esc(vc.key || "") + '"></div></div>'
+      + '<div class="set-row"><div class="lab"><div class="t">Base URL</div><div class="d">火山方舟官方地址已预置，通常无需修改</div></div>'
+      + '<div class="val"><input class="inp" id="setVBase" placeholder="https://ark.cn-beijing.volces.com" value="' + XLX.util.esc(vc.base || "") + '"></div></div>'
+      + '<div class="set-row"><div class="lab"><div class="t">模型</div><div class="d">不同模型画质/价格/速度不同</div></div>'
+      + '<div class="val"><select class="inp" id="setVModel">'
+      + XLX.videogen.MODELS.map(m => '<option value="' + m.id + '"' + (m.id === (vc.model || XLX.videogen.DEFAULT_MODEL) ? " selected" : "") + '>' + m.name + '</option>').join("")
+      + '</select></div></div>'
+      + '<div class="set-row"><div class="lab"><div class="t">保存</div><div class="d">保存后即可在「AI 视频生成」工具中使用</div></div>'
+      + '<div class="val"><button class="btn primary small" id="setVSave">' + (vc.key ? "更新视频配置" : "保存视频配置") + '</button></div></div>'
       + '</div>'
 
       + '<div class="set-card">'
@@ -4363,6 +4368,21 @@ XLX.settings = (function () {
     document.getElementById("setClear").onclick = clearAll;
     renderCustEngines();
     document.getElementById("ceAdd").onclick = addCustomEngine;
+    const svBtn = document.getElementById("setVSave");
+    if (svBtn) svBtn.onclick = saveVideoConfig;
+  }
+
+  function saveVideoConfig() {
+    const s = XLX.llm.getSettings();
+    const key = document.getElementById("setVKey").value.trim();
+    const base = document.getElementById("setVBase").value.trim();
+    const model = document.getElementById("setVModel").value;
+    s.videoKey = key;
+    s.videoBase = base && base !== XLX.videogen.DEFAULT_BASE ? base : "";
+    s.videoModel = model;
+    XLX.llm.saveSettings(s);
+    XLX.util.toast(key ? "视频生成配置已保存" : "已清空视频生成配置", "ok");
+    render();
   }
 
   function getCustomEngines(s) {
