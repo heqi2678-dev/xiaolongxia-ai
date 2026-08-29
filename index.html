@@ -1600,34 +1600,46 @@ XLX.image = (function () {
 
   function generate(prompt, opts = {}) {
     return new Promise((resolve, reject) => {
-      let w = opts.w, h = opts.h;
-      if (opts.aspect === "tall") { w = 768; h = 2048; }
-      else if (opts.aspect === "square") { w = 1024; h = 1024; }
-      else if (opts.aspect === "wide") { w = 1536; h = 768; }
-      if (!w) w = 512; if (!h) h = 512;
-      let url = freeUrl(prompt, w, h);
-      /* 以图生图：参考图（img2img） */
-      if (opts.image) url += "&image=" + encodeURIComponent(opts.image);
-      const img = new Image();
+      const retries = opts.retries != null ? opts.retries : 2;
       let settled = false;
       const done = (fn, v) => { if (!settled) { settled = true; fn(v); } };
-      img.onload = () => done(resolve, url);
-      img.onerror = () => done(reject, new Error("图片生成失败，请检查网络后重试（免费接口偶发超时，多试几次即可）"));
-      img.src = url;
-      /* 超时兜底：直接返回URL让用户自行打开 */
-      const to = setTimeout(() => {
-        if (!img.complete || img.naturalWidth === 0) {
-          done(resolve, url);
+
+      const attempt = (n) => {
+        let w = opts.w, h = opts.h;
+        if (opts.aspect === "tall") { w = 768; h = 2048; }
+        else if (opts.aspect === "square") { w = 1024; h = 1024; }
+        else if (opts.aspect === "wide") { w = 1536; h = 768; }
+        if (!w) w = 512; if (!h) h = 512;
+        let url = freeUrl(prompt, w, h);
+        if (opts.image) url += "&image=" + encodeURIComponent(opts.image);
+        const img = new Image();
+        img.onload = () => done(resolve, url);
+        img.onerror = () => {
+          if (n < retries) setTimeout(() => attempt(n + 1), 1500 * (n + 1));
+          else done(reject, new Error("图片生成失败，请检查网络后重试（免费接口偶发超时，多试几次即可）"));
+        };
+        img.src = url;
+        /* 超时兜底：默认直接返回URL让用户自行打开；strict 模式下超时视为失败并重试 */
+        const to = setTimeout(() => {
+          if (!img.complete || img.naturalWidth === 0) {
+            if (opts.strict) {
+              if (n < retries) setTimeout(() => attempt(n + 1), 1500 * (n + 1));
+              else done(reject, new Error("图片生成超时，请重试（免费接口偶发超时，多试几次即可）"));
+            } else {
+              done(resolve, url);
+            }
+          }
+        }, 25000);
+        if (opts.signal) {
+          if (opts.signal.aborted) { clearTimeout(to); done(reject, new Error("已取消")); return; }
+          opts.signal.addEventListener("abort", () => {
+            clearTimeout(to);
+            img.src = "";
+            done(reject, new Error("已取消"));
+          }, { once: true });
         }
-      }, 25000);
-      if (opts.signal) {
-        if (opts.signal.aborted) { clearTimeout(to); done(reject, new Error("已取消")); return; }
-        opts.signal.addEventListener("abort", () => {
-          clearTimeout(to);
-          img.src = "";
-          done(reject, new Error("已取消"));
-        }, { once: true });
-      }
+      };
+      attempt(0);
     });
   }
 
@@ -3417,7 +3429,7 @@ XLX.tools = (function () {
         let url = null;
         for (let attempt = 0; attempt < 2 && !url; attempt++) {
           try {
-            url = await XLX.image.generate(prompt, { aspect: "wide", image: i === 0 ? null : refUrl, signal });
+            url = await XLX.image.generate(prompt, { aspect: "wide", image: i === 0 ? null : refUrl, signal, strict: true });
           } catch (e) {
             if (attempt === 0 && !(shouldStop && shouldStop())) {
               await new Promise(r => setTimeout(r, 1500));
