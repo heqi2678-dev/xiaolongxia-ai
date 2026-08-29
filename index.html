@@ -1607,15 +1607,25 @@ XLX.image = (function () {
       /* 以图生图：参考图（img2img） */
       if (opts.image) url += "&image=" + encodeURIComponent(opts.image);
       const img = new Image();
-      img.onload = () => resolve(url);
-      img.onerror = () => reject(new Error("图片生成失败，请检查网络后重试（免费接口偶发超时，多试几次即可）"));
+      let settled = false;
+      const done = (fn, v) => { if (!settled) { settled = true; fn(v); } };
+      img.onload = () => done(resolve, url);
+      img.onerror = () => done(reject, new Error("图片生成失败，请检查网络后重试（免费接口偶发超时，多试几次即可）"));
       img.src = url;
       /* 超时兜底：直接返回URL让用户自行打开 */
-      setTimeout(() => {
+      const to = setTimeout(() => {
         if (!img.complete || img.naturalWidth === 0) {
-          if (!opts._resolved) { opts._resolved = true; resolve(url); }
+          done(resolve, url);
         }
       }, 25000);
+      if (opts.signal) {
+        if (opts.signal.aborted) { clearTimeout(to); done(reject, new Error("已取消")); return; }
+        opts.signal.addEventListener("abort", () => {
+          clearTimeout(to);
+          img.src = "";
+          done(reject, new Error("已取消"));
+        }, { once: true });
+      }
     });
   }
 
@@ -3305,11 +3315,20 @@ XLX.tools = (function () {
       }
       if (!source) { XLX.util.toast("请先填写内容或素材", "warn"); return; }
       stopFlag = false;
+      const aborter = new AbortController();
       genBtn.disabled = true; stopBtn.style.display = "";
+      stopBtn.onclick = () => { stopFlag = true; aborter.abort(); };
       out.innerHTML = '<div class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px">'
         + '<div class="label">步骤 1/2 · AI 正在生成分镜剧本…</div>'
         + '<div class="iload" style="padding:18px 0"><div class="spinner"></div>正在构思剧情与分镜，请稍候…</div></div>';
-      const script = await writeScript(T, D, source);
+      let script = null;
+      try {
+        script = await writeScript(T, D, source, aborter.signal);
+      } catch (e) {
+        genBtn.disabled = false; stopBtn.style.display = "none";
+        out.innerHTML = '<div style="color:var(--warn)">' + (e.message === "已取消" ? "已停止生成" : "剧本生成失败：" + e.message) + '</div>';
+        return;
+      }
       if (stopFlag) { genBtn.disabled = false; stopBtn.style.display = "none"; return; }
       const shots = parseShots(script);
       if (!shots.length) {
@@ -3325,7 +3344,7 @@ XLX.tools = (function () {
         + '<div class="img-grid" id="dramaShots"></div>';
       document.getElementById("dramaDlScript").onclick = () => XLX.util.download(T.name + "_" + (script.slice(0, 12).replace(/[^\w\u4e00-\u9fa5]/g, "") || "剧本") + ".txt", script, "text/plain;charset=utf-8");
       const grid = document.getElementById("dramaShots");
-      await renderShots(T, shots, grid, () => stopFlag);
+      await renderShots(T, shots, grid, () => stopFlag, aborter.signal);
       genBtn.disabled = false; stopBtn.style.display = "none";
       if (!stopFlag) XLX.util.toast("剧作生成完成", "ok");
     };
@@ -3334,7 +3353,7 @@ XLX.tools = (function () {
   }
 
   /* 调用 LLM 写出分镜剧本（结构化可解析） */
-  function writeScript(T, D, source) {
+  function writeScript(T, D, source, signal) {
     const sys = '你是一位资深短视频编导。根据素材创作一部「' + T.name + '」分镜剧本。'
       + '要求：①剧情完整有钩子有反转，符合短视频网感；②输出格式严格如下（不要多余说明）：\n'
       + '【剧名】xxx\n【梗概】xxx\n'
@@ -3345,8 +3364,10 @@ XLX.tools = (function () {
       if (!XLX.llm || !XLX.llm.chat) { reject(new Error("LLM 未加载")); return; }
       let full = "";
       const timer = setTimeout(() => reject(new Error("生成超时，请重试")), 120000);
+      if (signal) signal.addEventListener("abort", () => { clearTimeout(timer); reject(new Error("已取消")); });
       XLX.llm.chat([{ role: "system", content: sys }, { role: "user", content: user }], {
         temperature: 0.85,
+        signal,
         onDelta: () => {},
         onDone: (t) => { clearTimeout(timer); resolve(t); },
         onError: (e) => { clearTimeout(timer); reject(e); }
@@ -3370,10 +3391,9 @@ XLX.tools = (function () {
   }
 
   /* 逐镜生成剧照；首镜参考图作为后续镜头 img2img 参考以保持角色一致 */
-  async function renderShots(T, shots, grid, shouldStop) {
+  async function renderShots(T, shots, grid, shouldStop, signal) {
     let refUrl = null;
-    for (let i = 0; i < shots.length; i++) {
-      if (shouldStop && shouldStop()) return;
+    const renderOne = async (i) => {
       const s = shots[i];
       const item = document.createElement("div");
       item.className = "img-item";
@@ -3382,22 +3402,36 @@ XLX.tools = (function () {
       grid.appendChild(item);
       let prompt = (s.pic || s.line || s.name) + ", " + T.style;
       try {
-        let url;
-        if (i === 0) {
-          url = await XLX.image.generate(prompt, { aspect: "wide", image: null });
-        } else {
-          url = await XLX.image.generate(prompt, { aspect: "wide", image: refUrl });
-        }
+        const url = await XLX.image.generate(prompt, { aspect: "wide", image: i === 0 ? null : refUrl, signal });
+        if (shouldStop && shouldStop()) return;
         if (i === 0) refUrl = url;
         item.innerHTML = '<img loading="lazy" src="' + url + '" style="aspect-ratio:auto"><div class="iact">'
           + '<button data-a="dl" title="下载">' + svg("download", 14) + '</button></div>'
           + '<div class="ilab">' + XLX.util.esc((s.name || "镜头" + (i + 1)).slice(0, 40)) + '</div>';
         item.querySelector("[data-a=dl]").onclick = () => XLX.image.downloadByUrl(url, "shot" + (i + 1) + "-" + Date.now() + ".png");
       } catch (e) {
+        if (shouldStop && shouldStop()) return;
         item.innerHTML = '<div class="iload" style="color:var(--warn);font-size:11.5px">镜头 ' + (i + 1) + ' 生成失败（免费接口偶发超时）</div>'
           + '<div class="ilab">' + XLX.util.esc((s.name || "").slice(0, 40)) + '</div>';
       }
+    };
+    await renderOne(0);
+    if (shouldStop && shouldStop()) return;
+    /* 首张生成后，剩余镜头并发生成（免费接口并发上限按3路，避免限流） */
+    const rest = [];
+    for (let i = 1; i < shots.length; i++) rest.push(i);
+    let idx = 0;
+    const CONCURRENCY = 3;
+    const workers = [];
+    for (let k = 0; k < Math.min(CONCURRENCY, rest.length); k++) {
+      workers.push((async () => {
+        while (idx < rest.length && !(shouldStop && shouldStop())) {
+          const i = rest[idx++];
+          await renderOne(i);
+        }
+      })());
     }
+    await Promise.all(workers);
   }
 
   /* 生成视频去水印本地脚本（yt-dlp 免费开源） */
