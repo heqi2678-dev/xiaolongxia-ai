@@ -39,19 +39,40 @@ fi
 echo "  服务已启动 ✓"
 
 if [ ! -f ./cloudflared ]; then
-  echo "  下载 cloudflared（公网隧道工具）..."
-  curl -sL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
-  chmod +x cloudflared
+  echo "  下载 cloudflared（公网隧道工具，多镜像自动尝试）..."
+  dl_ok=0
+  for url in \
+    "https://ghfast.top/https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" \
+    "https://gh-proxy.com/https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" \
+    "https://gh.llkk.cc/https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" \
+    "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"; do
+    echo "    尝试 $url"
+    if curl -sL --connect-timeout 8 --max-time 180 -o cloudflared "$url" && [ -s cloudflared ]; then
+      chmod +x cloudflared
+      if ./cloudflared --version > /dev/null 2>&1; then dl_ok=1; echo "  cloudflared 下载成功 ✓"; break; fi
+    fi
+  done
+  if [ "$dl_ok" != "1" ]; then
+    echo "  cloudflared 下载失败，稍后重试"
+  fi
 fi
-pkill -f "cloudflared tunnel" 2>/dev/null || true
-nohup ./cloudflared tunnel --url http://localhost:8000 > cloudflared.log 2>&1 &
-echo "  等待隧道建立..."
-sleep 10
-PUBLIC_URL=$(grep -oE "https://[a-z0-9-]+\.trycloudflare\.com" cloudflared.log | head -1)
-if [ -z "$PUBLIC_URL" ]; then
-  echo "  隧道地址未就绪，稍后执行: grep trycloudflare cloudflared.log"
+if [ -x ./cloudflared ]; then
+  pkill -f "cloudflared tunnel" 2>/dev/null || true
+  nohup ./cloudflared tunnel --url http://localhost:8000 > cloudflared.log 2>&1 &
+  echo "  等待隧道建立（最长 25 秒）..."
+  PUBLIC_URL=""
+  for i in $(seq 1 25); do
+    sleep 1
+    PUBLIC_URL=$(grep -oE "https://[a-z0-9-]+\.trycloudflare\.com" cloudflared.log | head -1)
+    [ -n "$PUBLIC_URL" ] && break
+  done
+  if [ -n "$PUBLIC_URL" ]; then
+    echo "  公网地址: $PUBLIC_URL"
+  else
+    echo "  隧道地址未就绪，稍后执行: grep trycloudflare cloudflared.log"
+  fi
 else
-  echo "  公网地址: $PUBLIC_URL"
+  echo "  cloudflared 未就绪，跳过隧道步骤"
 fi
 
 echo ""
