@@ -1,7 +1,7 @@
 /* 铜龙电商小龙虾AI Service Worker：离线缓存 + 语音模型断线续传 */
-const CACHE = "xiaolongxia-v48";
+const CACHE = "xiaolongxia-v49";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest"];
-const MODEL_CACHE = "xiaolongxia-models-v1";
+const MODEL_CACHE = "xiaolongxia-models-v2";
 const MODEL_PATTERN = /Xenova\/whisper/i;
 
 self.addEventListener("install", (e) => {
