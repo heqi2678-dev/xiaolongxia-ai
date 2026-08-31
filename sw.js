@@ -1,5 +1,5 @@
 /* 铜龙电商小龙虾AI Service Worker：离线缓存 + 语音模型断线重试 */
-const CACHE = "xiaolongxia-v44";
+const CACHE = "xiaolongxia-v45";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest"];
 const MODEL_CACHE = "xiaolongxia-models-v1";
 const MODEL_PATTERN = /Xenova\/whisper/i;
@@ -62,7 +62,7 @@ async function fetchModel(request) {
 
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method === "GET" && url.origin !== location.origin && MODEL_PATTERN.test(e.request.url)) {
+  if (e.request.method === "GET" && MODEL_PATTERN.test(e.request.url)) {
     e.respondWith(fetchModel(e.request).catch(() => fetch(e.request)));
     return;
   }
