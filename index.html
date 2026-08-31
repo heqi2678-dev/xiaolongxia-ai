@@ -1602,9 +1602,9 @@ XLX.image = (function () {
 
       const attempt = (n) => {
         let w = opts.w, h = opts.h;
-        if (opts.aspect === "tall") { w = 768; h = 2048; }
+        if (opts.aspect === "tall") { w = 640; h = 1280; }
         else if (opts.aspect === "square") { w = 1024; h = 1024; }
-        else if (opts.aspect === "wide") { w = 1536; h = 768; }
+        else if (opts.aspect === "wide") { w = 1280; h = 640; }
         if (!w) w = 512; if (!h) h = 512;
         let url = freeUrl(prompt, w, h);
         if (opts.image) url += "&image=" + encodeURIComponent(opts.image);
@@ -1793,6 +1793,38 @@ XLX.search = (function () {
     return results.map((r, i) => Object.assign(r, { snippet: snippets[i] || "" }));
   }
 
+  const WEATHER_CODES = { 0: "晴", 1: "大部晴朗", 2: "多云", 3: "阴", 45: "雾", 48: "雾凇", 51: "毛毛雨", 53: "毛毛雨", 55: "毛毛雨", 56: "冻雨", 57: "冻雨", 61: "小雨", 63: "中雨", 65: "大雨", 66: "冻雨", 67: "冻雨", 71: "小雪", 73: "中雪", 75: "大雪", 77: "雪粒", 80: "阵雨", 81: "阵雨", 82: "强阵雨", 85: "阵雪", 86: "阵雪", 95: "雷雨", 96: "雷雨伴冰雹", 99: "雷雨伴冰雹" };
+
+  function detectWeatherQuery(query) {
+    const dateWords = /(今天|明天|后天|现在|实时|早上|上午|中午|下午|晚上|今晚|周末|最近)/;
+    let m = query.match(/([\u4e00-\u9fa5A-Za-z]{2,10})\s*天气/);
+    if (m) {
+      let place = m[1].trim().replace(dateWords, "");
+      if (place && place.length >= 2 && place.length <= 10 && !/^(天气|天气预报)$/.test(place)) return place;
+      return null;
+    }
+    m = query.match(/weather\s+(?:in|at|for)?\s*([a-zA-Z][a-zA-Z\s]{1,20})$/i);
+    return m ? m[1].trim() : null;
+  }
+
+  async function getWeather(place) {
+    const geo = await fetchText("https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(place) + "&count=1&language=zh", 10000);
+    const gj = JSON.parse(geo);
+    const loc = (gj && gj.results && gj.results[0]) || null;
+    if (!loc) return [];
+    const wx = await fetchText("https://api.open-meteo.com/v1/forecast?latitude=" + loc.latitude + "&longitude=" + loc.longitude + "&current_weather=true&timezone=auto", 10000);
+    const wj = JSON.parse(wx);
+    const cur = (wj && wj.current_weather) || null;
+    if (!cur) return [];
+    const code = WEATHER_CODES[cur.weathercode] || "未知";
+    const wind = cur.windspeed != null ? "，风速 " + cur.windspeed + " km/h" : "";
+    const time = (cur.time || "").replace("T", " ").slice(5, 16);
+    const snippet = (loc.name || place) + "（" + (loc.country || "") + "）" + time + " 实况："
+      + (cur.is_day ? "白天" : "夜间") + code + "，" + cur.temperature + "°C" + wind
+      + "。数据来自 Open-Meteo 全球气象服务。";
+    return [{ title: (loc.name || place) + " 实时天气", url: "https://open-meteo.com/", snippet: snippet, source: "weather" }];
+  }
+
   async function search(query) {
     const q = encodeURIComponent(query);
     const s = XLX.llm.getSettings();
@@ -1848,7 +1880,15 @@ XLX.search = (function () {
         return [];
       })()
     ]);
-    return results.slice(0, 12);
+    let finalResults = results.slice(0, 12);
+    const wxPlace = detectWeatherQuery(query);
+    if (wxPlace) {
+      try {
+        const wx = await getWeather(wxPlace);
+        if (wx.length) finalResults = wx.concat(finalResults).slice(0, 12);
+      } catch (e) {}
+    }
+    return finalResults;
   }
 
   async function searchCustomEngine(query, ce) {
@@ -1872,7 +1912,7 @@ XLX.search = (function () {
   }
 
   function toText(results) {
-    const label = { bing: "必应", so360: "360", wikipedia_zh: "维基百科", wikipedia_en: "Wikipedia", github: "GitHub" };
+    const label = { bing: "必应", so360: "360", wikipedia_zh: "维基百科", wikipedia_en: "Wikipedia", github: "GitHub", weather: "天气" };
     return results.map((r, i) => (i + 1) + ". [" + (label[r.source] || r.source || "网页") + "] " + r.title + "\n   链接: " + r.url + "\n   摘要: " + (r.snippet || "")).join("\n");
   }
 
@@ -2985,9 +3025,15 @@ XLX.tools = (function () {
   /* ===================== 视频提取文案：浏览器本地 Whisper 转写 ===================== */
 
   const ASR_CDNS = [
-    "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0",
-    "https://unpkg.com/@huggingface/transformers@4.2.0",
+    "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/dist/transformers.min.mjs",
+    "https://registry.npmmirror.com/@huggingface/transformers/4.2.0/files/dist/transformers.min.mjs",
+    "https://unpkg.com/@huggingface/transformers@4.2.0/dist/transformers.min.mjs",
     "https://esm.sh/@huggingface/transformers@4.2.0"
+  ];
+  const ASR_MODEL_HOSTS = [
+    { host: "https://hf-mirror.com/", tpl: "{model}/resolve/main/" },
+    { host: "https://huggingface.co/", tpl: "{model}/resolve/main/" },
+    { host: "https://raw.githubusercontent.com/heqi2678-dev/xiaolongxia-ai/main/models/", tpl: "{model}/" }
   ];
   const ASR_MODELS = {
     tiny: { id: "Xenova/whisper-tiny", size: "约 39MB，极速（推荐手机）" },
@@ -3008,12 +3054,18 @@ XLX.tools = (function () {
     if (!mod) throw new Error("无法加载语音识别库（网络受限），请重试");
     const { pipeline, env } = mod;
     env.allowLocalModels = false;
-    env.remoteHost = "https://raw.githubusercontent.com/heqi2678-dev/xiaolongxia-ai/main/models/";
-    env.remotePathTemplate = "{model}/";
     if (onProgress) onProgress("正在下载语音识别模型（" + ASR_MODELS[modelKey].size + "）…");
-    asrPipeline = await pipeline("automatic-speech-recognition", ASR_MODELS[modelKey].id, {
-      progress_callback: (p) => { if (onProgress && p && typeof p.progress === "number") onProgress("正在下载语音识别模型… " + Math.round(p.progress) + "%"); }
-    });
+    for (const h of ASR_MODEL_HOSTS) {
+      try {
+        env.remoteHost = h.host;
+        env.remotePathTemplate = h.tpl;
+        asrPipeline = await pipeline("automatic-speech-recognition", ASR_MODELS[modelKey].id, {
+          progress_callback: (p) => { if (onProgress && p && typeof p.progress === "number") onProgress("正在下载语音识别模型… " + Math.round(p.progress) + "%"); }
+        });
+        break;
+      } catch (e) { lastErr = e; }
+    }
+    if (!asrPipeline) throw new Error("语音识别模型下载失败（" + ((lastErr && lastErr.message) || "网络受限") + "），请重试");
     asrModelKey = modelKey;
     return asrPipeline;
   }
@@ -3079,81 +3131,126 @@ XLX.tools = (function () {
     return buffer;
   }
 
+  async function fetchVideoBlob(url) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 60000);
+    try {
+      const r = await fetch(url, { signal: ctrl.signal });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return await r.blob();
+    } finally { clearTimeout(timer); }
+  }
+
   function renderVidTxt(box) {
     box.innerHTML = ''
       + '<div class="notice" style="font-size:12px;color:var(--text2);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:12px">'
-      + '选择视频/音频文件，<b>浏览器本地 AI 转写</b>说话内容（Whisper 开源模型，<b>免费、不上传</b>）。'
-      + '<br>首次使用需联网下载语音模型，之后离线可用。</div>'
+      + '<b>两种模式</b>提取视频/音频里的说话内容：'
+      + '<br>① <b>链接提取</b>：粘贴可直连访问的媒体链接（自托管视频、公开 CDN 直链等），网页内下载并 AI 转写。'
+      + '<br>② <b>本地上传</b>：选择电脑里的视频/音频文件，浏览器本地 AI 转写。'
+      + '<br>均使用 Whisper 开源模型，<b>免费、不上传</b>；首次使用需联网下载语音模型。</div>'
+      + '<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px">'
+      + '<div style="font-weight:600;font-size:13px;margin-bottom:8px">① 链接提取</div>'
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
-      + '<div style="flex:1;min-width:240px"><label class="label">选择视频 / 音频文件</label>'
-      + '<input type="file" id="vtFile" accept="video/*,audio/*,.mp3,.wav,.m4a,.mp4,.mov,.flac" class="inp" style="padding:8px"></div>'
-      + '<div style="flex:0 0 auto"><label class="label">识别精度</label>'
-      + '<select id="vtModel" class="inp" style="min-width:200px">'
+      + '<div style="flex:1;min-width:240px"><input id="vtUrl" class="inp" placeholder="粘贴媒体直链，如 https://xxxx.trycloudflare.com/video.mp4"></div>'
+      + '<button class="btn primary" id="vtLinkBtn">' + svg("download", 15) + ' 提取说话内容</button>'
+      + '</div>'
+      + '<div style="font-size:11px;color:var(--text3);margin-top:4px">抖音/B站等平台链接受跨域限制无法直连，可先下载再走 ②</div>'
+      + '</div>'
+      + '<div style="border:1px solid var(--border);border-radius:10px;padding:12px">'
+      + '<div style="font-weight:600;font-size:13px;margin-bottom:8px">② 本地上传</div>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
+      + '<div style="flex:1;min-width:240px"><input type="file" id="vtFile" accept="video/*,audio/*,.mp3,.wav,.m4a,.mp4,.mov,.flac" class="inp" style="padding:8px"></div>'
+      + '<div style="flex:0 0 auto"><select id="vtModel" class="inp" style="min-width:190px">'
       + '<option value="tiny">极速 · ' + ASR_MODELS.tiny.size + '</option>'
       + '<option value="base">标准 · ' + ASR_MODELS.base.size + '</option>'
       + '</select></div>'
-      + '<button class="btn primary" id="vtRunBtn">' + svg("mic", 15) + ' 转写说话内容</button>'
-      + '</div>'
+      + '<button class="btn primary" id="vtRunBtn">' + svg("mic", 15) + ' 转写上传文件</button>'
+      + '</div></div>'
       + '<div id="vtProgress" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>'
       + '<div id="vtResult" style="margin-top:10px"></div>'
       + '<details style="margin-top:12px;font-size:12px;color:var(--text3)">'
-      + '<summary>备用：电脑批处理版（粘贴链接生成工具包）</summary>'
+      + '<summary>备用：电脑批处理版（下载离线工具包）</summary>'
       + '<div style="margin-top:8px">'
-      + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
-      + '<div style="flex:1;min-width:240px"><label class="label">视频 / 音频链接</label>'
-      + '<input id="vtUrl" class="inp" placeholder="粘贴抖音/快手/B站/喜马拉雅等链接…"></div>'
-      + '<button class="btn ghost" id="vtGenBtn">' + svg("download", 14) + ' 生成视频转文案工具</button>'
-      + '</div></div></details>';
+      + '<button class="btn ghost" id="vtGenBtn">' + svg("download", 14) + ' 生成视频转文案工具.zip</button>'
+      + '</div></details>';
 
     const fileEl = document.getElementById("vtFile");
     const modelEl = document.getElementById("vtModel");
+    const urlEl = document.getElementById("vtUrl");
     const progEl = document.getElementById("vtProgress");
     const result = document.getElementById("vtResult");
     const runBtn = document.getElementById("vtRunBtn");
+    const linkBtn = document.getElementById("vtLinkBtn");
+
+    function renderTextResult(text) {
+      result.innerHTML = ''
+        + '<textarea class="inp" id="vtOut" style="min-height:180px">' + XLX.util.esc(text) + '</textarea>'
+        + '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">'
+        + '<button class="btn small primary" id="vtCopy">' + svg("copy", 13) + ' 复制文案</button>'
+        + '<button class="btn small" id="vtDl">' + svg("download", 13) + ' 下载文案.txt</button>'
+        + '</div>';
+      document.getElementById("vtCopy").onclick = () => {
+        const el = document.getElementById("vtOut");
+        el.select(); el.setSelectionRange(0, 999999);
+        try { document.execCommand("copy"); XLX.util.toast("已复制到剪贴板", "ok"); } catch (e) { XLX.util.toast("复制失败，请手动复制", "err"); }
+      };
+      document.getElementById("vtDl").onclick = () => {
+        XLX.util.download("文案.txt", document.getElementById("vtOut").value, "text/plain;charset=utf-8");
+        XLX.util.toast("已下载文案.txt", "ok");
+      };
+    }
+
+    function showErr(msg) {
+      result.innerHTML = '<div style="color:var(--warn);font-size:12.5px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px">' + XLX.util.esc(msg) + '</div>';
+    }
+
+    async function transcribeBlob(blob, modelKey) {
+      const pipe = await loadAsr(modelKey, (msg) => { progEl.innerHTML = XLX.util.esc(msg); });
+      progEl.innerHTML = "正在解析音频…";
+      const audio = await decodeAudioFile(blob);
+      progEl.innerHTML = "正在识别说话内容（文件较长可能需要一些时间）…";
+      const out = await pipe(audio, { language: "zh", task: "transcribe", chunk_length_s: 30, stride_length_s: 5 });
+      const text = (out && out.text || "").trim();
+      if (!text) throw new Error("未识别到说话内容（请确认文件含人声）");
+      progEl.innerHTML = '<span style="color:var(--ok)">✅ 转写完成</span>';
+      renderTextResult(text);
+    }
 
     runBtn.onclick = async () => {
       const file = fileEl.files && fileEl.files[0];
       if (!file) { XLX.util.toast("请先选择视频或音频文件", "warn"); return; }
-      const modelKey = modelEl.value;
       runBtn.disabled = true; runBtn.innerHTML = svg("mic", 15) + ' 转写中…';
       progEl.innerHTML = "正在准备…";
       result.innerHTML = "";
       try {
-        const pipe = await loadAsr(modelKey, (msg) => { progEl.innerHTML = XLX.util.esc(msg); });
-        progEl.innerHTML = "正在解析音频…";
-        const audio = await decodeAudioFile(file);
-        progEl.innerHTML = "正在识别说话内容（文件时长较长可能需要一些时间）…";
-        const out = await pipe(audio, { language: "zh", task: "transcribe", chunk_length_s: 30, stride_length_s: 5 });
-        const text = (out && out.text || "").trim();
-        if (!text) throw new Error("未识别到说话内容（请确认文件含人声）");
-        progEl.innerHTML = '<span style="color:var(--ok)">✅ 转写完成</span>';
-        result.innerHTML = ''
-          + '<textarea class="inp" id="vtOut" style="min-height:180px">' + XLX.util.esc(text) + '</textarea>'
-          + '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">'
-          + '<button class="btn small primary" id="vtCopy">' + svg("copy", 13) + ' 复制文案</button>'
-          + '<button class="btn small" id="vtDl">' + svg("download", 13) + ' 下载文案.txt</button>'
-          + '</div>';
-        document.getElementById("vtCopy").onclick = () => {
-          const el = document.getElementById("vtOut");
-          el.select(); el.setSelectionRange(0, 999999);
-          try { document.execCommand("copy"); XLX.util.toast("已复制到剪贴板", "ok"); } catch (e) { XLX.util.toast("复制失败，请手动复制", "err"); }
-        };
-        document.getElementById("vtDl").onclick = () => {
-          XLX.util.download("文案.txt", document.getElementById("vtOut").value, "text/plain;charset=utf-8");
-          XLX.util.toast("已下载文案.txt", "ok");
-        };
+        await transcribeBlob(file, modelEl.value);
       } catch (e) {
         progEl.innerHTML = "";
-        result.innerHTML = '<div style="color:var(--warn);font-size:12.5px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px">转写失败：' + XLX.util.esc(e.message || e) + '</div>';
+        showErr("转写失败：" + (e.message || e));
       }
-      runBtn.disabled = false; runBtn.innerHTML = svg("mic", 15) + ' 转写说话内容';
+      runBtn.disabled = false; runBtn.innerHTML = svg("mic", 15) + ' 转写上传文件';
     };
 
-    const urlEl = document.getElementById("vtUrl");
-    document.getElementById("vtGenBtn").onclick = () => {
+    linkBtn.onclick = async () => {
       const url = urlEl.value.trim();
-      if (!/^https?:\/\//i.test(url)) { XLX.util.toast("请输入正确的视频链接", "warn"); return; }
-      const files = makeVidTxtScript(url);
+      if (!/^https?:\/\//i.test(url)) { XLX.util.toast("请输入正确的媒体直链", "warn"); return; }
+      linkBtn.disabled = true; linkBtn.innerHTML = svg("download", 15) + ' 提取中…';
+      progEl.innerHTML = "正在下载链接内容…";
+      result.innerHTML = "";
+      try {
+        const blob = await fetchVideoBlob(url);
+        const ext = ((url.split(".").pop() || "mp4").split(/[?#]/)[0].replace(/[^a-z0-9]/g, "") || "mp4");
+        const file = new File([blob], "link." + ext, { type: blob.type || "video/mp4" });
+        await transcribeBlob(file, modelEl.value);
+      } catch (e) {
+        progEl.innerHTML = "";
+        showErr("链接提取失败：" + (e.message || e) + "（多为跨域限制，可先下载文件再走 ②本地上传）");
+      }
+      linkBtn.disabled = false; linkBtn.innerHTML = svg("download", 15) + ' 提取说话内容';
+    };
+
+    document.getElementById("vtGenBtn").onclick = () => {
+      const files = makeVidTxtScript("https://example.com/video.mp4");
       const zip = XLX.util.ZIP.make(files);
       XLX.util.download("视频转文案工具.zip", zip, "application/zip");
       result.innerHTML = '<div style="color:var(--ok);font-size:13px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px">'

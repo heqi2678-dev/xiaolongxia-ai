@@ -16,6 +16,7 @@ import uuid
 
 import uvicorn
 from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -41,6 +42,16 @@ class VideoRequest(BaseModel):
 
 
 app = FastAPI(title="Xiaolongxia SelfHost Video Server")
+
+# 允许前端（GitHub Pages）跨域直连：调用 /api/video 与拉取 /videos/* 直链（用于链接式视频文案转写）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
+
 app.mount("/videos", StaticFiles(directory=VIDEO_DIR), name="videos")
 
 
