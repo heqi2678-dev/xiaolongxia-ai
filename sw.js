@@ -1,5 +1,5 @@
 /* 铜龙电商小龙虾AI Service Worker：离线缓存 + 语音模型断线续传 */
-const CACHE = "xiaolongxia-v47";
+const CACHE = "xiaolongxia-v48";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest"];
 const MODEL_CACHE = "xiaolongxia-models-v1";
 const MODEL_PATTERN = /Xenova\/whisper/i;
@@ -28,47 +28,8 @@ async function fetchModel(request) {
   if (hit) return hit;
   const clients = await self.clients.matchAll({ includeUncontrolled: true });
   const broadcast = (down, total) => clients.forEach((c) => c.postMessage({ type: "model-progress", down, total }));
-  const debug = (msg) => clients.forEach((c) => c.postMessage({ type: "model-debug", msg }));
-  const sameOrigin = new URL(url).origin === self.location.origin;
-  let total = 0;
-  try {
-    const head = await fetch(url, { method: "HEAD", cache: "no-store" });
-    total = parseInt(head.headers.get("content-length") || "0", 10);
-  } catch (e) { total = 0; }
-  debug("sameOrigin=" + sameOrigin + " total=" + total);
-  if (sameOrigin && total > 0) {
-    const CHUNK = 4 * 1024 * 1024;
-    const n = Math.ceil(total / CHUNK);
-    const parts = new Array(n);
-    for (let i = 0; i < n; i++) {
-      const start = i * CHUNK;
-      const end = Math.min(start + CHUNK - 1, total - 1);
-      let blob = null;
-      for (let attempt = 0; attempt < 5 && !blob; attempt++) {
-        try {
-          const r = await fetch(url, {
-            headers: { Range: "bytes=" + start + "-" + end },
-            cache: "no-store"
-          });
-          if (r.status === 206 || r.ok) blob = await r.blob();
-        } catch (e) {
-          await new Promise((res) => self.setTimeout(res, 1000 * (attempt + 1)));
-        }
-      }
-      if (!blob) throw new Error("chunk " + i + " failed");
-      parts[i] = blob;
-      debug("chunk " + i + " size=" + blob.size);
-      broadcast(start + blob.size, total);
-    }
-    const full = new Blob(parts, { type: "application/octet-stream" });
-    debug("merged=" + full.size + " parts=" + parts.map(p => p && p.size).join(","));
-    const res = makeModelResponse(full);
-    cache.put(url, res.clone());
-    broadcast(full.size, total);
-    return res;
-  }
   let blob = null;
-  for (let attempt = 0; attempt < 4 && !blob; attempt++) {
+  for (let attempt = 0; attempt < 5 && !blob; attempt++) {
     try {
       const r = await fetch(url, { mode: "cors", cache: "no-store" });
       if (!r.ok) throw new Error("status " + r.status);
@@ -89,11 +50,10 @@ async function fetchModel(request) {
         blob = await r.blob();
       }
     } catch (e) {
-      await new Promise((res) => self.setTimeout(res, 1000 * (attempt + 1)));
+      await new Promise((res) => self.setTimeout(res, 1200 * (attempt + 1)));
     }
   }
   if (!blob) throw new Error("model download failed");
-  debug("whole blob=" + blob.size);
   const res = makeModelResponse(blob);
   cache.put(url, res.clone());
   broadcast(blob.size, blob.size);
