@@ -3243,14 +3243,24 @@ XLX.tools = (function () {
     { host: "https://raw.githubusercontent.com/heqi2678-dev/xiaolongxia-ai/main/models/", tpl: "{model}/" }
   ];
   const ASR_MODELS = {
-    tiny: { id: "Xenova/whisper-tiny", size: "约 39MB，极速（推荐手机）" },
-    base: { id: "Xenova/whisper-base", size: "约 145MB，更准确（推荐电脑）" }
+    tiny: { id: "Xenova/whisper-tiny", size: "约 39MB，极速（推荐）" },
+    base: { id: "Xenova/whisper-base", size: "约 145MB，更准确（较慢）" }
   };
   let asrPipeline = null;
   let asrModelKey = null;
+  let asrProgressFn = null;
+  if (typeof navigator !== "undefined" && navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener("message", (ev) => {
+      if (ev.data && ev.data.type === "model-progress" && asrProgressFn) {
+        const pct = ev.data.total ? Math.max(0, Math.min(100, Math.round(ev.data.down / ev.data.total * 100))) : 0;
+        asrProgressFn("正在下载语音识别模型… " + pct + "%（分片下载，断线自动续传）");
+      }
+    });
+  }
 
   async function loadAsr(modelKey, onProgress) {
     if (asrPipeline && asrModelKey === modelKey) return asrPipeline;
+    asrProgressFn = onProgress;
     let mod = null, lastErr = null;
     for (const url of ASR_CDNS) {
       try {
