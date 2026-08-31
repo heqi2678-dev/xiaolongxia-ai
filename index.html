@@ -1641,7 +1641,7 @@ XLX.image = (function () {
         img.onload = () => done(resolve, url);
         img.onerror = () => {
           if (n < retries) setTimeout(() => attempt(n + 1), 1500 * (n + 1));
-          else done(reject, new Error("图片生成失败，请检查网络后重试（免费接口偶发超时，多试几次即可）"));
+          else done(reject, new Error("图片生成失败：免费接口 Pollinations 在国内网络常连不上。建议到「设置 → AI 生图服务」切换为自定义服务（如硅基流动，注册送免费额度），几秒即可用"));
         };
         img.src = url;
         /* 超时兜底：默认直接返回URL让用户自行打开；strict 模式下超时视为失败并重试 */
@@ -1690,9 +1690,9 @@ XLX.image = (function () {
               .then(j => {
                 if (j && j.status === "success" && j.data && j.data.url) {
                   resolve(j.data.url.replace("tmpfiles.org/", "tmpfiles.org/dl/"));
-                } else reject(new Error("图床上传失败，可换小图重试"));
+                } else reject(new Error("图床上传失败（可不用参考图直接生成）"));
               })
-              .catch(() => reject(new Error("图床上传失败（网络）")));
+              .catch(() => reject(new Error("参考图上传失败：免费图床国内网络可能连不上，可不用参考图直接生成")));
           }, "image/jpeg", 0.92);
         } catch (e) { reject(new Error("图片处理失败：" + e.message)); }
       };
@@ -1822,6 +1822,155 @@ XLX.search = (function () {
     return results.map((r, i) => Object.assign(r, { snippet: snippets[i] || "" }));
   }
 
+  const CITY_COORDS = {
+    '铜梁':[29.844,106.057],
+    '合川':[29.973,106.276],
+    '江津':[29.29,106.259],
+    '永川':[29.356,105.927],
+    '涪陵':[29.703,107.39],
+    '万州':[30.807,108.409],
+    '长寿':[29.858,107.081],
+    '大足':[29.706,105.721],
+    '璧山':[29.592,106.227],
+    '荣昌':[29.404,105.594],
+    '綦江':[29.028,106.651],
+    '潼南':[30.191,105.84],
+    '垫江':[30.328,107.333],
+    '忠县':[30.299,108.037],
+    '云阳':[30.931,108.697],
+    '奉节':[30.986,109.464],
+    '巫山':[31.074,109.879],
+    '巫溪':[31.399,109.57],
+    '梁平':[30.654,107.769],
+    '开州':[31.161,108.393],
+    '南川':[29.158,107.099],
+    '武隆':[29.326,107.76],
+    '彭水':[29.293,108.165],
+    '石柱':[30.0,108.114],
+    '酉阳':[28.841,108.767],
+    '秀山':[28.448,109.007],
+    '丰都':[29.864,107.73],
+    '黔江':[29.533,108.77],
+    '北京':[39.906,116.391],
+    '广州':[23.129,113.259],
+    '深圳':[22.545,114.055],
+    '重庆':[43.888,125.311],
+    '成都':[30.66,104.063],
+    '杭州':[30.249,120.205],
+    '南京':[32.044,118.779],
+    '武汉':[30.579,114.292],
+    '西安':[34.261,108.942],
+    '郑州':[34.747,113.619],
+    '长沙':[28.249,113.075],
+    '沈阳':[41.803,123.428],
+    '大连':[38.913,121.61],
+    '青岛':[36.066,120.378],
+    '济南':[36.652,117.114],
+    '宁波':[29.872,121.55],
+    '厦门':[24.48,118.085],
+    '福州':[26.077,119.292],
+    '合肥':[31.867,117.281],
+    '南昌':[28.688,115.854],
+    '昆明':[25.04,102.717],
+    '贵阳':[26.588,106.709],
+    '南宁':[22.816,108.318],
+    '海口':[20.046,110.196],
+    '三亚':[18.253,109.503],
+    '石家庄':[38.043,114.509],
+    '太原':[29.7,108.275],
+    '呼和浩特':[40.818,111.66],
+    '西宁':[28.513,103.608],
+    '银川':[38.487,106.227],
+    '乌鲁木齐':[43.824,87.614],
+    '拉萨':[29.654,91.117],
+    '哈尔滨':[45.759,126.628],
+    '长春':[43.884,125.318],
+    '苏州':[31.311,120.621],
+    '无锡':[31.578,120.295],
+    '常州':[31.812,119.969],
+    '南通':[31.983,120.89],
+    '徐州':[34.267,117.181],
+    '温州':[27.996,120.695],
+    '嘉兴':[30.747,120.751],
+    '绍兴':[29.999,120.577],
+    '台州':[28.658,121.416],
+    '金华':[29.108,119.649],
+    '泉州':[24.876,118.672],
+    '佛山':[23.024,113.116],
+    '东莞':[23.018,113.745],
+    '珠海':[22.274,113.572],
+    '中山':[22.52,113.387],
+    '惠州':[23.113,114.413],
+    '汕头':[23.356,116.678],
+    '湛江':[21.274,110.355],
+    '桂林':[25.278,110.291],
+    '绵阳':[31.46,104.716],
+    '德阳':[31.124,104.39],
+    '宜宾':[28.756,104.641],
+    '泸州':[31.867,117.281],
+    '南充':[28.985,117.66],
+    '遵义':[27.691,106.915],
+    '六盘水':[26.596,104.828],
+    '大理':[25.597,100.247],
+    '丽江':[26.86,100.225],
+    '宜昌':[30.694,111.28],
+    '襄阳':[32.011,112.116],
+    '衡阳':[26.897,112.567],
+    '岳阳':[29.359,113.123],
+    '湘潭':[27.783,112.946],
+    '洛阳':[34.62,112.448],
+    '开封':[31.769,105.385],
+    '新乡':[35.194,113.801],
+    '安阳':[36.098,114.387],
+    '邯郸':[36.611,114.486],
+    '唐山':[39.63,118.174],
+    '秦皇岛':[39.937,119.594],
+    '保定':[38.858,115.491],
+    '大同':[40.092,113.295],
+    '包头':[40.617,109.945],
+    '鄂尔多斯':[39.608,109.776],
+    '潍坊':[36.707,119.156],
+    '烟台':[37.462,121.443],
+    '威海':[37.512,122.115],
+    '泰安':[36.2,117.081],
+    '临沂':[35.103,118.351],
+    '济宁':[35.413,116.585],
+    '菏泽':[35.248,115.446],
+    '德州':[37.436,116.353],
+    '聊城':[36.444,115.964],
+    '滨州':[37.382,117.965],
+    '淄博':[36.813,118.049],
+    '东营':[37.433,118.669],
+    '扬州':[32.397,119.408],
+    '镇江':[32.189,119.42],
+    '泰州':[32.458,119.918],
+    '盐城':[33.35,120.158],
+    '淮安':[33.598,119.02],
+    '连云港':[34.593,119.217],
+    '宿迁':[33.964,118.27],
+    '湖州':[30.894,120.085],
+    '义乌':[29.309,120.07],
+    '昆山':[31.387,120.976],
+    '江阴':[31.922,120.281],
+    '张家港':[31.878,120.551],
+    '常熟':[31.657,120.748],
+    '江门':[22.582,113.076],
+    '肇庆':[23.05,112.46],
+    '茂名':[21.666,110.921],
+    '清远':[23.683,113.051],
+    '揭阳':[23.553,116.368],
+    '潮州':[23.657,116.62],
+    '汕尾':[22.789,115.37],
+    '上海':[31.23,121.474],
+    '天津':[39.343,117.361],
+    '兰州':[36.061,103.834],
+    '漳州':[24.513,117.647],
+    '柳州':[24.326,109.428],
+    '曲靖':[25.49,103.796],
+    '株洲':[27.828,113.134],
+    '韶关':[24.81,113.597]
+  };
+
   const WEATHER_CODES = { 0: "晴", 1: "大部晴朗", 2: "多云", 3: "阴", 45: "雾", 48: "雾凇", 51: "毛毛雨", 53: "毛毛雨", 55: "毛毛雨", 56: "冻雨", 57: "冻雨", 61: "小雨", 63: "中雨", 65: "大雨", 66: "冻雨", 67: "冻雨", 71: "小雪", 73: "中雪", 75: "大雪", 77: "雪粒", 80: "阵雨", 81: "阵雨", 82: "强阵雨", 85: "阵雪", 86: "阵雪", 95: "雷雨", 96: "雷雨伴冰雹", 99: "雷雨伴冰雹" };
 
   function detectWeatherQuery(query) {
@@ -1836,22 +1985,40 @@ XLX.search = (function () {
     return m ? m[1].trim() : null;
   }
 
+  async function geoPlace(place) {
+    if (CITY_COORDS[place]) return { lat: CITY_COORDS[place][0], lon: CITY_COORDS[place][1], name: place };
+    try {
+      const geo = await fetchText("https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(place) + "&count=1&language=zh", 5000);
+      const gj = JSON.parse(geo);
+      const loc = (gj && gj.results && gj.results[0]) || null;
+      if (loc) return { lat: loc.latitude, lon: loc.longitude, name: loc.name || place };
+    } catch (e) {}
+    return null;
+  }
+
   async function getWeather(place) {
-    const geo = await fetchText("https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(place) + "&count=1&language=zh", 6000);
-    const gj = JSON.parse(geo);
-    const loc = (gj && gj.results && gj.results[0]) || null;
+    let loc = await geoPlace(place);
+    let usedName = place, degraded = false;
+    if (!loc && place.length > 2) {
+      for (let len = place.length - 1; len >= 2 && !loc; len--) {
+        const sub = place.slice(0, len);
+        loc = await geoPlace(sub);
+        if (loc) { usedName = sub; degraded = true; }
+      }
+    }
     if (!loc) return [];
-    const wx = await fetchText("https://api.open-meteo.com/v1/forecast?latitude=" + loc.latitude + "&longitude=" + loc.longitude + "&current_weather=true&timezone=auto", 6000);
+    const wx = await fetchText("https://api.open-meteo.com/v1/forecast?latitude=" + loc.lat + "&longitude=" + loc.lon + "&current_weather=true&timezone=auto", 6000);
     const wj = JSON.parse(wx);
     const cur = (wj && wj.current_weather) || null;
     if (!cur) return [];
     const code = WEATHER_CODES[cur.weathercode] || "未知";
     const wind = cur.windspeed != null ? "，风速 " + cur.windspeed + " km/h" : "";
     const time = (cur.time || "").replace("T", " ").slice(5, 16);
-    const snippet = (loc.name || place) + "（" + (loc.country || "") + "）" + time + " 实况："
+    const note = degraded ? "（未收录「" + place + "」，为你提供「" + usedName + "」的天气）" : "";
+    const snippet = usedName + "（" + (wj.timezone || "") + "）" + time + " 实况："
       + (cur.is_day ? "白天" : "夜间") + code + "，" + cur.temperature + "°C" + wind
-      + "。数据来自 Open-Meteo 全球气象服务。";
-    return [{ title: (loc.name || place) + " 实时天气", url: "https://open-meteo.com/", snippet: snippet, source: "weather" }];
+      + "。数据来自 Open-Meteo 全球气象服务。" + note;
+    return [{ title: usedName + " 实时天气", url: "https://open-meteo.com/", snippet: snippet, source: "weather" }];
   }
 
   async function search(query) {
@@ -1944,7 +2111,7 @@ XLX.search = (function () {
     return results.map((r, i) => (i + 1) + ". [" + (label[r.source] || r.source || "网页") + "] " + r.title + "\n   链接: " + r.url + "\n   摘要: " + (r.snippet || "")).join("\n");
   }
 
-  return { search, toText };
+  return { search, toText, isWeather: (q) => !!detectWeatherQuery(String(q || "")) };
 })();
 
 </script>
@@ -2173,7 +2340,10 @@ XLX.chat = (function () {
       openSettingsGuide();
       return;
     }
-    if (opts.search === undefined) opts.search = getSearchMode() === "on";
+    if (opts.search === undefined) {
+      const wxHit = !!(XLX.search && XLX.search.isWeather && XLX.search.isWeather(text));
+      opts.search = wxHit || getSearchMode() === "on";
+    }
     const conv = ensureConv();
     if (conv.messages.length === 0) conv.title = text.slice(0, 24);
     conv.messages.push({ role: "user", content: text, time: Date.now() });
@@ -2663,10 +2833,10 @@ XLX.tools = (function () {
       let prompt = promptEl.value.trim();
       if (!prompt) { XLX.util.toast("请先描述画面", "warn"); return; }
       genBtn.disabled = true;
-      genBtn.innerHTML = '<span class="spin" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> 生成中…（免费接口约需5-30秒）';
+      genBtn.innerHTML = '<span class="spin" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> 生成中…（免费接口约需5-40秒，国内网络连不上可到设置切自定义服务）';
       const ph = document.createElement("div");
       ph.className = "img-item";
-      ph.innerHTML = '<div class="iload"><div class="spinner"></div>正在生成图片…<div style="font-size:10px">免费接口偶发超时，请耐心等待或重试</div></div>';
+      ph.innerHTML = '<div class="iload"><div class="spinner"></div>正在生成图片…<div style="font-size:10px">免费接口 Pollinations 偶发超时；若一直无结果，建议到「设置 → AI 生图服务」切换自定义服务</div></div>';
       resultBox.insertBefore(ph, resultBox.firstChild.nextSibling || null);
       try {
         const aspect = ratioEl.value;
@@ -3067,8 +3237,9 @@ XLX.tools = (function () {
     "https://esm.sh/@huggingface/transformers@4.2.0"
   ];
   const ASR_MODEL_HOSTS = [
-    { host: "https://hf-mirror.com/", tpl: "{model}/resolve/main/" },
-    { host: "https://huggingface.co/", tpl: "{model}/resolve/main/" },
+    { host: "https://ghfast.top/https://raw.githubusercontent.com/heqi2678-dev/xiaolongxia-ai/main/models/", tpl: "{model}/" },
+    { host: "https://gh-proxy.com/https://raw.githubusercontent.com/heqi2678-dev/xiaolongxia-ai/main/models/", tpl: "{model}/" },
+    { host: "https://cdn.jsdelivr.net/gh/heqi2678-dev/xiaolongxia-ai@main/models/", tpl: "{model}/" },
     { host: "https://raw.githubusercontent.com/heqi2678-dev/xiaolongxia-ai/main/models/", tpl: "{model}/" }
   ];
   const ASR_MODELS = {
