@@ -1601,7 +1601,8 @@ XLX.image = (function () {
       let settled = false;
       const done = (fn, v) => { if (!settled) { settled = true; fn(v); } };
       const s = XLX.llm.getSettings();
-      const customOn = s && s.imageProvider === "custom" && !!(s.imageKey || "").trim();
+      const vendor = (s && s.imageProvider && s.imageProvider !== "free") ? s.imageProvider : "free";
+      const customOn = vendor !== "free" && !!(s.imageKey || "").trim();
 
       const pickSize = () => {
         let w = opts.w, h = opts.h;
@@ -1612,39 +1613,127 @@ XLX.image = (function () {
         return { w, h };
       };
 
+      const refData = () => {
+        if (!opts.image) return null;
+        return typeof opts.image === "string" ? opts.image : (opts.image.dataUrl || opts.image.url);
+      };
+
       const attempt = (n) => {
         const { w, h } = pickSize();
-        if (customOn) {
-          const ctrl = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 60000);
-          const base = (s.imageBase || "https://api.siliconflow.cn/v1").replace(/\/+$/, "");
-          const body = { model: s.imageModel || "FLUX.1-schnell", prompt, image_size: w + "x" + h, num_inference_steps: 20, seed: Math.floor(Math.random() * 100000) };
-          if (opts.image) {
-            const ref = typeof opts.image === "string" ? opts.image : (opts.image.dataUrl || opts.image.url);
-            if (ref) body.image = ref;
+        if (!customOn) { freeAttempt(n, w, h); return; }
+        if (vendor === "doubao") doubaoAttempt(n, w, h);
+        else if (vendor === "qwen") qwenAttempt(n, w, h);
+        else openAiCompatAttempt(n, w, h);
+      };
+
+      function openAiCompatAttempt(n, w, h) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 60000);
+        const base = (s.imageBase || "https://api.siliconflow.cn/v1").replace(/\/+$/, "");
+        const body = { model: s.imageModel || "FLUX.1-schnell", prompt, image_size: w + "x" + h, num_inference_steps: 20, seed: Math.floor(Math.random() * 100000) };
+        const ref = refData();
+        if (ref) body.image = ref;
+        fetch(base + "/images/generations", {
+          method: "POST",
+          signal: ctrl.signal,
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (s.imageKey || "").trim() },
+          body: JSON.stringify(body)
+        }).then(r => r.json()).then(j => {
+          clearTimeout(timer);
+          const img = (j && j.data && j.data[0]) || (j && j.images && j.images[0]);
+          const dataUrl = img && (img.url || (img.b64_json && "data:image/png;base64," + img.b64_json));
+          if (dataUrl) done(resolve, dataUrl);
+          else done(reject, new Error("生图服务返回异常：" + JSON.stringify(j).slice(0, 160)));
+        }).catch(e => {
+          clearTimeout(timer);
+          if (n < retries) setTimeout(() => attempt(n + 1), 1500 * (n + 1));
+          else done(reject, new Error("生图失败（自定义服务）：" + (e.message || e)));
+        });
+      }
+
+      function doubaoAttempt(n, w, h) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 90000);
+        const base = (s.imageBase || "https://ark.cn-beijing.volces.com/api/v3").replace(/\/+$/, "");
+        const body = { model: s.imageModel || "doubao-seedream-5-0-260128", prompt, size: w + "x" + h };
+        const ref = refData();
+        if (ref) body.image = ref;
+        fetch(base + "/images/generations", {
+          method: "POST",
+          signal: ctrl.signal,
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (s.imageKey || "").trim() },
+          body: JSON.stringify(body)
+        }).then(r => r.json()).then(j => {
+          clearTimeout(timer);
+          const img = (j && j.data && j.data[0]) || (j && j.images && j.images[0]);
+          const dataUrl = img && (img.url || (img.b64_json && "data:image/png;base64," + img.b64_json));
+          if (dataUrl) done(resolve, dataUrl);
+          else done(reject, new Error("豆包生图返回异常：" + JSON.stringify(j).slice(0, 160)));
+        }).catch(e => {
+          clearTimeout(timer);
+          if (n < retries) setTimeout(() => attempt(n + 1), 1500 * (n + 1));
+          else done(reject, new Error("豆包生图失败：" + (e.message || e)));
+        });
+      }
+
+      function qwenAttempt(n, w, h) {
+        const base = (s.imageBase || "https://dashscope.aliyuncs.com").replace(/\/+$/, "");
+        const headers = { "Content-Type": "application/json", "Authorization": "Bearer " + (s.imageKey || "").trim() };
+        const content = [{ text: prompt }];
+        const ref = refData();
+        if (ref) content.push({ image: ref });
+        const body = {
+          model: s.imageModel || "qwen-image-3.0-pro",
+          input: { messages: [{ role: "user", content }] },
+          parameters: { size: w + "*" + h }
+        };
+        const err = (m) => done(reject, new Error(m));
+        fetch(base + "/api/v1/services/aigc/multimodal-generation/generation", {
+          method: "POST", headers, body: JSON.stringify(body)
+        }).then(r => r.json()).then(j => {
+          const out = j && j.output;
+          if (out) {
+            const c = out.choices && out.choices[0] && out.choices[0].message && out.choices[0].message.content;
+            if (Array.isArray(c)) {
+              const im = c.find(x => x && x.image);
+              if (im && im.image) { done(resolve, im.image); return; }
+            }
+            if (out.task_id) { qwenPoll(out.task_id, 0); return; }
           }
-          fetch(base + "/images/generations", {
-            method: "POST",
-            signal: ctrl.signal,
-            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (s.imageKey || "").trim() },
-            body: JSON.stringify(body)
-          }).then(r => r.json()).then(j => {
-            clearTimeout(timer);
-            const img = (j && j.data && j.data[0]) || (j && j.images && j.images[0]);
-            const dataUrl = img && (img.url || (img.b64_json && "data:image/png;base64," + img.b64_json));
-            if (dataUrl) done(resolve, dataUrl);
-            else done(reject, new Error("生图服务返回异常：" + JSON.stringify(j).slice(0, 160)));
-          }).catch(e => {
-            clearTimeout(timer);
-            if (n < retries) setTimeout(() => attempt(n + 1), 1500 * (n + 1));
-            else done(reject, new Error("生图失败（自定义服务）：" + (e.message || e)));
-          });
-          return;
+          err("千问生图返回异常：" + JSON.stringify(j).slice(0, 160));
+        }).catch(e => {
+          if (n < retries) setTimeout(() => attempt(n + 1), 1500 * (n + 1));
+          else err("千问生图失败：" + (e.message || e));
+        });
+
+        function qwenPoll(taskId, k) {
+          if (k > 40) { err("千问生图超时（任务 " + taskId.slice(0, 8) + "）"); return; }
+          fetch(base + "/api/v1/tasks/" + encodeURIComponent(taskId), { method: "GET", headers })
+            .then(r => r.json()).then(t => {
+              const o = t && t.output;
+              const st = o && o.task_status;
+              if (st === "SUCCEEDED") {
+                const u = o.results && o.results[0] && (o.results[0].url || o.results[0].b64_image);
+                if (u) done(resolve, u);
+                else err("千问生图返回异常：" + JSON.stringify(t).slice(0, 160));
+              } else if (st === "FAILED" || st === "CANCELED") {
+                err("千问生图失败（任务" + st + "）");
+              } else {
+                setTimeout(() => qwenPoll(taskId, k + 1), 3000);
+              }
+            })
+            .catch(() => {
+              if (k < 8) setTimeout(() => qwenPoll(taskId, k + 1), 3000);
+              else err("千问任务查询失败");
+            });
         }
+      }
+
+      function freeAttempt(n, w, h) {
         let url = freeUrl(prompt, w, h);
         const refUrl = opts.image && (typeof opts.image === "string" ? opts.image : opts.image.url);
         if (opts.image && !refUrl) {
-          done(reject, new Error("免费接口图生图需要公网可访问的参考图，但参考图上传失败（国内网络常连不上图床）。请到「设置 → AI 生图服务」切换为自定义服务（硅基流动等），几秒即可用，且能真正保留实例图主体"));
+          done(reject, new Error("免费接口图生图需要公网可访问的参考图，但参考图上传失败（国内网络常连不上图床）。请到「设置 → AI 生图服务」切换为自定义服务（硅基流动/豆包/千问），几秒即可用，且能真正保留实例图主体"));
           return;
         }
         if (refUrl) url += "&image=" + encodeURIComponent(refUrl);
@@ -1674,7 +1763,8 @@ XLX.image = (function () {
             done(reject, new Error("已取消"));
           }, { once: true });
         }
-      };
+      }
+
       attempt(0);
     });
   }
@@ -1737,7 +1827,14 @@ XLX.image = (function () {
     ).then(res => cb(res.trim())).catch(() => cb(text));
   }
 
-  return { generate, downloadByUrl, enhancePrompt, uploadRefImage };
+  const VENDOR_NAMES = { siliconflow: "硅基流动", doubao: "豆包 Seedream", qwen: "千问通义万相", custom: "自定义服务" };
+
+  function vendorName(s) {
+    const v = (s && s.imageProvider && s.imageProvider !== "free") ? s.imageProvider : "free";
+    return v === "free" ? "免费 Pollinations" : (VENDOR_NAMES[v] || "自定义服务");
+  }
+
+  return { generate, downloadByUrl, enhancePrompt, uploadRefImage, vendorName };
 })();
 
 </script>
@@ -2778,7 +2875,7 @@ XLX.tools = (function () {
       + '<div class="notice" style="font-size:12px;color:var(--text2);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:12px">'
       + '以图生图模式：<b>先上传实例图 → 选择渠道 → 输入指令</b>，生成与实例图相关的结果。'
       + '<br>例如：上传一张产品照片，渠道选「白底图」，输入「把背景换成纯白」，得到干净的白底商品图。'
-      + '<br><b style="color:var(--warn)">重要：免费接口不保留实例图主体</b>（结果可能与原图无关）。想保留主体生成电商/白底图，请用「设置 → AI 生图服务」配置自定义服务（硅基流动，免费额度）。</div>'
+      + '<br><b style="color:var(--warn)">重要：免费接口不保留实例图主体</b>（结果可能与原图无关）。想保留主体生成电商/白底图，请用「设置 → AI 生图服务」配置自定义服务（硅基流动 / 豆包 / 千问，均送免费额度）。</div>'
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
       + '<div style="flex:1;min-width:260px"><label class="label">指令（描述你想要的修改/效果，可留空用渠道默认效果）</label>'
       + '<textarea id="imgPrompt" class="inp" style="min-height:80px" placeholder="例如：把背景换成纯白 / 加上促销文案氛围 / 保留主体换到沙滩场景"></textarea></div>'
@@ -2812,9 +2909,10 @@ XLX.tools = (function () {
     (function () {
       const st = XLX.llm.getSettings();
       const tip = document.getElementById("imgSvcTip");
-      if (tip) tip.textContent = (st && st.imageProvider === "custom" && (st.imageKey || "").trim())
-        ? "当前生图服务：自定义（" + (st.imageModel || "FLUX.1-schnell") + "），可真正保留实例图主体。在 设置 → AI 生图服务 中可改"
-        : "当前生图服务：免费 Pollinations（国内网络可能较慢）。注意：免费接口图生图不保留实例图主体，想保留主体做电商/白底图请到「设置 → AI 生图服务」配置自定义服务（硅基流动）";
+      const customOn = st && st.imageProvider && st.imageProvider !== "free" && !!(st.imageKey || "").trim();
+      if (tip) tip.textContent = customOn
+        ? "当前生图服务：" + (XLX.image.vendorName ? XLX.image.vendorName(st) : "自定义服务") + "（" + (st.imageModel || "未设置模型") + "），可真正保留实例图主体。在 设置 → AI 生图服务 中可改"
+        : "当前生图服务：免费 Pollinations（国内网络可能较慢）。注意：免费接口图生图不保留实例图主体，想保留主体做电商/白底图请到「设置 → AI 生图服务」配置自定义服务（硅基流动 / 豆包 / 千问，均送免费额度）";
     })();
     box.querySelectorAll(".channel-chip").forEach(b => b.onclick = () => {
       box.querySelectorAll(".channel-chip").forEach(x => x.classList.remove("active"));
@@ -2860,15 +2958,17 @@ XLX.tools = (function () {
       const hasRef = refUrl && (refUrl.url || refUrl.dataUrl);
       if (!hasRef) { XLX.util.toast("请先上传实例图", "warn"); return; }
       const st = XLX.llm.getSettings();
-      const customOn = st && st.imageProvider === "custom" && !!(st.imageKey || "").trim();
-      if (!customOn && !window.confirm("当前是免费 Pollinations 接口：它的图生图「不保留实例图主体」，生成结果可能与你的图片无关（会按指令自由发挥）。\n\n要得到保留主体的电商图/白底图，建议先到「设置 → AI 生图服务」配置自定义服务（硅基流动，免费额度，几秒可用）。\n\n仍要用免费接口继续吗？")) return;
+      const customOn = st && st.imageProvider && st.imageProvider !== "free" && !!(st.imageKey || "").trim();
+      if (!customOn && !window.confirm("当前是免费 Pollinations 接口：它的图生图「不保留实例图主体」，生成结果可能与你的图片无关（会按指令自由发挥）。\n\n要得到保留主体的电商图/白底图，建议先到「设置 → AI 生图服务」配置自定义服务（硅基流动 / 豆包 / 千问，注册都送免费额度，几秒可用）。\n\n仍要用免费接口继续吗？")) return;
       const raw = promptEl.value.trim();
       const prompt = [channel.tpl, raw].filter(Boolean).join("，");
       genBtn.disabled = true;
-      genBtn.innerHTML = '<span class="spin" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> 生成中…（免费接口约需5-40秒，国内网络连不上可到设置切自定义服务）';
+      genBtn.innerHTML = customOn
+        ? '<span class="spin" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> 生成中…（商业模型约需10-90秒）'
+        : '<span class="spin" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> 生成中…（免费接口约需5-40秒，国内网络连不上可到设置切自定义服务）';
       const ph = document.createElement("div");
       ph.className = "img-item";
-      ph.innerHTML = '<div class="iload"><div class="spinner"></div>正在生成图片…<div style="font-size:10px">免费接口 Pollinations 偶发超时；若一直无结果，建议到「设置 → AI 生图服务」切换自定义服务</div></div>';
+      ph.innerHTML = '<div class="iload"><div class="spinner"></div>正在生成图片…<div style="font-size:10px">' + (customOn ? "商业模型约需10-90秒，请稍候" : "免费接口 Pollinations 偶发超时；若一直无结果，建议到「设置 → AI 生图服务」切换自定义服务") + '</div></div>';
       resultBox.insertBefore(ph, resultBox.firstChild ? resultBox.firstChild.nextSibling : null);
       try {
         const url = await XLX.image.generate(prompt, { aspect: channel.ratio, image: refUrl });
@@ -4998,17 +5098,20 @@ XLX.settings = (function () {
 
       + '<div class="set-card">'
       + '<h3><span class="hic">' + svg("sparkle", 15) + '</span>AI 生图服务</h3>'
-      + '<p class="sd">生图默认使用<b style="color:var(--green)">免费 Pollinations</b>（无需 Key，国内网络可能较慢或偶发失败）。若生成失败，可切换到<b style="color:var(--green)">自定义服务</b>：接入硅基流动（注册送免费额度）等 OpenAI 兼容生图接口。Key 仅保存在浏览器本地。</p>'
-      + '<div class="set-row"><div class="lab"><div class="t">生图服务</div><div class="d">免费接口无需配置；自定义服务需填下方 Key</div></div>'
+      + '<p class="sd">生图默认使用<b style="color:var(--green)">免费 Pollinations</b>（无需 Key，但图生图<b>不保留实例图主体</b>，国内网络可能较慢）。想真正保留主体做电商图/白底图，切换下方自定义服务即可：<b style="color:var(--green)">硅基流动 / 豆包 Seedream / 千问通义万相</b>（注册均送免费额度，用完后按张计费，几毛钱一张）。Key 仅保存在浏览器本地。</p>'
+      + '<div class="set-row"><div class="lab"><div class="t">生图服务</div><div class="d">免费接口无需配置；其余服务商需填下方 Key</div></div>'
       + '<div class="val"><select class="inp" id="setImgProvider">'
-      + '<option value="free"' + (s.imageProvider !== "custom" ? " selected" : "") + '>免费 Pollinations（默认）</option>'
-      + '<option value="custom"' + (s.imageProvider === "custom" ? " selected" : "") + '>自定义服务（硅基流动等）</option>'
+      + '<option value="free"' + (!s.imageProvider || s.imageProvider === "free" ? " selected" : "") + '>免费 Pollinations（默认）</option>'
+      + '<option value="siliconflow"' + (s.imageProvider === "siliconflow" ? " selected" : "") + '>硅基流动（送免费额度）</option>'
+      + '<option value="doubao"' + (s.imageProvider === "doubao" ? " selected" : "") + '>豆包 Seedream（火山方舟）</option>'
+      + '<option value="qwen"' + (s.imageProvider === "qwen" ? " selected" : "") + '>千问通义万相（阿里云百炼）</option>'
+      + '<option value="custom"' + (s.imageProvider === "custom" ? " selected" : "") + '>自定义（其他 OpenAI 兼容）</option>'
       + '</select></div></div>'
-      + '<div class="set-row"><div class="lab"><div class="t">API Key</div><div class="d">硅基流动 <a href="https://cloud.siliconflow.cn/" target="_blank" rel="noopener" style="color:var(--green)">控制台</a> 领取免费额度后获取，格式 sk-...</div></div>'
-      + '<div class="val"><input class="inp" id="setImgKey" type="password" placeholder="sk-..." value="' + XLX.util.esc(s.imageKey || "") + '"></div></div>'
-      + '<div class="set-row"><div class="lab"><div class="t">Base URL</div><div class="d">硅基流动已预置，可留空</div></div>'
+      + '<div class="set-row"><div class="lab"><div class="t">API Key</div><div class="d">在所选服务商控制台获取：硅基流动 <a href="https://cloud.siliconflow.cn/" target="_blank" rel="noopener" style="color:var(--green)">控制台</a>（sk-...）· 豆包 <a href="https://console.volcengine.com/ark/region:ark+cn-beijing/apikey" target="_blank" rel="noopener" style="color:var(--green)">火山方舟</a>（ARK Key）· 千问 <a href="https://bailian.console.aliyun.com/" target="_blank" rel="noopener" style="color:var(--green)">阿里云百炼</a>（sk-...）</div></div>'
+      + '<div class="val"><input class="inp" id="setImgKey" type="password" placeholder="sk-... 或 ARK Key" value="' + XLX.util.esc(s.imageKey || "") + '"></div></div>'
+      + '<div class="set-row"><div class="lab"><div class="t">Base URL</div><div class="d">切换服务商时自动填入对应地址，留空使用默认；自定义服务需手动填写</div></div>'
       + '<div class="val"><input class="inp" id="setImgBase" placeholder="https://api.siliconflow.cn/v1" value="' + XLX.util.esc(s.imageBase || "") + '"></div></div>'
-      + '<div class="set-row"><div class="lab"><div class="t">模型</div><div class="d">图生图推荐：Qwen/Qwen-Image-Edit-2509（多图编辑）、black-forest-labs/FLUX.1-Kontext-dev（图片编辑）、Kwai-Kolors/Kolors；也可填其他 OpenAI 兼容生图模型</div></div>'
+      + '<div class="set-row"><div class="lab"><div class="t">模型</div><div class="d">切换服务商时自动填入推荐模型：豆包 doubao-seedream-5-0-260128（可换 -pro 更精细）· 千问 qwen-image-3.0-pro · 硅基 Qwen/Qwen-Image-Edit-2509</div></div>'
       + '<div class="val"><input class="inp" id="setImgModel" placeholder="FLUX.1-schnell" value="' + XLX.util.esc(s.imageModel || "") + '"></div></div>'
       + '<div class="set-row"><div class="lab"><div class="t">保存</div><div class="d">保存后即可在「AI 生图」工具中使用</div></div>'
       + '<div class="val"><button class="btn primary small" id="setImgSave">保存生图配置</button></div></div>'
@@ -5093,6 +5196,8 @@ XLX.settings = (function () {
     });
     const imgSave = document.getElementById("setImgSave");
     if (imgSave) imgSave.onclick = saveImageConfig;
+    const imgProv = document.getElementById("setImgProvider");
+    if (imgProv) imgProv.onchange = applyImgVendorPreset;
     const rvSave = document.getElementById("setResolveSave");
     if (rvSave) rvSave.onclick = saveResolveConfig;
     const rvTest = document.getElementById("setResolveTest");
@@ -5122,6 +5227,28 @@ XLX.settings = (function () {
       XLX.util.toast("解析服务测试失败：" + (e.message || e), "err");
     }
     btn.disabled = false; btn.textContent = "测试解析";
+  }
+
+  const IMG_VENDOR_PRESETS = {
+    siliconflow: { base: "https://api.siliconflow.cn/v1", model: "Qwen/Qwen-Image-Edit-2509" },
+    doubao: { base: "https://ark.cn-beijing.volces.com/api/v3", model: "doubao-seedream-5-0-260128" },
+    qwen: { base: "https://dashscope.aliyuncs.com", model: "qwen-image-3.0-pro" },
+    custom: { base: "", model: "" }
+  };
+  const IMG_KNOWN_BASES = ["https://api.siliconflow.cn/v1", "https://ark.cn-beijing.volces.com/api/v3", "https://dashscope.aliyuncs.com"];
+  const IMG_KNOWN_MODELS = ["Qwen/Qwen-Image-Edit-2509", "doubao-seedream-5-0-260128", "doubao-seedream-5-0-pro-260628", "qwen-image-3.0-pro", "FLUX.1-schnell"];
+
+  function applyImgVendorPreset() {
+    const prov = document.getElementById("setImgProvider");
+    const bEl = document.getElementById("setImgBase");
+    const mEl = document.getElementById("setImgModel");
+    if (!prov || !bEl || !mEl) return;
+    const cur = IMG_VENDOR_PRESETS[prov.value];
+    if (!cur) return;
+    const bv = bEl.value.trim();
+    const mv = mEl.value.trim();
+    if (!bv || IMG_KNOWN_BASES.indexOf(bv) >= 0) bEl.value = cur.base;
+    if (!mv || IMG_KNOWN_MODELS.indexOf(mv) >= 0) mEl.value = cur.model;
   }
 
   function saveImageConfig() {
