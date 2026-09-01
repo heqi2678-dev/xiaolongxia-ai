@@ -3247,6 +3247,27 @@ XLX.tools = (function () {
   let asrPipeline = null;
   let asrModelKey = null;
   let asrProgressFn = null;
+  let t2sConverter = null;
+  const T2S_CDNS = [
+    "https://esm.sh/opencc-js@1.4.2/t2cn",
+    "https://cdn.jsdelivr.net/npm/opencc-js@1.4.2/+esm",
+    "https://cdn.jsdelivr.net/npm/opencc-js@1.4.2/dist/esm/t2cn.js"
+  ];
+  async function loadT2S() {
+    if (t2sConverter) return t2sConverter;
+    let mod = null, lastErr = null;
+    for (const url of T2S_CDNS) {
+      try { mod = await import(url); break; } catch (e) { lastErr = e; }
+    }
+    if (!mod) return null;
+    const C = mod.Converter || (mod.default && mod.default.Converter);
+    if (typeof C !== "function") return null;
+    try { t2sConverter = C({ from: "t", to: "cn" }); } catch (e) { t2sConverter = null; }
+    return t2sConverter;
+  }
+  function toSimplified(text) {
+    try { return t2sConverter ? t2sConverter(text) : text; } catch (e) { return text; }
+  }
   if (typeof navigator !== "undefined" && navigator.serviceWorker) {
     navigator.serviceWorker.addEventListener("message", (ev) => {
       if (ev.data && ev.data.type === "model-progress" && asrProgressFn) {
@@ -3440,8 +3461,13 @@ XLX.tools = (function () {
       const genOpts = { task: "transcribe", chunk_length_s: 30, stride_length_s: 5, num_beams: 5 };
       if (langCode) genOpts.language = langCode;
       const out = await pipe(audio, genOpts);
-      const text = (out && out.text || "").trim();
+      let text = (out && out.text || "").trim();
       if (!text) throw new Error("未识别到说话内容（请确认文件含人声）");
+      if (langEl.value === "zh" || !langEl.value) {
+        progEl.innerHTML = "正在转换简体…";
+        await loadT2S();
+        text = toSimplified(text);
+      }
       progEl.innerHTML = '<span style="color:var(--ok)">✅ 转写完成</span>';
       renderTextResult(text);
     }
