@@ -1643,6 +1643,10 @@ XLX.image = (function () {
         }
         let url = freeUrl(prompt, w, h);
         const refUrl = opts.image && (typeof opts.image === "string" ? opts.image : opts.image.url);
+        if (opts.image && !refUrl) {
+          done(reject, new Error("免费接口图生图需要公网可访问的参考图，但参考图上传失败（国内网络常连不上图床）。请到「设置 → AI 生图服务」切换为自定义服务（硅基流动等），几秒即可用，且能真正保留实例图主体"));
+          return;
+        }
         if (refUrl) url += "&image=" + encodeURIComponent(refUrl);
         const img = new Image();
         img.onload = () => done(resolve, url);
@@ -2759,11 +2763,11 @@ XLX.tools = (function () {
   let pendingRefUrl = null;
 
   const IMG_CHANNELS = [
-    { id: "ecommerce", name: "电商图", ratio: "square", hint: "商品主体清晰，电商展示效果", tpl: "电商商品展示图" },
-    { id: "poster", name: "海报图", ratio: "wide", hint: "宣传海报构图，视觉冲击力强", tpl: "宣传海报" },
-    { id: "normal", name: "普通图", ratio: "square", hint: "常规生成，忠实还原实例图", tpl: "" },
-    { id: "white", name: "白底图", ratio: "square", hint: "纯白背景商品图，干净无杂物", tpl: "纯白背景商品图，背景纯净无阴影" },
-    { id: "transparent", name: "透明图", ratio: "square", hint: "透明背景（免费接口以白底近似）", tpl: "透明背景，主体完整，背景纯白（近似透明）" }
+    { id: "ecommerce", name: "电商图", ratio: "square", hint: "商品主体清晰，电商展示效果", tpl: "以实例图为参考，保留图中主体商品不变，生成电商商品展示图" },
+    { id: "poster", name: "海报图", ratio: "wide", hint: "宣传海报构图，视觉冲击力强", tpl: "以实例图为参考，保留图中主体商品不变，制作宣传海报" },
+    { id: "normal", name: "普通图", ratio: "square", hint: "常规生成，忠实还原实例图", tpl: "以实例图为参考，忠实还原图中主体内容" },
+    { id: "white", name: "白底图", ratio: "square", hint: "纯白背景商品图，干净无杂物", tpl: "以实例图为参考，保留图中主体商品不变，把背景换成纯白色，背景纯净无杂物" },
+    { id: "transparent", name: "透明图", ratio: "square", hint: "透明背景（免费接口以白底近似）", tpl: "以实例图为参考，保留图中主体商品不变，主体完整，背景纯白（近似透明底）" }
   ];
 
   function renderImg(box) {
@@ -2773,7 +2777,8 @@ XLX.tools = (function () {
     box.innerHTML = ''
       + '<div class="notice" style="font-size:12px;color:var(--text2);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:12px">'
       + '以图生图模式：<b>先上传实例图 → 选择渠道 → 输入指令</b>，生成与实例图相关的结果。'
-      + '<br>例如：上传一张产品照片，渠道选「白底图」，输入「把背景换成纯白」，得到干净的白底商品图。</div>'
+      + '<br>例如：上传一张产品照片，渠道选「白底图」，输入「把背景换成纯白」，得到干净的白底商品图。'
+      + '<br><b style="color:var(--warn)">重要：免费接口不保留实例图主体</b>（结果可能与原图无关）。想保留主体生成电商/白底图，请用「设置 → AI 生图服务」配置自定义服务（硅基流动，免费额度）。</div>'
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
       + '<div style="flex:1;min-width:260px"><label class="label">指令（描述你想要的修改/效果，可留空用渠道默认效果）</label>'
       + '<textarea id="imgPrompt" class="inp" style="min-height:80px" placeholder="例如：把背景换成纯白 / 加上促销文案氛围 / 保留主体换到沙滩场景"></textarea></div>'
@@ -2808,8 +2813,8 @@ XLX.tools = (function () {
       const st = XLX.llm.getSettings();
       const tip = document.getElementById("imgSvcTip");
       if (tip) tip.textContent = (st && st.imageProvider === "custom" && (st.imageKey || "").trim())
-        ? "当前生图服务：自定义（" + (st.imageModel || "FLUX.1-schnell") + "），在 设置 → AI 生图服务 中可改"
-        : "当前生图服务：免费 Pollinations（国内网络可能较慢，宽幅约需 20-40 秒，可在 设置 中切换自定义服务）";
+        ? "当前生图服务：自定义（" + (st.imageModel || "FLUX.1-schnell") + "），可真正保留实例图主体。在 设置 → AI 生图服务 中可改"
+        : "当前生图服务：免费 Pollinations（国内网络可能较慢）。注意：免费接口图生图不保留实例图主体，想保留主体做电商/白底图请到「设置 → AI 生图服务」配置自定义服务（硅基流动）";
     })();
     box.querySelectorAll(".channel-chip").forEach(b => b.onclick = () => {
       box.querySelectorAll(".channel-chip").forEach(x => x.classList.remove("active"));
@@ -2854,6 +2859,9 @@ XLX.tools = (function () {
     const run = async () => {
       const hasRef = refUrl && (refUrl.url || refUrl.dataUrl);
       if (!hasRef) { XLX.util.toast("请先上传实例图", "warn"); return; }
+      const st = XLX.llm.getSettings();
+      const customOn = st && st.imageProvider === "custom" && !!(st.imageKey || "").trim();
+      if (!customOn && !window.confirm("当前是免费 Pollinations 接口：它的图生图「不保留实例图主体」，生成结果可能与你的图片无关（会按指令自由发挥）。\n\n要得到保留主体的电商图/白底图，建议先到「设置 → AI 生图服务」配置自定义服务（硅基流动，免费额度，几秒可用）。\n\n仍要用免费接口继续吗？")) return;
       const raw = promptEl.value.trim();
       const prompt = [channel.tpl, raw].filter(Boolean).join("，");
       genBtn.disabled = true;
