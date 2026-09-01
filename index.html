@@ -2941,17 +2941,32 @@ XLX.tools = (function () {
     };
 
     const history = loadHistory();
+    const makeImgItem = (i, h) => {
+      const it = document.createElement("div");
+      it.className = "img-item";
+      it.dataset.i = String(i);
+      it.dataset.time = h.time ? String(h.time) : "";
+      it.innerHTML = '<img loading="lazy" src="' + h.url + '"><div class="iact">'
+        + '<button data-a="dl" title="下载">' + svg("download", 14) + '</button>'
+        + '<button data-a="del" title="删除">' + svg("trash", 14) + '</button></div>'
+        + '<div class="ilab">' + XLX.util.esc((h.channel || "普通图") + (h.prompt ? " · " + h.prompt.slice(0, 40) : "")) + '</div>';
+      it.querySelector("[data-a=dl]").onclick = () => {
+        XLX.image.downloadByUrl(h.url, "xlx-" + (h.prompt.slice(0, 16).replace(/[^\w\u4e00-\u9fa5]/g, "") || "img") + "-" + Date.now() + ".png");
+      };
+      it.querySelector("[data-a=del]").onclick = () => {
+        const list = loadHistory();
+        const t = it.dataset.time;
+        if (t) {
+          const idx = list.findIndex(x => String(x.time) === t);
+          if (idx >= 0) list.splice(idx, 1);
+        }
+        saveHistory(list);
+        it.remove();
+      };
+      return it;
+    };
     if (history.length) {
-      resultBox.insertAdjacentHTML("beforeend", history.map((h, i) =>
-        '<div class="img-item" data-i="' + i + '"><img loading="lazy" src="' + h.url + '"><div class="iact">'
-        + '<button data-a="dl" title="下载">' + svg("download", 14) + '</button></div><div class="ilab">' + XLX.util.esc((h.channel || "普通图") + (h.prompt ? " · " + h.prompt.slice(0, 40) : "")) + '</div></div>'
-      ).join(""));
-      resultBox.querySelectorAll(".img-item").forEach(item => {
-        item.querySelector("[data-a=dl]").onclick = () => {
-          const h = history[parseInt(item.dataset.i, 10)];
-          XLX.image.downloadByUrl(h.url, "xlx-" + (h.prompt.slice(0, 16).replace(/[^\w\u4e00-\u9fa5]/g, "") || "img") + "-" + Date.now() + ".png");
-        };
-      });
+      history.forEach((h, i) => resultBox.appendChild(makeImgItem(i, h)));
     }
 
     const run = async () => {
@@ -2968,15 +2983,27 @@ XLX.tools = (function () {
         : '<span class="spin" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> 生成中…（免费接口约需5-40秒，国内网络连不上可到设置切自定义服务）';
       const ph = document.createElement("div");
       ph.className = "img-item";
-      ph.innerHTML = '<div class="iload"><div class="spinner"></div>正在生成图片…<div style="font-size:10px">' + (customOn ? "商业模型约需10-90秒，请稍候" : "免费接口 Pollinations 偶发超时；若一直无结果，建议到「设置 → AI 生图服务」切换自定义服务") + '</div></div>';
+      const _t0 = Date.now();
+      ph.dataset.time = "";
+      ph.innerHTML = '<div class="iload"><div class="spinner"></div>正在生成图片…<div style="font-size:10px">' + (customOn ? "商业模型约需10-90秒，请稍候" : "免费接口 Pollinations 偶发超时；若一直无结果，建议到「设置 → AI 生图服务」切换自定义服务") + '</div>'
+        + '<div class="iact"><button data-a="del" title="删除">' + svg("trash", 14) + '</button></div>';
+      ph.querySelector("[data-a=del]").onclick = () => ph.remove();
       resultBox.insertBefore(ph, resultBox.firstChild ? resultBox.firstChild.nextSibling : null);
       try {
         const url = await XLX.image.generate(prompt, { aspect: channel.ratio, image: refUrl });
-        ph.innerHTML = '<img src="' + url + '" style="aspect-ratio:auto"><div class="iact"><button data-a="dl">' + svg("download", 14) + '</button></div><div class="ilab">' + XLX.util.esc(channel.name + (prompt ? " · " + prompt.slice(0, 40) : "")) + '</div>';
+        ph.innerHTML = '<img src="' + url + '" style="aspect-ratio:auto"><div class="iact"><button data-a="dl">' + svg("download", 14) + '</button><button data-a="del" title="删除">' + svg("trash", 14) + '</button></div><div class="ilab">' + XLX.util.esc(channel.name + (prompt ? " · " + prompt.slice(0, 40) : "")) + '</div>';
         ph.querySelector("[data-a=dl]").onclick = () => XLX.image.downloadByUrl(url, "xlx-" + Date.now() + ".png");
         const list = loadHistory();
-        list.unshift({ url, prompt, channel: channel.name, time: Date.now() });
+        list.unshift({ url, prompt, channel: channel.name, time: _t0 });
         saveHistory(list);
+        ph.dataset.time = String(_t0);
+        ph.querySelector("[data-a=del]").onclick = () => {
+          const l2 = loadHistory();
+          const idx = l2.findIndex(x => String(x.time) === String(_t0));
+          if (idx >= 0) l2.splice(idx, 1);
+          saveHistory(l2);
+          ph.remove();
+        };
       } catch (e) {
         ph.querySelector(".iload").innerHTML = '<div style="color:var(--red);text-align:center;padding:10px">' + XLX.util.esc(e.message) + '</div>';
       }
