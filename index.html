@@ -530,6 +530,37 @@ select.inp{padding-right:34px}
 .err-hint{font-size:10.5px;color:var(--text3)}
 .err-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
 
+/* ===== 全局模型选择器 ===== */
+.ms-container{position:relative;display:inline-block}
+.ms-pill{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-size:11px;cursor:pointer;color:var(--text);transition:border-color .15s}
+.ms-pill:hover{border-color:var(--accent)}
+.ms-logo{display:flex;color:var(--accent)}
+.ms-logo svg{width:13px;height:13px}
+.ms-name{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.ms-pill>svg{width:11px;height:11px;color:var(--text3);flex:0 0 auto}
+.ms-drop{position:absolute;top:calc(100% + 6px);left:0;min-width:260px;max-width:320px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:8px;z-index:200;max-height:70vh;overflow:auto}
+.ms-group{font-size:10px;color:var(--text3);padding:7px 9px 4px;letter-spacing:.4px}
+.ms-item{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:9px;cursor:pointer}
+.ms-item:hover{background:var(--bg)}
+.ms-item.active{background:rgba(74,168,255,.1);border:1px solid rgba(74,168,255,.35)}
+.ms-item.active svg{width:13px;height:13px;color:var(--accent);flex:0 0 auto}
+.ms-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;border:1px solid var(--text3)}
+.ms-item.active .ms-dot{display:none}
+.ms-item .ms-it{min-width:0;flex:1}
+.ms-item .ms-it b{display:block;font-size:12px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ms-item .ms-it span{display:block;font-size:10px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ms-item.ms-manage{border-top:1px solid var(--border);margin-top:4px;padding-top:9px;color:var(--accent)}
+.ms-item.ms-manage svg{width:13px;height:13px;flex:0 0 auto}
+.ms-item.ms-manage .ms-it b{color:var(--accent)}
+
+/* ===== 创作中心 hero 语言模型 pill ===== */
+.hero-model{display:inline-flex;align-items:center;gap:6px;margin-top:10px;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:11px;color:var(--text2);cursor:pointer;transition:border-color .15s}
+.hero-model:hover{border-color:var(--accent)}
+.hero-model span{display:flex;color:var(--accent)}
+.hero-model span svg{width:12px;height:12px}
+.hero-model b{color:var(--text);font-weight:600}
+.hero-model i{font-style:normal;color:var(--accent2)}
+
 </style>
 </head>
 <body>
@@ -595,7 +626,7 @@ select.inp{padding-right:34px}
         <div class="chat-input-wrap">
           <div class="chat-mode-row">
             <span class="mode-chip">🦞 智能模式</span>
-            <span class="mode-chip">多平台 · 流式秒回</span>
+            <span id="msContainer" class="ms-container"></span>
             <span class="mode-chip" id="searchChip" title="开启后：每次提问都会先联网搜索最新资料，再结合资料回答">联网搜索：关</span>
             <span class="mode-chip" id="devChip" title="开启后：你说开发需求，AI 生成代码并自动打包成软件，直接预览/下载">开发模式：自动</span>
           </div>
@@ -1348,6 +1379,108 @@ XLX.modelHub = (function () {
   }
 
   return { getModels, all, current, add, remove, mark, asProvider, imageConfig, imageVendor, llmVendor, migrateFromSettings };
+})();
+
+</script>
+<script>
+/* ===== 模型选择器：对话/AI帮写全局切换当前语言模型 =====
+ * 显示当前模型 pill，点击弹出下拉，列出模型库语言模型与全部预设平台。
+ * 选中后 mark 为模型库当前（或写入单配置 provider），立即生效，无需进设置。 */
+
+XLX.modelsel = (function () {
+  let open = false;
+
+  function svg(n, s) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:' + s + 'px;height:' + s + 'px">' + (XLX.ICONS[n] || "") + '</svg>'; }
+
+  /* 当前模型显示文本 */
+  function currentLabel() {
+    const hubM = XLX.modelHub && XLX.modelHub.current("llm");
+    if (hubM && hubM.key) return hubM.name || hubM.model || hubM.vendor;
+    const p = XLX.llm.currentProvider();
+    const s = XLX.llm.getSettings();
+    return p.name + (s.model && s.model !== p.model ? " · " + s.model : "");
+  }
+
+  function buildListHTML() {
+    const hubList = (XLX.modelHub ? XLX.modelHub.all("llm") : []).filter(m => m.key);
+    const s = XLX.llm.getSettings();
+    const curHub = XLX.modelHub && XLX.modelHub.current("llm");
+    let html = '';
+    if (hubList.length) {
+      html += '<div class="ms-group">模型库</div>';
+      html += hubList.map(m => {
+        const active = curHub && curHub.id === m.id;
+        return '<div class="ms-item' + (active ? " active" : "") + '" data-ms="hub" data-id="' + m.id + '">'
+          + (active ? svg("check", 13) : '<span class="ms-dot"></span>')
+          + '<div class="ms-it"><b>' + XLX.util.esc(m.name || m.model) + '</b><span>' + XLX.util.esc(m.model || "") + (m.marked ? " · 当前" : "") + '</span></div></div>';
+      }).join("");
+    }
+    html += '<div class="ms-group">' + (hubList.length ? "或使用设置中的单配置平台" : "全部平台（去设置填 Key 后可用）") + '</div>';
+    html += XLX.PROVIDERS.map(p => {
+      const saved = (s.providers || []).find(x => x.id === p.id);
+      const on = !!(saved && saved.key);
+      const active = !hubList.length && !curHub && (s.provider === p.id);
+      return '<div class="ms-item' + (active ? " active" : "") + '" data-ms="provider" data-id="' + p.id + '">'
+        + (active ? svg("check", 13) : '<span class="ms-dot" style="background:' + p.color + '"></span>')
+        + '<div class="ms-it"><b>' + p.name + (on ? ' <span style="color:var(--green)">●已填Key</span>' : (p.free ? ' <span style="color:var(--green)">免费</span>' : '')) + '</b><span>' + XLX.util.esc(p.model || "") + '</span></div></div>';
+    }).join("");
+    html += '<div class="ms-item ms-manage" data-ms="manage">' + svg("settings", 13) + '<div class="ms-it"><b>去设置管理模型</b><span>添加/删除模型库条目</span></div></div>';
+    return html;
+  }
+
+  function bindDrop(drop, container) {
+    drop.querySelectorAll("[data-ms]").forEach(item => {
+      item.onclick = () => {
+        const type = item.dataset.ms;
+        if (type === "manage") {
+          open = false; drop.hidden = true;
+          XLX.app.go("settings");
+          return;
+        }
+        if (type === "hub") {
+          XLX.modelHub.mark(item.dataset.id);
+          XLX.util.toast("已切换语言模型", "ok");
+        } else {
+          const s = XLX.llm.getSettings();
+          const p = XLX.PROVIDERS.find(x => x.id === item.dataset.id);
+          if (p) { s.provider = p.id; s.model = s.model || p.model; XLX.llm.saveSettings(s); XLX.util.toast("已切换平台：" + p.name, "ok"); }
+        }
+        open = false; drop.hidden = true;
+        render(container);
+        try { XLX.app.refreshStatus(); } catch (e) {}
+      };
+    });
+  }
+
+  function render(container) {
+    if (!container) return;
+    container.innerHTML = '<div class="ms-pill" id="msPill" title="点击切换当前模型">'
+      + '<span class="ms-logo">' + svg("box", 13) + '</span>'
+      + '<span class="ms-name" id="msName">' + XLX.util.esc(currentLabel()) + '</span>'
+      + svg("chev", 12) + '</div>'
+      + '<div class="ms-drop" id="msDrop" hidden>' + buildListHTML() + '</div>';
+    const pill = container.querySelector("#msPill");
+    const drop = container.querySelector("#msDrop");
+    bindDrop(drop, container);
+    pill.onclick = (e) => {
+      e.stopPropagation();
+      open = !open;
+      drop.hidden = !open;
+      if (open) { drop.innerHTML = buildListHTML(); bindDrop(drop, container); }
+    };
+  }
+
+  function attachGlobalClose() {
+    document.addEventListener("click", (e) => {
+      if (open && !e.target.closest(".ms-pill") && !e.target.closest(".ms-drop")) {
+        open = false;
+        const d = document.getElementById("msDrop");
+        if (d) d.hidden = true;
+      }
+    });
+  }
+
+  return { render, currentLabel, attachGlobalClose };
 })();
 
 </script>
@@ -4801,6 +4934,7 @@ XLX.create = (function () {
       + '<h1>您好！今天您想创作什么呢？</h1>'
       + '<p class="create-sub">' + A.desc + '</p>'
       + '<div class="agent-tabs">' + tabsHTML + '</div>'
+      + '<div class="hero-model" id="heroModel" onclick="XLX.app.go(\'settings\')"><span>' + svg("box", 12) + '</span><b>语言模型</b>：<i>' + XLX.util.esc((XLX.modelsel && XLX.modelsel.currentLabel ? XLX.modelsel.currentLabel() : "未配置")) + '</i> · 点击管理</div>'
       + '</div>'
       + '<div class="create-composer">'
       + '<textarea id="createInput" class="create-input" rows="3" placeholder="' + A.placeholder + '"></textarea>'
@@ -6879,6 +7013,7 @@ XLX.app = (function () {
     window.scrollTo(0, 0);
     if (view === "chat") {
       document.getElementById("newChatBtn").style.display = "flex";
+      if (XLX.modelsel && XLX.modelsel.render) XLX.modelsel.render(document.getElementById("msContainer"));
       if (document.getElementById("chatInput")) document.getElementById("chatInput").focus();
     } else {
       document.getElementById("newChatBtn").style.display = "none";
@@ -7024,8 +7159,8 @@ XLX.app = (function () {
 
   function init() {
     XLX.modelHub && XLX.modelHub.migrateFromSettings && XLX.modelHub.migrateFromSettings();
-    renderSidebar();
-    renderTopbar();
+    if (XLX.modelsel) { XLX.modelsel.attachGlobalClose(); XLX.modelsel.render(document.getElementById("msContainer")); }
+    renderSidebar();    renderTopbar();
     renderEmpty();
     initChatInput();
     XLX.chat.initSearchChip();
