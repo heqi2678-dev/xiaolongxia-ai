@@ -3374,13 +3374,25 @@ XLX.tools = (function () {
       + '<div style="border:1px solid var(--border);border-radius:10px;padding:12px">'
       + '<div style="font-weight:600;font-size:13px;margin-bottom:8px">② 本地上传</div>'
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
-      + '<div style="flex:1;min-width:240px"><input type="file" id="vtFile" accept="video/*,audio/*,.mp3,.wav,.m4a,.mp4,.mov,.flac" class="inp" style="padding:8px"></div>'
-      + '<div style="flex:0 0 auto"><select id="vtModel" class="inp" style="min-width:190px">'
-      + '<option value="tiny">极速 · ' + ASR_MODELS.tiny.size + '</option>'
-      + '<option value="base">标准 · ' + ASR_MODELS.base.size + '</option>'
-      + '</select></div>'
-      + '<button class="btn primary" id="vtRunBtn">' + svg("mic", 15) + ' 转写上传文件</button>'
-      + '</div></div>'
+       + '<div style="flex:1;min-width:240px"><input type="file" id="vtFile" accept="video/*,audio/*,.mp3,.wav,.m4a,.mp4,.mov,.flac" class="inp" style="padding:8px"></div>'
+       + '<div style="flex:0 0 auto"><select id="vtLang" class="inp" style="min-width:130px">'
+       + '<option value="">自动识别语言</option>'
+       + '<option value="zh" selected>中文</option>'
+       + '<option value="en">英文</option>'
+       + '<option value="ja">日文</option>'
+       + '<option value="ko">韩文</option>'
+       + '<option value="es">西班牙文</option>'
+       + '<option value="fr">法文</option>'
+       + '<option value="de">德文</option>'
+       + '</select></div>'
+       + '<div style="flex:0 0 auto"><select id="vtModel" class="inp" style="min-width:210px">'
+       + '<option value="base">标准 · ' + ASR_MODELS.base.size + '（更准确）</option>'
+       + '<option value="tiny" selected>极速 · ' + ASR_MODELS.tiny.size + '</option>'
+       + '</select></div>'
+       + '<button class="btn primary" id="vtRunBtn">' + svg("mic", 15) + ' 转写上传文件</button>'
+       + '</div>'
+       + '<div style="font-size:11px;color:var(--text3);margin-top:4px">识别不准时请①切换到"标准"模型 ②选对语言（自动识别会增加时长）</div>'
+       + '</div>'
       + '<div id="vtProgress" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>'
       + '<div id="vtResult" style="margin-top:10px"></div>'
       + '<details style="margin-top:12px;font-size:12px;color:var(--text3)">'
@@ -3391,6 +3403,7 @@ XLX.tools = (function () {
 
     const fileEl = document.getElementById("vtFile");
     const modelEl = document.getElementById("vtModel");
+    const langEl = document.getElementById("vtLang");
     const urlEl = document.getElementById("vtUrl");
     const progEl = document.getElementById("vtProgress");
     const result = document.getElementById("vtResult");
@@ -3419,12 +3432,14 @@ XLX.tools = (function () {
       result.innerHTML = '<div style="color:var(--warn);font-size:12.5px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px">' + XLX.util.esc(msg) + '</div>';
     }
 
-    async function transcribeBlob(blob, modelKey) {
+    async function transcribeBlob(blob, modelKey, langCode) {
       const pipe = await loadAsr(modelKey, (msg) => { progEl.innerHTML = XLX.util.esc(msg); });
       progEl.innerHTML = "正在解析音频…";
       const audio = await decodeAudioFile(blob);
       progEl.innerHTML = "正在识别说话内容（文件较长可能需要一些时间）…";
-      const out = await pipe(audio, { language: "zh", task: "transcribe", chunk_length_s: 30, stride_length_s: 5 });
+      const genOpts = { task: "transcribe", chunk_length_s: 30, stride_length_s: 5, num_beams: 5 };
+      if (langCode) genOpts.language = langCode;
+      const out = await pipe(audio, genOpts);
       const text = (out && out.text || "").trim();
       if (!text) throw new Error("未识别到说话内容（请确认文件含人声）");
       progEl.innerHTML = '<span style="color:var(--ok)">✅ 转写完成</span>';
@@ -3438,7 +3453,7 @@ XLX.tools = (function () {
       progEl.innerHTML = "正在准备…";
       result.innerHTML = "";
       try {
-        await transcribeBlob(file, modelEl.value);
+        await transcribeBlob(file, modelEl.value, langEl.value);
       } catch (e) {
         progEl.innerHTML = "";
         showErr("转写失败：" + (e.message || e));
@@ -3456,7 +3471,7 @@ XLX.tools = (function () {
         const blob = await fetchVideoBlob(url);
         const ext = ((url.split(".").pop() || "mp4").split(/[?#]/)[0].replace(/[^a-z0-9]/g, "") || "mp4");
         const file = new File([blob], "link." + ext, { type: blob.type || "video/mp4" });
-        await transcribeBlob(file, modelEl.value);
+        await transcribeBlob(file, modelEl.value, langEl.value);
       } catch (e) {
         progEl.innerHTML = "";
         showErr("链接提取失败：" + (e.message || e) + "（多为跨域限制，可先下载文件再走 ②本地上传）");
