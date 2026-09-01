@@ -460,6 +460,41 @@ select.inp{padding-right:34px}
   .proj-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
 }
 
+/* ===== AI 开发过程面板 ===== */
+.gen-proc{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;animation:fadeUp .25s}
+.gp-head{display:flex;align-items:center;gap:8px;padding:11px 15px;font-size:13px;font-weight:700;color:var(--text);background:linear-gradient(135deg,rgba(74,168,255,.12),rgba(56,217,230,.08));border-bottom:1px solid var(--border)}
+.gp-head svg{width:15px;height:15px;color:var(--blue)}
+.gp-steps{padding:12px 15px 6px;display:flex;flex-direction:column;gap:4px}
+.gp-step{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:9px;opacity:.45;transition:.2s}
+.gp-step.active{opacity:1;background:rgba(74,168,255,.08)}
+.gp-step.done{opacity:1}
+.gp-step.fail{opacity:1;background:rgba(255,95,109,.08)}
+.gps-ic{width:16px;height:16px;border-radius:50%;border:2px solid var(--text3);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.gp-step.active .gps-ic{border-color:var(--blue);border-top-color:transparent;animation:spin 1s linear infinite}
+.gp-step.done .gps-ic{border-color:var(--green);background:var(--green)}
+.gp-step.done .gps-ic::after{content:"";width:7px;height:4px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) translate(1px,-1px)}
+.gp-step.fail .gps-ic{border-color:var(--red);background:var(--red)}
+.gp-step.fail .gps-ic::after{content:"";width:6px;height:6px;background:#fff;border-radius:50%}
+.gps-tx{flex:1;display:flex;align-items:baseline;gap:9px;min-width:0}
+.gps-t{font-size:12.5px;font-weight:600;color:var(--text)}
+.gps-d{font-size:10.5px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gps-st{font-size:10px;color:var(--text3);flex-shrink:0}
+.gp-step.active .gps-st{color:var(--blue)}
+.gp-step.done .gps-st{color:var(--green)}
+.gp-step.fail .gps-st{color:var(--red)}
+.gp-out{margin:8px 15px 12px;border:1px solid var(--border);border-radius:11px;overflow:hidden}
+.gp-bar{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:#0d1420;border-bottom:1px solid var(--border);font-size:11px;color:var(--text3)}
+.gp-bar .gp-cur{color:var(--text2)}
+.gp-bar .gp-cur b{color:var(--cyan)}
+.gp-bar .gp-count{color:var(--green)}
+.gp-code{background:#0d1420;margin:0;padding:11px 13px;font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--text2);max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+.gp-files{padding:0 15px 14px}
+.gpf-t{font-size:11px;color:var(--text3);margin-bottom:7px}
+.gpf-list{display:flex;flex-wrap:wrap;gap:7px}
+.gpf-chip{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:9px;background:var(--panel2);border:1px solid var(--border);font-size:11.5px;color:var(--text2);cursor:pointer;transition:.15s}
+.gpf-chip svg{width:12px;height:12px;color:var(--yellow)}
+.gpf-chip:hover{border-color:var(--accent);color:var(--text);background:var(--card)}
+
 </style>
 </head>
 <body>
@@ -5381,7 +5416,13 @@ XLX.studio = (function () {
     btn.disabled = true;
     btn.innerHTML = "AI 正在开发中…";
     const area = S.chatArea();
-    area.innerHTML = '<div class="msg ai"><div class="avatar">🦞</div><div class="bubble"><div class="md"><div class="typing-dots"><i></i><i></i><i></i></div><p style="font-size:12px;color:var(--text3)">正在根据你的需求开发软件：<b>' + XLX.util.esc(req.slice(0, 50)) + '</b>…</p></div></div></div>';
+    area.innerHTML = procHTML(req);
+    const $ = (sel) => area.querySelector(sel);
+
+    /* 步骤1：分析需求 */
+    setStep(area, "analyze", "done");
+    setStep(area, "code", "active");
+
     const sys = "你是资深全栈软件工程师。请根据用户需求开发一个完整、可直接运行的软件项目。\n"
       + "【输出格式严格要求】\n每个文件用以下分隔标记包裹，标记独占一行：\n"
       + "<<<FILE:文件名.扩展名>>>\n文件完整内容\n<<<END>>>\n"
@@ -5391,7 +5432,19 @@ XLX.studio = (function () {
     const usr = "请开发：\n" + req;
     let final = "";
     try {
-      final = await XLX.llm.ask(sys, usr);
+      /* 步骤2：流式生成代码（逐字显示，可看到每步输出） */
+      await XLX.llm.chat([
+        { role: "system", content: sys },
+        { role: "user", content: usr }
+      ], {
+        stream: true,
+        onDelta(piece, full) { final = full; renderStream(area, full); }
+      });
+      setStep(area, "code", "done");
+
+      /* 步骤3：解析文件 */
+      setStep(area, "parse", "active");
+      await new Promise(r => setTimeout(r, 350));
       const parsed = textToProject(final);
       if (parsed && parsed.length) {
         files = parsed;
@@ -5400,18 +5453,88 @@ XLX.studio = (function () {
         save(name.trim());
         render();
         setTab("edit");
-        area.innerHTML = '<div class="msg ai"><div class="avatar">🦞</div><div class="bubble"><div class="md"><p><strong>✅ 软件开发完成！</strong></p>' + XLX.util.renderMarkdown(final.slice(0, 800)) + '</div></div></div>';
+        setStep(area, "parse", "done");
+        renderFileList(area, files);
+        area.insertAdjacentHTML("beforeend",
+          '<div class="msg ai" style="margin-top:14px"><div class="avatar">🦞</div><div class="bubble"><div class="md"><p><strong>✅ 软件开发完成！</strong> 共生成 <b>' + files.length + '</b> 个文件，已自动打开代码编辑页，可编辑、预览或打包下载。</p></div></div></div>');
         XLX.util.toast("项目已生成，共 " + files.length + " 个文件，可编辑、预览或打包下载", "ok");
       } else {
-        area.innerHTML = '<div class="msg ai"><div class="avatar">🦞</div><div class="bubble"><div class="md"><p>AI 返回了内容但未解析到文件标记，原始输出：</p>' + XLX.util.renderMarkdown(final.slice(0, 1500)) + '</div></div></div>';
+        setStep(area, "parse", "fail");
+        area.insertAdjacentHTML("beforeend",
+          '<div class="msg ai"><div class="avatar">🦞</div><div class="bubble"><div class="md"><p style="color:var(--warn)">⚠ AI 返回了内容但未解析到文件标记，原始输出：</p>' + XLX.util.renderMarkdown(final.slice(0, 1500)) + '</div></div></div>');
         XLX.util.toast("未解析到文件，请重试或换一个更明确的描述", "err");
       }
     } catch (e) {
-      area.innerHTML = '<div class="msg ai"><div class="avatar">🦞</div><div class="bubble"><div class="md"><p style="color:var(--red)">⚠ ' + XLX.util.esc(e.message) + '</p></div></div></div>';
+      setStep(area, "code", "fail");
+      area.insertAdjacentHTML("beforeend",
+        '<div class="msg ai"><div class="avatar">🦞</div><div class="bubble"><div class="md"><p style="color:var(--red)">⚠ ' + XLX.util.esc(e.message) + '</p></div></div></div>');
       XLX.util.toast(e.message, "err");
     }
     btn.disabled = false;
     btn.innerHTML = svg("sparkle", 15) + ' AI 开发软件';
+  }
+
+  /* ---------- AI 开发过程面板 ---------- */
+  function procHTML(req) {
+    return '<div class="gen-proc">'
+      + '<div class="gp-head">' + svg("terminal", 15) + ' AI 开发过程</div>'
+      + '<div class="gp-steps">'
+      + stepHTML("analyze", "分析需求", "读取你的需求并规划项目结构")
+      + stepHTML("code", "生成代码", "AI 正在逐字编写代码")
+      + stepHTML("parse", "解析文件", "识别文件并写入项目")
+      + stepHTML("done", "项目就绪", "完成，可编辑/预览/打包")
+      + '</div>'
+      + '<div class="gp-out">'
+      + '<div class="gp-bar"><span class="gp-cur">等待开始…</span><span class="gp-count"></span></div>'
+      + '<pre class="gp-code"></pre>'
+      + '</div>'
+      + '<div class="gp-files"></div>'
+      + '</div>'
+      + '<div style="font-size:11px;color:var(--text3);margin-top:10px;padding-left:2px">需求：' + XLX.util.esc(req.slice(0, 80)) + (req.length > 80 ? "…" : "") + '</div>';
+  }
+  function stepHTML(id, t, d) {
+    return '<div class="gp-step" data-step="' + id + '"><span class="gps-ic"></span><div class="gps-tx"><span class="gps-t">' + t + '</span><span class="gps-d">' + d + '</span></div><span class="gps-st">等待</span></div>';
+  }
+  function setStep(area, id, status) {
+    const el = area.querySelector('.gp-step[data-step="' + id + '"]');
+    if (!el) return;
+    el.classList.remove("active", "done", "fail");
+    el.classList.add(status);
+    const st = el.querySelector(".gps-st");
+    if (st) st.textContent = status === "done" ? "完成" : (status === "fail" ? "失败" : "进行中…");
+    if (status === "active") {
+      const p = el.closest(".gp-steps");
+      if (p && p.scrollTo) p.scrollTo({ top: el.offsetTop - 8, behavior: "smooth" });
+    }
+  }
+
+  let _lastStream = 0;
+  function renderStream(area, full) {
+    const now = Date.now();
+    if (now - _lastStream < 90) return;
+    _lastStream = now;
+    const pre = area.querySelector(".gp-code");
+    if (pre) {
+      pre.textContent = full.slice(-1200);
+      pre.scrollTop = pre.scrollHeight;
+    }
+    const m = [...full.matchAll(/<<<FILE:([^>]+)>>>/g)];
+    const cur = area.querySelector(".gp-cur");
+    if (cur) cur.innerHTML = m.length
+      ? "正在生成文件：<b>" + XLX.util.esc(m[m.length - 1][1]) + "</b>（已生成 " + m.length + " 个）"
+      : "AI 正在构思代码…";
+    const cnt = area.querySelector(".gp-count");
+    if (cnt) cnt.textContent = m.length ? "已生成 " + m.length + " 个文件" : "";
+  }
+
+  function renderFileList(area, fileList) {
+    const box = area.querySelector(".gp-files");
+    if (!box) return;
+    box.innerHTML = '<div class="gpf-t">项目文件清单：</div><div class="gpf-list">' + fileList.map(f =>
+      '<span class="gpf-chip" data-f="' + XLX.util.esc(f.name) + '">' + svg("filecode", 12) + ' ' + XLX.util.esc(f.name) + '</span>').join("") + '</div>';
+    box.querySelectorAll(".gpf-chip").forEach(c => {
+      c.onclick = () => { active = c.dataset.f; XLX.studio.setTab("edit"); };
+    });
   }
 
   function parseFiles(text) {
