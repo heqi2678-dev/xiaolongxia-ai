@@ -321,6 +321,7 @@ select.inp{padding-right:34px}
 .preset-chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
 .preset-chip{font-size:11px;background:var(--panel2);border:1px solid var(--border);color:var(--text2);border-radius:20px;padding:3px 11px;cursor:pointer}
 .preset-chip:hover{border-color:var(--accent);color:var(--accent2)}
+.channel-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
 
 /* ===== Modal ===== */
 #modal{position:fixed;inset:0;background:rgba(4,6,10,.75);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
@@ -1617,14 +1618,19 @@ XLX.image = (function () {
           const ctrl = new AbortController();
           const timer = setTimeout(() => ctrl.abort(), 60000);
           const base = (s.imageBase || "https://api.siliconflow.cn/v1").replace(/\/+$/, "");
+          const body = { model: s.imageModel || "FLUX.1-schnell", prompt, image_size: w + "x" + h, num_inference_steps: 20, seed: Math.floor(Math.random() * 100000) };
+          if (opts.image) {
+            const ref = typeof opts.image === "string" ? opts.image : (opts.image.dataUrl || opts.image.url);
+            if (ref) body.image = ref;
+          }
           fetch(base + "/images/generations", {
             method: "POST",
             signal: ctrl.signal,
             headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (s.imageKey || "").trim() },
-            body: JSON.stringify({ model: s.imageModel || "FLUX.1-schnell", prompt, image_size: w + "x" + h, num_inference_steps: 20, seed: Math.floor(Math.random() * 100000) })
+            body: JSON.stringify(body)
           }).then(r => r.json()).then(j => {
             clearTimeout(timer);
-            const img = j && j.data && j.data[0];
+            const img = (j && j.data && j.data[0]) || (j && j.images && j.images[0]);
             const dataUrl = img && (img.url || (img.b64_json && "data:image/png;base64," + img.b64_json));
             if (dataUrl) done(resolve, dataUrl);
             else done(reject, new Error("生图服务返回异常：" + JSON.stringify(j).slice(0, 160)));
@@ -1636,7 +1642,8 @@ XLX.image = (function () {
           return;
         }
         let url = freeUrl(prompt, w, h);
-        if (opts.image) url += "&image=" + encodeURIComponent(opts.image);
+        const refUrl = opts.image && (typeof opts.image === "string" ? opts.image : opts.image.url);
+        if (refUrl) url += "&image=" + encodeURIComponent(refUrl);
         const img = new Image();
         img.onload = () => done(resolve, url);
         img.onerror = () => {
@@ -1668,7 +1675,7 @@ XLX.image = (function () {
     });
   }
 
-  /* 上传参考图到免费图床（CORS开放），返回可被AI访问的直链URL */
+  /* 上传参考图：压缩后返回 { url: 图床公网URL(供免费接口), dataUrl: base64(供自定义服务) } */
   function uploadRefImage(file) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -1683,16 +1690,21 @@ XLX.image = (function () {
           cv.getContext("2d").drawImage(img, 0, 0, w, h);
           cv.toBlob(blob => {
             if (!blob) { reject(new Error("图片处理失败")); return; }
-            const fd = new FormData();
-            fd.append("file", blob, "ref.jpg");
-            fetch("https://tmpfiles.org/api/v1/upload", { method: "POST", body: fd })
-              .then(r => r.json())
-              .then(j => {
-                if (j && j.status === "success" && j.data && j.data.url) {
-                  resolve(j.data.url.replace("tmpfiles.org/", "tmpfiles.org/dl/"));
-                } else reject(new Error("图床上传失败（可不用参考图直接生成）"));
-              })
-              .catch(() => reject(new Error("参考图上传失败：免费图床国内网络可能连不上，可不用参考图直接生成")));
+            const reader = new FileReader();
+            reader.onload = () => {
+              const dataUrl = reader.result;
+              const fd = new FormData();
+              fd.append("file", blob, "ref.jpg");
+              fetch("https://tmpfiles.org/api/v1/upload", { method: "POST", body: fd })
+                .then(r => r.json())
+                .then(j => {
+                  if (j && j.status === "success" && j.data && j.data.url) resolve({ url: j.data.url.replace("tmpfiles.org/", "tmpfiles.org/dl/"), dataUrl });
+                  else resolve({ url: null, dataUrl });
+                })
+                .catch(() => resolve({ url: null, dataUrl }));
+            };
+            reader.onerror = () => resolve({ url: null, dataUrl: null });
+            reader.readAsDataURL(blob);
           }, "image/jpeg", 0.92);
         } catch (e) { reject(new Error("图片处理失败：" + e.message)); }
       };
@@ -2741,39 +2753,51 @@ XLX.tools = (function () {
     render();
   }
 
-  /* ===================== AI 生图 ===================== */
+  /* ===================== AI 生图（以图生图：上传实例图 + 选渠道 + 输入指令） ===================== */
 
   /* 供 runImage/market 预填参考图 */
   let pendingRefUrl = null;
 
+  const IMG_CHANNELS = [
+    { id: "ecommerce", name: "电商图", ratio: "square", hint: "商品主体清晰，电商展示效果", tpl: "电商商品展示图" },
+    { id: "poster", name: "海报图", ratio: "wide", hint: "宣传海报构图，视觉冲击力强", tpl: "宣传海报" },
+    { id: "normal", name: "普通图", ratio: "square", hint: "常规生成，忠实还原实例图", tpl: "" },
+    { id: "white", name: "白底图", ratio: "square", hint: "纯白背景商品图，干净无杂物", tpl: "纯白背景商品图，背景纯净无阴影" },
+    { id: "transparent", name: "透明图", ratio: "square", hint: "透明背景（免费接口以白底近似）", tpl: "透明背景，主体完整，背景纯白（近似透明）" }
+  ];
+
   function renderImg(box) {
+    const chHTML = IMG_CHANNELS.map((c, i) =>
+      '<button class="preset-chip channel-chip' + (i === 0 ? " active" : "") + '" data-c="' + c.id + '">' + c.name + '</button>'
+    ).join(" ");
     box.innerHTML = ''
+      + '<div class="notice" style="font-size:12px;color:var(--text2);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:12px">'
+      + '以图生图模式：<b>先上传实例图 → 选择渠道 → 输入指令</b>，生成与实例图相关的结果。'
+      + '<br>例如：上传一张产品照片，渠道选「白底图」，输入「把背景换成纯白」，得到干净的白底商品图。</div>'
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
-      + '<div style="flex:1;min-width:260px"><label class="label">描述你想要的画面（支持中英文，越具体效果越好）</label>'
-      + '<textarea id="imgPrompt" class="inp" style="min-height:90px" placeholder="例如：一只戴着厨师帽的红色小龙虾在厨房做小龙虾料理，暖色调，美食摄影风格，高清细节"></textarea></div>'
-      + '<div><label class="label">图片比例</label>'
-      + '<select id="imgRatio" class="inp" style="min-width:150px">'
-      + '<option value="square">方图 1:1（默认）</option>'
-      + '<option value="tall">竖版长图（详情页）</option>'
-      + '<option value="wide">横版宽图（海报）</option>'
-      + '</select></div>'
+      + '<div style="flex:1;min-width:260px"><label class="label">指令（描述你想要的修改/效果，可留空用渠道默认效果）</label>'
+      + '<textarea id="imgPrompt" class="inp" style="min-height:80px" placeholder="例如：把背景换成纯白 / 加上促销文案氛围 / 保留主体换到沙滩场景"></textarea></div>'
       + '<button class="btn primary" id="imgGenBtn" style="margin-bottom:2px">' + svg("sparkle", 15) + ' 生成图片</button>'
       + '<div id="imgSvcTip" style="flex:0 0 100%;font-size:11px;color:var(--text3)"></div>'
       + '</div>'
       + '<div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">'
       + '<input type="file" id="imgRefFile" accept="image/*" style="display:none">'
-      + '<button class="btn ghost" id="imgRefBtn">' + svg("upload", 14) + ' 上传参考图（以图生图，可选）</button>'
+      + '<button class="btn primary" id="imgRefBtn" style="background:var(--panel2);color:var(--text)">' + svg("upload", 14) + ' 上传实例图（必填）</button>'
       + '<span id="imgRefName" style="font-size:11.5px;color:var(--text3)"></span>'
       + '<img id="imgRefPreview" style="display:none;width:64px;height:64px;object-fit:cover;border-radius:9px;border:1px solid var(--border)">'
       + '<button class="btn ghost" id="imgRefClear" style="display:none">' + svg("x", 13) + ' 清除</button>'
+      + '</div>'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">'
+      + '<label class="label" style="margin:0">渠道：</label>' + chHTML
+      + '<span id="imgChannelHint" style="font-size:11px;color:var(--text3)">' + IMG_CHANNELS[0].hint + '</span>'
       + '</div>'
       + '<div id="imgResult" class="img-grid"></div>';
 
     const genBtn = document.getElementById("imgGenBtn");
     const promptEl = document.getElementById("imgPrompt");
-    const ratioEl = document.getElementById("imgRatio");
     const resultBox = document.getElementById("imgResult");
     let refUrl = pendingRefUrl;
+    let channel = IMG_CHANNELS[0];
     pendingRefUrl = null;
 
     const refFile = document.getElementById("imgRefFile");
@@ -2787,6 +2811,12 @@ XLX.tools = (function () {
         ? "当前生图服务：自定义（" + (st.imageModel || "FLUX.1-schnell") + "），在 设置 → AI 生图服务 中可改"
         : "当前生图服务：免费 Pollinations（国内网络可能较慢，宽幅约需 20-40 秒，可在 设置 中切换自定义服务）";
     })();
+    box.querySelectorAll(".channel-chip").forEach(b => b.onclick = () => {
+      box.querySelectorAll(".channel-chip").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      channel = IMG_CHANNELS.find(c => c.id === b.dataset.c);
+      document.getElementById("imgChannelHint").textContent = channel.hint;
+    });
     document.getElementById("imgRefBtn").onclick = () => refFile.click();
     refFile.onchange = async () => {
       const f = refFile.files[0];
@@ -2794,7 +2824,7 @@ XLX.tools = (function () {
       refName.textContent = "上传中…";
       try {
         refUrl = await XLX.image.uploadRefImage(f);
-        refName.textContent = "参考图已就绪（将以它为中心生成）";
+        refName.textContent = "实例图已就绪";
         refPreview.src = URL.createObjectURL(f);
         refPreview.style.display = "block";
         refClear.style.display = "";
@@ -2807,19 +2837,11 @@ XLX.tools = (function () {
       refUrl = null; refFile.value = ""; refName.textContent = ""; refPreview.style.display = "none"; refClear.style.display = "none";
     };
 
-    const preset = ["美食摄影", "国潮插画", "扁平卡通", "3D渲染", "写实照片", "水彩手绘", "赛博朋克", "日系动漫", "白底商品图", "促销海报"];
-    resultBox.insertAdjacentHTML("beforeend",
-      '<div style="grid-column:1/-1;font-size:12px;color:var(--text3)">风格预设：' + preset.map(p => '<button class="preset-chip" data-p="' + p + '">' + p + '</button>').join(" ") + '</div>');
-    resultBox.querySelectorAll("[data-p]").forEach(b => b.onclick = () => {
-      promptEl.value = (promptEl.value ? promptEl.value + "，" : "") + b.dataset.p + "风格";
-      promptEl.focus();
-    });
-
     const history = loadHistory();
     if (history.length) {
       resultBox.insertAdjacentHTML("beforeend", history.map((h, i) =>
         '<div class="img-item" data-i="' + i + '"><img loading="lazy" src="' + h.url + '"><div class="iact">'
-        + '<button data-a="dl" title="下载">' + svg("download", 14) + '</button></div><div class="ilab">' + XLX.util.esc(h.prompt.slice(0, 60)) + '</div></div>'
+        + '<button data-a="dl" title="下载">' + svg("download", 14) + '</button></div><div class="ilab">' + XLX.util.esc((h.channel || "普通图") + (h.prompt ? " · " + h.prompt.slice(0, 40) : "")) + '</div></div>'
       ).join(""));
       resultBox.querySelectorAll(".img-item").forEach(item => {
         item.querySelector("[data-a=dl]").onclick = () => {
@@ -2830,22 +2852,22 @@ XLX.tools = (function () {
     }
 
     const run = async () => {
-      let prompt = promptEl.value.trim();
-      if (!prompt) { XLX.util.toast("请先描述画面", "warn"); return; }
+      const hasRef = refUrl && (refUrl.url || refUrl.dataUrl);
+      if (!hasRef) { XLX.util.toast("请先上传实例图", "warn"); return; }
+      const raw = promptEl.value.trim();
+      const prompt = [channel.tpl, raw].filter(Boolean).join("，");
       genBtn.disabled = true;
       genBtn.innerHTML = '<span class="spin" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> 生成中…（免费接口约需5-40秒，国内网络连不上可到设置切自定义服务）';
       const ph = document.createElement("div");
       ph.className = "img-item";
       ph.innerHTML = '<div class="iload"><div class="spinner"></div>正在生成图片…<div style="font-size:10px">免费接口 Pollinations 偶发超时；若一直无结果，建议到「设置 → AI 生图服务」切换自定义服务</div></div>';
-      resultBox.insertBefore(ph, resultBox.firstChild.nextSibling || null);
+      resultBox.insertBefore(ph, resultBox.firstChild ? resultBox.firstChild.nextSibling : null);
       try {
-        const aspect = ratioEl.value;
-        const enhanced = await XLX.image.enhancePrompt(prompt);
-        const url = await XLX.image.generate(enhanced, { aspect, image: refUrl });
-        ph.innerHTML = '<img src="' + url + '" style="aspect-ratio:auto"><div class="iact"><button data-a="dl">' + svg("download", 14) + '</button></div><div class="ilab">' + XLX.util.esc(enhanced.slice(0, 60)) + '</div>';
+        const url = await XLX.image.generate(prompt, { aspect: channel.ratio, image: refUrl });
+        ph.innerHTML = '<img src="' + url + '" style="aspect-ratio:auto"><div class="iact"><button data-a="dl">' + svg("download", 14) + '</button></div><div class="ilab">' + XLX.util.esc(channel.name + (prompt ? " · " + prompt.slice(0, 40) : "")) + '</div>';
         ph.querySelector("[data-a=dl]").onclick = () => XLX.image.downloadByUrl(url, "xlx-" + Date.now() + ".png");
         const list = loadHistory();
-        list.unshift({ url, prompt: enhanced, time: Date.now() });
+        list.unshift({ url, prompt, channel: channel.name, time: Date.now() });
         saveHistory(list);
       } catch (e) {
         ph.querySelector(".iload").innerHTML = '<div style="color:var(--red);text-align:center;padding:10px">' + XLX.util.esc(e.message) + '</div>';
@@ -4033,8 +4055,11 @@ if __name__ == "__main__":
     setTimeout(() => {
       const p = document.getElementById("imgPrompt");
       if (p) p.value = prompt || "";
-      const r = document.getElementById("imgRatio");
-      if (r && opts && opts.aspect) r.value = opts.aspect;
+      if (opts && opts.aspect) {
+        const targetId = opts.aspect === "wide" ? "poster" : opts.aspect === "tall" ? "ecommerce" : "normal";
+        const chip = document.querySelector('.channel-chip[data-c="' + targetId + '"]');
+        if (chip) chip.click();
+      }
       const b = document.getElementById("imgGenBtn");
       if (b) b.click();
     }, 100);
@@ -4975,7 +5000,7 @@ XLX.settings = (function () {
       + '<div class="val"><input class="inp" id="setImgKey" type="password" placeholder="sk-..." value="' + XLX.util.esc(s.imageKey || "") + '"></div></div>'
       + '<div class="set-row"><div class="lab"><div class="t">Base URL</div><div class="d">硅基流动已预置，可留空</div></div>'
       + '<div class="val"><input class="inp" id="setImgBase" placeholder="https://api.siliconflow.cn/v1" value="' + XLX.util.esc(s.imageBase || "") + '"></div></div>'
-      + '<div class="set-row"><div class="lab"><div class="t">模型</div><div class="d">免费模型 FLUX.1-schnell；也可填其他 OpenAI 兼容生图模型</div></div>'
+      + '<div class="set-row"><div class="lab"><div class="t">模型</div><div class="d">图生图推荐：Qwen/Qwen-Image-Edit-2509（多图编辑）、black-forest-labs/FLUX.1-Kontext-dev（图片编辑）、Kwai-Kolors/Kolors；也可填其他 OpenAI 兼容生图模型</div></div>'
       + '<div class="val"><input class="inp" id="setImgModel" placeholder="FLUX.1-schnell" value="' + XLX.util.esc(s.imageModel || "") + '"></div></div>'
       + '<div class="set-row"><div class="lab"><div class="t">保存</div><div class="d">保存后即可在「AI 生图」工具中使用</div></div>'
       + '<div class="val"><button class="btn primary small" id="setImgSave">保存生图配置</button></div></div>'
