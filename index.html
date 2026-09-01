@@ -495,6 +495,15 @@ select.inp{padding-right:34px}
 .gpf-chip svg{width:12px;height:12px;color:var(--yellow)}
 .gpf-chip:hover{border-color:var(--accent);color:var(--text);background:var(--card)}
 
+/* ===== 设置页功能配置总览 ===== */
+.feat-map{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.fm{display:flex;align-items:center;gap:11px;background:var(--bg);border:1px solid var(--border);border-radius:11px;padding:10px 13px}
+.fm-ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.fm-ic svg{width:16px;height:16px}
+.fm b{display:block;font-size:12.5px;color:var(--text);font-weight:600}
+.fm div>span{font-size:11px;color:var(--text3)}
+.fm div{min-width:0}
+
 </style>
 </head>
 <body>
@@ -5440,6 +5449,8 @@ XLX.studio = (function () {
         stream: true,
         onDelta(piece, full) { final = full; renderStream(area, full); }
       });
+      _lastStream = 0;
+      renderStream(area, final);
       setStep(area, "code", "done");
 
       /* 步骤3：解析文件 */
@@ -5725,8 +5736,19 @@ XLX.settings = (function () {
 
     box.innerHTML = ''
       + '<div class="set-card">'
-      + '<h3><span class="hic">' + svg("key", 15) + '</span>模型平台接入（自带Key，免费使用）</h3>'
-      + '<p class="sd">选择一个平台，填入你在该平台申请的 API Key。推荐 <b style="color:var(--green)">DeepSeek</b>（国内直连·响应快·价格极低），或免费平台：<b style="color:var(--green)">智谱GLM-4-Flash / 硅基流动</b>。Key 只保存在你的浏览器本地，不会上传。</p>'
+      + '<h3><span class="hic">' + svg("grid", 15) + '</span>功能配置总览</h3>'
+      + '<p class="sd">小龙虾AI 的每个功能对应一个配置板块，按下方对照去填即可：</p>'
+      + '<div class="feat-map">'
+      + '<div class="fm"><span class="fm-ic" style="background:rgba(74,168,255,.15);color:var(--blue)">' + svg("chat", 15) + '</span><div><b>智能对话 / AI帮写 / 软件工坊 / 技能市场</b><span>用「语言模型」板块的 Key（下方第一个）</span></div></div>'
+      + '<div class="fm"><span class="fm-ic" style="background:rgba(255,122,168,.15);color:var(--pink)">' + svg("palette", 15) + '</span><div><b>创作中心一键生成 / AI生图工具</b><span>用「AI 生图服务」板块（免费默认可用，填 Key 效果更好）</span></div></div>'
+      + '<div class="fm"><span class="fm-ic" style="background:rgba(61,220,132,.15);color:var(--green)">' + svg("film", 15) + '</span><div><b>AI 剧作短视频/长视频</b><span>用「AI 视频生成」板块（付费按量计费）</span></div></div>'
+      + '<div class="fm"><span class="fm-ic" style="background:rgba(245,196,81,.15);color:var(--yellow)">' + svg("search", 15) + '</span><div><b>联网搜索</b><span>用「联网搜索」板块（默认免费内置，可自行增强）</span></div></div>'
+      + '</div>'
+      + '</div>'
+
+      + '<div class="set-card">'
+      + '<h3><span class="hic">' + svg("key", 15) + '</span>语言模型（智能对话 / AI帮写 / 软件工坊）</h3>'
+      + '<p class="sd">这个板块驱动：<b>智能对话</b>（左下角）· <b>创作中心的 AI帮写</b> · <b>软件工坊</b>（AI开发软件）· <b>技能市场</b> 的全部技能。<br>选择一个平台，填入你在该平台申请的 API Key。推荐 <b style="color:var(--green)">DeepSeek</b>（国内直连·响应快·价格极低），或免费平台：<b style="color:var(--green)">智谱GLM-4-Flash / 硅基流动</b>。Key 只保存在你的浏览器本地，不会上传。</p>'
       + '<div class="provider-tabs">'
       + XLX.PROVIDERS.map(pr => {
         const saved = provList.find(x => x.id === pr.id);
@@ -5753,8 +5775,8 @@ XLX.settings = (function () {
       + '</div>'
 
       + '<div class="set-card">'
-      + '<h3><span class="hic">' + svg("film", 15) + '</span>AI 视频生成（付费 · 火山方舟 / 可灵）</h3>'
-      + '<p class="sd">视频由外部付费平台生成，<b>按用量计费</b>，选择平台后填入 Key 即可使用。Key 只保存在你的浏览器本地。</p>'
+      + '<h3><span class="hic">' + svg("film", 15) + '</span>AI 视频生成（AI剧作 · 短视频/长视频）</h3>'
+      + '<p class="sd">这个板块驱动：<b>创作中心的「视频创作」</b> 与「工具 → AI剧作」的短视频 / 长视频生成。<br>视频由外部付费平台生成，<b>按用量计费</b>，选择平台后填入 Key 即可使用。Key 只保存在你的浏览器本地。</p>'
       + '<div class="provider-tabs">'
       + XLX.videogen.PROVIDERS.map(pr => {
         const saved = s.videoProvider === pr.id && s.videoKey;
@@ -5804,8 +5826,8 @@ XLX.settings = (function () {
       + '</div>'
 
       + '<div class="set-card">'
-      + '<h3><span class="hic">' + svg("sparkle", 15) + '</span>AI 生图服务</h3>'
-      + '<p class="sd">生图默认使用<b style="color:var(--green)">免费 Pollinations</b>（无需 Key，但图生图<b>不保留实例图主体</b>，国内网络可能较慢）。想真正保留主体做电商图/白底图，切换下方自定义服务即可：<b style="color:var(--green)">硅基流动 / 豆包 Seedream / 千问通义万相</b>（注册均送免费额度，用完后按张计费，几毛钱一张）。Key 仅保存在浏览器本地。</p>'
+      + '<h3><span class="hic">' + svg("palette", 15) + '</span>AI 生图服务（创作中心一键生成 / AI生图工具）</h3>'
+      + '<p class="sd">这个板块驱动：<b>创作中心的「一键生成」</b>（主图/详情页/SKU/海报）与「工具 → AI生图」。<br>默认使用<b style="color:var(--green)">免费 Pollinations</b>（无需 Key，但图生图<b>不保留实例图主体</b>，国内网络可能较慢）。想真正保留主体做电商图/白底图，切换下方自定义服务即可：<b style="color:var(--green)">硅基流动 / 豆包 Seedream / 千问通义万相</b>（注册均送免费额度，用完后按张计费，几毛钱一张）。Key 仅保存在浏览器本地。</p>'
       + '<div class="set-row"><div class="lab"><div class="t">生图服务</div><div class="d">免费接口无需配置；其余服务商需填下方 Key</div></div>'
       + '<div class="val"><select class="inp" id="setImgProvider">'
       + '<option value="free"' + (!s.imageProvider || s.imageProvider === "free" ? " selected" : "") + '>免费 Pollinations（默认）</option>'
@@ -5825,7 +5847,7 @@ XLX.settings = (function () {
       + '</div>'
 
       + '<div class="set-card">'
-      + '<h3><span class="hic">' + svg("settings", 15) + '</span>对话参数</h3>'
+      + '<h3><span class="hic">' + svg("settings", 15) + '</span>语言模型 · 对话参数</h3>'
       + '<div class="set-row"><div class="lab"><div class="t">AI 角色设定（System Prompt）</div><div class="d">决定 AI 的回复风格与能力范围</div></div>'
       + '<div class="val"><textarea class="inp" id="setSystem" style="min-height:90px">' + XLX.util.esc(s.system || XLX.DEFAULT_SYSTEM) + '</textarea></div></div>'
       + '<div class="set-row"><div class="lab"><div class="t">创造度（Temperature）</div><div class="d">越低越严谨，越高越有创意</div></div>'
