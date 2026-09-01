@@ -3343,6 +3343,40 @@ XLX.tools = (function () {
     return data;
   }
 
+  /* 二阶 Butterworth 高通滤波器（去除背景音乐等低频干扰，人声主要在 80Hz-4kHz） */
+  function highpassFilter(data, fs, fc) {
+    const w0 = 2 * Math.PI * fc / fs;
+    const cosw = Math.cos(w0);
+    const alpha = Math.sin(w0) / Math.SQRT2;
+    const b0 = (1 + cosw) / 2, b1 = -(1 + cosw), b2 = b0;
+    const a0 = 1 + alpha, a1 = -2 * cosw, a2 = 1 - alpha;
+    const out = new Float32Array(data.length);
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (let i = 0; i < data.length; i++) {
+      const x = data[i];
+      const y = (b0 / a0) * x + (b1 / a0) * x1 + (b2 / a0) * x2 - (a1 / a0) * y1 - (a2 / a0) * y2;
+      x2 = x1; x1 = x; y2 = y1; y1 = y;
+      out[i] = y;
+    }
+    return out;
+  }
+
+  /* 峰值归一化（提升口播音量，避免过小输入） */
+  function normalizeAudio(data) {
+    let peak = 0;
+    for (let i = 0; i < data.length; i++) { const a = Math.abs(data[i]); if (a > peak) peak = a; }
+    if (peak > 0.001) {
+      const g = Math.min(0.9 / peak, 4);
+      for (let i = 0; i < data.length; i++) data[i] *= g;
+    }
+    return data;
+  }
+
+  function preprocessAudio(data, fs, enhance) {
+    if (!enhance) return data;
+    return normalizeAudio(highpassFilter(data, fs, 100));
+  }
+
   async function extractVideoAudio(file) {
     const url = URL.createObjectURL(file);
     const video = document.createElement("video");
@@ -3410,6 +3444,7 @@ XLX.tools = (function () {
        + '<option value="base" selected>标准 · ' + ASR_MODELS.base.size + '（更准确）</option>'
        + '<option value="tiny">极速 · ' + ASR_MODELS.tiny.size + '</option>'
        + '</select></div>'
+       + '<label style="flex:0 0 auto;display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer" title="去除背景音乐等低频干扰，提升口播识别率"><input type="checkbox" id="vtEnh" checked style="accent-color:var(--primary)">增强人声</label>'
        + '<button class="btn primary" id="vtRunBtn">' + svg("mic", 15) + ' 转写上传文件</button>'
        + '</div>'
        + '<div style="font-size:11px;color:var(--text3);margin-top:4px">识别不准时请①切换到"标准"模型 ②选对语言（自动识别会增加时长）</div>'
@@ -3425,6 +3460,7 @@ XLX.tools = (function () {
     const fileEl = document.getElementById("vtFile");
     const modelEl = document.getElementById("vtModel");
     const langEl = document.getElementById("vtLang");
+    const enhEl = document.getElementById("vtEnh");
     const urlEl = document.getElementById("vtUrl");
     const progEl = document.getElementById("vtProgress");
     const result = document.getElementById("vtResult");
@@ -3453,10 +3489,14 @@ XLX.tools = (function () {
       result.innerHTML = '<div style="color:var(--warn);font-size:12.5px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px">' + XLX.util.esc(msg) + '</div>';
     }
 
-    async function transcribeBlob(blob, modelKey, langCode) {
+    async function transcribeBlob(blob, modelKey, langCode, enhance) {
       const pipe = await loadAsr(modelKey, (msg) => { progEl.innerHTML = XLX.util.esc(msg); });
       progEl.innerHTML = "正在解析音频…";
-      const audio = await decodeAudioFile(blob);
+      let audio = await decodeAudioFile(blob);
+      if (enhance) {
+        progEl.innerHTML = "正在增强人声（去除背景音乐/低频干扰）…";
+        audio = preprocessAudio(audio, 16000, true);
+      }
       progEl.innerHTML = "正在识别说话内容（文件较长可能需要一些时间）…";
       const genOpts = { task: "transcribe", chunk_length_s: 30, stride_length_s: 5, num_beams: 5 };
       if (langCode) genOpts.language = langCode;
@@ -3479,7 +3519,7 @@ XLX.tools = (function () {
       progEl.innerHTML = "正在准备…";
       result.innerHTML = "";
       try {
-        await transcribeBlob(file, modelEl.value, langEl.value);
+        await transcribeBlob(file, modelEl.value, langEl.value, enhEl.checked);
       } catch (e) {
         progEl.innerHTML = "";
         showErr("转写失败：" + (e.message || e));
@@ -3497,7 +3537,7 @@ XLX.tools = (function () {
         const blob = await fetchVideoBlob(url);
         const ext = ((url.split(".").pop() || "mp4").split(/[?#]/)[0].replace(/[^a-z0-9]/g, "") || "mp4");
         const file = new File([blob], "link." + ext, { type: blob.type || "video/mp4" });
-        await transcribeBlob(file, modelEl.value, langEl.value);
+        await transcribeBlob(file, modelEl.value, langEl.value, enhEl.checked);
       } catch (e) {
         progEl.innerHTML = "";
         showErr("链接提取失败：" + (e.message || e) + "（多为跨域限制，可先下载文件再走 ②本地上传）");
