@@ -1282,7 +1282,72 @@ XLX.modelHub = (function () {
     return "custom";
   }
 
-  return { getModels, all, current, add, remove, mark, asProvider, imageConfig, imageVendor, llmVendor };
+  /* 一次性迁移：把旧单配置（设置页下方的"语言模型/生图服务"）自动转成模型库条目。
+   * 仅在模型库对应分类为空且旧配置有效时执行，避免重复迁移。 */
+  function migrateFromSettings() {
+    try {
+      let s = {};
+      try { s = JSON.parse(localStorage.getItem(XLX.K.SETTINGS) || "{}"); } catch (e) {}
+      const save = () => localStorage.setItem(XLX.K.SETTINGS, JSON.stringify(s));
+      let changed = false;
+
+      /* 生图：imageProvider 非 free 且有 Key，模型库 image 分类为空 */
+      if (s.imageProvider && s.imageProvider !== "free" && (s.imageKey || "").trim()) {
+        const hasImg = all("image").length > 0;
+        if (!hasImg) {
+          const vendor = s.imageProvider === "doubao" ? "doubao" : s.imageProvider === "qwen" ? "qwen" : "siliconflow";
+          const bases = {
+            doubao: "https://ark.cn-beijing.volces.com/api/v3",
+            qwen: "https://dashscope.aliyuncs.com",
+            siliconflow: "https://api.siliconflow.cn/v1"
+          };
+          const models = {
+            doubao: "doubao-seedream-5-0-260128",
+            qwen: "qwen-image-3.0-pro",
+            siliconflow: "Qwen/Qwen-Image-Edit-2509"
+          };
+          const names = { doubao: "豆包 Seedream", qwen: "千问通义万相", siliconflow: "硅基流动" };
+          add({
+            kind: "image",
+            name: (names[vendor] || "自定义生图") + "（自动迁移）",
+            vendor,
+            base: (s.imageBase || "").trim() || bases[vendor] || "",
+            key: s.imageKey,
+            model: (s.imageModel || "").trim() || models[vendor] || ""
+          });
+          /* 迁移后清空旧字段，避免下次重复 */
+          s.imageProvider = "free"; s.imageKey = ""; s.imageBase = ""; s.imageModel = "";
+          changed = true;
+        }
+      }
+
+      /* 语言模型：非 custom 的 provider + Key，模型库 llm 分类为空 */
+      const curPid = s.provider || "";
+      const savedP = (s.providers || []).find(p => p.id === curPid);
+      if (curPid && curPid !== "custom" && savedP && (savedP.key || "").trim()) {
+        const hasLlm = all("llm").length > 0;
+        if (!hasLlm) {
+          const preset = XLX.PROVIDERS.find(p => p.id === curPid);
+          add({
+            kind: "llm",
+            name: (preset ? preset.name : curPid) + "（自动迁移）",
+            vendor: curPid,
+            base: (savedP.base || "").trim() || (preset ? preset.base : "") || "",
+            key: savedP.key,
+            model: (s.model || "").trim() || (preset ? preset.model : "") || ""
+          });
+          s.provider = "custom"; s.model = "";
+          const found = (s.providers || []).find(p => p.id === curPid);
+          if (found) found.key = "";
+          changed = true;
+        }
+      }
+
+      if (changed) save();
+    } catch (e) { /* 迁移失败不影响使用 */ }
+  }
+
+  return { getModels, all, current, add, remove, mark, asProvider, imageConfig, imageVendor, llmVendor, migrateFromSettings };
 })();
 
 </script>
@@ -6958,6 +7023,7 @@ XLX.app = (function () {
   }
 
   function init() {
+    XLX.modelHub && XLX.modelHub.migrateFromSettings && XLX.modelHub.migrateFromSettings();
     renderSidebar();
     renderTopbar();
     renderEmpty();
