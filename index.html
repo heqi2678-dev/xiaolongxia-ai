@@ -401,6 +401,65 @@ select.inp{padding-right:34px}
   .md{font-size:14px}
 }
 
+/* ===== 创作中心（HookShot 风格首页）===== */
+.create-wrap{display:flex;flex-direction:column;max-width:960px;margin:0 auto;padding:34px 8px 60px}
+.create-hero{text-align:center;margin-bottom:26px}
+.create-hero h1{font-size:30px;font-weight:800;letter-spacing:.5px;background:linear-gradient(135deg,#fff,#b9c8ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;line-height:1.4}
+.create-sub{font-size:13px;color:var(--text3);margin-top:8px}
+.agent-tabs{display:flex;gap:10px;justify-content:center;margin-top:22px;flex-wrap:wrap}
+.agent-tab{display:flex;align-items:center;gap:8px;padding:10px 22px;border-radius:30px;background:var(--panel);border:1px solid var(--border);color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;transition:.18s}
+.agent-tab svg{width:17px;height:17px}
+.agent-tab:hover{border-color:var(--blue);color:var(--text);transform:translateY(-1px)}
+.agent-tab.active{background:linear-gradient(135deg,rgba(74,168,255,.2),rgba(167,139,250,.2));border-color:var(--blue);color:#fff;box-shadow:0 6px 20px rgba(74,168,255,.25)}
+.create-composer{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:18px 20px;box-shadow:var(--shadow);transition:border-color .2s,box-shadow .2s}
+.create-composer:focus-within{border-color:var(--blue);box-shadow:0 0 0 4px rgba(74,168,255,.12),var(--shadow)}
+.create-input{width:100%;background:none;border:none;outline:none;resize:none;font-size:15.5px;line-height:1.7;color:var(--text);min-height:72px}
+.create-input::placeholder{color:var(--text3)}
+.composer-tools{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+.ct-tip{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);flex:1;min-width:180px}
+.ct-tip svg{width:13px;height:13px}
+.ct-btn{display:flex;align-items:center;gap:7px;padding:10px 18px;border-radius:12px;font-size:13.5px;font-weight:700;transition:.15s}
+.ct-btn svg{width:15px;height:15px}
+.ct-btn.ghost{background:var(--panel2);border:1px solid var(--border);color:var(--text2)}
+.ct-btn.ghost:hover{border-color:var(--blue);color:var(--text)}
+.ct-btn.primary{background:linear-gradient(135deg,#4aa8ff,#7c6cf5);color:#fff;box-shadow:0 6px 20px rgba(74,168,255,.4)}
+.ct-btn.primary:hover{transform:translateY(-1px);box-shadow:0 8px 26px rgba(74,168,255,.55)}
+.ct-btn.primary:disabled{opacity:.6;transform:none;cursor:not-allowed}
+.quick-caps{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;justify-content:center}
+.qc{display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:13px;background:var(--card);border:1px solid var(--border);color:var(--text2);font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s}
+.qc svg{width:15px;height:15px}
+.qc:hover{border-color:var(--purple);color:var(--text);transform:translateY(-1px)}
+.qc.active{background:linear-gradient(135deg,rgba(167,139,250,.18),rgba(56,217,230,.14));border-color:var(--purple);color:#fff}
+.proj-section{margin-top:30px}
+.proj-head{display:flex;align-items:center;gap:8px;font-size:14.5px;font-weight:700;margin-bottom:14px;color:var(--text)}
+.proj-head svg{width:15px;height:15px;color:var(--text3)}
+.proj-head .proj-more{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text3);background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:5px 12px;cursor:pointer;transition:.15s}
+.proj-head .proj-more:hover{color:var(--text);border-color:var(--text3)}
+.proj-head .proj-more svg{width:13px;height:13px}
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.proj-card-mini{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;aspect-ratio:1}
+.proj-card-mini img{width:100%;height:100%;object-fit:cover;display:block}
+.proj-card-mini .pm-iact{position:absolute;top:6px;right:6px;display:flex;gap:5px;opacity:0;transition:.15s}
+.proj-card-mini:hover .pm-iact{opacity:1}
+.proj-card-mini .pm-iact button{width:28px;height:28px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.proj-card-mini .pm-iact button svg{width:13px;height:13px}
+.proj-card-mini .pm-lab{position:absolute;left:0;right:0;bottom:0;padding:5px 8px;font-size:10.5px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.72))}
+.empty-box{text-align:center;padding:44px 0;border:1px dashed var(--border);border-radius:14px;color:var(--text3)}
+.empty-box .eb-ic{width:54px;height:54px;border-radius:15px;background:var(--panel2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;color:var(--text3)}
+.empty-box .eb-ic svg{width:26px;height:26px}
+.empty-box .eb-t{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:4px}
+.empty-box .eb-d{font-size:12px}
+@media(max-width:900px){
+  .create-wrap{padding:22px 4px 40px}
+  .create-hero h1{font-size:22px}
+  .agent-tab{padding:8px 14px;font-size:13px}
+  .create-composer{padding:14px}
+  .create-input{font-size:14.5px;min-height:64px}
+  .ct-btn{padding:9px 14px}
+  .qc{padding:8px 12px;font-size:11.5px}
+  .proj-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+}
+
 </style>
 </head>
 <body>
@@ -446,8 +505,13 @@ select.inp{padding-right:34px}
       </button>
     </div>
 
+    <!-- 创作中心（HookShot 风格首页） -->
+    <div id="createView" class="view active">
+      <div class="market-wrap"><div class="market-inner" id="createContent"></div></div>
+    </div>
+
     <!-- 智能对话 -->
-    <div id="chatView" class="view active">
+    <div id="chatView" class="view">
       <div id="chatBox">
         <div id="emptyState">
           <div class="hero-logo" id="heroLogo"></div>
@@ -4411,6 +4475,235 @@ if __name__ == "__main__":
 
 </script>
 <script>
+/* ===== 创作中心（HookShot 风格首页） =====
+ * 左侧导航 + 中央大输入框 + 快捷功能胶囊 + 项目卡片区，深色科技风。
+ * 核心功能：电商图片智能体 —— 输入产品名/卖点/场景 → AI帮写 → 一键生成主图/详情页/SKU/海报。
+ *
+ * ===== 后端计费/账号接口位（预留，暂未启用）=====
+ * 未来商业化时只需填写下方 BIZ.endpoint 指向自建后端（如 https://api.你的域名.com），
+ * 再为「登录、积分扣费、云端同步项目」补实现即可，无需改动创作流程代码。
+ * 当前阶段：全部本地免费，Key 只存浏览器 localStorage，无需后端。 */
+XLX.biz = {
+  enabled: false,
+  endpoint: "",
+  pointsName: "虾币",
+  /* 预留：login() / deduct(points) / syncProjects() —— 未启用 */
+};
+
+XLX.create = (function () {
+  let curAgent = "ecom";
+  let curCapsule = null;
+
+  function svg(n, s) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:' + s + 'px;height:' + s + 'px">' + (XLX.ICONS[n] || "") + '</svg>'; }
+
+  const AGENTS = {
+    ecom: {
+      name: "电商图片",
+      icon: "cart",
+      desc: "输入产品名/卖点/场景，一键生成主图、详情页、SKU、海报",
+      placeholder: "例如：一款粉色便携榨汁杯，卖点是无线充电、快速出汁，用于露营和办公室场景",
+      caps: [
+        { id: "detail", name: "详情页复刻", icon: "layers", aspect: "tall", tpl: "电商商品详情页长图，卖点分区、规格参数、使用场景、细节特写，竖版长图构图，高端质感" },
+        { id: "sku", name: "SKU图", icon: "grid", aspect: "square", tpl: "电商SKU展示图，商品主体清晰，多角度陈列，干净背景，促销氛围" },
+        { id: "canvas", name: "智能画布", icon: "wand", aspect: "square", tpl: "电商商品主视觉图，主体清晰突出，构图留白，高级质感" },
+        { id: "detaildesign", name: "详情页设计", icon: "doc", aspect: "tall", tpl: "商品详情页设计，信息层级清晰，卖点突出，竖版长图，电商风格" },
+        { id: "poster", name: "电商海报设计", icon: "poster", aspect: "wide", tpl: "电商促销海报，大字报排版，氛围感强，横向构图，视觉冲击力" }
+      ]
+    },
+    cloth: {
+      name: "服装种草",
+      icon: "heart",
+      desc: "服装/穿搭种草图：上新海报、SKU、穿搭场景，模特上身体验",
+      placeholder: "例如：一款白色法式连衣裙，面料轻薄飘逸，适合海边度假和日常通勤",
+      caps: [
+        { id: "outfit", name: "服装种草", icon: "heart", aspect: "square", tpl: "服装穿搭种草图，模特上身，背景干净，面料质感真实，氛围自然" },
+        { id: "skuc", name: "服装SKU", icon: "grid", aspect: "square", tpl: "服装多色SKU展示图，颜色齐全，平铺或上身展示，干净背景" },
+        { id: "posterc", name: "上新海报", icon: "poster", aspect: "wide", tpl: "服装新品上架海报，时尚大气，模特上身，横向构图" }
+      ]
+    },
+    video: {
+      name: "视频创作",
+      icon: "clapper",
+      desc: "AI 剧作：输入主题，AI 拆分分镜脚本，逐段生成视频，可本地拼接",
+      placeholder: "例如：做一条 30 秒的零食好物安利短视频，节奏快、种草感强",
+      caps: [
+        { id: "short", name: "短视频脚本", icon: "clapper", aspect: "", tpl: "" },
+        { id: "long", name: "长视频脚本", icon: "film", aspect: "", tpl: "" }
+      ]
+    }
+  };
+
+  function render(box) {
+    const A = AGENTS[curAgent];
+    const tabsHTML = ["ecom", "cloth", "video"].map(k => {
+      const a = AGENTS[k];
+      return '<button class="agent-tab' + (k === curAgent ? " active" : "") + '" data-agent="' + k + '">'
+        + svg(a.icon, 17) + '<span>' + a.name + '</span></button>';
+    }).join("");
+
+    box.innerHTML = ''
+      + '<div class="create-wrap">'
+      + '<div class="create-hero">'
+      + '<h1>您好！今天您想创作什么呢？</h1>'
+      + '<p class="create-sub">' + A.desc + '</p>'
+      + '<div class="agent-tabs">' + tabsHTML + '</div>'
+      + '</div>'
+      + '<div class="create-composer">'
+      + '<textarea id="createInput" class="create-input" rows="3" placeholder="' + A.placeholder + '"></textarea>'
+      + '<div class="composer-tools">'
+      + '<span class="ct-tip">' + svg("sparkle", 13) + ' 输入产品描述，AI 帮你扩写成高级提示词</span>'
+      + '<button class="ct-btn ghost" id="aiWriteBtn">' + svg("pen", 14) + ' AI帮写</button>'
+      + '<button class="ct-btn primary" id="createGenBtn">' + svg("zap", 15) + ' 一键生成</button>'
+      + '</div>'
+      + '</div>'
+      + '<div class="quick-caps" id="quickCaps">' + A.caps.map((c, i) =>
+        '<button class="qc' + (i === 0 ? " active" : "") + '" data-c="' + c.id + '">' + svg(c.icon, 15) + '<span>' + c.name + '</span></button>').join("") + '</div>'
+      + '<div id="createResult" class="img-grid" style="margin-top:6px"></div>'
+      + '<div class="proj-section">'
+      + '<div class="proj-head"><span>' + svg("history", 15) + ' 最近项目</span><button class="proj-more" onclick="XLX.app.go(\'tools\')">' + svg("grid", 13) + ' 全部历史</button></div>'
+      + '<div class="proj-grid" id="createProjects"></div>'
+      + '</div>'
+      + '</div>';
+
+    box.querySelectorAll(".agent-tab").forEach(b => b.onclick = () => { curAgent = b.dataset.agent; curCapsule = null; render(box); });
+    bind(box);
+  }
+
+  function bind(box) {
+    const input = document.getElementById("createInput");
+    const genBtn = document.getElementById("createGenBtn");
+    const resultBox = document.getElementById("createResult");
+    const A = AGENTS[curAgent];
+
+    const applyCapsule = (c) => {
+      curCapsule = c;
+      box.querySelectorAll(".qc").forEach(x => x.classList.toggle("active", x.dataset.c === c.id));
+      if (c.tpl && input && !input.value.trim()) input.placeholder = c.tpl;
+    };
+    box.querySelectorAll(".qc").forEach(b => b.onclick = () => applyCapsule(A.caps.find(c => c.id === b.dataset.c)));
+
+    /* AI帮写：把产品名/卖点/场景扩写成完整生图提示词 */
+    document.getElementById("aiWriteBtn").onclick = async () => {
+      const raw = input.value.trim();
+      if (!raw) { XLX.util.toast("先输入产品描述，我再帮你扩写", "warn"); input.focus(); return; }
+      if (!XLX.llm.isConfigured()) { XLX.util.toast("请先在「设置」配置 AI 对话 Key（智谱/DeepSeek 等免费平台）", "warn"); return; }
+      const btn = document.getElementById("aiWriteBtn");
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spin" style="width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> 扩写中…';
+      try {
+        const res = await XLX.llm.ask(
+          "你是电商设计专家。请把用户描述的产品信息扩写成一段可直接用于AI生图的完整中文提示词，包含：产品主体、材质质感、核心卖点、使用场景、背景氛围、构图建议，80-140字，直接输出提示词本身，不要任何解释和前缀。",
+          raw
+        );
+        input.value = (res || "").trim();
+        input.focus();
+        XLX.util.toast("已扩写成高级提示词，可直接生成", "ok");
+      } catch (e) {
+        XLX.util.toast("扩写失败：" + (e.message || e), "err");
+      }
+      btn.disabled = false;
+      btn.innerHTML = svg("pen", 14) + ' AI帮写';
+    };
+
+    /* 一键生成 */
+    const run = async () => {
+      const raw = input.value.trim();
+      if (!raw) { XLX.util.toast("请先输入产品描述，或点「AI帮写」", "warn"); return; }
+
+      /* 视频智能体：跳转 AI 剧作（短视频/长视频） */
+      if (curAgent === "video") {
+        XLX.app.go("tools");
+        setTimeout(() => { try { XLX.tools.openTool("aidrama"); } catch (e) {} }, 120);
+        XLX.util.toast("已打开 AI 剧作，输入主题即可生成视频", "info");
+        return;
+      }
+
+      const c = curCapsule || A.caps[0];
+      const prompt = [c.tpl, raw].filter(Boolean).join("，");
+      const st = XLX.llm.getSettings();
+      const customOn = st && st.imageProvider && st.imageProvider !== "free" && !!(st.imageKey || "").trim();
+
+      genBtn.disabled = true;
+      genBtn.innerHTML = '<span class="spin" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> 生成中…（约10-90秒）';
+      const ph = document.createElement("div");
+      ph.className = "img-item";
+      const _t0 = Date.now();
+      ph.innerHTML = '<div class="iload"><div class="spinner"></div>正在生成 ' + XLX.util.esc(c.name) + '…'
+        + '<div style="font-size:10px">' + (customOn ? "商业模型约需10-90秒，请稍候" : "免费接口约5-40秒；建议在「设置 → AI 生图服务」配置自定义服务（豆包/硅基/千问）更快更稳") + '</div>'
+        + '<div class="iact"><button data-a="del" title="删除">' + svg("trash", 14) + '</button></div></div>';
+      ph.querySelector("[data-a=del]").onclick = () => ph.remove();
+      resultBox.insertBefore(ph, resultBox.firstChild);
+      try {
+        const url = await XLX.image.generate(prompt, { aspect: c.aspect, strict: true });
+        ph.innerHTML = '<img loading="lazy" src="' + url + '"><div class="iact"><button data-a="dl" title="下载">' + svg("download", 14) + '</button><button data-a="del" title="删除">' + svg("trash", 14) + '</button></div><div class="ilab">' + XLX.util.esc(c.name + (raw ? " · " + raw.slice(0, 24) : "")) + '</div>';
+        ph.querySelector("[data-a=dl]").onclick = () => XLX.image.downloadByUrl(url, "xlx-create-" + Date.now() + ".png");
+        ph.querySelector("[data-a=del]").onclick = () => {
+          const list = loadHistory();
+          const idx = list.findIndex(x => String(x.time) === String(_t0));
+          if (idx >= 0) list.splice(idx, 1);
+          saveHistory(list);
+          ph.remove();
+        };
+        const list = loadHistory();
+        list.unshift({ url, prompt, channel: c.name, time: _t0 });
+        saveHistory(list);
+        ph.dataset.time = String(_t0);
+        renderProjects();
+      } catch (e) {
+        ph.querySelector(".iload").innerHTML = '<div style="color:var(--red);text-align:center;padding:10px">' + XLX.util.esc(e.message) + '</div>';
+      }
+      genBtn.disabled = false;
+      genBtn.innerHTML = svg("zap", 15) + ' 一键生成';
+    };
+    genBtn.onclick = run;
+    input.onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run(); };
+
+    renderProjects();
+  }
+
+  function loadHistory() {
+    try { return JSON.parse(localStorage.getItem(XLX.K.IMAGES) || "[]"); } catch (e) { return []; }
+  }
+  function saveHistory(list) { localStorage.setItem(XLX.K.IMAGES, JSON.stringify(list.slice(0, 60))); }
+
+  function renderProjects() {
+    const box = document.getElementById("createProjects");
+    if (!box) return;
+    const list = loadHistory();
+    if (!list.length) {
+      box.innerHTML = '<div class="empty-box"><div class="eb-ic">' + svg("box", 26) + '</div><div class="eb-t">还没有创作记录</div><div class="eb-d">在上方输入产品描述，一键生成主图 / 详情页 / SKU / 海报</div></div>';
+      return;
+    }
+    box.innerHTML = list.slice(0, 8).map((h, i) => {
+      return '<div class="proj-card-mini" data-time="' + (h.time || "") + '">'
+        + '<img loading="lazy" src="' + XLX.util.esc(h.url) + '" onerror="this.style.opacity=.15">'
+        + '<div class="pm-iact"><button data-a="dl" title="下载">' + svg("download", 13) + '</button><button data-a="del" title="删除">' + svg("trash", 13) + '</button></div>'
+        + '<div class="pm-lab">' + XLX.util.esc(h.channel || "创作") + '</div></div>';
+    }).join("");
+    box.querySelectorAll(".proj-card-mini [data-a=dl]").forEach(b => {
+      b.onclick = () => {
+        const t = b.closest(".proj-card-mini").dataset.time;
+        const h = loadHistory().find(x => String(x.time) === String(t));
+        if (h) XLX.image.downloadByUrl(h.url, "xlx-create-" + Date.now() + ".png");
+      };
+    });
+    box.querySelectorAll(".proj-card-mini [data-a=del]").forEach(b => {
+      b.onclick = () => {
+        const t = b.closest(".proj-card-mini").dataset.time;
+        const list = loadHistory();
+        const idx = list.findIndex(x => String(x.time) === String(t));
+        if (idx >= 0) list.splice(idx, 1);
+        saveHistory(list);
+        renderProjects();
+      };
+    });
+  }
+
+  return { render, openAgent: (a) => { if (AGENTS[a]) { curAgent = a; } } };
+})();
+
+</script>
+<script>
 /* ===== 一键成片：剧照 + TTS配音 + 字幕 + 镜头运动 合成视频（纯前端 WebM） ===== */
 
 XLX.video = (function () {
@@ -5924,11 +6217,12 @@ XLX.dlview = (function () {
 /* ===== 主应用：路由、导航、事件绑定 ===== */
 
 XLX.app = (function () {
-  const VIEWS = ["chat", "market", "studio", "tools", "memory", "download", "settings"];
-  let currentView = "chat";
+  const VIEWS = ["create", "chat", "market", "studio", "tools", "memory", "download", "settings"];
+  let currentView = "create";
 
   function navItems() {
     return [
+      { id: "create", name: "创作中心", icon: "zap", group: "开始" },
       { id: "chat", name: "智能对话", icon: "chat", group: "开始" },
       { id: "market", name: "技能市场", icon: "grid", group: "开始", badge: String(XLX.SKILL_COUNT) },
       { id: "studio", name: "软件工坊", icon: "hammer", group: "开始", sub: "AI开发软件" },
@@ -5956,7 +6250,7 @@ XLX.app = (function () {
 
     /* 手机端底部导航 */
     const mn = document.getElementById("mobileNav");
-    mn.innerHTML = ["chat", "market", "studio", "tools", "memory"].map(id => {
+    mn.innerHTML = ["create", "chat", "market", "tools", "studio"].map(id => {
       const item = navItems().find(x => x.id === id);
       return '<div class="mn' + (id === currentView ? " active" : "") + '" data-view="' + id + '">'
         + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + (XLX.ICONS[item.icon] || "") + '</svg>'
@@ -5966,7 +6260,7 @@ XLX.app = (function () {
   }
 
   function renderTopbar() {
-    const names = { chat: ["智能对话", "多平台免费模型 · 流式秒回"], market: ["技能市场", XLX.SKILL_COUNT + " 个免费实用技能，点击即用"], studio: ["软件工坊", "AI 开发完整软件 → 预览 → 一键打包下载"], tools: ["AI 生图工作台", "免费 AI 文字生图，无限次数"], memory: ["记忆习惯", "AI 记住你的偏好，自动处理重复工作"], download: ["客户端下载", "手机 / 电脑 / 离线版"], settings: ["设置", "接入多个平台的免费 API Key"] };
+    const names = { create: ["创作中心", "输入产品描述 → AI帮写 → 一键生成主图/详情页/SKU/海报"], chat: ["智能对话", "多平台免费模型 · 流式秒回"], market: ["技能市场", XLX.SKILL_COUNT + " 个免费实用技能，点击即用"], studio: ["软件工坊", "AI 开发完整软件 → 预览 → 一键打包下载"], tools: ["AI 生图工作台", "免费 AI 文字生图，无限次数"], memory: ["记忆习惯", "AI 记住你的偏好，自动处理重复工作"], download: ["客户端下载", "手机 / 电脑 / 离线版"], settings: ["设置", "接入多个平台的免费 API Key"] };
     const t = document.getElementById("pageTitle");
     const s = document.getElementById("pageSub");
     t.textContent = names[currentView][0];
@@ -5992,6 +6286,7 @@ XLX.app = (function () {
     }
     if (view === "market") XLX.market.render();
     if (view === "studio") XLX.studio.render();
+    if (view === "create") XLX.create.render(document.getElementById("createContent"));
     if (view === "tools") XLX.tools.render();
     if (view === "memory") XLX.memview.render();
     if (view === "download") XLX.dlview.render();
@@ -6136,7 +6431,7 @@ XLX.app = (function () {
     XLX.chat.initSearchChip();
     initStudio();
     initKeys();
-    go("chat");
+    go("create");
     refreshStatus();
     setTimeout(() => {
       const l = document.getElementById("loader");
