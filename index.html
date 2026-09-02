@@ -755,7 +755,7 @@ select.inp{padding-right:34px}
 /* ===== 小龙虾AI 全局配置 ===== */
 const XLX = {};
 
-XLX.VERSION = "v69";
+XLX.VERSION = "v70";
 XLX.APP_NAME = "铜龙电商小龙虾AI";
 
 /* 存储键 */
@@ -2332,30 +2332,40 @@ XLX.image = (function () {
     } catch (e) { return "image/png"; }
   }
 
-  /* 校验并兜底图片结果：http→https、加载失败自动 fetch 转本地 dataURL（防止临时签名地址/混合内容导致图片显示成横线） */
+  /* 校验并兜底图片结果：http→https；无论能否直接加载，都优先 fetch 下载转本地 dataURL，
+   * 彻底避免豆包/千问临时签名地址在页面渲染时过期导致图片显示成横线。
+   * 所有异步路径均带超时，杜绝"请求永远挂起 → 页面只剩边框横线且无任何提示"的状态。 */
   function finalizeImg(value) {
     return new Promise((resolve) => {
       if (!value) { resolve(""); return; }
       let v = value;
       if (/^http:\/\//i.test(v)) v = v.replace(/^http:\/\//i, "https://");
+      const withTimeout = (p, ms, fallback) => Promise.race([p, new Promise((ok) => setTimeout(() => ok(fallback), ms))]);
+      const toDataUrl = (src) => fetch(src, { mode: "cors" }).then(r => {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.blob();
+      }).then(blob => new Promise(ok => {
+        const fr = new FileReader();
+        fr.onload = () => ok(fr.result);
+        fr.onerror = () => ok("");
+        fr.readAsDataURL(blob);
+      })).catch(() => "");
       const tryLoad = (src) => new Promise((ok) => {
         const im = new Image();
         im.onload = () => ok(true);
         im.onerror = () => ok(false);
         im.src = src;
       });
-      const toDataUrl = (src) => fetch(src, { mode: "cors" }).then(r => r.blob()).then(blob => new Promise(ok => {
-        const fr = new FileReader();
-        fr.onload = () => ok(fr.result);
-        fr.onerror = () => ok("");
-        fr.readAsDataURL(blob);
-      })).catch(() => "");
-      tryLoad(v).then(loads => {
-        if (loads) { resolve(v); return; }
-        toDataUrl(v).then(d => {
-          if (d) resolve(d);
-          else resolve(v);
-        });
+      /* 若已是 dataURL/blob: 直接加载验证即可（本地数据一定可显示） */
+      if (/^data:/.test(v) || /^blob:/.test(v)) {
+        withTimeout(tryLoad(v), 8000, false).then(ok => resolve(ok ? v : ""));
+        return;
+      }
+      /* 网络图片：先 fetch 转 dataURL（图片本地化，8s 超时）；失败则退回原 URL 让 <img> 自己加载，
+       * 原 URL 也做加载验证（12s 超时），能加载才返回，否则视为无效图片 */
+      withTimeout(toDataUrl(v), 8000, "").then(d => {
+        if (d) { resolve(d); return; }
+        withTimeout(tryLoad(v), 12000, false).then(ok => resolve(ok ? v : ""));
       });
     });
   }
@@ -5370,15 +5380,30 @@ if __name__ == "__main__":
               + '<div class="ilab">分镜 ' + (i + 1) + '</div></div>'
         ).join("") + '</div>';
 
-      /* 图片加载失败兜底：显示错误提示而不是空白横线 */
+      /* 图片加载失败/超时兜底：显示错误提示而不是空白横线 */
       shotsBox.querySelectorAll(".img-item img").forEach((im, idx) => {
-        im.onerror = () => {
+        let done = false;
+        const failCard = (why) => {
+          if (done) return;
+          done = true;
           const j = idx + 1;
+          const srcUrl = (script.shots[idx] && script.shots[idx].imgUrl) || "";
+          const urlBrief = srcUrl.slice(0, 60);
           im.closest(".img-item").innerHTML = '<div class="iload" style="position:static;min-height:150px">'
             + '<div class="err-ic">' + svg("alert", 20) + '</div>'
             + '<div class="err-t">分镜 ' + j + ' 图片加载失败</div>'
-            + '<div class="err-msg" style="font-size:11px;color:var(--text3);padding:0 10px">图片地址无法显示（可能已过期或网络问题），点下方「重试」重新生成</div></div>';
+            + '<div class="err-msg" style="font-size:11px;color:var(--text3);padding:0 10px">'
+            + XLX.util.esc(why) + '</div>'
+            + '<div class="err-msg" style="font-size:10px;color:var(--text3);padding:0 10px;word-break:break-all;opacity:.7">图源：' + XLX.util.esc(urlBrief) + '</div></div>';
         };
+        im.onerror = () => failCard("图片地址无法显示（可能已过期或网络问题），点「重试」重新生成");
+        im.onload = () => { done = true; };
+        /* 若 12 秒后图片仍未加载出来（既无成功也无失败），强制给出错误提示，避免只剩横线无反馈 */
+        setTimeout(() => {
+          if (!done && (!im.complete || im.naturalWidth === 0)) {
+            failCard("图片 12 秒仍未加载完成（网络慢或地址失效），请点「重试」重新生成");
+          }
+        }, 12000);
       });
 
       shotsBox.querySelectorAll("[data-retry]").forEach(b => b.onclick = async () => {
