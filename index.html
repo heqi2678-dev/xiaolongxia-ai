@@ -1403,29 +1403,32 @@ XLX.comicdrama = (function () {
     if (!text) return out;
     let obj = null;
     try {
-      const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
+      let cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
       const start = cleaned.indexOf("{");
-      if (start >= 0) {
-        const end = cleaned.lastIndexOf("}");
-        if (end > start) obj = JSON.parse(cleaned.slice(start, end + 1));
-      }
+      const end = cleaned.lastIndexOf("}");
+      if (start >= 0 && end > start) obj = JSON.parse(cleaned.slice(start, end + 1));
     } catch (e) { obj = null; }
-    if (obj && obj.title) {
-      out.title = String(obj.title || "").trim();
-      out.synopsis = String(obj.synopsis || "").trim();
-      if (obj.style === "american") out.style = "american";
-      if (Array.isArray(obj.roles)) out.roles = obj.roles.map(r => ({
-        name: String((r && r.name) || "").trim() || "角色" + (out.roles.length + 1),
-        desc: String((r && (r.desc || r.description)) || "").trim()
+    const g = (o, keys, dft) => { if (!o) return dft; for (const k of keys) { if (o[k] !== undefined && o[k] !== null) return o[k]; } return dft; };
+    if (obj && (obj.title || obj.shots || obj.分镜)) {
+      out.title = String(g(obj, ["title", "剧名", "名称", "name"], "") || "").trim();
+      out.synopsis = String(g(obj, ["synopsis", "梗概", "简介", "summary", "剧情"], "") || "").trim();
+      if (obj.style === "american" || obj.风格 === "美漫" || obj.画风 === "美漫") out.style = "american";
+      const rolesRaw = g(obj, ["roles", "角色", "characters", "persons"], null);
+      if (Array.isArray(rolesRaw)) out.roles = rolesRaw.map(r => ({
+        name: String(g(r, ["name", "名字", "角色名", "角色", "n"], "") || "").trim() || "角色" + (out.roles.length + 1),
+        desc: String(g(r, ["desc", "description", "形象", "描述", "character", "设定"], "") || "").trim()
       })).filter(r => r.name);
-      if (Array.isArray(obj.shots)) out.shots = obj.shots.map(s => ({
-        desc: String((s && (s.desc || s.pic || s.description)) || "").trim(),
-        line: String((s && (s.line || s.lineText || s.dialogue)) || "").trim(),
-        duration: Math.max(1, Math.min(10, parseInt((s && s.duration) || 0, 10) || 4)),
-        roles: Array.isArray((s && s.roles)) ? s.roles.map(String) : []
-      })).filter(s => s.desc || s.line);
+      const shotsRaw = g(obj, ["shots", "分镜", "scenes", "镜头", "frames"], null);
+      if (Array.isArray(shotsRaw)) {
+        out.shots = shotsRaw.map(s => ({
+          desc: String(g(s, ["desc", "pic", "description", "画面", "画面描述", "描述", "p"], "") || "").trim(),
+          line: String(g(s, ["line", "lineText", "dialogue", "对白", "台词", "l"], "") || "").trim(),
+          duration: Math.max(1, Math.min(10, parseInt(g(s, ["duration", "时长", "d"], 0), 10) || 4)),
+          roles: Array.isArray(g(s, ["roles", "角色", "chars"], null)) ? g(s, ["roles", "角色", "chars"], []).map(String) : []
+        })).filter(s => s.desc || s.line);
+      }
       out.shots = out.shots.slice(0, 8);
-      if (out.shots.length < 4 && obj.shots && Array.isArray(obj.shots)) {
+      if (out.shots.length < 4 && Array.isArray(shotsRaw)) {
         out.shots = out.shots.concat(
           Array.from({ length: Math.min(4 - out.shots.length, 8 - out.shots.length) }, () => ({ desc: "", line: "", duration: 4, roles: [] }))
         );
@@ -1437,7 +1440,9 @@ XLX.comicdrama = (function () {
     for (const ln of lines) {
       if (/^剧名[：:]\s*(.+)/.test(ln)) out.title = RegExp.$1.trim();
       else if (/^(梗概|简介|剧情)[：:]\s*(.+)/.test(ln)) out.synopsis = RegExp.$2.trim();
-      else if (out.shots.length < 8) out.shots.push({ desc: ln.replace(/^\d+[.、)]\s*/, ""), line: "", duration: 4, roles: [] });
+      else if (/^(分镜|镜头|画面)\s*\d*[：:、.)]\s*(.+)/.test(ln)) {
+        out.shots.push({ desc: RegExp.$2.trim(), line: "", duration: 4, roles: [] });
+      } else if (out.shots.length < 8) out.shots.push({ desc: ln.replace(/^\d+[.、)]\s*/, ""), line: "", duration: 4, roles: [] });
     }
     if (!out.title && out.shots.length) out.title = "AI 漫剧";
     return out;
@@ -1464,12 +1469,31 @@ XLX.comicdrama = (function () {
       + '"roles":[{"name":"角色名","desc":"形象描述，20字内，用于生图提示词"}],'
       + '"shots":[{"desc":"画面描述，含场景与角色动作，30字内","line":"该镜对白或旁白，无则空字符串","duration":4,"roles":["出现的角色名"]}]}。'
       + "要求：分镜 4-8 个，剧情有起承转合；每个分镜 desc 要能在无参考图时独立生成画面；角色不超过 4 个，角色名保持一致。";
-    const text = await XLX.llm.chat([
-      { role: "system", content: sys },
-      { role: "user", content: "故事：" + story }
-    ], Object.assign({ stream: false, temperature: 0.85 }, opts));
-    const script = parseScript(text);
-    script.style = style === "american" ? "american" : "japanese";
+    const sysStrict = sys + "\\n\\n重要：只输出一个 JSON 对象，前后不要任何解释文字、不要代码块标记、不要 markdown。";
+    let text = null;
+    let script = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      text = await XLX.llm.chat([
+        { role: "system", content: attempt === 0 ? sys : sysStrict },
+        { role: "user", content: "故事：" + story }
+      ], Object.assign({ stream: false, temperature: 0.85 }, opts));
+      script = parseScript(text || "");
+      script.style = style === "american" ? "american" : "japanese";
+      if (script.shots && script.shots.length >= 4) break;
+      if (attempt === 0) {
+        /* 首轮结果不理想（空/分镜过少/解析失败），用更严格提示重试一次 */
+        await new Promise(r => setTimeout(r, 300));
+      }
+    }
+    if (!script.shots || !script.shots.length) {
+      throw new Error("AI 返回了空内容，未能生成剧本。请重试，或检查「设置」里的对话模型 Key / 模型名是否正确，或更换模型平台。");
+    }
+    if (script.shots.length < 4) {
+      script.shots = script.shots.concat(
+        Array.from({ length: Math.min(4 - script.shots.length, 8 - script.shots.length) }, () => ({ desc: "后续剧情推进画面", line: "", duration: 4, roles: [] }))
+      );
+    }
+    if (!script.title) script.title = "AI 漫剧 · " + story.slice(0, 10);
     if (opts.onStep) opts.onStep("剧本完成：" + (script.title || "（未命名）"));
     return script;
   }
