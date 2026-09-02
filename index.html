@@ -2318,6 +2318,48 @@ XLX.image = (function () {
     return "https://image.pollinations.ai/prompt/" + p + "?width=" + (w || 512) + "&height=" + (h || 512) + "&seed=" + seed + "&nologo=true";
   }
 
+  /* 识别 b64 真实图片格式（豆包/千问可能返回 jpg/webp，不能一律当 png） */
+  function sniffMime(b64) {
+    try {
+      const bin = atob(b64);
+      if (bin.length < 4) return "image/png";
+      const b0 = bin.charCodeAt(0), b1 = bin.charCodeAt(1);
+      if (b0 === 0xff && b1 === 0xd8) return "image/jpeg";
+      if (b0 === 0x89 && b1 === 0x50) return "image/png";
+      if (b0 === 0x52 && b1 === 0x49) return "image/webp";
+      if (b0 === 0x47 && b1 === 0x49) return "image/gif";
+      return "image/png";
+    } catch (e) { return "image/png"; }
+  }
+
+  /* 校验并兜底图片结果：http→https、加载失败自动 fetch 转本地 dataURL（防止临时签名地址/混合内容导致图片显示成横线） */
+  function finalizeImg(value) {
+    return new Promise((resolve) => {
+      if (!value) { resolve(""); return; }
+      let v = value;
+      if (/^http:\/\//i.test(v)) v = v.replace(/^http:\/\//i, "https://");
+      const tryLoad = (src) => new Promise((ok) => {
+        const im = new Image();
+        im.onload = () => ok(true);
+        im.onerror = () => ok(false);
+        im.src = src;
+      });
+      const toDataUrl = (src) => fetch(src, { mode: "cors" }).then(r => r.blob()).then(blob => new Promise(ok => {
+        const fr = new FileReader();
+        fr.onload = () => ok(fr.result);
+        fr.onerror = () => ok("");
+        fr.readAsDataURL(blob);
+      })).catch(() => "");
+      tryLoad(v).then(loads => {
+        if (loads) { resolve(v); return; }
+        toDataUrl(v).then(d => {
+          if (d) resolve(d);
+          else resolve(v);
+        });
+      });
+    });
+  }
+
   function generate(prompt, opts = {}) {
     return new Promise((resolve, reject) => {
       const retries = opts.retries != null ? opts.retries : 2;
@@ -2373,8 +2415,8 @@ XLX.image = (function () {
         }).then(r => r.json()).then(j => {
           clearTimeout(timer);
           const img = (j && j.data && j.data[0]) || (j && j.images && j.images[0]);
-          const dataUrl = img && (img.url || (img.b64_json && "data:image/png;base64," + img.b64_json));
-          if (dataUrl) done(resolve, dataUrl);
+          const dataUrl = img && (img.url || (img.b64_json && "data:" + sniffMime(img.b64_json) + ";base64," + img.b64_json));
+          if (dataUrl) finalizeImg(dataUrl).then(u => u ? done(resolve, u) : done(reject, new Error("生图服务返回了无效图片")));
           else done(reject, new Error("生图服务返回异常：" + JSON.stringify(j).slice(0, 160)));
         }).catch(e => {
           clearTimeout(timer);
@@ -2398,8 +2440,8 @@ XLX.image = (function () {
         }).then(r => r.json()).then(j => {
           clearTimeout(timer);
           const img = (j && j.data && j.data[0]) || (j && j.images && j.images[0]);
-          const dataUrl = img && (img.url || (img.b64_json && "data:image/png;base64," + img.b64_json));
-          if (dataUrl) done(resolve, dataUrl);
+          const dataUrl = img && (img.url || (img.b64_json && "data:" + sniffMime(img.b64_json) + ";base64," + img.b64_json));
+          if (dataUrl) finalizeImg(dataUrl).then(u => u ? done(resolve, u) : done(reject, new Error("豆包生图返回了无效图片")));
           else done(reject, new Error("豆包生图返回异常：" + JSON.stringify(j).slice(0, 160)));
         }).catch(e => {
           clearTimeout(timer);
@@ -2445,8 +2487,8 @@ XLX.image = (function () {
               const o = t && t.output;
               const st = o && o.task_status;
               if (st === "SUCCEEDED") {
-                const u = o.results && o.results[0] && (o.results[0].url || o.results[0].b64_image);
-                if (u) done(resolve, u);
+                const u = o.results && o.results[0] && (o.results[0].url || (o.results[0].b64_image && "data:" + sniffMime(o.results[0].b64_image) + ";base64," + o.results[0].b64_image));
+                if (u) finalizeImg(u).then(fu => fu ? done(resolve, fu) : err("千问生图返回了无效图片"));
                 else err("千问生图返回异常：" + JSON.stringify(t).slice(0, 160));
               } else if (st === "FAILED" || st === "CANCELED") {
                 err("千问生图失败（任务" + st + "）");
@@ -5326,6 +5368,17 @@ if __name__ == "__main__":
             : '<div class="img-item"><img src="' + XLX.util.esc(s.imgUrl) + '" style="aspect-ratio:auto">'
               + '<div class="ilab">分镜 ' + (i + 1) + '</div></div>'
         ).join("") + '</div>';
+
+      /* 图片加载失败兜底：显示错误提示而不是空白横线 */
+      shotsBox.querySelectorAll(".img-item img").forEach((im, idx) => {
+        im.onerror = () => {
+          const j = idx + 1;
+          im.closest(".img-item").innerHTML = '<div class="iload" style="position:static;min-height:150px">'
+            + '<div class="err-ic">' + svg("alert", 20) + '</div>'
+            + '<div class="err-t">分镜 ' + j + ' 图片加载失败</div>'
+            + '<div class="err-msg" style="font-size:11px;color:var(--text3);padding:0 10px">图片地址无法显示（可能已过期或网络问题），点下方「重试」重新生成</div></div>';
+        };
+      });
 
       shotsBox.querySelectorAll("[data-retry]").forEach(b => b.onclick = async () => {
         const i = +b.dataset.retry;
