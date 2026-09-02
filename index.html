@@ -755,7 +755,7 @@ select.inp{padding-right:34px}
 /* ===== 小龙虾AI 全局配置 ===== */
 const XLX = {};
 
-XLX.VERSION = "v70";
+XLX.VERSION = "v71";
 XLX.APP_NAME = "铜龙电商小龙虾AI";
 
 /* 存储键 */
@@ -5376,13 +5376,15 @@ if __name__ == "__main__":
               + '<div class="err-act"><button class="btn small" data-retry="' + i + '">重试</button>'
               + '<button class="btn small primary" data-free="' + i + '">改用免费接口</button></div>'
               + '</div></div>'
-            : '<div class="img-item"><img src="' + XLX.util.esc(s.imgUrl) + '" style="aspect-ratio:auto">'
+            : '<div class="img-item"><div class="iload shim" style="position:static;min-height:150px"><div class="spinner"></div>画面加载中…</div>'
+              + '<img src="' + XLX.util.esc(s.imgUrl) + '" style="aspect-ratio:auto">'
               + '<div class="ilab">分镜 ' + (i + 1) + '</div></div>'
         ).join("") + '</div>';
 
-      /* 图片加载失败/超时兜底：显示错误提示而不是空白横线 */
+      /* 图片加载成功时移除「加载中」遮罩；失败/超时则显示错误提示而不是空白横线 */
       shotsBox.querySelectorAll(".img-item img").forEach((im, idx) => {
         let done = false;
+        const shim = im.closest(".img-item") && im.closest(".img-item").querySelector(".shim");
         const failCard = (why) => {
           if (done) return;
           done = true;
@@ -5397,7 +5399,10 @@ if __name__ == "__main__":
             + '<div class="err-msg" style="font-size:10px;color:var(--text3);padding:0 10px;word-break:break-all;opacity:.7">图源：' + XLX.util.esc(urlBrief) + '</div></div>';
         };
         im.onerror = () => failCard("图片地址无法显示（可能已过期或网络问题），点「重试」重新生成");
-        im.onload = () => { done = true; };
+        im.onload = () => {
+          done = true;
+          if (shim && shim.parentNode) shim.parentNode.removeChild(shim);
+        };
         /* 若 12 秒后图片仍未加载出来（既无成功也无失败），强制给出错误提示，避免只剩横线无反馈 */
         setTimeout(() => {
           if (!done && (!im.complete || im.naturalWidth === 0)) {
