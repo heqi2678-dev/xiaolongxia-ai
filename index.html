@@ -3240,6 +3240,10 @@ XLX.chat = (function () {
       openSettingsGuide();
       return;
     }
+    if (typeof window.__xlxGateConsume === "function") {
+      const allowed = await window.__xlxGateConsume();
+      if (!allowed) return;
+    }
     if (opts.search === undefined) {
       const wxHit = !!(XLX.search && XLX.search.isWeather && XLX.search.isWeather(text));
       opts.search = wxHit || getSearchMode() === "on";

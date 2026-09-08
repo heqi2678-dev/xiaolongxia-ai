@@ -1,0 +1,19 @@
+[Unit]
+Description=xiaolongxia shop gate
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+Group=admin
+WorkingDirectory=/home/admin/work/xiaolongxia-ai/gate
+Environment=SHOP_DIR=/home/admin/work/xiaolongxia-ai
+Environment=DATA_DIR=/home/admin/work/xiaolongxia-gate-data
+Environment=GATE_HOST=127.0.0.1
+Environment=GATE_PORT=9140
+ExecStart=/usr/bin/python3 /home/admin/work/xiaolongxia-ai/gate/server.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

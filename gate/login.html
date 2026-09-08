@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>小龙虾 · 请进店</title>
+<style>
+  :root { --bg:#1a1c2e; --card:#23263f; --accent:#ff5a3c; --text:#eef0ff; --muted:#8a90b0; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(1200px 600px at 50% -10%, #2b2f55 0%, var(--bg) 60%);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    color:var(--text); padding:20px;
+  }
+  .card {
+    width:100%; max-width:360px; background:var(--card);
+    border:1px solid rgba(255,255,255,.06); border-radius:18px;
+    padding:34px 30px; box-shadow:0 20px 60px rgba(0,0,0,.35);
+  }
+  .logo { text-align:center; font-size:46px; line-height:1; }
+  .title { text-align:center; font-size:20px; font-weight:700; letter-spacing:2px; margin-top:8px; }
+  .sub { text-align:center; color:var(--muted); font-size:13px; margin:8px 0 26px; }
+  .field { margin-bottom:16px; }
+  .field label { display:block; font-size:13px; color:var(--muted); margin-bottom:7px; }
+  .field input {
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid rgba(255,255,255,.1);
+    background:#1a1c2e; color:var(--text); font-size:15px; outline:none;
+  }
+  .field input:focus { border-color:var(--accent); }
+  .btn {
+    width:100%; padding:13px; margin-top:8px; border:none; border-radius:10px;
+    background:var(--accent); color:#fff; font-size:16px; font-weight:700; cursor:pointer; letter-spacing:2px;
+  }
+  .btn:disabled { opacity:.6; cursor:default; }
+  .msg { text-align:center; color:#ff7a5c; font-size:13px; min-height:18px; margin-top:14px; }
+  .foot { text-align:center; color:var(--muted); font-size:12px; margin-top:24px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">小龙虾</div>
+    <div class="title">请输入账号</div>
+    <div class="sub">填你的名字，用朋友口令进店。每人一间房。</div>
+    <form id="f" autocomplete="off">
+      <div class="field">
+        <label for="u">名字</label>
+        <input id="u" name="username" type="text" placeholder="你的名字" required autofocus>
+      </div>
+      <div class="field">
+        <label for="p">口令</label>
+        <input id="p" name="password" type="password" placeholder="进店口令" required>
+      </div>
+      <button class="btn" id="b" type="submit">进 店</button>
+    </form>
+    <div class="msg" id="m"></div>
+    <div class="foot">铜龙 · 小龙虾门店</div>
+  </div>
+<script>
+const f = document.getElementById("f");
+const b = document.getElementById("b");
+const m = document.getElementById("m");
+f.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  m.textContent = "";
+  b.disabled = true;
+  try {
+    const res = await fetch("/dian/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        username: document.getElementById("u").value.trim(),
+        password: document.getElementById("p").value
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.ok) {
+      location.replace("/dian/");
+      return;
+    }
+    m.textContent = "账号或口令不对";
+  } catch (err) {
+    m.textContent = "网络断了，请再试一次";
+  }
+  b.disabled = false;
+});
+</script>
+</body>
+</html>
