@@ -3219,6 +3219,7 @@ XLX.chat = (function () {
       + '<div class="pc-actions">'
       + '<button class="btn primary small" data-a="prev">预览</button>'
       + '<button class="btn small" data-a="zip">下载 ZIP</button>'
+      + '<button class="btn small" data-a="online">一键上线</button>'
       + '<button class="btn small" data-a="edit">编辑代码</button>'
       + '<button class="btn small" data-a="studio">打开工坊</button>'
       + '</div>';
@@ -3229,6 +3230,7 @@ XLX.chat = (function () {
         XLX.util.toast("软件包已打包：" + name, "ok");
       } catch (e) { XLX.util.toast("打包失败：" + e.message, "err"); }
     };
+    card.querySelector('[data-a=online]').onclick = () => XLX.studio.publishOnline();
     card.querySelector('[data-a=edit]').onclick = () => XLX.studio.openInStudio("edit");
     card.querySelector('[data-a=studio]').onclick = () => XLX.studio.openInStudio("gen");
     wrap.appendChild(card);
@@ -6950,7 +6952,9 @@ XLX.studio = (function () {
       + '<div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">'
       + '<button class="btn primary" id="zipBtn">' + svg("download", 15) + ' 下载软件包 ZIP</button>'
       + '<button class="btn" id="zipWebBtn">' + svg("box", 15) + ' 仅打包网页版(单HTML)</button>'
+      + '<button class="btn" id="publishBtn">' + svg("rocket", 15) + ' 一键上线</button>'
       + '</div>'
+      + '<div id="publishHint" style="margin-top:10px;font-size:12px;color:var(--text3)"></div>'
       + '<div id="zipList" style="margin-top:14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-family:var(--mono);font-size:12px;color:var(--text2);max-height:220px;overflow:auto">'
       + files.map(f => '📄 ' + f.name + '  <span style="color:var(--text3)">(' + sizeStr(f.content) + ')</span>').join("<br>")
       + extra.map(e => '<br>📄 ' + e.name + '  <span style="color:var(--text3)">(自动生成)</span>').join("")
@@ -6967,6 +6971,34 @@ XLX.studio = (function () {
       const htmlFile = mainHtml();
       if (htmlFile) { XLX.util.download("index.html", inlineHtml(htmlFile.content), "text/html;charset=utf-8"); XLX.util.toast("单文件网页版已下载", "ok"); }
     };
+    document.getElementById("publishBtn").onclick = () => publishOnline();
+  }
+
+  async function publishOnline() {
+    const hint = document.getElementById("publishHint");
+    const list = files.map(f => ({ name: f.name, content: String(f.content || "") }));
+    try {
+      const res = await fetch("/dian/api/publish", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: list })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        location.replace("/dian/");
+        return;
+      }
+      if (data && data.ok && data.url) {
+        if (hint) hint.innerHTML = '已上线：<a href="' + data.url + '" target="_blank" rel="noopener">' + data.url + "</a>";
+        try { if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(data.url); } catch (e) {}
+        XLX.util.toast("已上线，链接已复制：" + data.url, "ok");
+        return;
+      }
+      XLX.util.toast((data && data.error) || "上线失败", "err");
+    } catch (e) {
+      XLX.util.toast("门卫暂时没回上", "err");
+    }
   }
 
   function addFile() {
@@ -7025,7 +7057,7 @@ XLX.studio = (function () {
 
   function svg(n, s) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:' + s + 'px;height:' + s + 'px">' + (XLX.ICONS[n] || "") + '</svg>'; }
 
-  return { render, setTab, generate, openFile, saveCurrent, updatePreview, addFile, importFile, deleteFile, clearProject, getFile, files: () => files, parseFiles, textToProject, saveFiles, importFromText, downloadZip, openInStudio };
+  return { render, setTab, generate, openFile, saveCurrent, updatePreview, addFile, importFile, deleteFile, clearProject, getFile, files: () => files, parseFiles, textToProject, saveFiles, importFromText, downloadZip, openInStudio, publishOnline };
 })();
 
 </script>

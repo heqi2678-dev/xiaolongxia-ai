@@ -10,6 +10,8 @@ WorkingDirectory=/home/admin/work/xiaolongxia-ai/gate
 Environment=SHOP_DIR=/home/admin/work/xiaolongxia-ai
 Environment=DATA_DIR=/home/admin/work/xiaolongxia-gate-data
 Environment=ROOM_ROOT=/home/admin/work/rooms
+Environment=PUBLISH_ROOT=/home/admin/work/zuopin
+Environment=PUBLISH_BASE=http://47.108.14.206/zuopin
 Environment=CLERK_URL=http://127.0.0.1:9130/api/chat
 Environment=GATE_HOST=127.0.0.1
 Environment=GATE_PORT=9140

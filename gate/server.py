@@ -5,6 +5,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import socketserver
 import threading
 import time
@@ -21,8 +22,17 @@ PORT = int(os.environ.get("GATE_PORT", "9140"))
 SHOP_DIR = Path(os.environ.get("SHOP_DIR", "/home/admin/work/xiaolongxia-ai"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/home/admin/work/xiaolongxia-gate-data"))
 ROOM_ROOT = Path(os.environ.get("ROOM_ROOT", "/home/admin/work/rooms"))
+PUBLISH_ROOT = Path(os.environ.get("PUBLISH_ROOT", "/home/admin/work/zuopin"))
+PUBLISH_BASE = os.environ.get("PUBLISH_BASE", "http://47.108.14.206/zuopin")
 CLERK_URL = os.environ.get("CLERK_URL", "http://127.0.0.1:9130/api/chat")
 GATE_DIR = Path(__file__).resolve().parent
+PUBLISH_MAX_FILES = 30
+PUBLISH_MAX_BYTES = 5 * 1024 * 1024
+PUBLISH_NAME_OK = re.compile(r"^[\w\u4e00-\u9fff-]{1,80}\.[A-Za-z0-9]{1,8}$")
+PUBLISH_EXTS = set([
+    ".html", ".htm", ".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".webp",
+    ".svg", ".ico", ".woff", ".woff2", ".ttf", ".json", ".txt", ".md",
+])
 COOKIE_NAME = "xlx_sid"
 SESSION_DAYS = 7
 FRIEND_DAILY_LIMIT = 100
@@ -72,6 +82,7 @@ def new_invite_code():
 def ensure_data():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     ROOM_ROOT.mkdir(parents=True, exist_ok=True)
+    PUBLISH_ROOT.mkdir(parents=True, exist_ok=True)
     for name in ("users.json", "sessions.json", "quota.json", "friend.json"):
         p = DATA_DIR / name
         if not p.exists():
@@ -118,6 +129,76 @@ def invite_ok(given):
     if len(got) != len(cur):
         return False
     return hmac.compare_digest(got, cur)
+
+
+def publish_slug(name):
+    if not name or not NAME_OK.match(name):
+        return None
+    return name
+
+
+def validate_publish_files(raw_files):
+    if not isinstance(raw_files, list) or not raw_files:
+        return None, "请先做出网页"
+    if len(raw_files) > PUBLISH_MAX_FILES:
+        return None, "文件太多，最多 30 个"
+    out = []
+    total = 0
+    has_index = False
+    seen = set()
+    for item in raw_files:
+        if not isinstance(item, dict):
+            return None, "文件格式不对"
+        name = str(item.get("name") or "").strip()
+        content = item.get("content")
+        if content is None:
+            content = ""
+        if not isinstance(content, str):
+            return None, "文件内容读不懂"
+        if not PUBLISH_NAME_OK.match(name):
+            return None, "去掉路径字符"
+        low = name.lower()
+        ext = ""
+        if "." in low:
+            ext = "." + low.rsplit(".", 1)[1]
+        if ext not in PUBLISH_EXTS:
+            return None, "只上网页文件"
+        if low in seen:
+            continue
+        seen.add(low)
+        if low in ("index.html", "index.htm"):
+            has_index = True
+        encoded = content.encode("utf-8")
+        total += len(encoded)
+        if total > PUBLISH_MAX_BYTES:
+            return None, "体积太大，缩小后再上"
+        out.append({"name": name, "content": content})
+    if not has_index:
+        return None, "先做出网页"
+    return out, None
+
+
+def write_publish(name, files):
+    dest = PUBLISH_ROOT / name
+    tmp = PUBLISH_ROOT / (".tmp-" + name + "-" + secrets.token_hex(4))
+    old = PUBLISH_ROOT / (".old-" + name + "-" + secrets.token_hex(4))
+    PUBLISH_ROOT.mkdir(parents=True, exist_ok=True)
+    tmp.mkdir(parents=True)
+    try:
+        for item in files:
+            (tmp / item["name"]).write_text(item["content"], encoding="utf-8")
+        if dest.exists():
+            dest.rename(old)
+        tmp.rename(dest)
+        if old.exists():
+            shutil.rmtree(old)
+    except Exception:
+        if tmp.exists():
+            shutil.rmtree(tmp)
+        if old.exists() and not dest.exists():
+            old.rename(dest)
+        raise
+    return dest
 
 
 def ensure_room(name):
@@ -447,6 +528,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/clerk/new":
             self._handle_clerk_new()
             return
+        if path == "/api/publish":
+            self._handle_publish()
+            return
         self._json(404, {"ok": False, "error": "没有这个接口"})
 
     def _handle_consume(self):
@@ -549,6 +633,33 @@ class Handler(BaseHTTPRequestHandler):
         ensure_room(name)
         extra, out = self._issue_session(name, rec)
         self._json(200, out, extra)
+
+    def _handle_publish(self):
+        me = self._current()
+        if not me:
+            self._json(401, {"ok": False, "error": "未登录"})
+            return
+        slug = publish_slug(me["name"])
+        if not slug:
+            self._json(400, {"ok": False, "error": "账号不能用来上线"})
+            return
+        raw = self._read_body()
+        try:
+            obj = json.loads(raw.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            self._json(400, {"ok": False, "error": "内容读不懂"})
+            return
+        files, err = validate_publish_files(obj.get("files"))
+        if err:
+            self._json(400, {"ok": False, "error": err})
+            return
+        try:
+            write_publish(slug, files)
+        except Exception:
+            self._json(500, {"ok": False, "error": "稍后再试"})
+            return
+        url = PUBLISH_BASE.rstrip("/") + "/" + slug + "/"
+        self._json(200, {"ok": True, "url": url, "name": slug})
 
     def _handle_create_user(self):
         me = self._current()

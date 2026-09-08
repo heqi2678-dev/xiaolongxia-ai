@@ -24,6 +24,8 @@ class GateTests(unittest.TestCase):
         os.environ["DATA_DIR"] = cls.tmpdir.name
         os.environ["SHOP_DIR"] = str(SHOP)
         os.environ["ROOM_ROOT"] = str(Path(cls.tmpdir.name) / "rooms")
+        os.environ["PUBLISH_ROOT"] = str(Path(cls.tmpdir.name) / "zuopin")
+        os.environ["PUBLISH_BASE"] = "http://47.108.14.206/zuopin"
         import importlib
         import server as gate_server
         importlib.reload(gate_server)
@@ -31,6 +33,7 @@ class GateTests(unittest.TestCase):
         gate_server.DATA_DIR = Path(cls.tmpdir.name)
         gate_server.SHOP_DIR = SHOP
         gate_server.ROOM_ROOT = Path(os.environ["ROOM_ROOT"])
+        gate_server.PUBLISH_ROOT = Path(os.environ["PUBLISH_ROOT"])
         gate_server.ensure_data()
         gate_server.upsert_user("zhuren", "owner-pass", role="owner")
         gate_server.upsert_user("liyu", "friend-pass", role="friend")
@@ -248,6 +251,62 @@ class GateTests(unittest.TestCase):
             "username": "afternew", "password": "abcd", "password2": "abcd", "invite": new
         })
         self.assertEqual(code, 200)
+
+    def test_publish_requires_login(self):
+        opener, _ = self.opener()
+        code, _, _ = self.req(opener, "/api/publish", method="POST", json_body={
+            "files": [{"name": "index.html", "content": "<h1>hi</h1>"}]
+        })
+        self.assertEqual(code, 401)
+
+    def test_publish_success_and_overwrite(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        code, body, _ = self.req(opener, "/api/publish", method="POST", json_body={
+            "files": [
+                {"name": "index.html", "content": "<h1>v1</h1>"},
+                {"name": "style.css", "content": "body{color:red}"},
+            ]
+        })
+        self.assertEqual(code, 200)
+        data = json.loads(body.decode("utf-8"))
+        self.assertTrue(data["ok"])
+        self.assertIn("/zuopin/liyu/", data["url"])
+        dest = self.gate.PUBLISH_ROOT / "liyu"
+        self.assertEqual((dest / "index.html").read_text(encoding="utf-8"), "<h1>v1</h1>")
+        self.assertTrue((dest / "style.css").exists())
+        code, _, _ = self.req(opener, "/api/publish", method="POST", json_body={
+            "files": [{"name": "index.html", "content": "<h1>v2</h1>"}]
+        })
+        self.assertEqual(code, 200)
+        self.assertEqual((dest / "index.html").read_text(encoding="utf-8"), "<h1>v2</h1>")
+        self.assertFalse((dest / "style.css").exists())
+
+    def test_publish_rejects_bad_files(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        code, body, _ = self.req(opener, "/api/publish", method="POST", json_body={
+            "files": [{"name": "app.js", "content": "1"}]
+        })
+        self.assertEqual(code, 400)
+        self.assertEqual(json.loads(body.decode("utf-8"))["error"], "先做出网页")
+        code, body, _ = self.req(opener, "/api/publish", method="POST", json_body={
+            "files": [{"name": "../index.html", "content": "x"}]
+        })
+        self.assertEqual(code, 400)
+        self.assertEqual(json.loads(body.decode("utf-8"))["error"], "去掉路径字符")
+        too_many = [{"name": "index.html", "content": "<h1>x</h1>"}]
+        too_many.extend({"name": "f%s.css" % i, "content": "a"} for i in range(30))
+        code, body, _ = self.req(opener, "/api/publish", method="POST", json_body={"files": too_many})
+        self.assertEqual(code, 400)
+        self.assertEqual(json.loads(body.decode("utf-8"))["error"], "文件太多，最多 30 个")
+        other = self.gate.PUBLISH_ROOT / "zhuren" / "index.html"
+        other.parent.mkdir(parents=True, exist_ok=True)
+        other.write_text("owner", encoding="utf-8")
+        self.req(opener, "/api/publish", method="POST", json_body={
+            "files": [{"name": "index.html", "content": "<h1>liyu</h1>"}]
+        })
+        self.assertEqual(other.read_text(encoding="utf-8"), "owner")
 
 
 if __name__ == "__main__":
