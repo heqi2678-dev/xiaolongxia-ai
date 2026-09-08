@@ -35,51 +35,106 @@
   .btn:disabled { opacity:.6; cursor:default; }
   .msg { text-align:center; color:#ff7a5c; font-size:13px; min-height:18px; margin-top:14px; }
   .foot { text-align:center; color:var(--muted); font-size:12px; margin-top:24px; }
+  .switch { text-align:center; margin-top:16px; font-size:13px; color:var(--muted); }
+  .switch a { color:#ffb4a6; text-decoration:none; margin-left:6px; }
+  .reg-only { display:none; }
+  body.mode-reg .reg-only { display:block; }
+  body.mode-reg .login-only { display:none; }
 </style>
 </head>
 <body>
   <div class="card">
     <div class="logo">小龙虾</div>
-    <div class="title">请输入账号</div>
-    <div class="sub">填你的名字，用朋友口令进店。每人一间房。</div>
+    <div class="title" id="t">请输入账号</div>
+    <div class="sub" id="s">已有账号就登录。新人用邀请码自己开号。</div>
     <form id="f" autocomplete="off">
       <div class="field">
-        <label for="u">名字</label>
-        <input id="u" name="username" type="text" placeholder="你的名字" required autofocus>
+        <label for="u">账号</label>
+        <input id="u" name="username" type="text" placeholder="账号" required autofocus>
       </div>
       <div class="field">
         <label for="p">口令</label>
         <input id="p" name="password" type="password" placeholder="进店口令" required>
       </div>
+      <div class="field reg-only">
+        <label for="p2">再输一遍口令</label>
+        <input id="p2" name="password2" type="password" placeholder="再输一遍">
+      </div>
+      <div class="field reg-only">
+        <label for="inv">邀请码</label>
+        <input id="inv" name="invite" type="text" placeholder="主人发给你的邀请码" autocomplete="off">
+      </div>
       <button class="btn" id="b" type="submit">进 店</button>
     </form>
     <div class="msg" id="m"></div>
+    <div class="switch login-only">还没有账号？<a href="#" id="toReg">去注册</a></div>
+    <div class="switch reg-only">已有账号？<a href="#" id="toLogin">去登录</a></div>
     <div class="foot">铜龙 · 小龙虾门店</div>
   </div>
 <script>
 const f = document.getElementById("f");
 const b = document.getElementById("b");
 const m = document.getElementById("m");
+const t = document.getElementById("t");
+const s = document.getElementById("s");
+let mode = "login";
+function setMode(next) {
+  mode = next;
+  document.body.className = next === "reg" ? "mode-reg" : "";
+  t.textContent = next === "reg" ? "自己开号" : "请输入账号";
+  s.textContent = next === "reg" ? "填账号、口令、邀请码。每人一间房。" : "已有账号就登录。新人用邀请码自己开号。";
+  b.textContent = next === "reg" ? "注 册" : "进 店";
+  document.getElementById("p2").required = next === "reg";
+  document.getElementById("inv").required = next === "reg";
+  m.textContent = "";
+}
+document.getElementById("toReg").addEventListener("click", (e) => { e.preventDefault(); setMode("reg"); });
+document.getElementById("toLogin").addEventListener("click", (e) => { e.preventDefault(); setMode("login"); });
 f.addEventListener("submit", async (e) => {
   e.preventDefault();
   m.textContent = "";
   b.disabled = true;
+  const username = document.getElementById("u").value.trim();
+  const password = document.getElementById("p").value;
   try {
-    const res = await fetch("/dian/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({
-        username: document.getElementById("u").value.trim(),
-        password: document.getElementById("p").value
-      })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data.ok) {
-      location.replace("/dian/");
-      return;
+    if (mode === "reg") {
+      const password2 = document.getElementById("p2").value;
+      if (password !== password2) {
+        m.textContent = "两次口令不一致";
+        b.disabled = false;
+        return;
+      }
+      const res = await fetch("/dian/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          username,
+          password,
+          password2,
+          invite: document.getElementById("inv").value.trim()
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        location.replace("/dian/");
+        return;
+      }
+      m.textContent = data.error || "注册失败";
+    } else {
+      const res = await fetch("/dian/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        location.replace("/dian/");
+        return;
+      }
+      m.textContent = data.error || "账号或口令不对";
     }
-    m.textContent = "账号或口令不对";
   } catch (err) {
     m.textContent = "网络断了，请再试一次";
   }

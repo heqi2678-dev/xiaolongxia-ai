@@ -630,6 +630,7 @@ select.inp{padding-right:34px}
             <span id="msContainer" class="ms-container"></span>
             <span class="mode-chip" id="searchChip" title="开启后：每次提问都会先联网搜索最新资料，再结合资料回答">联网搜索：关</span>
             <span class="mode-chip" id="devChip" title="开启后：你说开发需求，AI 生成代码并自动打包成软件，直接预览/下载">开发模式：自动</span>
+            <span class="mode-chip" id="clerkChip" title="开启后：把话交给店员 Hermes 动手。主人可改店；朋友只在自己房间干活">指挥店员：关</span>
           </div>
           <div class="chat-input-row">
             <textarea id="chatInput" rows="1" placeholder="输入你的问题… 支持 Enter 发送，Shift+Enter 换行"></textarea>
@@ -3019,7 +3020,7 @@ XLX.search = (function () {
 /* ===== 对话引擎与聊天视图（融合软件开发模式） ===== */
 
 XLX.chat = (function () {
-  let state = { busy: false, aborter: null, convId: null, devMode: "auto", searchMode: "off" };
+  let state = { busy: false, aborter: null, convId: null, devMode: "auto", searchMode: "off", clerkMode: "off" };
 
   /* 开发模式指令注入 */
   const DEV_SYS = "\n\n【软件开发模式】用户正在让你开发软件。你必须用以下格式逐文件输出代码（标记独占一行，不要省略）：\n<<<FILE:文件名.扩展名>>>\n完整代码\n<<<END>>>\n网页应用优先输出单文件 index.html（内联CSS/JS）；多文件用 index.html + style.css + app.js。若为 Python/脚本程序，输出对应脚本文件。全部文件输出完毕后，另起一行输出：项目名称：xxx（一行），运行方法：xxx（一行）。";
@@ -3098,6 +3099,40 @@ XLX.chat = (function () {
     if (!chip) return;
     chip.onclick = () => setSearchMode(getSearchMode() === "on" ? "off" : "on");
     renderSearchChip();
+  }
+
+  function getClerkMode() {
+    try {
+      const s = JSON.parse(localStorage.getItem(XLX.K.SETTINGS) || "{}");
+      if (s.clerkMode) return s.clerkMode;
+    } catch (e) {}
+    return state.clerkMode;
+  }
+  function setClerkMode(m) {
+    state.clerkMode = m;
+    try {
+      const s = JSON.parse(localStorage.getItem(XLX.K.SETTINGS) || "{}");
+      s.clerkMode = m;
+      localStorage.setItem(XLX.K.SETTINGS, JSON.stringify(s));
+    } catch (e) {}
+    renderClerkChip();
+  }
+  function renderClerkChip() {
+    const chip = document.getElementById("clerkChip");
+    if (!chip) return;
+    const on = getClerkMode() === "on";
+    chip.textContent = on ? "指挥店员：开" : "指挥店员：关";
+    chip.classList.toggle("on", on);
+  }
+  function initClerkChip() {
+    const chip = document.getElementById("clerkChip");
+    if (!chip) return;
+    chip.onclick = () => {
+      const next = getClerkMode() === "on" ? "off" : "on";
+      setClerkMode(next);
+      XLX.util.toast(next === "on" ? "已交给店员动手。主人可改店，朋友只在自己房间干活。" : "已回到闲聊，用你自己的钥匙。", "info");
+    };
+    renderClerkChip();
   }
 
   function loadConvs() {
@@ -3235,6 +3270,10 @@ XLX.chat = (function () {
   /* ---------- 发送 ---------- */
   async function send(text, opts = {}) {
     if (state.busy) return;
+    if (getClerkMode() === "on") {
+      await sendClerk(text);
+      return;
+    }
     if (!XLX.llm.isConfigured()) {
       XLX.util.toast("请先在「设置」中填写 API Key（推荐：DeepSeek 响应快价格低；免费可选智谱GLM-4-Flash、硅基流动）", "warn");
       openSettingsGuide();
@@ -3381,6 +3420,137 @@ XLX.chat = (function () {
     document.getElementById("chatInput").focus();
   }
 
+  function clerkClock(ts) {
+    const d = ts ? new Date(ts) : new Date();
+    const p = (n) => String(n).padStart(2, "0");
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+  }
+
+  function renderClerkEvent(mdEl, obj) {
+    if (!mdEl || !obj) return;
+    if (obj.t === "step") {
+      const row = document.createElement("div");
+      row.style.cssText = "margin:8px 0;padding:8px 10px;border:1.5px solid #b88978;border-radius:12px;background:#fffaf7;color:#1f140f";
+      row.innerHTML = "<b>" + XLX.util.esc(obj.title || "处理中") + "</b>"
+        + (obj.en ? ' <span style="color:#8a6f64;font-size:12px">' + XLX.util.esc(obj.en) + "</span>" : "")
+        + (obj.sub ? '<div style="color:#8a6f64;font-size:12px;margin-top:2px">' + XLX.util.esc(obj.sub) + "</div>" : "");
+      mdEl.appendChild(row);
+    } else if (obj.t === "think") {
+      let el = mdEl.querySelector(".clerk-think");
+      if (!el) {
+        el = document.createElement("details");
+        el.className = "clerk-think";
+        el.style.cssText = "margin:8px 0;padding:8px 10px;border:1.5px dashed #b88978;border-radius:12px;background:#fffaf7;color:#6b5348";
+        el.innerHTML = "<summary style='cursor:pointer;font-size:13px;font-weight:650'>思考 Thinking</summary><pre style='white-space:pre-wrap;font-size:12px;margin:6px 0 0'></pre>";
+        mdEl.appendChild(el);
+      }
+      const pre = el.querySelector("pre");
+      pre.textContent = (pre.textContent ? pre.textContent + "\n" : "") + (obj.s || "");
+    } else if (obj.t === "say" || (obj.t === "done" && obj.s) || obj.t === "err") {
+      const p = document.createElement("div");
+      p.style.cssText = "margin:8px 0;line-height:1.65;white-space:pre-wrap";
+      p.textContent = obj.s || "";
+      mdEl.appendChild(p);
+    }
+    const box = chatBox();
+    if (box) box.scrollTop = box.scrollHeight;
+  }
+
+  async function sendClerk(text) {
+    const conv = ensureConv();
+    if (conv.messages.length === 0) conv.title = text.slice(0, 24);
+    conv.messages.push({ role: "user", content: text, time: Date.now() });
+    state.convId = conv.id;
+    saveConv(conv);
+    const eb = emptyBox();
+    eb.style.display = "none";
+    const mb = msgBox();
+    mb.style.display = "block";
+    mb.appendChild(buildMsg("user", text, Date.now()));
+    const aiMsg = { role: "assistant", content: "", time: Date.now() };
+    conv.messages.push(aiMsg);
+    saveConv(conv);
+    const node = buildMsg("assistant", "", Date.now());
+    mb.appendChild(node);
+    const mdEl = node.querySelector("[data-role=md]");
+    mdEl.innerHTML = "";
+    const stamp = document.createElement("div");
+    stamp.style.cssText = "font-size:11px;color:var(--text3);margin-bottom:6px";
+    stamp.textContent = clerkClock();
+    mdEl.appendChild(stamp);
+    chatBox().scrollTop = chatBox().scrollHeight;
+    state.busy = true;
+    showBusy(true);
+    const aborter = new AbortController();
+    state.aborter = aborter;
+    let said = "";
+    try {
+      if (typeof window.__xlxGateConsume === "function") {
+        const allowed = await window.__xlxGateConsume();
+        if (!allowed) throw new Error("今日次数已用完");
+      }
+      let apiKey = "";
+      try {
+        const p = XLX.llm.currentProvider();
+        apiKey = (p && p.key) || "";
+      } catch (e) {}
+      const isOwner = !!(window.__xlxUser && window.__xlxUser.role === "owner");
+      if (!apiKey && !isOwner) {
+        throw new Error("请先在「设置」中填写你自己的 API Key");
+      }
+      const res = await fetch("/dian/api/clerk/chat", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
+        body: JSON.stringify({ message: text, api_key: apiKey }),
+        signal: aborter.signal
+      });
+      if (!res.ok || !res.body) {
+        let err = "店员暂时没回上。";
+        try { const j = await res.json(); err = (j && (j.error || j.s)) || err; } catch (e) {}
+        throw new Error(err);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const chunks = buf.split("\n\n");
+        buf = chunks.pop() || "";
+        for (const chunk of chunks) {
+          const line = chunk.split("\n").filter((x) => x.startsWith("data: ")).map((x) => x.slice(6)).join("");
+          if (!line) continue;
+          let obj;
+          try { obj = JSON.parse(line); } catch (e) { continue; }
+          renderClerkEvent(mdEl, obj);
+          if (obj.t === "say" || (obj.t === "done" && obj.s) || obj.t === "err") {
+            said += (said ? "\n" : "") + (obj.s || "");
+          }
+          stamp.textContent = clerkClock();
+        }
+      }
+      aiMsg.content = said || "（店员没有文字回复）";
+      aiMsg.time = Date.now();
+      conv.messages[conv.messages.length - 1] = aiMsg;
+      saveConv(conv);
+    } catch (e) {
+      if (e.name !== "AbortError") {
+        mdEl.innerHTML = '<div style="color:var(--red)">⚠ ' + XLX.util.esc(e.message) + "</div>";
+        XLX.util.toast(e.message, "err");
+        aiMsg.content = "⚠ " + e.message;
+        aiMsg.time = Date.now();
+        conv.messages[conv.messages.length - 1] = aiMsg;
+        saveConv(conv);
+      }
+    }
+    state.busy = false;
+    state.aborter = null;
+    showBusy(false);
+    document.getElementById("chatInput").focus();
+  }
+
   function stop() {
     if (state.aborter) { try { state.aborter.abort(); } catch (e) {} }
   }
@@ -3411,7 +3581,7 @@ XLX.chat = (function () {
     XLX.util.toast("配置 Key 即可开始对话，推荐先用免费模型", "info");
   }
 
-  return { send, stop, clearCurrent, renderCurrent, ensureConv, current, newConv, loadConvs, saveConvs, isBusy: () => state.busy, conversationCount, openSettingsGuide, getDevMode, setDevMode, renderDevChip, isDevRequest, getSearchMode, setSearchMode, renderSearchChip, initSearchChip, __testDrama: detectDramaIntent };
+  return { send, stop, clearCurrent, renderCurrent, ensureConv, current, newConv, loadConvs, saveConvs, isBusy: () => state.busy, conversationCount, openSettingsGuide, getDevMode, setDevMode, renderDevChip, isDevRequest, getSearchMode, setSearchMode, renderSearchChip, initSearchChip, getClerkMode, setClerkMode, renderClerkChip, initClerkChip, __testDrama: detectDramaIntent };
 })();
 
 </script>
@@ -7802,6 +7972,7 @@ XLX.app = (function () {
         XLX.util.toast({ auto: "开发模式：自动识别（说开发需求即自动打包）", on: "开发模式已开启：所有对话的代码都会自动打包成软件", off: "开发模式已关闭" }[next] || "", "info");
       };
     }
+    if (XLX.chat.initClerkChip) XLX.chat.initClerkChip();
   }
 
   function initStudio() {

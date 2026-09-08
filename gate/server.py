@@ -8,6 +8,8 @@ import secrets
 import socketserver
 import threading
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -18,6 +20,8 @@ HOST = os.environ.get("GATE_HOST", "127.0.0.1")
 PORT = int(os.environ.get("GATE_PORT", "9140"))
 SHOP_DIR = Path(os.environ.get("SHOP_DIR", "/home/admin/work/xiaolongxia-ai"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/home/admin/work/xiaolongxia-gate-data"))
+ROOM_ROOT = Path(os.environ.get("ROOM_ROOT", "/home/admin/work/rooms"))
+CLERK_URL = os.environ.get("CLERK_URL", "http://127.0.0.1:9130/api/chat")
 GATE_DIR = Path(__file__).resolve().parent
 COOKIE_NAME = "xlx_sid"
 SESSION_DAYS = 7
@@ -58,12 +62,76 @@ def today_key():
     return now().strftime("%Y-%m-%d")
 
 
+INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def new_invite_code():
+    return "".join(secrets.choice(INVITE_ALPHABET) for _ in range(8))
+
+
 def ensure_data():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    ROOM_ROOT.mkdir(parents=True, exist_ok=True)
     for name in ("users.json", "sessions.json", "quota.json", "friend.json"):
         p = DATA_DIR / name
         if not p.exists():
             p.write_text("{}\n", encoding="utf-8")
+    ensure_invite()
+
+
+def ensure_invite():
+    with _lock:
+        data = load_json("invite.json")
+        code = str(data.get("code") or "").strip()
+        if code:
+            return code
+        code = new_invite_code()
+        save_json(
+            "invite.json",
+            {"code": code, "updatedAt": now().isoformat()},
+        )
+        return code
+
+
+def current_invite():
+    ensure_invite()
+    with _lock:
+        data = load_json("invite.json")
+        return str(data.get("code") or "").strip()
+
+
+def rotate_invite():
+    with _lock:
+        code = new_invite_code()
+        save_json(
+            "invite.json",
+            {"code": code, "updatedAt": now().isoformat()},
+        )
+        return code
+
+
+def invite_ok(given):
+    got = str(given or "").strip().upper()
+    cur = current_invite().upper()
+    if not got or not cur:
+        return False
+    if len(got) != len(cur):
+        return False
+    return hmac.compare_digest(got, cur)
+
+
+def ensure_room(name):
+    if not valid_friend_name(name) and name != "zhuren":
+        return None
+    room = ROOM_ROOT / name
+    room.mkdir(parents=True, exist_ok=True)
+    readme = room / "README.md"
+    if not readme.exists():
+        readme.write_text(
+            "这是 %s 的工作间。写的代码放这里，碰不到小龙虾店面。\n" % name,
+            encoding="utf-8",
+        )
+    return room
 
 
 def load_json(name):
@@ -122,12 +190,16 @@ def public_user(name, rec, quota):
     else:
         limit = int(rec.get("limit", FRIEND_DAILY_LIMIT))
         used = int(quota.get(today_key(), {}).get(name, 0))
+    workspace = str(SHOP_DIR) if role == "owner" else str(ROOM_ROOT / name)
     return {
         "ok": True,
         "name": name,
         "role": role,
         "used": used,
         "limit": limit,
+        "workspace": workspace,
+        "canEditShop": role == "owner",
+        "canClerk": True,
     }
 
 
@@ -312,6 +384,9 @@ class Handler(BaseHTTPRequestHandler):
                 quota = load_json("quota.json")
             self._json(200, public_user(me["name"], me["user"], quota))
             return
+        if path == "/api/invite":
+            self._handle_get_invite()
+            return
         if path in ("/", "/index.html", "/login", "/login.html"):
             me = self._current()
             if not me:
@@ -344,6 +419,12 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/login", "/api/login"):
             self._handle_login()
             return
+        if path == "/api/register":
+            self._handle_register()
+            return
+        if path == "/api/invite/rotate":
+            self._handle_rotate_invite()
+            return
         if path == "/api/logout":
             sid = self._sid()
             extra = [("Set-Cookie", cookie_header("", clear=True))]
@@ -356,6 +437,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/quota/consume":
             self._handle_consume()
+            return
+        if path == "/api/users":
+            self._handle_create_user()
+            return
+        if path == "/api/clerk/chat":
+            self._handle_clerk_chat()
+            return
+        if path == "/api/clerk/new":
+            self._handle_clerk_new()
             return
         self._json(404, {"ok": False, "error": "没有这个接口"})
 
@@ -391,6 +481,191 @@ class Handler(BaseHTTPRequestHandler):
             save_json("quota.json", quota)
             self._json(200, public_user(me["name"], rec, quota))
 
+    def _issue_session(self, username, rec):
+        sid = secrets.token_urlsafe(32)
+        with _lock:
+            sessions = load_json("sessions.json")
+            sessions[sid] = {
+                "name": username,
+                "role": rec.get("role", "friend"),
+                "exp": time.time() + SESSION_DAYS * 24 * 3600,
+            }
+            save_json("sessions.json", sessions)
+            quota = load_json("quota.json")
+        extra = [("Set-Cookie", cookie_header(sid))]
+        return extra, public_user(username, rec, quota)
+
+    def _handle_get_invite(self):
+        me = self._current()
+        if not me:
+            self._json(401, {"ok": False, "error": "未登录"})
+            return
+        if me["user"].get("role") != "owner":
+            self._json(403, {"ok": False, "error": "只有主人能看邀请码"})
+            return
+        self._json(200, {"ok": True, "code": current_invite()})
+
+    def _handle_rotate_invite(self):
+        me = self._current()
+        if not me:
+            self._json(401, {"ok": False, "error": "未登录"})
+            return
+        if me["user"].get("role") != "owner":
+            self._json(403, {"ok": False, "error": "只有主人能换邀请码"})
+            return
+        self._json(200, {"ok": True, "code": rotate_invite()})
+
+    def _handle_register(self):
+        if self._current():
+            self._json(400, {"ok": False, "error": "已登录，请先退出"})
+            return
+        raw = self._read_body()
+        try:
+            obj = json.loads(raw.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            obj = {}
+        name = str(obj.get("username") or "").strip()
+        password = str(obj.get("password") or "")
+        password2 = str(obj.get("password2") or "")
+        invite = str(obj.get("invite") or "")
+        if not invite_ok(invite):
+            self._json(401, {"ok": False, "error": "邀请码不对"})
+            return
+        if not valid_friend_name(name):
+            self._json(400, {"ok": False, "error": "名字不合规"})
+            return
+        if len(password) < 4:
+            self._json(400, {"ok": False, "error": "口令太短"})
+            return
+        if password != password2:
+            self._json(400, {"ok": False, "error": "两次口令不一致"})
+            return
+        with _lock:
+            users = load_json("users.json")
+            if name in users:
+                self._json(400, {"ok": False, "error": "换一个账号"})
+                return
+        rec = upsert_user(name, password, role="friend", limit=FRIEND_DAILY_LIMIT)
+        ensure_room(name)
+        extra, out = self._issue_session(name, rec)
+        self._json(200, out, extra)
+
+    def _handle_create_user(self):
+        me = self._current()
+        if not me:
+            self._json(401, {"ok": False, "error": "未登录"})
+            return
+        if me["user"].get("role") != "owner":
+            self._json(403, {"ok": False, "error": "只有主人能开号"})
+            return
+        raw = self._read_body()
+        try:
+            obj = json.loads(raw.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            obj = {}
+        name = str(obj.get("username") or "").strip()
+        password = str(obj.get("password") or "")
+        if not valid_friend_name(name):
+            self._json(400, {"ok": False, "error": "名字不合规"})
+            return
+        if len(password) < 4:
+            self._json(400, {"ok": False, "error": "口令太短"})
+            return
+        rec = upsert_user(name, password, role="friend", limit=FRIEND_DAILY_LIMIT)
+        ensure_room(name)
+        with _lock:
+            quota = load_json("quota.json")
+        self._json(200, public_user(name, rec, quota))
+
+    def _handle_clerk_new(self):
+        me = self._current()
+        if not me:
+            self._json(401, {"ok": False, "error": "未登录"})
+            return
+        payload = json.dumps({"user": me["name"]}).encode("utf-8")
+        req = urllib.request.Request(
+            CLERK_URL.replace("/api/chat", "/api/new"),
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as res:
+                body = res.read()
+            self._send(200, body, "application/json; charset=utf-8", raw=True)
+        except Exception:
+            self._json(502, {"ok": False, "error": "店员暂时没回上"})
+
+    def _handle_clerk_chat(self):
+        me = self._current()
+        if not me:
+            self._json(401, {"ok": False, "error": "未登录"})
+            return
+        raw = self._read_body()
+        try:
+            obj = json.loads(raw.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            self._json(400, {"ok": False, "error": "内容读不懂"})
+            return
+        msg = str(obj.get("message") or "").strip()
+        if not msg:
+            self._json(400, {"ok": False, "error": "请输入内容"})
+            return
+        role = me["user"].get("role", "friend")
+        if role == "owner":
+            workspace = str(SHOP_DIR)
+        else:
+            room = ensure_room(me["name"])
+            workspace = str(room)
+        payload = json.dumps(
+            {
+                "message": msg,
+                "user": me["name"],
+                "role": role,
+                "workspace": workspace,
+                "api_key": str(obj.get("api_key") or ""),
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
+        req = urllib.request.Request(
+            CLERK_URL,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "text/event-stream",
+            },
+            method="POST",
+        )
+        try:
+            res = urllib.request.urlopen(req, timeout=620)
+        except urllib.error.HTTPError as e:
+            body = e.read()
+            self._send(e.code, body, "application/json; charset=utf-8", raw=True)
+            return
+        except Exception:
+            self._json(502, {"ok": False, "error": "店员暂时没回上"})
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+        try:
+            while True:
+                chunk = res.read(1024)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                try:
+                    self.wfile.flush()
+                except Exception:
+                    break
+        finally:
+            try:
+                res.close()
+            except Exception:
+                pass
+
     def _handle_login(self):
         raw = self._read_body()
         username = ""
@@ -410,16 +685,9 @@ class Handler(BaseHTTPRequestHandler):
         with _lock:
             users = load_json("users.json")
             rec = users.get(username)
-            if rec and rec.get("role") == "owner":
+            ok = False
+            if rec:
                 ok = check_password(password, rec.get("salt", ""), rec.get("hash", ""))
-            else:
-                rec = None
-                ok = False
-                if valid_friend_name(username):
-                    friend = load_json("friend.json")
-                    ok = check_password(password, friend.get("salt", ""), friend.get("hash", ""))
-                    if ok:
-                        rec = {"role": "friend", "limit": FRIEND_DAILY_LIMIT}
             if not ok or rec is None:
                 if ctype == "application/json":
                     self._json(401, {"ok": False, "error": "账号或口令不对"})
