@@ -114,6 +114,53 @@
     document.body.appendChild(mask);
   }
 
+  function mdLite(text) {
+    var s = String(text || "");
+    s = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    s = s.replace(/^### (.+)$/gm, "<b>$1</b>");
+    s = s.replace(/^## (.+)$/gm, "<b>$1</b>");
+    s = s.replace(/^# (.+)$/gm, "<b>$1</b>");
+    s = s.replace(/^- (.+)$/gm, "· $1");
+    return s.replace(/\n/g, "<br>");
+  }
+
+  function showGuide() {
+    var old = document.getElementById("xlx-guide-pop");
+    if (old) old.remove();
+    var mask = document.createElement("div");
+    mask.id = "xlx-guide-pop";
+    mask.setAttribute("style", "position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px;");
+    var box = document.createElement("div");
+    box.setAttribute("style", "width:100%;max-width:520px;max-height:80vh;overflow:auto;background:#23263f;color:#eef0ff;border-radius:16px;padding:22px 20px;font:14px/1.6 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;");
+    box.innerHTML = "<div style='font-size:16px;font-weight:700;margin-bottom:10px'>说明书</div><div id='xlx-guide-body' style='color:#c9cde3'>正在读取…</div>";
+    var close = pill("#ff5a3c");
+    close.textContent = "关闭";
+    close.style.marginTop = "14px";
+    close.onclick = function () { mask.remove(); };
+    box.appendChild(close);
+    mask.appendChild(box);
+    mask.addEventListener("click", function (ev) { if (ev.target === mask) mask.remove(); });
+    document.body.appendChild(mask);
+    fetch("/dian/api/shuoming", { credentials: "same-origin" }).then(function (res) { return res.json(); }).then(function (data) {
+      var el = document.getElementById("xlx-guide-body");
+      if (!el) return;
+      if (!data || !data.ok) {
+        el.textContent = (data && data.error) || "读不到说明书";
+        return;
+      }
+      var html = "";
+      if (data.shop) html += "<div style='margin-bottom:14px'><div style='color:#8a90b0;font-size:12px;margin-bottom:6px'>店总说明书</div>" + mdLite(data.shop) + "</div>";
+      else html += "<div style='margin-bottom:14px;color:#8a90b0'>店总说明书还没写，可指挥店员写一份。</div>";
+      if (user.role !== "owner") {
+        html += "<div style='border-top:1px solid rgba(255,255,255,.12);padding-top:12px'><div style='color:#8a90b0;font-size:12px;margin-bottom:6px'>我的房间说明书</div>" + (data.mine ? mdLite(data.mine) : "还没写，可指挥店员写一份。") + "</div>";
+      }
+      el.innerHTML = html;
+    }).catch(function () {
+      var el = document.getElementById("xlx-guide-body");
+      if (el) el.textContent = "门卫暂时没回上";
+    });
+  }
+
   function mountBar() {
     if (!document.body) return;
     if (document.getElementById("xlx-gate-bar")) return;
@@ -131,6 +178,10 @@
       location.replace("/dian/");
     };
     el.appendChild(name);
+    var guideBtn = pill("#3d4466");
+    guideBtn.textContent = "说明书";
+    guideBtn.onclick = showGuide;
+    el.appendChild(guideBtn);
     if (user.role === "owner") {
       var inv = pill("#3d4466");
       inv.textContent = "邀请码";

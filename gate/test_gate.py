@@ -308,6 +308,88 @@ class GateTests(unittest.TestCase):
         })
         self.assertEqual(other.read_text(encoding="utf-8"), "owner")
 
+    def test_clerk_models_requires_login(self):
+        opener, _ = self.opener()
+        code, _, _ = self.req(opener, "/api/clerk/models")
+        self.assertEqual(code, 401)
+
+    def test_clerk_models_lists_brains(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        code, body, _ = self.req(opener, "/api/clerk/models")
+        self.assertEqual(code, 200)
+        data = json.loads(body.decode("utf-8"))
+        ids = [b["id"] for b in data["brains"]]
+        self.assertEqual(ids, ["deepseek", "qwen", "doubao", "custom"])
+
+    def test_clerk_chat_forwards_brain(self):
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        captured = {}
+
+        class MockClerk(BaseHTTPRequestHandler):
+            def log_message(self, fmt, *args):
+                return
+
+            def do_POST(self):
+                n = int(self.headers.get("Content-Length") or 0)
+                captured["body"] = json.loads(self.rfile.read(n).decode("utf-8"))
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.end_headers()
+                self.wfile.write(b'data: {"t":"say","s":"ok"}\n\n')
+
+        mock = HTTPServer(("127.0.0.1", 0), MockClerk)
+        port = mock.server_address[1]
+        th = threading.Thread(target=mock.handle_request)
+        th.daemon = True
+        th.start()
+        old = self.gate.CLERK_URL
+        self.gate.CLERK_URL = "http://127.0.0.1:%s/api/chat" % port
+        try:
+            opener, _ = self.opener()
+            self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+            code, body, _ = self.req(opener, "/api/clerk/chat", method="POST", json_body={
+                "message": "hi",
+                "api_key": "sk-friend",
+                "brain": "qwen",
+                "model": "qwen-plus",
+                "custom_base": "",
+            })
+            self.assertEqual(code, 200)
+            self.assertEqual(captured["body"]["brain"], "qwen")
+            self.assertEqual(captured["body"]["model"], "qwen-plus")
+            self.assertEqual(captured["body"]["api_key"], "sk-friend")
+            self.assertEqual(captured["body"]["role"], "friend")
+            self.assertIn("/rooms/liyu", captured["body"]["workspace"].replace("\\", "/"))
+        finally:
+            self.gate.CLERK_URL = old
+            th.join(timeout=2)
+
+    def test_shuoming_requires_login(self):
+        opener, _ = self.opener()
+        code, _, _ = self.req(opener, "/api/shuoming")
+        self.assertEqual(code, 401)
+
+    def test_friend_sees_shop_and_own_room_guide(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        code, body, _ = self.req(opener, "/api/shuoming")
+        self.assertEqual(code, 200)
+        data = json.loads(body.decode("utf-8"))
+        self.assertTrue(data["ok"])
+        self.assertIn("小龙虾店说明书", data["shop"])
+        self.assertIn("liyu 的房间说明书", data["mine"])
+        other = self.gate.ROOM_ROOT / "haike" / "shuoming" / "guide.md"
+        other.parent.mkdir(parents=True, exist_ok=True)
+        other.write_text("secret-haike", encoding="utf-8")
+        code, body, _ = self.req(opener, "/api/shuoming")
+        data = json.loads(body.decode("utf-8"))
+        self.assertNotIn("secret-haike", data["mine"])
+
+    def test_new_room_gets_guide(self):
+        room = self.gate.ensure_room("liyu")
+        self.assertTrue((room / "shuoming" / "guide.md").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

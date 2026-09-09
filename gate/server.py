@@ -26,6 +26,47 @@ PUBLISH_ROOT = Path(os.environ.get("PUBLISH_ROOT", "/home/admin/work/zuopin"))
 PUBLISH_BASE = os.environ.get("PUBLISH_BASE", "http://47.108.14.206/zuopin")
 CLERK_URL = os.environ.get("CLERK_URL", "http://127.0.0.1:9130/api/chat")
 GATE_DIR = Path(__file__).resolve().parent
+ALLOWED_BRAINS = set(["deepseek", "qwen", "doubao", "custom"])
+CLERK_BRAINS = [
+    {
+        "id": "deepseek",
+        "label": "DeepSeek",
+        "hint": "现在在用的大脑",
+        "base": "https://api.deepseek.com/v1",
+        "models": [
+            {"id": "deepseek-v4-pro", "label": "聪明", "hint": "想得细，费高"},
+            {"id": "deepseek-v4-flash", "label": "省钱快", "hint": "回复快，费低"},
+        ],
+    },
+    {
+        "id": "qwen",
+        "label": "千问",
+        "hint": "阿里云百炼 Key",
+        "base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "models": [
+            {"id": "qwen-plus", "label": "Plus", "hint": "日常够用"},
+            {"id": "qwen-turbo", "label": "Turbo", "hint": "更快更省"},
+            {"id": "qwen-max", "label": "Max", "hint": "更聪明，费高"},
+            {"id": "qwen3-coder-plus", "label": "Coder", "hint": "改代码"},
+        ],
+    },
+    {
+        "id": "doubao",
+        "label": "豆包",
+        "hint": "火山方舟。模型名填控制台里的接入点 ID",
+        "base": "https://ark.cn-beijing.volces.com/api/v3",
+        "models": [
+            {"id": "doubao-seed-1-6-250615", "label": "Seed 1.6", "hint": "可改成接入点 ID"},
+        ],
+    },
+    {
+        "id": "custom",
+        "label": "自定义",
+        "hint": "自己填地址、模型名和钥匙",
+        "base": "",
+        "models": [],
+    },
+]
 PUBLISH_MAX_FILES = 30
 PUBLISH_MAX_BYTES = 5 * 1024 * 1024
 PUBLISH_NAME_OK = re.compile(r"^[\w\u4e00-\u9fff-]{1,80}\.[A-Za-z0-9]{1,8}$")
@@ -212,7 +253,29 @@ def ensure_room(name):
             "这是 %s 的工作间。写的代码放这里，碰不到小龙虾店面。\n" % name,
             encoding="utf-8",
         )
+    guide_dir = room / "shuoming"
+    guide_dir.mkdir(parents=True, exist_ok=True)
+    guide = guide_dir / "guide.md"
+    if not guide.exists():
+        guide.write_text(
+            "# %s 的房间说明书\n\n"
+            "这是你自己的工作间。指挥店员时，活只落在这里。\n\n"
+            "- 闲聊：用你自己的钥匙\n"
+            "- 指挥店员：打开开关，可换大脑；钥匙填在「大脑设置」\n"
+            "- 问用法：店员会先查官方说明再答\n"
+            "- 网页做好后可点「一键上线」\n" % name,
+            encoding="utf-8",
+        )
     return room
+
+
+def read_guide(path):
+    try:
+        if path.is_file():
+            return path.read_text(encoding="utf-8")
+    except OSError:
+        pass
+    return ""
 
 
 def load_json(name):
@@ -468,6 +531,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/invite":
             self._handle_get_invite()
             return
+        if path == "/api/clerk/models":
+            self._handle_clerk_models()
+            return
+        if path == "/api/shuoming":
+            self._handle_shuoming()
+            return
         if path in ("/", "/index.html", "/login", "/login.html"):
             me = self._current()
             if not me:
@@ -688,6 +757,27 @@ class Handler(BaseHTTPRequestHandler):
             quota = load_json("quota.json")
         self._json(200, public_user(name, rec, quota))
 
+    def _handle_clerk_models(self):
+        me = self._current()
+        if not me:
+            self._json(401, {"ok": False, "error": "未登录"})
+            return
+        self._json(200, {"ok": True, "brains": CLERK_BRAINS})
+
+    def _handle_shuoming(self):
+        me = self._current()
+        if not me:
+            self._json(401, {"ok": False, "error": "未登录"})
+            return
+        shop = read_guide(SHOP_DIR / "shuoming" / "guide.md")
+        mine = ""
+        role = me["user"].get("role", "friend")
+        if role != "owner":
+            room = ensure_room(me["name"])
+            if room:
+                mine = read_guide(room / "shuoming" / "guide.md")
+        self._json(200, {"ok": True, "shop": shop, "mine": mine})
+
     def _handle_clerk_new(self):
         me = self._current()
         if not me:
@@ -728,6 +818,11 @@ class Handler(BaseHTTPRequestHandler):
         else:
             room = ensure_room(me["name"])
             workspace = str(room)
+        brain = str(obj.get("brain") or "").strip()
+        if brain and brain not in ALLOWED_BRAINS:
+            brain = "deepseek"
+        model = str(obj.get("model") or "").strip()[:80]
+        custom_base = str(obj.get("custom_base") or "").strip()[:200]
         payload = json.dumps(
             {
                 "message": msg,
@@ -735,6 +830,9 @@ class Handler(BaseHTTPRequestHandler):
                 "role": role,
                 "workspace": workspace,
                 "api_key": str(obj.get("api_key") or ""),
+                "brain": brain,
+                "model": model,
+                "custom_base": custom_base,
             },
             ensure_ascii=False,
         ).encode("utf-8")

@@ -158,6 +158,16 @@ a{color:var(--blue);text-decoration:none}
 .chat-mode-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .chat-mode-row .mode-chip{display:flex;align-items:center;gap:6px;font-size:11px;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 11px;color:var(--text2)}
 .chat-mode-row .mode-chip.on{background:rgba(255,90,60,.12);border-color:var(--accent);color:var(--accent2)}
+.clerk-brain-row{display:none;align-items:center;gap:8px;margin:0 0 8px;flex-wrap:wrap}
+.clerk-brain-row.show{display:flex}
+.clerk-brain-row select{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:3px 10px;color:var(--text);font-size:11px}
+.clerk-brain-panel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:80;align-items:center;justify-content:center;padding:16px}
+.clerk-brain-panel.show{display:flex}
+.clerk-brain-card{width:min(420px,100%);background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px}
+.clerk-brain-card h3{margin:0 0 8px;font-size:16px}
+.clerk-brain-card label{display:block;margin:10px 0 4px;font-size:12px;color:var(--text2)}
+.clerk-brain-card input,.clerk-brain-card select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px 10px;color:var(--text)}
+.clerk-brain-card .hint{font-size:12px;color:var(--text3);margin:8px 0 0}
 .chat-input-row{display:flex;align-items:flex-end;gap:10px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:10px 12px;transition:border-color .2s,box-shadow .2s}
 .chat-input-row:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,90,60,.12)}
 #chatInput{flex:1;background:none;border:none;outline:none;resize:none;max-height:140px;font-size:14.5px;line-height:1.6;color:var(--text);padding:2px 4px}
@@ -632,6 +642,11 @@ select.inp{padding-right:34px}
             <span class="mode-chip" id="devChip" title="开启后：你说开发需求，AI 生成代码并自动打包成软件，直接预览/下载">开发模式：自动</span>
             <span class="mode-chip" id="clerkChip" title="开启后：把话交给店员 Hermes 动手。主人可改店；朋友只在自己房间干活">指挥店员：关</span>
           </div>
+          <div class="clerk-brain-row" id="clerkBrainRow">
+            <select id="clerkBrain" title="店员用哪个大脑"></select>
+            <select id="clerkModel" title="店员用哪个模型"></select>
+            <span class="mode-chip" id="clerkBrainBtn">大脑设置</span>
+          </div>
           <div class="chat-input-row">
             <textarea id="chatInput" rows="1" placeholder="输入你的问题… 支持 Enter 发送，Shift+Enter 换行"></textarea>
             <button class="tool-btn" title="清空当前对话" id="clearChatBtn">
@@ -645,6 +660,29 @@ select.inp{padding-right:34px}
             </button>
           </div>
           <div class="chat-hint">未配置 Key？去 <b onclick="XLX.chat.openSettingsGuide()" style="cursor:pointer;color:var(--accent2)">设置</b> 选免费平台（智谱GLM-4-Flash / OpenRouter免费模型）</div>
+        </div>
+      </div>
+    </div>
+    <div class="clerk-brain-panel" id="clerkBrainPanel">
+      <div class="clerk-brain-card">
+        <h3>店员大脑设置</h3>
+        <p class="hint">指挥店员时用这里的大脑。钥匙只存在你自己的浏览器，页面不回显。</p>
+        <label>大脑</label>
+        <select id="clerkBrainPick"></select>
+        <label>模型</label>
+        <select id="clerkModelPick"></select>
+        <div id="clerkCustomBox" style="display:none">
+          <label>接口地址</label>
+          <input id="clerkCustomBase" placeholder="https://api.example.com/v1">
+          <label>模型名</label>
+          <input id="clerkCustomModel" placeholder="自己填模型名或接入点 ID">
+        </div>
+        <label>钥匙（API Key，可留空表示沿用已保存的）</label>
+        <input id="clerkBrainKey" type="password" autocomplete="off" placeholder="粘贴后点保存">
+        <p class="hint" id="clerkBrainHint"></p>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn small" type="button" id="clerkBrainSave">保存</button>
+          <button class="btn small ghost" type="button" id="clerkBrainClose">关掉</button>
         </div>
       </div>
     </div>
@@ -3117,12 +3155,125 @@ XLX.chat = (function () {
     } catch (e) {}
     renderClerkChip();
   }
+  const CLERK_BRAIN_KEY = "xlx_clerk_brain";
+  const CLERK_BRAIN_FALLBACK = [
+    { id: "deepseek", label: "DeepSeek", hint: "现在在用的大脑", base: "https://api.deepseek.com/v1", models: [
+      { id: "deepseek-v4-pro", label: "聪明", hint: "想得细，费高" },
+      { id: "deepseek-v4-flash", label: "省钱快", hint: "回复快，费低" }
+    ]},
+    { id: "qwen", label: "千问", hint: "阿里云百炼 Key", base: "https://dashscope.aliyuncs.com/compatible-mode/v1", models: [
+      { id: "qwen-plus", label: "Plus", hint: "日常够用" },
+      { id: "qwen-turbo", label: "Turbo", hint: "更快更省" },
+      { id: "qwen-max", label: "Max", hint: "更聪明，费高" },
+      { id: "qwen3-coder-plus", label: "Coder", hint: "改代码" }
+    ]},
+    { id: "doubao", label: "豆包", hint: "火山方舟。模型名填控制台里的接入点 ID", base: "https://ark.cn-beijing.volces.com/api/v3", models: [
+      { id: "doubao-seed-1-6-250615", label: "Seed 1.6", hint: "可改成接入点 ID" }
+    ]},
+    { id: "custom", label: "自定义", hint: "自己填地址、模型名和钥匙", base: "", models: [] }
+  ];
+  let clerkBrains = CLERK_BRAIN_FALLBACK.slice();
+  function defaultClerkBrain() {
+    return { brain: "deepseek", model: "deepseek-v4-pro", custom_base: "", custom_model: "", keys: {} };
+  }
+  function loadClerkBrain() {
+    try {
+      const s = JSON.parse(localStorage.getItem(CLERK_BRAIN_KEY) || "{}");
+      return Object.assign(defaultClerkBrain(), s || {});
+    } catch (e) {
+      return defaultClerkBrain();
+    }
+  }
+  function saveClerkBrain(next) {
+    const cur = Object.assign(loadClerkBrain(), next || {});
+    if (!cur.keys || typeof cur.keys !== "object") cur.keys = {};
+    localStorage.setItem(CLERK_BRAIN_KEY, JSON.stringify(cur));
+    return cur;
+  }
+  function clerkBrainOf(id) {
+    return clerkBrains.find((b) => b.id === id) || clerkBrains[0];
+  }
+  function fillClerkSelect(sel, items, current) {
+    if (!sel) return;
+    sel.innerHTML = "";
+    (items || []).forEach((m) => {
+      const opt = document.createElement("option");
+      opt.value = m.id;
+      opt.textContent = (m.label || m.id) + (m.hint ? "（" + m.hint + "）" : "");
+      if (m.id === current) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    if (current && ![...sel.options].some((o) => o.value === current)) {
+      const opt = document.createElement("option");
+      opt.value = current;
+      opt.textContent = current;
+      opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+  function maskClerkKey(key) {
+    const k = String(key || "");
+    if (!k) return "";
+    if (k.length <= 8) return "已保存";
+    return k.slice(0, 4) + "…" + k.slice(-4);
+  }
+  function clerkIsOwner() {
+    return !!(window.__xlxUser && window.__xlxUser.role === "owner");
+  }
+  function renderClerkBrains() {
+    const cur = loadClerkBrain();
+    const b = clerkBrainOf(cur.brain);
+    const models = ((b && b.models) || []).slice();
+    if (cur.custom_model && !models.some((m) => m.id === cur.custom_model)) {
+      models.push({ id: cur.custom_model, label: cur.custom_model });
+    }
+    fillClerkSelect(document.getElementById("clerkBrain"), clerkBrains, cur.brain);
+    fillClerkSelect(document.getElementById("clerkModel"), models, cur.model);
+    fillClerkSelect(document.getElementById("clerkBrainPick"), clerkBrains, cur.brain);
+    fillClerkSelect(document.getElementById("clerkModelPick"), models, cur.model);
+    const needCustom = !!(b && (b.id === "custom" || b.id === "doubao"));
+    const box = document.getElementById("clerkCustomBox");
+    if (box) box.style.display = needCustom ? "block" : "none";
+    const baseEl = document.getElementById("clerkCustomBase");
+    const modelEl = document.getElementById("clerkCustomModel");
+    if (baseEl) baseEl.value = cur.custom_base || (b && b.base) || "";
+    if (modelEl) modelEl.value = cur.custom_model || "";
+    const hint = document.getElementById("clerkBrainHint");
+    if (hint) {
+      const saved = (cur.keys || {})[cur.brain] || "";
+      if (saved) hint.textContent = "已保存钥匙：" + maskClerkKey(saved);
+      else if (clerkIsOwner() && cur.brain === "deepseek") hint.textContent = "主人可走服务器已配的 DeepSeek 钥匙";
+      else hint.textContent = "还没填钥匙";
+    }
+  }
+  function clerkApiKey(brain) {
+    const cur = loadClerkBrain();
+    const saved = ((cur.keys || {})[brain] || "").trim();
+    if (saved) return saved;
+    try {
+      const p = XLX.llm.currentProvider();
+      if (p && p.key && (p.id === brain || brain === "deepseek")) return p.key;
+    } catch (e) {}
+    return "";
+  }
+  async function loadClerkBrainList() {
+    try {
+      const res = await fetch("/dian/api/clerk/models", { credentials: "same-origin" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.brains && data.brains.length) clerkBrains = data.brains;
+      }
+    } catch (e) {}
+    renderClerkBrains();
+  }
   function renderClerkChip() {
     const chip = document.getElementById("clerkChip");
     if (!chip) return;
     const on = getClerkMode() === "on";
     chip.textContent = on ? "指挥店员：开" : "指挥店员：关";
     chip.classList.toggle("on", on);
+    const row = document.getElementById("clerkBrainRow");
+    if (row) row.classList.toggle("show", on);
   }
   function initClerkChip() {
     const chip = document.getElementById("clerkChip");
@@ -3130,9 +3281,56 @@ XLX.chat = (function () {
     chip.onclick = () => {
       const next = getClerkMode() === "on" ? "off" : "on";
       setClerkMode(next);
-      XLX.util.toast(next === "on" ? "已交给店员动手。主人可改店，朋友只在自己房间干活。" : "已回到闲聊，用你自己的钥匙。", "info");
+      XLX.util.toast(next === "on" ? "已交给店员动手。可在下方选大脑。主人可改店，朋友只在自己房间干活。" : "已回到闲聊，用你自己的钥匙。", "info");
+    };
+    const brainSel = document.getElementById("clerkBrain");
+    const modelSel = document.getElementById("clerkModel");
+    const panel = document.getElementById("clerkBrainPanel");
+    const pick = document.getElementById("clerkBrainPick");
+    if (brainSel) brainSel.onchange = () => {
+      const b = clerkBrainOf(brainSel.value);
+      const model = (b && b.models && b.models[0] && b.models[0].id) || "";
+      saveClerkBrain({ brain: brainSel.value, model });
+      renderClerkBrains();
+    };
+    if (modelSel) modelSel.onchange = () => {
+      saveClerkBrain({ model: modelSel.value });
+      renderClerkBrains();
+    };
+    const btn = document.getElementById("clerkBrainBtn");
+    if (btn) btn.onclick = () => { if (panel) panel.classList.add("show"); renderClerkBrains(); };
+    const close = document.getElementById("clerkBrainClose");
+    if (close) close.onclick = () => { if (panel) panel.classList.remove("show"); };
+    if (panel) panel.onclick = (e) => { if (e.target === panel) panel.classList.remove("show"); };
+    if (pick) pick.onchange = () => {
+      const b = clerkBrainOf(pick.value);
+      saveClerkBrain({ brain: pick.value, model: (b && b.models && b.models[0] && b.models[0].id) || "" });
+      renderClerkBrains();
+    };
+    const saveBtn = document.getElementById("clerkBrainSave");
+    if (saveBtn) saveBtn.onclick = () => {
+      const brain = (document.getElementById("clerkBrainPick") || {}).value || "deepseek";
+      const modelPick = (document.getElementById("clerkModelPick") || {}).value || "";
+      const customBase = (document.getElementById("clerkCustomBase") || {}).value || "";
+      const customModel = (document.getElementById("clerkCustomModel") || {}).value || "";
+      const keyEl = document.getElementById("clerkBrainKey");
+      const key = keyEl ? keyEl.value.trim() : "";
+      const cur = loadClerkBrain();
+      const keys = Object.assign({}, cur.keys || {});
+      if (key) keys[brain] = key;
+      saveClerkBrain({
+        brain,
+        model: customModel.trim() || modelPick,
+        custom_base: customBase.trim(),
+        custom_model: customModel.trim(),
+        keys
+      });
+      if (keyEl) keyEl.value = "";
+      renderClerkBrains();
+      XLX.util.toast("已保存店员大脑。下次指挥店员用这个。", "ok");
     };
     renderClerkChip();
+    loadClerkBrainList();
   }
 
   function loadConvs() {
@@ -3287,7 +3485,8 @@ XLX.chat = (function () {
     }
     if (opts.search === undefined) {
       const wxHit = !!(XLX.search && XLX.search.isWeather && XLX.search.isWeather(text));
-      opts.search = wxHit || getSearchMode() === "on";
+      const docsHit = /(怎么用|如何使用|官方文档|怎么配置|怎么接入|用法|how to use|文档怎么)/i.test(text);
+      opts.search = wxHit || docsHit || getSearchMode() === "on";
     }
     const conv = ensureConv();
     if (conv.messages.length === 0) conv.title = text.slice(0, 24);
@@ -3491,20 +3690,29 @@ XLX.chat = (function () {
         const allowed = await window.__xlxGateConsume();
         if (!allowed) throw new Error("今日次数已用完");
       }
-      let apiKey = "";
-      try {
-        const p = XLX.llm.currentProvider();
-        apiKey = (p && p.key) || "";
-      } catch (e) {}
-      const isOwner = !!(window.__xlxUser && window.__xlxUser.role === "owner");
+      const cur = loadClerkBrain();
+      const brain = cur.brain || "deepseek";
+      const model = cur.custom_model || cur.model || "";
+      const customBase = cur.custom_base || "";
+      const apiKey = clerkApiKey(brain);
+      const isOwner = clerkIsOwner();
       if (!apiKey && !isOwner) {
-        throw new Error("请先在「设置」中填写你自己的 API Key");
+        throw new Error("请先在「大脑设置」填写你自己的钥匙");
+      }
+      if (!apiKey && isOwner && brain !== "deepseek") {
+        throw new Error("请先在「大脑设置」填入这颗大脑的钥匙");
       }
       const res = await fetch("/dian/api/clerk/chat", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
-        body: JSON.stringify({ message: text, api_key: apiKey }),
+        body: JSON.stringify({
+          message: text,
+          api_key: apiKey,
+          brain,
+          model,
+          custom_base: customBase
+        }),
         signal: aborter.signal
       });
       if (!res.ok || !res.body) {
