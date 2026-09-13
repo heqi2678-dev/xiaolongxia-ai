@@ -289,7 +289,7 @@ def ensure_room(name):
     readme = room / "README.md"
     if not readme.exists():
         readme.write_text(
-            "这是 %s 的工作间。写的代码放这里，碰不到小龙虾店面。\n" % name,
+            "这是 %s 的工作间。写的代码放这里，碰不到铜龙电商店面。\n" % name,
             encoding="utf-8",
         )
     guide_dir = room / "shuoming"

@@ -377,7 +377,7 @@ class GateTests(unittest.TestCase):
         self.assertEqual(code, 200)
         data = json.loads(body.decode("utf-8"))
         self.assertTrue(data["ok"])
-        self.assertIn("小龙虾店说明书", data["shop"])
+        self.assertIn("铜龙电商 · 店说明书", data["shop"])
         self.assertIn("liyu 的房间说明书", data["mine"])
         other = self.gate.ROOM_ROOT / "haike" / "shuoming" / "guide.md"
         other.parent.mkdir(parents=True, exist_ok=True)

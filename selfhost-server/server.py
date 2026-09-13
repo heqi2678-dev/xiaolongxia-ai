@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""小龙虾AI 自托管视频生成服务（同步式）。
+"""铜龙电商 自托管视频生成服务（同步式）。
 
 协议与前端 videogen.js custom 同步式对齐：
   POST {base}/api/video
