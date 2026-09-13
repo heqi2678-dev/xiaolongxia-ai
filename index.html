@@ -1181,17 +1181,32 @@ XLX.util = (function () {
     dosDate(d) {
       return ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
     },
-    make(files) {
+    /* 统一把任意内容转成字节：Uint8Array / ArrayBuffer / Blob / data:URL / 普通字符串。
+       data:URL 会解码回真实二进制，避免图片被当成文本写进 .png 而导致图片损坏。 */
+    async _bytes(raw) {
+      if (raw == null) return null;
+      if (raw instanceof Uint8Array) return raw;
+      if (raw instanceof ArrayBuffer) return new Uint8Array(raw);
+      if (raw instanceof Blob) return new Uint8Array(await raw.arrayBuffer());
+      if (typeof raw === "string" && /^data:[^,]*;base64,/i.test(raw)) {
+        const bin = atob(raw.slice(raw.indexOf(",") + 1));
+        const out = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+        return out;
+      }
+      if (typeof raw === "string" && /^data:/i.test(raw)) {
+        return new TextEncoder().encode(decodeURIComponent(raw.slice(raw.indexOf(",") + 1)));
+      }
+      return new TextEncoder().encode(String(raw));
+    },
+    async make(files) {
       const enc = new TextEncoder();
       const parts = [];
       const central = [];
       let offset = 0;
       for (const f of files) {
         const name = enc.encode(f.name);
-        const raw = f.content;
-        const data = raw instanceof Uint8Array ? raw : raw instanceof ArrayBuffer ? new Uint8Array(raw)
-          : raw instanceof Blob ? null
-          : enc.encode(String(raw));
+        const data = await this._bytes(f.content);
         if (data === null) continue;
         const crc = this.crc32(data);
         const t = this.dosTime(new Date());
@@ -3422,9 +3437,9 @@ XLX.chat = (function () {
       + '<button class="btn small" data-a="studio">打开工坊</button>'
       + '</div>';
     card.querySelector('[data-a=prev]').onclick = () => XLX.studio.openInStudio("prev");
-    card.querySelector('[data-a=zip]').onclick = () => {
+    card.querySelector('[data-a=zip]').onclick = async () => {
       try {
-        const name = XLX.studio.downloadZip();
+        const name = await XLX.studio.downloadZip();
         XLX.util.toast("软件包已打包：" + name, "ok");
       } catch (e) { XLX.util.toast("打包失败：" + e.message, "err"); }
     };
@@ -4249,7 +4264,7 @@ XLX.tools = (function () {
               if (buf) files.push({ name: "img-" + (i + 1) + ".jpg", content: buf });
             }
             if (!files.length) { XLX.util.toast("图片下载失败，请逐个下载", "warn"); return; }
-            const zip = XLX.util.ZIP.make(files);
+            const zip = await XLX.util.ZIP.make(files);
             XLX.util.download("商品图片-" + Date.now() + ".zip", zip, "application/zip");
             XLX.util.toast("ZIP 打包完成", "ok");
           } catch (e) { XLX.util.toast("打包失败：" + e.message, "err"); }
@@ -4496,11 +4511,11 @@ XLX.tools = (function () {
     const urlEl = document.getElementById("vwUrl");
     const result = document.getElementById("vwResult");
 
-    document.getElementById("vwScriptBtn").onclick = () => {
+    document.getElementById("vwScriptBtn").onclick = async () => {
       const url = urlEl.value.trim();
       if (!/^https?:\/\//i.test(url)) { XLX.util.toast("请输入正确的视频链接", "warn"); return; }
       const files = makeVideoDLScript(url);
-      const zip = XLX.util.ZIP.make(files);
+      const zip = await XLX.util.ZIP.make(files);
       XLX.util.download("视频去水印工具.zip", zip, "application/zip");
       result.innerHTML = '<div class="ok-box" style="color:var(--ok);font-size:13px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px">'
         + '✅ 已生成「视频去水印工具.zip」并开始下载。<br><br>'
@@ -4952,9 +4967,9 @@ XLX.tools = (function () {
       linkBtn.disabled = false; linkBtn.innerHTML = svg("download", 15) + ' 提取说话内容';
     };
 
-    document.getElementById("vtGenBtn").onclick = () => {
+    document.getElementById("vtGenBtn").onclick = async () => {
       const files = makeVidTxtScript("https://example.com/video.mp4");
-      const zip = XLX.util.ZIP.make(files);
+      const zip = await XLX.util.ZIP.make(files);
       XLX.util.download("视频转文案工具.zip", zip, "application/zip");
       result.innerHTML = '<div style="color:var(--ok);font-size:13px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px">'
         + '✅ 已生成「视频转文案工具.zip」并开始下载。<br><br>'
@@ -7127,7 +7142,7 @@ XLX.studio = (function () {
   }
 
   /* 一键下载 ZIP 软件包 */
-  function downloadZip() {
+  async function downloadZip() {
     const name = (document.getElementById("studioProjectName") && document.getElementById("studioProjectName").textContent) || "project";
     const extra = [
       { name: "README.md", content: "# " + name + "\n\n本项目由「铜龙电商小龙虾AI」生成。\n\n## 运行方法\n- 网页应用：直接用浏览器打开 index.html（双击即可），或运行一键启动脚本。\n- 脚本程序：安装对应运行环境后执行（详见 AI 生成说明）。\n\n## 打包\n压缩包内含全部源码，可直接部署到任意静态托管（Vercel / Netlify / GitHub Pages）或本机运行。\n" },
@@ -7135,7 +7150,7 @@ XLX.studio = (function () {
       { name: "start.sh", content: "#!/bin/bash\n# 一键启动网页应用（Mac/Linux）\nopen index.html 2>/dev/null || xdg-open index.html 2>/dev/null || echo \"请手动双击打开 index.html\"\n" }
     ];
     const blobs = files.concat(extra);
-    const zip = XLX.util.ZIP.make(blobs.map(f => ({ name: f.name, content: f.content })));
+    const zip = await XLX.util.ZIP.make(blobs.map(f => ({ name: f.name, content: f.content })));
     const safe = (name.replace(/[^\w\u4e00-\u9fa5-]/g, "") || "project");
     XLX.util.download(safe + ".zip", zip, "application/zip");
     return safe + ".zip";
@@ -7168,9 +7183,9 @@ XLX.studio = (function () {
       + extra.map(e => '<br>📄 ' + e.name + '  <span style="color:var(--text3)">(自动生成)</span>').join("")
       + '</div>';
 
-    document.getElementById("zipBtn").onclick = () => {
+    document.getElementById("zipBtn").onclick = async () => {
       const blobs = files.concat(extra);
-      const zip = XLX.util.ZIP.make(blobs.map(f => ({ name: f.name, content: f.content })));
+      const zip = await XLX.util.ZIP.make(blobs.map(f => ({ name: f.name, content: f.content })));
       const name = (document.getElementById("studioProjectName").textContent || "project").replace(/[^\w\u4e00-\u9fa5-]/g, "");
       XLX.util.download(name + ".zip", zip, "application/zip");
       XLX.util.toast("软件包已打包完成，请解压使用", "ok");
@@ -8022,14 +8037,14 @@ XLX.dlview = (function () {
     XLX.util.toast("离线版已下载，双击即可使用", "ok");
   }
 
-  function downloadServerZip() {
+  async function downloadServerZip() {
     const files = [
       { name: "index.html", content: document.documentElement.outerHTML },
       { name: "start.bat", content: "@echo off\r\nrem 铜龙电商小龙虾AI 本地服务器启动脚本\r\ntitle 铜龙电商小龙虾AI 本地服务器\r\necho 正在启动...\r\npython -m http.server 8080 2>nul || py -m http.server 8080 2>nul || start index.html\r\nif %errorlevel%==0 start http://localhost:8080\r\npause\r\n" },
       { name: "start.sh", content: "#!/bin/bash\n# 铜龙电商小龙虾AI 本地服务器启动脚本\necho \"正在启动...\"\npython3 -m http.server 8080 &\nsleep 1\nopen http://localhost:8080 2>/dev/null || xdg-open http://localhost:8080 2>/dev/null || echo \"请手动打开 http://localhost:8080\"\nwait\n" },
       { name: "README.md", content: "# 铜龙电商小龙虾AI · 本地服务器版\n\n## 启动方法\n- Windows：双击 start.bat\n- Mac/Linux：运行 ./start.sh（或 python3 -m http.server 8080）\n- 然后浏览器访问 http://localhost:8080\n\n## 局域网分享\n同一 WiFi 下，把电脑 IP（如 http://192.168.1.100:8080）发给朋友即可访问。\n\n## 说明\n所有数据保存在使用者的浏览器本地，安全私密。\n" }
     ];
-    const zip = XLX.util.ZIP.make(files);
+    const zip = await XLX.util.ZIP.make(files);
     XLX.util.download("xiaolongxia-ai-本地服务器版.zip", zip, "application/zip");
     XLX.util.toast("本地服务器版已打包", "ok");
   }

@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import base64
 import hashlib
 import hmac
 import json
@@ -15,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote_to_bytes, urlparse
 
 HOST = os.environ.get("GATE_HOST", "127.0.0.1")
 PORT = int(os.environ.get("GATE_PORT", "9140"))
@@ -178,6 +179,30 @@ def publish_slug(name):
     return name
 
 
+class DataUrlError(Exception):
+    pass
+
+
+def decode_data_url(content):
+    """把 data:...;base64,... 或 data:...,... 解析成 bytes。
+
+    不是 data URL 时返回 None；是 data URL 但内容坏了则抛 DataUrlError。
+    """
+    if not isinstance(content, str) or not content.startswith("data:"):
+        return None
+    comma = content.find(",")
+    if comma < 0:
+        raise DataUrlError()
+    meta = content[:comma]
+    body = content[comma + 1:]
+    try:
+        if ";base64" in meta.lower():
+            return base64.b64decode(body, validate=True)
+        return unquote_to_bytes(body)
+    except Exception:
+        raise DataUrlError()
+
+
 def validate_publish_files(raw_files):
     if not isinstance(raw_files, list) or not raw_files:
         return None, "请先做出网页"
@@ -209,11 +234,21 @@ def validate_publish_files(raw_files):
         seen.add(low)
         if low in ("index.html", "index.htm"):
             has_index = True
-        encoded = content.encode("utf-8")
-        total += len(encoded)
-        if total > PUBLISH_MAX_BYTES:
-            return None, "体积太大，缩小后再上"
-        out.append({"name": name, "content": content})
+        try:
+            binary = decode_data_url(content)
+        except DataUrlError:
+            return None, "文件内容坏了，重新导入再试"
+        if binary is not None:
+            total += len(binary)
+            if total > PUBLISH_MAX_BYTES:
+                return None, "体积太大，缩小后再上"
+            out.append({"name": name, "content": binary, "binary": True})
+        else:
+            encoded = content.encode("utf-8")
+            total += len(encoded)
+            if total > PUBLISH_MAX_BYTES:
+                return None, "体积太大，缩小后再上"
+            out.append({"name": name, "content": content, "binary": False})
     if not has_index:
         return None, "先做出网页"
     return out, None
@@ -227,7 +262,11 @@ def write_publish(name, files):
     tmp.mkdir(parents=True)
     try:
         for item in files:
-            (tmp / item["name"]).write_text(item["content"], encoding="utf-8")
+            target = tmp / item["name"]
+            if item.get("binary"):
+                target.write_bytes(item["content"])
+            else:
+                target.write_text(item["content"], encoding="utf-8")
         if dest.exists():
             dest.rename(old)
         tmp.rename(dest)
