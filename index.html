@@ -7609,14 +7609,16 @@ XLX.app = (function () {
     nav.innerHTML = html;
     nav.querySelectorAll(".nav-item").forEach(el => el.onclick = () => go(el.dataset.view));
 
-    /* 手机端底部导航 */
+    /* 手机端底部导航（只渲染菜单里真实存在的页面；摘掉某页后不会再出错） */
     const mn = document.getElementById("mobileNav");
-    mn.innerHTML = ["create", "chat", "market", "tools", "studio"].map(id => {
-      const item = navItems().find(x => x.id === id);
-      return '<div class="mn' + (id === currentView ? " active" : "") + '" data-view="' + id + '">'
+    mn.innerHTML = ["create", "chat", "market", "tools", "studio"]
+      .map(id => navItems().find(x => x.id === id))
+      .filter(Boolean)
+      .map(item =>
+        '<div class="mn' + (item.id === currentView ? " active" : "") + '" data-view="' + item.id + '">'
         + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + (XLX.ICONS[item.icon] || "") + '</svg>'
-        + '<span>' + item.name.replace(/AI/, "") + '</span></div>';
-    }).join("");
+        + '<span>' + item.name.replace(/AI/, "") + '</span></div>'
+      ).join("");
     mn.querySelectorAll(".mn").forEach(el => el.onclick = () => { go(el.dataset.view); closeSidebar(); });
   }
 
@@ -7624,8 +7626,9 @@ XLX.app = (function () {
     const names = { create: ["创作中心", "输入产品描述 → AI帮写 → 一键生成主图/详情页/SKU/海报"], chat: ["智能对话", "多平台免费模型 · 流式秒回"], market: ["技能市场", XLX.SKILL_COUNT + " 个免费实用技能，点击即用"], studio: ["软件工坊", "AI 开发完整软件 → 预览 → 一键打包下载"], tools: ["工具箱", "商品图下载、去水印、视频提取文案"], memory: ["记忆习惯", "AI 记住你的偏好，自动处理重复工作"], download: ["客户端下载", "手机 / 电脑 / 离线版"], settings: ["设置", "接入多个平台的免费 API Key"] };
     const t = document.getElementById("pageTitle");
     const s = document.getElementById("pageSub");
-    t.textContent = names[currentView][0];
-    s.textContent = names[currentView][1];
+    const viewMeta = names[currentView] || ["", ""];
+    t.textContent = viewMeta[0];
+    s.textContent = viewMeta[1];
     document.getElementById("providerPill").innerHTML = '<span class="pd"></span>' + (XLX.llm.currentProvider().name || "") + ' · ' + (XLX.llm.currentModel() || "未选模型");
     document.getElementById("providerPill").onclick = () => go("settings");
   }
@@ -7689,12 +7692,13 @@ XLX.app = (function () {
       { icon: "cart", c: "#ff8f5a", t: "写电商文案", d: "商品卖点提炼+促销文案", go: "market", sid: "ecom-copy" },
       { icon: "book", c: "#4aa8ff", t: "写公众号文章", d: "10万+爆文结构创作", go: "market", sid: "gzh-article" },
       { icon: "clapper", c: "#a78bfa", t: "写AI短剧剧本", d: "竖屏短剧黄金3秒开场", go: "market", sid: "short-drama" },
-      { icon: "palette", c: "#ff7aa8", t: "AI文字生图", d: "免费无限次生成图片", go: "tools", sid: "" },
+      { icon: "palette", c: "#ff7aa8", t: "AI文字生图", d: "免费无限次生成图片", go: "tools", sid: "", park: "image" },
       { icon: "hammer", c: "#38d9e6", t: "AI开发软件", d: "生成可运行软件并打包", go: "studio", sid: "" },
       { icon: "zap", c: "#3ddc84", t: "一键周报", d: "快捷指令解决重复工作", go: "memory", sid: "" },
       { icon: "trend", c: "#f5c451", t: "关键词热度盘点", d: "自动搜索网页资料分析", go: "market", sid: "keyword-heat" },
       { icon: "film", c: "#9aa7bd", t: "生成分镜脚本", d: "专业分镜表格一键出", go: "market", sid: "storyboard" }
-    ];
+    /* 已暂缓的功能不再出现在首页推荐里（避免点了没反应） */
+    ].filter(it => (!it.sid || XLX.getSkill(it.sid)) && !(it.park && XLX.PARKED[it.park]));
     box.innerHTML = items.map(it =>
       '<div class="suggest-card" data-it="' + it.sid + '" data-go="' + it.go + '">'
       + '<div class="ic" style="background:' + it.c + '22;color:' + it.c + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + (XLX.ICONS[it.icon] || "") + '</svg></div>'
