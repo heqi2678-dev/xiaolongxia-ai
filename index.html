@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#ff5a3c">
-<meta name="description" content="铜龙电商 - 免费的AI助手小程序，40+免费技能：电商、新媒体、视频创作、办公、编程开发、AI生图。自带Key即可使用，数据本地保存。">
+<meta name="description" content="铜龙电商 - 免费的AI助手小程序，40+免费技能：电商、新媒体、视频创作、办公、编程开发。自带Key即可使用，数据本地保存。">
 <title>铜龙电商 · 免费AI智能助手</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2096%2096%22%20fill%3D%22none%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22lgx%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%2296%22%20y2%3D%2296%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23eef4fc%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23f9e9c8%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2296%22%20height%3D%2296%22%20rx%3D%2222%22%20fill%3D%22url%28%23lgx%29%22%2F%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%2222%22%20r%3D%222.2%22%20fill%3D%22%23e8a13c%22%2F%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2214%22%20r%3D%221.6%22%20fill%3D%22%23e8a13c%22%2F%3E%3Ccircle%20cx%3D%2274%22%20cy%3D%2214%22%20r%3D%222%22%20fill%3D%22%23e8a13c%22%2F%3E%3Ccircle%20cx%3D%2284%22%20cy%3D%2230%22%20r%3D%221.5%22%20fill%3D%22%23e8a13c%22%2F%3E%3Ccircle%20cx%3D%2218%22%20cy%3D%2244%22%20r%3D%221.5%22%20fill%3D%22%23e8a13c%22%2F%3E%3Cpath%20d%3D%22M66%2030l1.4%202.8%202.8%201.4-2.8%201.4L66%2038.4l-1.4-2.8-2.8-1.4%202.8-1.4z%22%20fill%3D%22%23e8a13c%22%2F%3E%3Ccircle%20cx%3D%2248%22%20cy%3D%2240%22%20r%3D%2225%22%20fill%3D%22%23f6c453%22%20stroke%3D%22%23e8a13c%22%20stroke-width%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%2234%22%20r%3D%224%22%20fill%3D%22%23edb648%22%20opacity%3D%220.6%22%2F%3E%3Ccircle%20cx%3D%2255%22%20cy%3D%2246%22%20r%3D%226%22%20fill%3D%22%23edb648%22%20opacity%3D%220.6%22%2F%3E%3Ccircle%20cx%3D%2242%22%20cy%3D%2250%22%20r%3D%223%22%20fill%3D%22%23edb648%22%20opacity%3D%220.6%22%2F%3E%3Ccircle%20cx%3D%2258%22%20cy%3D%2230%22%20r%3D%222.5%22%20fill%3D%22%23edb648%22%20opacity%3D%220.6%22%2F%3E%3Ctext%20x%3D%2248%22%20y%3D%2289%22%20text-anchor%3D%22middle%22%20font-size%3D%2223%22%20font-weight%3D%22800%22%20fill%3D%22%23b3270f%22%20stroke%3D%22%23f2c25c%22%20stroke-width%3D%221%22%20paint-order%3D%22stroke%22%20font-family%3D%22KaiTi%2CSTKaiti%2Cserif%22%3E%E9%93%9C%E9%BE%99%E7%94%B5%E5%95%86%3C%2Ftext%3E%3C%2Fsvg%3E">
 <style>
@@ -628,7 +628,7 @@ select.inp{padding-right:34px}
         <div id="emptyState">
           <div class="hero-logo" id="heroLogo"></div>
           <h2>你好，我是 <span style="color:var(--accent2)">铜龙电商</span></h2>
-          <p>接入多平台免费模型 · 40+ 免费技能 · 会写软件会生图<br>配置一次 Key，就能一直免费使用</p>
+          <p>接入多平台免费模型 · 40+ 免费技能 · 会写软件会写文案<br>配置一次 Key，就能一直免费使用</p>
           <div class="suggest-grid" id="suggestGrid"></div>
         </div>
         <div class="chat-inner" id="messages" style="display:none"></div>
@@ -798,6 +798,16 @@ const XLX = {};
 XLX.VERSION = "v71";
 XLX.APP_NAME = "铜龙电商";
 
+/* ===== 暂缓功能开关（主人要求先摘掉，后续重新加入） =====
+ * 摘掉的是「AI 生图」与「AI 剧作」两块：界面入口全部隐藏，实现代码原样保留。
+ * 想恢复：把下面 image / drama 改成 false，并清空 XLX.PARKED_SKILLS 即可。
+ */
+XLX.PARKED = { image: true, drama: true };
+XLX.PARKED_SKILLS = [
+  "product-img", "text2img", "logo-design", "detail-longimg", "ecom-mainimg",
+  "comic-story", "short-drama", "comic-drama", "live-drama", "ai-video-gen"
+];
+
 /* 存储键 */
 XLX.K = {
   SETTINGS: "xlx_settings",
@@ -945,7 +955,7 @@ XLX.BILLING = {
   }
 };
 
-XLX.DEFAULT_SYSTEM = "你是" + XLX.APP_NAME + "，一个功能强大的国产AI助手，搭载了40+个免费实用技能（电商、新媒体、视频创作、办公、编程开发、AI生图等）。回答请始终使用简体中文，要专业、清晰、直接、实用，必要时给出可直接复制使用的成品（文案/代码/脚本/表格）。";
+XLX.DEFAULT_SYSTEM = "你是" + XLX.APP_NAME + "，一个功能强大的国产AI助手，搭载了数十个免费实用技能（电商、新媒体、视频创作、办公、编程开发等）。回答请始终使用简体中文，要专业、清晰、直接、实用，必要时给出可直接复制使用的成品（文案/代码/脚本/表格）。";
 
 /* 默认快捷指令（解决日常重复工作） */
 XLX.DEFAULT_COMMANDS = [
@@ -2221,6 +2231,9 @@ XLX.SKILLS = [
     prompt: "" }
 ];
 
+/* 暂缓技能先摘掉：不再出现在技能市场与列表里（代码仍在上面，未被删除） */
+XLX.SKILLS = XLX.SKILLS.filter(s => XLX.PARKED_SKILLS.indexOf(s.id) === -1);
+
 /* 技能查询 */
 XLX.getSkill = function (id) {
   return XLX.SKILLS.find(s => s.id === id);
@@ -3092,6 +3105,7 @@ XLX.chat = (function () {
 
   /* 对话驱动剧作：识别「生成漫剧/短剧/真人剧」意图 */
   function detectDramaIntent(text) {
+    if (XLX.PARKED.drama) return null;   /* 剧作已暂缓，不再自动跳转 */
     const t = (text || "").trim();
     const act = /(生成|制作|创作|做|写|拍|编排|导演|策划|制作).{0,8}(漫剧|短剧|真人剧|视频)/;
     const act2 = /(漫剧|短剧|真人剧|视频).{0,8}(生成|制作|创作|做|写|拍|来|部)/;
@@ -3979,7 +3993,8 @@ XLX.market = (function () {
 /* ===== 工具集：AI 生图 + 电商工具箱（全部免费） ===== */
 
 XLX.tools = (function () {
-  let curTab = "img";
+  /* 暂缓期间默认落在「商品图下载」，不再默认进「AI生图」 */
+  let curTab = "itemdl";
   const TABS = [
     { id: "img", name: "AI生图", icon: "palette" },
     { id: "aidrama", name: "AI剧作", icon: "clapper" },
@@ -3987,7 +4002,7 @@ XLX.tools = (function () {
     { id: "imgwm", name: "图片去水印", icon: "wand" },
     { id: "videowm", name: "视频去水印", icon: "video" },
     { id: "vidtxt", name: "视频提取文案", icon: "mic" }
-  ];
+  ].filter(t => !(XLX.PARKED.image && t.id === "img") && !(XLX.PARKED.drama && t.id === "aidrama"));
 
   /* 免费 CORS 代理（抓取第三方页面用） */
   const PROXIES = [
@@ -7307,7 +7322,7 @@ XLX.settings = (function () {
       + '<p class="sd">铜龙电商 的每个功能对应一个配置板块，按下方对照去填即可：</p>'
       + '<div class="feat-map">'
       + '<div class="fm"><span class="fm-ic" style="background:rgba(74,168,255,.15);color:var(--blue)">' + svg("chat", 15) + '</span><div><b>智能对话 / AI帮写 / 软件工坊 / 技能市场</b><span>用「语言模型」板块的 Key（下方第一个）</span></div></div>'
-      + '<div class="fm"><span class="fm-ic" style="background:rgba(255,122,168,.15);color:var(--pink)">' + svg("palette", 15) + '</span><div><b>创作中心一键生成 / AI生图工具</b><span>用「AI 生图服务」板块（免费默认可用，填 Key 效果更好）</span></div></div>'
+      + (XLX.PARKED.image ? '' : '<div class="fm"><span class="fm-ic" style="background:rgba(255,122,168,.15);color:var(--pink)">' + svg("palette", 15) + '</span><div><b>创作中心一键生成 / AI生图工具</b><span>用「AI 生图服务」板块（免费默认可用，填 Key 效果更好）</span></div></div>')
       + '<div class="fm"><span class="fm-ic" style="background:rgba(61,220,132,.15);color:var(--green)">' + svg("film", 15) + '</span><div><b>AI 剧作短视频/长视频</b><span>用「AI 视频生成」板块（付费按量计费）</span></div></div>'
       + '<div class="fm"><span class="fm-ic" style="background:rgba(245,196,81,.15);color:var(--yellow)">' + svg("search", 15) + '</span><div><b>联网搜索</b><span>用「联网搜索」板块（默认免费内置，可自行增强）</span></div></div>'
       + '</div>'
@@ -7333,7 +7348,7 @@ XLX.settings = (function () {
       + '<button class="btn small primary" id="hubLlmAdd">添加</button>'
       + '</div></div></div>'
 
-      + '<div class="set-row"><div class="lab"><div class="t">生图模型库（创作中心一键生成 / AI生图）</div><div class="d">当前：<b style="color:var(--green)" id="hubCurImg">—</b></div></div>'
+      + (XLX.PARKED.image ? '' : '<div class="set-row"><div class="lab"><div class="t">生图模型库（创作中心一键生成 / AI生图）</div><div class="d">当前：<b style="color:var(--green)" id="hubCurImg">—</b></div></div>'
       + '<div class="val"><div id="hubImgList" style="display:flex;flex-direction:column;gap:6px"></div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'
       + '<input class="inp" id="hubImgName" placeholder="名称，如 豆包Seedream" style="flex:1;min-width:90px">'
@@ -7351,7 +7366,7 @@ XLX.settings = (function () {
       + '<input class="inp" id="hubImgKey" type="password" placeholder="API Key" style="flex:2;min-width:140px">'
       + '<input class="inp" id="hubImgModel" placeholder="模型名" style="flex:1;min-width:100px">'
       + '<button class="btn small primary" id="hubImgAdd">添加</button>'
-      + '</div></div></div>'
+      + '</div></div></div>')
       + '</div>'
 
       + '<div class="set-card">'
@@ -7382,7 +7397,7 @@ XLX.settings = (function () {
       + '<div class="val"><button class="btn primary small" id="setUse">使用此平台</button> <button class="btn small" id="setTest">测试连接</button></div></div>'
       + '</div>'
 
-      + '<div class="set-card">'
+      + (XLX.PARKED.drama ? '' : '<div class="set-card">'
       + '<h3><span class="hic">' + svg("film", 15) + '</span>AI 视频生成（AI剧作 · 短视频/长视频）</h3>'
       + '<p class="sd">这个板块驱动：<b>创作中心的「视频创作」</b> 与「工具 → AI剧作」的短视频 / 长视频生成。<br>视频由外部付费平台生成，<b>按用量计费</b>，选择平台后填入 Key 即可使用。Key 只保存在你的浏览器本地。</p>'
       + '<div class="provider-tabs">'
@@ -7431,9 +7446,9 @@ XLX.settings = (function () {
       + '</div></div>'
       + '<div class="set-row"><div class="lab"><div class="t">保存</div><div class="d">保存后即可在「AI 视频生成」工具中使用</div></div>'
       + '<div class="val"><button class="btn primary small" id="setVSave">' + (vc.key ? "更新视频配置" : "保存视频配置") + '</button></div></div>'
-      + '</div>'
+      + '</div>')
 
-      + '<div class="set-card">'
+      + (XLX.PARKED.image ? '' : '<div class="set-card">'
       + '<h3><span class="hic">' + svg("palette", 15) + '</span>AI 生图服务（创作中心一键生成 / AI生图工具）</h3>'
       + '<p class="sd">这个板块驱动：<b>创作中心的「一键生成」</b>（主图/详情页/SKU/海报）与「工具 → AI生图」。<br>默认使用<b style="color:var(--green)">免费 Pollinations</b>（无需 Key，但图生图<b>不保留实例图主体</b>，国内网络可能较慢）。想真正保留主体做电商图/白底图，切换下方自定义服务即可：<b style="color:var(--green)">硅基流动 / 豆包 Seedream / 千问通义万相</b>（注册均送免费额度，用完后按张计费，几毛钱一张）。Key 仅保存在浏览器本地。</p>'
       + '<div class="set-row"><div class="lab"><div class="t">生图服务</div><div class="d">免费接口无需配置；其余服务商需填下方 Key</div></div>'
@@ -7452,7 +7467,7 @@ XLX.settings = (function () {
       + '<div class="val"><input class="inp" id="setImgModel" placeholder="FLUX.1-schnell" value="' + XLX.util.esc(s.imageModel || "") + '"></div></div>'
       + '<div class="set-row"><div class="lab"><div class="t">保存</div><div class="d">保存后即可在「AI 生图」工具中使用</div></div>'
       + '<div class="val"><button class="btn primary small" id="setImgSave">保存生图配置</button></div></div>'
-      + '</div>'
+      + '</div>')
 
       + '<div class="set-card">'
       + '<h3><span class="hic">' + svg("settings", 15) + '</span>语言模型 · 对话参数</h3>'
@@ -8060,7 +8075,8 @@ XLX.dlview = (function () {
 
 XLX.app = (function () {
   const VIEWS = ["create", "chat", "market", "studio", "tools", "memory", "download", "settings"];
-  let currentView = "create";
+  /* 生图暂缓期间「创作中心」整页收起，默认进「智能对话」 */
+  let currentView = XLX.PARKED.image ? "chat" : "create";
 
   function navItems() {
     return [
@@ -8069,10 +8085,10 @@ XLX.app = (function () {
       { id: "market", name: "技能市场", icon: "grid", group: "开始", badge: String(XLX.SKILL_COUNT) },
       { id: "studio", name: "软件工坊", icon: "hammer", group: "开始", sub: "AI开发软件" },
       { id: "memory", name: "记忆习惯", icon: "brain", group: "开始", sub: "越用越懂你" },
-      { id: "tools", name: "AI生图", icon: "palette", group: "工具" },
+      { id: "tools", name: "工具箱", icon: "palette", group: "工具" },
       { id: "download", name: "客户端下载", icon: "download", group: "工具", sub: "手机/电脑" },
       { id: "settings", name: "设置", icon: "settings", group: "工具" }
-    ];
+    ].filter(item => !(XLX.PARKED.image && item.id === "create"));
   }
 
   function renderSidebar() {
@@ -8102,7 +8118,7 @@ XLX.app = (function () {
   }
 
   function renderTopbar() {
-    const names = { create: ["创作中心", "输入产品描述 → AI帮写 → 一键生成主图/详情页/SKU/海报"], chat: ["智能对话", "多平台免费模型 · 流式秒回"], market: ["技能市场", XLX.SKILL_COUNT + " 个免费实用技能，点击即用"], studio: ["软件工坊", "AI 开发完整软件 → 预览 → 一键打包下载"], tools: ["AI 生图工作台", "免费 AI 文字生图，无限次数"], memory: ["记忆习惯", "AI 记住你的偏好，自动处理重复工作"], download: ["客户端下载", "手机 / 电脑 / 离线版"], settings: ["设置", "接入多个平台的免费 API Key"] };
+    const names = { create: ["创作中心", "输入产品描述 → AI帮写 → 一键生成主图/详情页/SKU/海报"], chat: ["智能对话", "多平台免费模型 · 流式秒回"], market: ["技能市场", XLX.SKILL_COUNT + " 个免费实用技能，点击即用"], studio: ["软件工坊", "AI 开发完整软件 → 预览 → 一键打包下载"], tools: ["工具箱", "商品图下载、去水印、视频提取文案"], memory: ["记忆习惯", "AI 记住你的偏好，自动处理重复工作"], download: ["客户端下载", "手机 / 电脑 / 离线版"], settings: ["设置", "接入多个平台的免费 API Key"] };
     const t = document.getElementById("pageTitle");
     const s = document.getElementById("pageSub");
     t.textContent = names[currentView][0];
