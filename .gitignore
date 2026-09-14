@@ -4,3 +4,6 @@ __pycache__/
 *.pyc
 *.bak
 gate/*.bak
+
+# 语音模型不进 Git（118MB），只放服务器本地
+models/
