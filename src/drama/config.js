@@ -9,7 +9,8 @@
   XLX.drama.K = {
     SETTINGS: "xlx_drama_settings",
     PROJECTS: "xlx_drama_projects",
-    CONSENTS: "xlx_drama_consents"
+    CONSENTS: "xlx_drama_consents",
+    LIBRARY: "xlx_drama_library"
   };
 
   /* ===== 图像适配器目录 ===== */

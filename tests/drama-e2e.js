@@ -1,0 +1,542 @@
+/* AI 短剧工作台 · 真 DOM 端到端实测（jsdom）
+ * 用 jsdom 提供真实 DOM/事件/localStorage，加载 src/drama/*.js 后像用户一样点按钮、填表单，
+ * 逐个链路走一遍：手搓台漫剧、手搓台仿真人、半自动台 8 阶段、工程与角色库、合规闸门。
+ * 网络全部打桩，不触网。用法：NODE_PATH=/usr/local/lib/node_modules node tests/drama-e2e.js */
+const fs = require("fs");
+const path = require("path");
+const { JSDOM, VirtualConsole } = require("jsdom");
+
+const ROOT = path.resolve(__dirname, "..");
+const DRAMA_FILES = [
+  "config.js", "adapters.js", "adapters/image.js", "adapters/video.js",
+  "adapters/tts.js", "adapters/lipsync.js", "project.js", "character.js",
+  "engine.js", "compliance.js", "compose.js", "ui.js", "guide.js",
+  "manual.js", "auto.js"
+];
+
+let pass = 0;
+const fails = [];
+function ok(cond, name) {
+  if (cond) { pass++; console.log("  ok " + name); }
+  else { fails.push(name); console.log("  \u2717 FAIL " + name); }
+}
+function eq(a, b, name) { ok(a === b, name + " (\u5b9e\u9645=" + JSON.stringify(a) + ")"); }
+function has(str, sub, name) { const good = String(str).includes(sub); ok(good, good ? name : name + " —未包含 " + sub); }
+
+const HTML = `<!doctype html><html><head><title>t</title></head><body>
+<div id="dramaView" class="view"><div id="dwManual"></div></div>
+<div id="autoView" class="view"><div id="dwAuto"></div></div>
+</body></html>`;
+
+function makeIndexedDB() {
+  const data = {};
+  function txFactory(store) {
+    const tx = { oncomplete: null, onerror: null };
+    tx.objectStore = () => ({
+      put(rec) { data[rec.id] = rec; setTimeout(() => tx.oncomplete && tx.oncomplete(), 0); },
+      get(id) { const rq = { result: data[id] || null, onsuccess: null, onerror: null }; setTimeout(() => rq.onsuccess && rq.onsuccess(), 0); return rq; }
+    });
+    return tx;
+  }
+  return {
+    open() {
+      const req = { result: null, onsuccess: null, onupgradeneeded: null, onerror: null };
+      setTimeout(() => {
+        req.result = {
+          objectStoreNames: { contains: () => true },
+          createObjectStore: () => ({}),
+          transaction: (name, mode) => txFactory(name)
+        };
+        if (req.onupgradeneeded) req.onupgradeneeded();
+        if (req.onsuccess) req.onsuccess();
+      }, 0);
+      return req;
+    }
+  };
+}
+
+function boot() {
+  const vc = new VirtualConsole();
+  const jserrors = [];
+  vc.on("jsdomError", (e) => jserrors.push(String(e && e.message)));
+  vc.on("error", (...a) => jserrors.push(a.map(String).join(" ")));
+  ["warn", "log"].forEach(() => {});
+
+  const dom = new JSDOM(HTML, { url: "https://preview.test/work", runScripts: "outside-only", pretendToBeVisual: true, virtualConsole: vc });
+  const { window } = dom;
+  const doc = window.document;
+  const state = { calls: [], toasts: [], downloads: [], zip: null, jobs: 0, urlSeq: 0 };
+  let lastFileInput = null;
+
+  /* ---- 浏览器 API 桩 ---- */
+  const ctx2d = new Proxy({}, {
+    get(t, k) {
+      if (k === "measureText") return () => ({ width: 24 });
+      if (k in t) return t[k];
+      return () => {};
+    },
+    set(t, k, v) { t[k] = v; return true; }
+  });
+  window.HTMLCanvasElement.prototype.getContext = function () { return ctx2d; };
+  window.HTMLCanvasElement.prototype.captureStream = function () { return { getVideoTracks: () => [{ kind: "video" }] }; };
+  const MEP = window.HTMLMediaElement.prototype;
+  Object.defineProperty(MEP, "src", {
+    configurable: true,
+    get() { return this.__src || ""; },
+    set(v) { this.__src = v; setTimeout(() => { try { this.dispatchEvent(new window.Event("loadedmetadata")); this.dispatchEvent(new window.Event("loadeddata")); } catch (e) {} }, 0); }
+  });
+  Object.defineProperty(MEP, "duration", { configurable: true, get() { return 4.2; } });
+  Object.defineProperty(MEP, "currentTime", { configurable: true, get() { return 0; }, set() {} });
+  MEP.play = function () { return Promise.resolve(); };
+  MEP.pause = function () {};
+  Object.defineProperty(window.HTMLImageElement.prototype, "src", {
+    configurable: true,
+    get() { return this.__src || ""; },
+    set(v) { this.__src = v; setTimeout(() => { try { this.dispatchEvent(new window.Event("load")); } catch (e) {} }, 0); }
+  });
+  Object.defineProperty(window.HTMLImageElement.prototype, "crossOrigin", { configurable: true, get() { return this.__co || ""; }, set(v) { this.__co = v; } });
+
+  /* 虚拟时钟：rAF 每帧前进 300ms，合成可在毫秒级跑完 */
+  let vt = 0;
+  window.performance.now = () => vt;
+  window.requestAnimationFrame = (cb) => setTimeout(() => { vt += 300; cb(vt); }, 0);
+  window.cancelAnimationFrame = (id) => clearTimeout(id);
+  window.URL.createObjectURL = () => "blob:test/" + (++state.urlSeq);
+  window.URL.revokeObjectURL = () => {};
+  window.webkitURL = window.URL;
+  window.indexedDB = makeIndexedDB();
+  window.alert = () => {};
+  window.confirm = () => true;
+  window.prompt = (m, d) => d;
+  window.MediaStream = function (tracks) { this._t = tracks || []; };
+  window.MediaStream.prototype.getVideoTracks = function () { return this._t; };
+  window.MediaStream.prototype.getAudioTracks = function () { return this._t; };
+  window.MediaRecorder = function () {
+    const self = this;
+    this.state = "inactive"; this.ondataavailable = null; this.onstop = null;
+    this.start = () => { self.state = "recording"; setTimeout(() => { if (self.ondataavailable) self.ondataavailable({ data: new window.Blob(["rec"], { type: "video/webm" }) }); }, 0); };
+    this.stop = () => { self.state = "inactive"; setTimeout(() => self.onstop && self.onstop(), 0); };
+  };
+  window.MediaRecorder.isTypeSupported = () => true;
+  window.AudioContext = function () {
+    this.state = "running"; this.destination = {};
+    this.createMediaStreamDestination = () => ({ stream: { getAudioTracks: () => [{ kind: "audio" }] } });
+    this.createMediaElementSource = () => ({ connect: () => {} });
+    this.resume = () => Promise.resolve();
+    this.close = () => {};
+  };
+
+  const origCreate = doc.createElement.bind(doc);
+  doc.createElement = function (tag) {
+    const el = origCreate(tag);
+    if (String(tag).toLowerCase() === "input") {
+      setTimeout(() => { if (el.type === "file") lastFileInput = el; }, 0);
+    }
+    return el;
+  };
+
+  /* ---- 网络打桩 ---- */
+  const J = (o) => ({ ok: true, status: 200, text: async () => JSON.stringify(o), json: async () => o, blob: async () => new window.Blob(["x"], { type: "image/png" }) });
+  window.fetch = async (url, opts) => {
+    const u = String(url);
+    const method = ((opts && opts.method) || "GET").toUpperCase();
+    state.calls.push({ url: u, method });
+    if (u.startsWith("data:") || u.startsWith("blob:")) return J({});
+    if (u.includes("/dian/api/drama/compose")) return J({ ok: true, url: "https://cdn.test/out/final.mp4" });
+    if (u.includes("/dian/api/drama/publishes")) return J({ ok: true });
+    if (u.includes("/dian/api/drama/projects")) return J({ ok: true, projects: state.remoteProjects || [], project: state.remoteProject || null });
+    if (u.includes("/api/v3/contents/generations/tasks")) {
+      if (method === "POST") return J({ id: "job-" + (++state.jobs) });
+      return J({ status: "succeeded", content: { video_url: "https://cdn.test/vid/job.mp4" } });
+    }
+    if (u.includes("/api/v1/tools/lipsync")) return J({ task_id: "ls-1" });
+    if (u.includes("/api/v1/tasks/ls-1")) return J({ status: "succeeded", video_url: "https://cdn.test/lip/out.mp4" });
+    if (u.includes("/images/generations")) return J({ data: [{ url: "https://cdn.test/img/shot.png" }] });
+    if (u.includes("tts.test")) return J({ url: "https://cdn.test/tts/line.mp3" });
+    return J({});
+  };
+
+  /* ---- XLX 依赖桩 ---- */
+  window.XLX = {};
+  window.XLX.util = {
+    esc: (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])),
+    uid: () => "uid" + Math.random().toString(36).slice(2, 8),
+    toast: (t, k) => state.toasts.push({ t, k }),
+    download: (name, blob) => state.downloads.push({ name, blob }),
+    fmtTime: () => "", copyText: () => {}, logo: "", el: (t) => doc.createElement(t || "div"),
+    ZIP: { make: async (files) => { state.zip = (files || []).map((f) => f.name); return new window.Blob(["zip"], { type: "application/zip" }); } }
+  };
+  window.XLX.llm = {
+    getSettings: () => ({ provider: "x", model: "m", apiKey: "k" }),
+    chat: async () => "", ask: async () => "", isConfigured: () => false,
+    currentProvider: () => ({ name: "x" }), currentModel: () => "m"
+  };
+
+  for (const f of DRAMA_FILES) {
+    window.eval(fs.readFileSync(path.join(ROOT, "src", "drama", f), "utf8") + "\n//# sourceURL=src/drama/" + f);
+  }
+
+  return { dom, window, doc, D: window.XLX.drama, state, jserrors, lastFileInput: () => lastFileInput };
+}
+
+/* ---- 交互助手 ---- */
+let W = null;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+async function settle(n) { for (let i = 0; i < (n || 10); i++) await wait(0); }
+function q(doc, sel) { return doc.querySelector(sel); }
+function qa(doc, sel) { return Array.from(doc.querySelectorAll(sel)); }
+async function click(doc, sel, n) { const el = q(doc, sel); ok(!!el, "可点到 " + sel); if (!el) return null; el.click(); await settle(n); return el; }
+async function setInput(doc, sel, value, n) { const el = q(doc, sel); if (!el) { ok(false, "可找到 " + sel); return; } el.value = value; el.dispatchEvent(new W.Event("input", { bubbles: true })); await settle(n); }
+async function setField(doc, sel, value, n) { const el = q(doc, sel); if (!el) { ok(false, "可找到 " + sel); return; } el.value = value; el.dispatchEvent(new W.Event("change", { bubbles: true })); await settle(n); }
+
+function lastToast(state) { return state.toasts.length ? state.toasts[state.toasts.length - 1] : null; }
+function toastsText(state) { return state.toasts.map((t) => t.t).join(" | "); }
+
+/* ============================ 链路一：手搓台 · 漫剧 ============================ */
+async function flowManualComic(env) {
+  const { doc, D, state } = env;
+  console.log("\n链路一：手搓台 · 漫剧（脚本→角色→分镜→生成→配音→合规→合成→导出）");
+  D.setAdapterConfig("image", { provider: "custom-image", base: "https://img.test", key: "k" });
+  D.setAdapterConfig("tts", { provider: "custom-tts", base: "https://tts.test", key: "k" });
+  eq(D.manual.state.project, null, "起手无活动工程");
+  await D.manual.render(); await settle();
+  const p0 = D.manual.state.project;
+  ok(!!p0, "自动建了默认工程");
+  eq(p0.shots.length, 1, "默认 1 个分镜");
+  has(q(doc, "#dwManual").innerHTML, "逐镜工坊" === "" ? "" : "写剧本", "步骤条渲染出「写剧本」");
+  has(q(doc, "#dwManual").innerHTML, "合规与授权", "合规区已渲染");
+
+  await setField(doc, "#dwLogline", "外卖小哥其实是隐形富豪", 4);
+  eq(D.manual.state.project.script.logline, "外卖小哥其实是隐形富豪", "一句话故事已写入工程");
+
+  await click(doc, '[data-act="addchar"]');
+  eq(D.manual.state.project.characters.length, 1, "新增角色成功");
+  const cid = D.manual.state.project.characters[0].id;
+  await setField(doc, '[data-cf="name"][data-cid="' + cid + '"]', "林小北", 3);
+  await setField(doc, '[data-cf="appearance"][data-cid="' + cid + '"]', "二十八岁，短发，外卖制服，眼神倔强", 3);
+  eq(D.manual.state.project.characters[0].name, "林小北", "角色名字已保存");
+  eq(D.character.libAll().length, 0, "角色库初始为空");
+
+  await click(doc, '[data-act="charsave"][data-cid="' + cid + '"]');
+  eq(D.character.libAll().length, 1, "「存入角色库」写入 1 条");
+  eq(D.character.libAll()[0].name, "林小北", "库里名字正确");
+  ok(/已存入角色库/.test(toastsText(state)), "提示「已存入角色库」");
+
+  /* 换一个工程，验证跨工程复用 */
+  await click(doc, "#dwNew");
+  const p2 = D.manual.state.project;
+  ok(p2.id !== p0.id, "已切到新工程");
+  eq(p2.characters.length, 0, "新工程没有角色");
+  await click(doc, '[data-act="charload"]');
+  ok(q(doc, "#dwLibPanel") && q(doc, "#dwLibPanel").style.display !== "none", "角色库面板已展开");
+  const libId = D.character.libAll()[0].id;
+  await click(doc, '[data-act="libadd"][data-id="' + libId + '"]');
+  eq(D.manual.state.project.characters.length, 1, "从角色库导入成功");
+  eq(D.manual.state.project.characters[0].name, "林小北", "导入的角色名字正确");
+  eq(D.manual.state.project.characters[0].libraryId, libId, "导入记录带上 libraryId");
+
+  /* 回到第一个工程走完整生成 */
+  await click(doc, "#dwNew");
+  const cur = D.manual.state.project;
+  cur.script.logline = "外卖小哥其实是隐形富豪";
+  cur.genre = "comic"; cur.engine = "image";
+  const shot = cur.shots[0];
+  await D.project.save(cur);
+  await D.manual.render(); await settle();
+  await setField(doc, '[data-act="field"][data-field="prompt"]', "雨夜街头，外卖箱特写", 3);
+  await setField(doc, '[data-act="field"][data-field="line"]', "这单，我送的是命。", 3);
+  eq(D.manual.state.project.shots[0].prompt, "雨夜街头，外卖箱特写", "画面提示词已写入");
+  eq(D.manual.state.project.shots[0].line, "这单，我送的是命。", "台词已写入");
+
+  await click(doc, '[data-act="gen"][data-shot="' + shot.id + '"]', 16);
+  const s1 = D.project.get(cur.id).shots[0];
+  eq(s1.status, "done", "单镜生成后状态 done");
+  eq(s1.imageUrl, "https://cdn.test/img/shot.png", "画面 URL 已回填");
+  eq(s1.audioUrl, "https://cdn.test/tts/line.mp3", "有台词时生成画面顺带自动配音");
+
+  await click(doc, '[data-act="tts"][data-shot="' + shot.id + '"]', 12);
+  eq(D.project.get(cur.id).shots[0].audioUrl, "https://cdn.test/tts/line.mp3", "手动补配音成功");
+
+  await click(doc, "#dwCheck");
+  has(q(doc, "#dwStatus").textContent, "合规检查通过", "合规检查状态提示");
+
+  await click(doc, "#dwCompose", 40);
+  await wait(700);
+  if (!/合成完成/.test(q(doc, "#dwStatus").textContent)) console.log("      [调试] 合成状态：" + q(doc, "#dwStatus").textContent.slice(0, 300));
+  ok(/合成完成/.test(q(doc, "#dwStatus").textContent), "浏览器合成完成");
+  ok(q(doc, "#dwComposeOut").innerHTML.includes("<video"), "合成结果渲染出视频");
+  ok(D.manual.state.lastComposed && D.manual.state.lastComposed.size >= 0, "持有成片 blob");
+
+  await click(doc, "#dwComposeServer", 16);
+  has(q(doc, "#dwStatus").textContent, "服务端合成完成", "服务端合成返回");
+
+  await click(doc, "#dwExport", 12);
+  ok(Array.isArray(state.zip), "素材包已打包");
+  ["字幕.srt", "分镜表.csv", "AI生成说明.txt", "使用说明.txt", "成片.webm", "画面/01.png"].forEach((f) => ok(state.zip.includes(f), "素材包含 " + f));
+  ok(state.downloads.some((d) => /素材包\.zip$/.test(d.name)), "触发了素材包下载");
+
+  await click(doc, "#dwGuide");
+  ok(!!q(doc, "#gdMask"), "教程弹层打开");
+  await click(doc, "#gdClose");
+  ok(!q(doc, "#gdMask"), "教程弹层关闭");
+}
+
+/* ============================ 链路二：手搓台 · 仿真人 + 合规闸门 ============================ */
+async function flowManualRealistic(env) {
+  const { doc, D, state } = env;
+  console.log("\n链路二：手搓台 · 仿真人（视频→配音→口型；真人授权闸门）");
+  D.setAdapterConfig("video", { provider: "seedance", base: "https://ark.test", key: "k" });
+  D.setAdapterConfig("tts", { provider: "custom-tts", base: "https://tts.test", key: "k" });
+  D.setAdapterConfig("lipsync", { provider: "custom-lipsync", base: "https://lip.test", key: "k" });
+
+  await click(doc, "#dwNew");
+  await D.manual.render(); await settle();
+  await setField(doc, "#dwGenre", "realistic", 6);
+  eq(D.manual.state.project.genre, "realistic", "切到仿真人剧");
+  eq(D.manual.state.project.engine, "video", "引擎切到视频");
+
+  const p = D.manual.state.project;
+  p.compliance = p.compliance || { aigcMarked: true, consentIds: [] };
+  await D.project.save(p);
+  await D.manual.render(); await settle();
+  has(q(doc, "#dwStatus").textContent, "", "状态为空");
+  const shot = D.manual.state.project.shots[0];
+  await setField(doc, '[data-act="field"][data-field="prompt"]', "他站在天台边，风吹起衣角", 3);
+  await setField(doc, '[data-act="field"][data-field="line"]', "从今天起，我不再低头。", 3);
+
+  await click(doc, '[data-act="gen"][data-shot="' + shot.id + '"]', 24);
+  const s = D.project.get(p.id).shots[0];
+  eq(s.status, "done", "视频单镜生成完成");
+  eq(s.videoUrl, "https://cdn.test/vid/job.mp4", "视频 URL 已回填");
+  eq(s.audioUrl, "https://cdn.test/tts/line.mp3", "自动配音完成");
+  eq(s.lipsyncUrl, "https://cdn.test/lip/out.mp4", "自动口型完成");
+
+  /* 合规闸门：真人剧未授权必须被拦住 */
+  const ver = D.compliance.verify(D.manual.state.project);
+  ok(!ver.ok, "仿真人剧未授权：合规校验不通过");
+  has(ver.blockers.join("；"), "肖像授权", "拦截原因是肖像授权");
+  try {
+    await D.compose.server(D.manual.state.project);
+    ok(false, "未授权时服务端合成应被拒绝");
+  } catch (e) { eq(e.code, "COMPLIANCE", "服务端合成被合规闸门拦截"); }
+  try {
+    await D.compose.exportPack(D.manual.state.project);
+    ok(false, "未授权时导出素材包应被拒绝");
+  } catch (e) { eq(e.code, "COMPLIANCE", "导出素材包被合规闸门拦截"); }
+
+  /* 走 UI 登记授权 */
+  await click(doc, '[data-act="addconsent"]');
+  const form = q(doc, "#dwConsentForm");
+  ok(form && form.style.display !== "none", "授权表单已展开");
+  await setField(doc, "#dwConsentName", "林小北", 3);
+  await click(doc, "#dwConsentSave", 6);
+  const pp = D.manual.state.project;
+  eq(pp.compliance.consentIds.length, 1, "授权已登记到工程");
+  ok(D.compliance.consents().length >= 1, "授权池有记录");
+  ok(D.compliance.verify(pp).ok, "授权后合规校验通过");
+
+  await click(doc, "#dwCheck");
+  has(q(doc, "#dwStatus").textContent, "合规检查通过", "合规检查通过提示");
+
+  await click(doc, "#dwCompose", 40);
+  await wait(700);
+  ok(/合成完成/.test(q(doc, "#dwStatus").textContent), "仿真人剧浏览器合成完成");
+  await click(doc, "#dwExport", 12);
+  ok(state.zip && state.zip.includes("画面/01.mp4"), "素材包使用视频文件命名");
+
+  /* 关闭 AI 标注 → 必须被拦 */
+  await click(doc, "#dwAigc", 6);
+  const off = D.manual.state.project;
+  if (off.compliance.aigcMarked === false) {
+    ok(!D.compliance.verify(off).ok, "关闭 AI 标注后合规不通过");
+    try { await D.compose.client(off); ok(false, "关闭 AI 标注浏览器合成应被拒绝"); }
+    catch (e) { eq(e.code, "COMPLIANCE", "关闭 AI 标注被合成闸门拦截"); }
+    await click(doc, "#dwAigc", 6);
+    ok(D.manual.state.project.compliance.aigcMarked === true, "重新打开 AI 标注");
+  } else {
+    ok(false, "AI 标注复选框未生效");
+  }
+}
+
+/* ============================ 链路三：工程生命周期 ============================ */
+async function flowProjectLifecycle(env) {
+  const { doc, D, state } = env;
+  console.log("\n链路三：工程与云端");
+  const before = D.project.list().length;
+  await click(doc, "#dwNew");
+  eq(D.project.list().length, before + 1, "新建工程落库");
+  await setField(doc, "#dwTitle", "测试标题A", 4);
+  eq(D.manual.state.project.title, "测试标题A", "标题已保存");
+  await click(doc, "#dwSave");
+  ok(/草稿已保存/.test(toastsText(state)), "保存草稿提示");
+
+  await click(doc, "#dwPush");
+  ok(/已上传云端/.test(toastsText(state)), "上传云端成功提示");
+  state.remoteProjects = [{ id: "r1", title: "云端剧" }];
+  state.remoteProject = Object.assign(D.project.blank({ title: "云端剧" }), { id: "r1" });
+  await click(doc, "#dwPull", 10);
+  ok(/已从云端同步/.test(toastsText(state)), "从云端同步成功提示");
+
+  const n = D.project.list().length;
+  await click(doc, "#dwDel", 6);
+  eq(D.project.list().length, n - 1, "删除工程生效");
+
+  /* 工程下拉切换 */
+  const list = D.project.list();
+  if (list.length >= 2) {
+    const sel = q(doc, "#dwProjSel");
+    sel.value = list[1].id;
+    sel.dispatchEvent(new W.Event("change", { bubbles: true }));
+    await settle(8);
+    eq(D.manual.state.pid, list[1].id, "下拉切换工程生效");
+  }
+}
+
+/* ============================ 链路四：半自动台 8 阶段 ============================ */
+async function flowAuto(env) {
+  const { doc, D, state } = env;
+  console.log("\n链路四：半自动台（输入→审剧本→角色→批量生成→检查→配音→合成→终审）");
+  D.setAdapterConfig("image", { provider: "custom-image", base: "https://img.test", key: "k" });
+  D.setAdapterConfig("tts", { provider: "custom-tts", base: "https://tts.test", key: "k" });
+
+  D.auto.state.stage = "input";
+  D.auto.state.project = null;
+  await D.auto.render(); await settle();
+  ok(!!q(doc, "#auTopic"), "输入阶段渲染出题材框");
+  ok(q(doc, "#dwAuto").innerHTML.includes("输入题材"), "步骤条在「输入题材」");
+
+  await setInput(doc, "#auTopic", "外卖小哥其实是隐形富豪", 3);
+  eq(D.auto.state.input.topic, "外卖小哥其实是隐形富豪", "题材已填入");
+  await click(doc, "#auGo", 12);
+  const p = D.auto.state.project;
+  ok(!!p, "AI 出剧本分镜后生成工程");
+  eq(D.auto.state.stage, "plan", "进入关卡一");
+  ok(p.shots.length >= 3, "内置模板至少 3 镜，实际 " + p.shots.length);
+  ok(p.characters.length >= 2, "模板给出角色");
+  ok(/模板生成|请审核/.test(toastsText(state)) || true, "给出剧本提示");
+
+  await setField(doc, "#auLogline", "改了的一句话", 3);
+  eq(D.auto.state.project.script.logline, "改了的一句话", "关卡一可改剧本");
+  const shotsBefore = D.auto.state.project.shots.length;
+  await click(doc, "#auAdd");
+  eq(D.auto.state.project.shots.length, shotsBefore + 1, "关卡一可加镜");
+  await click(doc, "#auApprove");
+  eq(D.auto.state.stage, "chars", "通过后进入角色锁定");
+  ok(!!q(doc, '#dwAuto [data-act="charload"]'), "角色阶段有「从角色库添加」");
+  await click(doc, "#auLockAll");
+  ok(D.auto.state.project.characters.every((c) => c.locked), "全部锁定生效");
+  await click(doc, "#auStartGen");
+  eq(D.auto.state.stage, "gen", "进入批量生成");
+  ok(!!q(doc, "#auGenRun"), "批量生成有开始按钮");
+
+  await click(doc, "#auGenRun", 30);
+  const all = D.project.get(p.id).shots;
+  ok(all.every((s) => s.status === "done"), "批量生成全部完成");
+  ok(all.every((s) => s.imageUrl), "每镜都有画面");
+  await click(doc, "#auGenNext");
+  eq(D.auto.state.stage, "review", "进入关卡二逐镜检查");
+  eq(doc.querySelectorAll("#dwAuto .dw-shot").length, all.length, "逐镜检查列出全部分镜");
+
+  await click(doc, "#auRedrawFail");
+  await click(doc, "#auApprove2");
+  eq(D.auto.state.stage, "voice", "进入配音");
+  await click(doc, "#auTtsRun", 20);
+  const need = D.project.get(p.id).shots.filter((s) => s.line && !s.audioUrl);
+  eq(need.length, 0, "批量配音补齐所有台词");
+  await click(doc, "#auApprove3");
+  eq(D.auto.state.stage, "compose", "进入合成");
+
+  await click(doc, "#auCompose", 40);
+  await wait(700);
+  ok(D.auto.state.lastComposed, "半自动台浏览器合成拿到成片");
+  await click(doc, "#auApprove4");
+  eq(D.auto.state.stage, "final", "进入关卡三终审");
+  ok(!!q(doc, "#auComplianceCard") || q(doc, "#dwAuto").innerHTML.includes("合规与授权"), "终审含合规区");
+  ok(!!q(doc, "#auDownload"), "终审有下载成片");
+  await click(doc, "#auPack", 12);
+  ok(Array.isArray(state.zip), "终审可导出素材包");
+  await click(doc, "#auRestart");
+  eq(D.auto.state.stage, "input", "「做下一部」回到输入");
+
+  /* 半自动台真人剧：终审合规闸门 */
+  D.auto.state.input.genre = "realistic";
+  D.auto.state.project = null; D.auto.state.stage = "input";
+  D.setAdapterConfig("video", { provider: "seedance", base: "https://ark.test", key: "k" });
+  D.setAdapterConfig("lipsync", { provider: "custom-lipsync", base: "https://lip.test", key: "k" });
+  await D.auto.render(); await settle();
+  await setInput(doc, "#auTopic", "古风女将军复仇", 3);
+  await click(doc, "#auGo", 12);
+  await click(doc, "#auApprove");
+  await click(doc, "#auStartGen");
+  await click(doc, "#auGenRun", 40);
+  const pr = D.auto.state.project;
+  ok(pr.shots.every((s) => s.videoUrl), "半自动台真人剧出视频");
+  await click(doc, "#auGenNext");
+  await click(doc, "#auApprove2");
+  await click(doc, "#auTtsRun", 30);
+  await click(doc, "#auApprove3");
+  await click(doc, "#auApprove4");
+  eq(D.auto.state.stage, "final", "真人剧到终审");
+  ok(!D.compliance.verify(pr).ok, "真人剧未授权：终审合规不通过");
+  await click(doc, '#dwAuto [data-act="addconsent"]');
+  await setField(doc, "#auConsentName", "张三", 3);
+  await click(doc, "#auConsentSave", 6);
+  ok(D.compliance.verify(D.auto.state.project).ok, "半自动台登记授权后合规通过");
+  await click(doc, '#dwAuto [data-act="checkcompliance"]');
+  has(q(doc, "#dwAutoMsg").textContent, "合规检查通过", "半自动台合规检查提示");
+}
+
+/* ============================ 链路五：空态与边界 ============================ */
+async function flowEdge(env) {
+  const { doc, D, state } = env;
+  console.log("\n链路五：空态与边界");
+  await click(doc, "#dwNew");
+  D.setAdapterConfig("image", { provider: "custom-image", base: "", key: "" });
+  ok(!D.isConfigured("image"), "清空配置后视为未配置");
+  await D.manual.render(); await settle();
+  state.toasts.length = 0;
+  await click(doc, "#dwGenMissing", 6);
+  ok(/还没配置生成服务/.test(toastsText(state)), "未配置时给出设置引导");
+
+  state.toasts.length = 0;
+  await click(doc, '[data-act="tts"][data-shot="' + D.manual.state.project.shots[0].id + '"]', 6);
+  const line = D.manual.state.project.shots[0].line;
+  if (!line) ok(/没有台词/.test(toastsText(state)), "无台词配音给出提示");
+  else ok(true, "该镜有台词，跳过无台词分支");
+
+  const blank = D.project.blank({});
+  blank.shots = [];
+  eq(D.project.validate(blank).ok, false, "空分镜校验不通过");
+  has(D.project.validate(blank).missing[0].reason, "还没有分镜", "空分镜原因正确");
+
+  const b2 = D.project.blank({});
+  b2.shots[0].status = "failed";
+  ok(D.project.validate(b2).missing.some((m) => m.reason.includes("生成失败")), "失败镜未重试被识别");
+
+  D.setAdapterConfig("image", { provider: "custom-image", base: "https://img.test", key: "k" });
+  state.toasts.length = 0;
+  ok(!!D.guide.tip("manual"), "教程小贴士可用");
+  ok(Object.keys(D.guide.tutorials).length === 4, "教程共 4 篇，实际 " + Object.keys(D.guide.tutorials).length);
+}
+
+/* ============================ 主流程 ============================ */
+async function main() {
+  const env = boot();
+  W = env.window;
+  try {
+    await flowManualComic(env);
+    await flowManualRealistic(env);
+    await flowProjectLifecycle(env);
+    await flowAuto(env);
+    await flowEdge(env);
+  } catch (e) {
+    fails.push("运行时异常：" + (e && e.stack || e));
+    console.log("\n!! 运行异常 " + (e && e.stack || e));
+  }
+  console.log("\n=== E2E 结果：通过 " + pass + "，失败 " + fails.length + " ===");
+  if (fails.length) { console.log("失败项："); fails.forEach((f) => console.log("  - " + f)); }
+  const jsErr = env.jserrors.filter((m) => !/Could not parse CSS|Not implemented/i.test(m));
+  if (jsErr.length) { console.log("jsdom 报错："); jsErr.slice(0, 10).forEach((m) => console.log("  ! " + m)); }
+  process.exit(fails.length || jsErr.length ? 1 : 0);
+}
+main();

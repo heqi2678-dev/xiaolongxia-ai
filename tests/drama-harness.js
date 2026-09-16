@@ -24,6 +24,35 @@ function makeLocalStorage() {
   };
 }
 
+/* 最小可用的 IndexedDB 桩：只支持本测试台用到的单个 objectStore 的 put/get。 */
+function makeIndexedDB() {
+  const data = {};
+  return {
+    open: () => {
+      const req = { result: null };
+      setTimeout(() => {
+        req.result = {
+          objectStoreNames: { contains: () => true },
+          transaction: () => {
+            const tx = {};
+            tx.objectStore = () => ({
+              put: (rec) => { data[rec.id] = rec; setTimeout(() => { if (tx.oncomplete) tx.oncomplete(); }, 0); },
+              get: (id) => {
+                const rq = { result: data[id] || null };
+                setTimeout(() => { if (rq.onsuccess) rq.onsuccess(); }, 0);
+                return rq;
+              }
+            });
+            return tx;
+          }
+        };
+        if (req.onsuccess) req.onsuccess();
+      }, 0);
+      return req;
+    }
+  };
+}
+
 function makeEl() {
   const node = {
     style: {}, dataset: {}, classList: { add: noop, remove: noop, toggle: noop, contains: () => false },
@@ -46,7 +75,7 @@ function createDrama() {
     },
     navigator: { mediaDevices: {} },
     localStorage: makeLocalStorage(),
-    indexedDB: { open: () => ({}) },
+    indexedDB: makeIndexedDB(),
     setTimeout, clearTimeout, setInterval, clearInterval,
     requestAnimationFrame: noop, alert: noop,
     atob, btoa,
@@ -71,10 +100,12 @@ function createDrama() {
     return {
       ok: true, status: 200,
       text: async () => "{}",
-      json: async () => ({})
+      json: async () => ({}),
+      blob: async () => new sandbox.Blob([], { type: "image/png" })
     };
   };
   sandbox.globalThis = sandbox;
+  sandbox.self = sandbox;
   vm.createContext(sandbox);
 
   sandbox.XLX = {};
@@ -109,7 +140,8 @@ function mockJson(sandbox, json, ok) {
       ok: ok === undefined ? true : ok,
       status: ok === false ? 500 : 200,
       text: async () => JSON.stringify(body),
-      json: async () => body
+      json: async () => body,
+      blob: async () => new sandbox.Blob([], { type: "image/png" })
     };
   };
 }

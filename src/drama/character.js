@@ -82,9 +82,79 @@
     return "";
   }
 
+  /* ============ 跨工程角色库 ============ */
+  /* 一次建卡，多个短剧复用；参考图存 asset: 引用，多个工程可共享同一份资源。 */
+  function libAll() {
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem(D.K.LIBRARY) || "[]") || []; } catch (e) { list = []; }
+    return Array.isArray(list) ? list : [];
+  }
+
+  function libWrite(list) {
+    localStorage.setItem(D.K.LIBRARY, JSON.stringify(list || []));
+  }
+
+  function libGet(lid) {
+    return libAll().find(x => x.id === lid) || null;
+  }
+
+  /* 存卡：同名同外观视为同一角色，原地更新，避免库里堆重复 */
+  function libSave(card) {
+    card = card || {};
+    const list = libAll();
+    const name = (card.name || "").trim() || "未命名角色";
+    const hit = list.findIndex(x => x.name === name && (x.appearance || "") === (card.appearance || ""));
+    const rec = {
+      id: hit >= 0 ? list[hit].id : "L" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      name,
+      identity: card.identity || "",
+      appearance: card.appearance || "",
+      realPerson: !!card.realPerson,
+      refImages: (card.refImages || []).filter(Boolean).slice(0, 3),
+      updatedAt: Date.now()
+    };
+    if (hit >= 0) list[hit] = rec; else list.unshift(rec);
+    libWrite(list);
+    return rec;
+  }
+
+  function libRemove(lid) {
+    libWrite(libAll().filter(x => x.id !== lid));
+  }
+
+  /* 把工程里的角色存入库；先把 blob: 参考图落进资源仓，拿到可跨工程复用的 asset: 引用 */
+  async function libFromProject(project, cid) {
+    const c = (project.characters || []).find(x => x.id === cid);
+    if (!c) return null;
+    const bad = check(c);
+    if (bad) throw D.err("CHAR_INCOMPLETE", bad);
+    const refs = [];
+    for (const u of (c.refImages || [])) refs.push(await D.project.assets.toRef(u, { role: "character" }));
+    return libSave({ name: c.name, identity: c.identity, appearance: c.appearance, realPerson: c.realPerson, refImages: refs });
+  }
+
+  /* 从库导入工程：复制一份，改库里的卡不影响已有工程 */
+  async function libToProject(project, entry) {
+    if (!entry) return null;
+    const c = D.project.newCharacter(entry.name);
+    c.identity = entry.identity || "";
+    c.appearance = entry.appearance || "";
+    c.realPerson = !!entry.realPerson;
+    c.libraryId = entry.id;
+    c.refImages = [];
+    for (const u of (entry.refImages || [])) {
+      const h = await D.project.assets.hydrateRef(u);
+      if (h) c.refImages.push(h);
+    }
+    project.characters = project.characters || [];
+    project.characters.push(c);
+    return c;
+  }
+
   D.character = {
     styleDef, stylePrompt, motionPrompt,
     rolesForShot, buildImagePrompt, buildVideoPrompt, refImagesForShot,
-    affectedShots, markAffected, check
+    affectedShots, markAffected, check,
+    libAll, libGet, libSave, libRemove, libFromProject, libToProject
   };
 })();

@@ -87,7 +87,7 @@
         '<label class="label">剧情大纲</label><textarea class="inp" id="dwOutline" style="min-height:70px">' + D.ui.esc(p.script.outline) + "</textarea>" +
       "</div>" +
       charCard(p) +
-      complianceCard(p) +
+      D.ui.complianceCard(p, { prefix: "dw" }) +
       '<div class="dw-card">' +
         '<h3>分镜 <span class="dw-hint">（共 ' + (p.shots || []).length + ' 镜）</span></h3>' +
         '<div id="dwShots"></div>' +
@@ -139,47 +139,15 @@
             "</div>" +
           "</div>" +
           '<div>' +
-            '<button class="btn small ghost danger" data-act="delchar" data-cid="' + c.id + '">删除</button>' +
+            '<button class="btn small" data-act="charsave" data-cid="' + c.id + '">存入角色库</button>' +
+            '<button class="btn small ghost danger" style="margin-top:6px" data-act="delchar" data-cid="' + c.id + '">删除</button>' +
           "</div>" +
         "</div>"
       ).join("");
     }
-    html += '<div class="dw-bar" style="margin-top:6px"><button class="btn small" data-act="addchar">＋ 新增角色</button></div>';
-    html += "</div>";
-    return html;
-  }
-
-  function complianceCard(p) {
-    const need = D.compliance.needsConsent(p);
-    const ids = p.compliance.consentIds;
-    const mine = D.compliance.consents().filter(c => ids.indexOf(c.id) >= 0);
-    const v = D.compliance.verify(p);
-    let html = '<div class="dw-card"><h3>合规与授权 <span class="dw-hint">（发布前必看）</span></h3>';
-    html += '<label class="dw-chip' + (p.compliance.aigcMarked ? " on" : "") + '" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">' +
-      '<input type="checkbox" id="dwAigc"' + (p.compliance.aigcMarked ? " checked" : "") + "> AI 生成标注（平台要求，关闭将无法合成导出）</label>";
-    html += '<div class="dw-hint" style="margin:8px 0">' + (need ? "本作品涉及真人形象，必须登记肖像授权后才能合成与导出。" : "当前剧种为漫剧，无需真人肖像授权。") + "</div>";
-    if (mine.length) {
-      html += '<div class="dw-hint">已登记授权：</div>';
-      html += mine.map(c =>
-        '<div class="dw-char" style="align-items:center"><div style="flex:1">' +
-          '<div style="font-size:13px">' + D.ui.esc(c.subject) + "</div>" +
-          '<div class="dw-hint">' + D.ui.esc(c.scope) + " · " + new Date(c.confirmedAt).toLocaleString() + "</div>" +
-        "</div>" +
-        '<button class="btn small ghost danger" data-act="delconsent" data-cid="' + c.id + '">移除</button></div>'
-      ).join("");
-    }
-    html += '<div class="dw-bar" style="margin-top:6px">' +
-      '<button class="btn small" data-act="addconsent">＋ 登记肖像授权</button>' +
-      '<button class="btn small" id="dwCheck2">检查合规</button>' +
-    "</div>";
-    html += '<div id="dwConsentForm" style="display:none;margin-top:8px">' +
-      '<input class="inp" id="dwConsentName" placeholder="授权人姓名（本人或已获授权的模特）">' +
-      '<input class="inp" id="dwConsentScope" style="margin-top:6px" value="本人肖像用于 AI 短剧生成">' +
-      '<div class="dw-bar" style="margin-top:6px"><button class="btn small primary" id="dwConsentSave">确认登记</button>' +
-      '<button class="btn small" id="dwConsentCancel">取消</button></div>' +
-    "</div>";
-    html += '<div class="dw-hint" style="margin-top:8px;color:' + (v.ok ? "var(--green)" : "var(--red)") + '">' +
-      (v.ok ? "合规检查通过，可以合成与导出。" : "待处理：" + v.blockers.join("；")) + "</div>";
+    html += '<div class="dw-bar" style="margin-top:6px"><button class="btn small" data-act="addchar">＋ 新增角色</button>' +
+      '<button class="btn small" data-act="charload">从角色库添加</button></div>';
+    html += D.ui.libPanel(p, { prefix: "dw" });
     html += "</div>";
     return html;
   }
@@ -388,34 +356,14 @@
     v.querySelectorAll('[data-act="addchar"]').forEach(b => b.onclick = async () => { D.project.addCharacter(state.project); await save(); render(); });
     v.querySelectorAll('[data-act="delchar"]').forEach(b => b.onclick = async () => { D.project.removeCharacter(state.project, b.dataset.cid); await save(); render(); });
     v.querySelectorAll('[data-act="charref"]').forEach(b => b.onclick = () => pickCharRef(b.dataset.cid));
+    D.ui.bindLib(v, state.project, { prefix: "dw", onChange: async () => { await save(); render(); } });
 
-    /* 合规与授权区事件 */
-    const aigc = v.querySelector("#dwAigc");
-    if (aigc) aigc.onchange = async () => { state.project.compliance.aigcMarked = aigc.checked; await save(); render(); };
-    v.querySelectorAll('[data-act="addconsent"]').forEach(b => b.onclick = () => {
-      const f = document.getElementById("dwConsentForm");
-      if (f) f.style.display = "block";
+    /* 合规与授权区事件（共用组件） */
+    D.ui.bindCompliance(v, state.project, {
+      prefix: "dw",
+      onChange: async () => { await save(); render(); },
+      onCheck: () => checkCompliance()
     });
-    v.querySelectorAll('[data-act="delconsent"]').forEach(b => b.onclick = async () => {
-      state.project.compliance.consentIds = state.project.compliance.consentIds.filter(x => x !== b.dataset.cid);
-      await save();
-      render();
-    });
-    v.querySelectorAll("#dwConsentCancel").forEach(b => b.onclick = () => {
-      const f = document.getElementById("dwConsentForm");
-      if (f) f.style.display = "none";
-    });
-    v.querySelectorAll("#dwConsentSave").forEach(b => b.onclick = async () => {
-      const name = ((document.getElementById("dwConsentName") || {}).value || "").trim();
-      const scope = ((document.getElementById("dwConsentScope") || {}).value || "").trim();
-      if (!name) { U.toast("请填写授权人姓名", "warn"); return; }
-      const rec = D.compliance.recordConsent(name, scope);
-      state.project.compliance.consentIds.push(rec.id);
-      await save();
-      render();
-      U.toast("肖像授权已登记", "ok");
-    });
-    v.querySelectorAll("#dwCheck2").forEach(b => b.onclick = () => checkCompliance());
   }
 
   function needsGen(s) {
@@ -431,24 +379,36 @@
       U.toast("还没配置生成服务，请到「设置 → 短剧服务」填写", "err");
       return;
     }
+    if (state.busy) { U.toast("正在生成，请等待当前任务结束", "warn"); return; }
+    state.busy = true;
     setStatus("正在生成 " + ids.length + " 个分镜，请保持页面打开…", "");
-    const r = await D.engine.generateMany(p, ids, {
-      concurrency: 2,
-      onEach: (done, total) => setStatus("生成进度 " + done + "/" + total + "…", ""),
-      onProgress: (st) => {}
-    });
-    (p.shots || []).forEach(s => D.ui.refreshShot(p, s));
-    setStatus(r.errors.length ? "完成，失败 " + r.errors.length + " 镜，可单镜重试。" : "全部生成完成。", r.errors.length ? "err" : "ok");
+    try {
+      const r = await D.engine.generateMany(p, ids, {
+        concurrency: 2,
+        onEach: (done, total) => setStatus("生成进度 " + done + "/" + total + "…", ""),
+        onProgress: (st) => {}
+      });
+      (p.shots || []).forEach(s => D.ui.refreshShot(p, s));
+      setStatus(r.errors.length ? "完成，失败 " + r.errors.length + " 镜，可单镜重试。" : "全部生成完成。", r.errors.length ? "err" : "ok");
+    } finally {
+      state.busy = false;
+    }
   }
 
   async function ttsAll() {
     const p = state.project;
     const ids = (p.shots || []).filter(s => s.line && !s.audioUrl).map(s => s.id);
     if (!ids.length) { U.toast("没有需要补配音的分镜", "ok"); return; }
+    if (state.busy) { U.toast("正在处理，请等待当前任务结束", "warn"); return; }
+    state.busy = true;
     setStatus("正在补配音 " + ids.length + " 镜…", "");
-    const r = await D.engine.synthMany(p, ids, { onEach: () => {} });
-    (p.shots || []).forEach(s => D.ui.refreshShot(p, s));
-    setStatus(r.errors.length ? "配音失败 " + r.errors.length + " 镜。" : "配音完成。", r.errors.length ? "err" : "ok");
+    try {
+      const r = await D.engine.synthMany(p, ids, { onEach: () => {} });
+      (p.shots || []).forEach(s => D.ui.refreshShot(p, s));
+      setStatus(r.errors.length ? "配音失败 " + r.errors.length + " 镜。" : "配音完成。", r.errors.length ? "err" : "ok");
+    } finally {
+      state.busy = false;
+    }
   }
 
   async function compose() {

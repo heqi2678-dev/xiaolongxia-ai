@@ -39,7 +39,8 @@ Entries discovered by the Agent during task execution should follow this format:
   - 前端（短剧工作台）测试：`node --test tests/drama.test.js`，测试台 `tests/drama-harness.js` 用最小 DOM/fetch 桩在 Node 里加载 `src/drama/*.js`，不触网。
   - 后端（店门）测试：`cd gate && python3 -m unittest test_gate`。
   - 前端脚本单文件语法校验：`node --check <file>`。
-  - 提交前建议同时跑：drama 前端测试 + 店门后端测试 + 对 `src/drama/*` 全部 `node --check`。
+  - 真 DOM 端到端实测：`NODE_PATH=/usr/local/lib/node_modules node tests/drama-e2e.js`，用 jsdom 提供真实 DOM/事件/localStorage，加载 `src/drama/*.js` 后按用户操作点按钮、填表单，全部网络打桩；依赖全局安装的 `jsdom`（本机已装，`/usr/local/lib/node_modules`）。本机无 chromium/firefox，浏览器实测用此脚本替代。
+  - 提交前建议同时跑：drama 前端测试 + drama 端到端 + 店门后端测试 + 对 `src/drama/*` 全部 `node --check`。
 
 [Project Knowledge Summary]
 - Date: 2026-09-16

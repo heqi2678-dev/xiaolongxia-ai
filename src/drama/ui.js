@@ -2,6 +2,7 @@
 (function () {
   const D = XLX.drama;
   const U = XLX.util;
+  const noop = () => {};
   let cssDone = false;
 
   const CSS = `
@@ -193,5 +194,147 @@
     return (project.shots || []).filter(only || (() => true)).map(s => s.id);
   }
 
-  D.ui = { ensureCss, esc, opts, statusBadge, shotCard, renderShots, refreshShot, progress, bindShots, shotIds };
+  /* ============ 合规与授权区（手搓台、半自动台共用） ============ */
+  function complianceCard(project, o) {
+    o = o || {};
+    const px = o.prefix || "dw";
+    if (!project.compliance) project.compliance = { aigcMarked: true, consentIds: [] };
+    if (!Array.isArray(project.compliance.consentIds)) project.compliance.consentIds = [];
+    const cp = project.compliance;
+    const need = D.compliance.needsConsent(project);
+    const mine = D.compliance.consents().filter(c => cp.consentIds.indexOf(c.id) >= 0);
+    const v = D.compliance.verify(project);
+    let html = '<div class="dw-card"><h3>合规与授权 <span class="dw-hint">（发布前必看）</span></h3>';
+    html += '<label class="dw-chip' + (cp.aigcMarked ? " on" : "") + '" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">' +
+      '<input type="checkbox" id="' + px + 'Aigc"' + (cp.aigcMarked ? " checked" : "") + "> AI 生成标注（平台要求，关闭将无法合成导出）</label>";
+    html += '<div class="dw-hint" style="margin:8px 0">' + (need ? "本作品涉及真人形象，必须登记肖像授权后才能合成与导出。" : "当前剧种为漫剧，无需真人肖像授权。") + "</div>";
+    if (mine.length) {
+      html += '<div class="dw-hint">已登记授权：</div>';
+      html += mine.map(c =>
+        '<div class="dw-char" style="align-items:center"><div style="flex:1">' +
+          '<div style="font-size:13px">' + esc(c.subject) + "</div>" +
+          '<div class="dw-hint">' + esc(c.scope) + " · " + new Date(c.confirmedAt).toLocaleString() + "</div>" +
+        "</div>" +
+        '<button class="btn small ghost danger" data-act="delconsent" data-cid="' + esc(c.id) + '">移除</button></div>'
+      ).join("");
+    }
+    html += '<div class="dw-bar" style="margin-top:6px">' +
+      '<button class="btn small" data-act="addconsent">＋ 登记肖像授权</button>' +
+      '<button class="btn small" data-act="checkcompliance">检查合规</button>' +
+    "</div>";
+    html += '<div id="' + px + 'ConsentForm" style="display:none;margin-top:8px">' +
+      '<input class="inp" id="' + px + 'ConsentName" placeholder="授权人姓名（本人或已获授权的模特）">' +
+      '<input class="inp" id="' + px + 'ConsentScope" style="margin-top:6px" value="本人肖像用于 AI 短剧生成">' +
+      '<div class="dw-bar" style="margin-top:6px"><button class="btn small primary" id="' + px + 'ConsentSave">确认登记</button>' +
+      '<button class="btn small" id="' + px + 'ConsentCancel">取消</button></div>' +
+    "</div>";
+    html += '<div class="dw-hint" style="margin-top:8px;color:' + (v.ok ? "var(--green)" : "var(--red)") + '">' +
+      (v.ok ? "合规检查通过，可以合成与导出。" : "待处理：" + v.blockers.join("；")) + "</div>";
+    html += "</div>";
+    return html;
+  }
+
+  function bindCompliance(root, project, o) {
+    o = o || {};
+    const px = o.prefix || "dw";
+    const after = o.onChange || noop;
+    const onCheck = o.onCheck || noop;
+    const cp = project.compliance || (project.compliance = { aigcMarked: true, consentIds: [] });
+    if (!Array.isArray(cp.consentIds)) cp.consentIds = [];
+    const aigc = root.querySelector("#" + px + "Aigc");
+    if (aigc) aigc.onchange = async () => { cp.aigcMarked = !!aigc.checked; await after(); };
+    const form = root.querySelector("#" + px + "ConsentForm");
+    const show = (on) => { if (form) form.style.display = on ? "" : "none"; };
+    root.querySelectorAll('[data-act="addconsent"]').forEach(b => { b.onclick = () => show(true); });
+    root.querySelectorAll('[data-act="delconsent"]').forEach(b => {
+      b.onclick = async () => { cp.consentIds = cp.consentIds.filter(x => x !== b.dataset.cid); await after(); };
+    });
+    root.querySelectorAll('[data-act="checkcompliance"]').forEach(b => { b.onclick = () => onCheck(); });
+    const save = root.querySelector("#" + px + "ConsentSave");
+    if (save) save.onclick = async () => {
+      const nameEl = root.querySelector("#" + px + "ConsentName");
+      const scopeEl = root.querySelector("#" + px + "ConsentScope");
+      const subject = ((nameEl && nameEl.value) || "").trim();
+      if (!subject) { U.toast("请填写授权人姓名", "warn"); return; }
+      const scope = ((scopeEl && scopeEl.value) || "").trim() || "本人肖像用于 AI 短剧生成";
+      const rec = D.compliance.recordConsent(subject, scope);
+      cp.consentIds = cp.consentIds.concat([rec.id]);
+      await after();
+    };
+    const cancel = root.querySelector("#" + px + "ConsentCancel");
+    if (cancel) cancel.onclick = () => show(false);
+  }
+
+  /* ============ 跨工程角色库面板（共用） ============ */
+  function libPanel(project, o) {
+    o = o || {};
+    const px = o.prefix || "dw";
+    const list = D.character.libAll();
+    let html = '<div id="' + px + 'LibPanel" style="display:none;margin-top:8px">';
+    html += '<div class="dw-hint">角色库（跨工程复用，共 ' + list.length + ' 个）：</div>';
+    if (!list.length) {
+      html += '<div class="dw-empty">库里还没有角色。在角色卡上点「存入角色库」即可收藏。</div>';
+    } else {
+      html += list.map(e =>
+        '<div class="dw-char" data-lib="' + esc(e.id) + '">' +
+          '<div style="flex:1">' +
+            '<div style="font-size:13px">' + esc(e.name) + (e.realPerson ? ' <span class="dw-badge bad">真人</span>' : "") + "</div>" +
+            '<div class="dw-hint">' + esc(e.identity || "未填身份") + "</div>" +
+            '<div class="dw-hint">' + esc(e.appearance || "未填外观") + "</div>" +
+            '<div class="dw-char-refs">' + (e.refImages || []).map(u => '<img class="dw-char-ref" data-ref="' + esc(u) + '" alt="">').join("") + "</div>" +
+          "</div>" +
+          '<div>' +
+            '<button class="btn small primary" data-act="libadd" data-id="' + esc(e.id) + '">加入本工程</button>' +
+            '<button class="btn small ghost danger" style="margin-top:6px" data-act="libdel" data-id="' + esc(e.id) + '">删除</button>' +
+          "</div>" +
+        "</div>"
+      ).join("");
+    }
+    html += "</div>";
+    return html;
+  }
+
+  function bindLib(root, project, o) {
+    o = o || {};
+    const px = o.prefix || "dw";
+    const after = o.onChange || noop;
+    const panel = root.querySelector("#" + px + "LibPanel");
+    const toggle = (on) => { if (panel) panel.style.display = on ? "" : "none"; };
+    root.querySelectorAll('[data-act="charload"]').forEach(b => {
+      b.onclick = async () => { toggle(true); await hydrateThumbs(root, px); };
+    });
+    root.querySelectorAll('[data-act="libadd"]').forEach(b => {
+      b.onclick = async () => {
+        const entry = D.character.libGet(b.dataset.id);
+        if (!entry) { U.toast("角色库记录不存在", "err"); return; }
+        await D.character.libToProject(project, entry);
+        U.toast("已加入「" + entry.name + "」", "ok");
+        await after();
+      };
+    });
+    root.querySelectorAll('[data-act="libdel"]').forEach(b => {
+      b.onclick = async () => { D.character.libRemove(b.dataset.id); await after(); };
+    });
+    root.querySelectorAll('[data-act="charsave"]').forEach(b => {
+      b.onclick = async () => {
+        try {
+          const rec = await D.character.libFromProject(project, b.dataset.cid);
+          U.toast("「" + rec.name + "」已存入角色库", "ok");
+        } catch (e) { U.toast((e && e.message) || "存入失败", "warn"); return; }
+        await after();
+      };
+    });
+  }
+
+  /* 库面板里的 asset: 参考图是懒加载的，打开面板时再换成可显示的 blob: 地址 */
+  async function hydrateThumbs(root, px) {
+    const imgs = root.querySelectorAll("#" + px + "LibPanel img[data-ref]");
+    for (const img of imgs) {
+      if (!img.dataset.ref || img.src) continue;
+      const h = await D.project.assets.hydrateRef(img.dataset.ref);
+      if (h) img.src = h;
+    }
+  }
+
+  D.ui = { ensureCss, esc, opts, statusBadge, shotCard, renderShots, refreshShot, progress, bindShots, shotIds, complianceCard, bindCompliance, libPanel, bindLib };
 })();

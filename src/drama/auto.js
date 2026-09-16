@@ -135,9 +135,13 @@
         '<div class="dw-char-refs">' + (c.refImages || []).map(u => '<img class="dw-char-ref" src="' + D.ui.esc(u) + '">').join("") +
         '<button class="btn small" data-act="charref" data-cid="' + c.id + '">＋ 参考图</button>' +
         '<label class="dw-chip' + (c.locked ? " on" : "") + '" data-act="lock" data-cid="' + c.id + '">' + (c.locked ? "已锁定" : "点此锁定") + "</label></div>" +
-        "</div></div>"
+        "</div>" +
+        '<div><button class="btn small" data-act="charsave" data-cid="' + c.id + '">存入角色库</button></div>' +
+        "</div>"
       ).join("") : '<div class="dw-empty">没有角色，AI 可能没给出角色，可手动新增</div>') +
-      '<div class="dw-bar" style="margin-top:6px"><button class="btn small" data-act="addchar">＋ 新增角色</button></div>' +
+      '<div class="dw-bar" style="margin-top:6px"><button class="btn small" data-act="addchar">＋ 新增角色</button>' +
+      '<button class="btn small" data-act="charload">从角色库添加</button></div>' +
+      D.ui.libPanel(p, { prefix: "au" }) +
     "</div>" +
     '<div class="dw-card"><div class="dw-bar">' +
       '<button class="btn" id="auBackPlan">返回改剧本</button>' +
@@ -156,6 +160,7 @@
     });
     v.querySelectorAll("[data-act='addchar']").forEach(b => b.onclick = async () => { D.project.addCharacter(p); await D.project.save(p); render(); });
     v.querySelectorAll("[data-act='charref']").forEach(b => b.onclick = () => pickRef(b.dataset.cid));
+    D.ui.bindLib(v, p, { prefix: "au", onChange: async () => { await D.project.save(p); render(); } });
     v.querySelector("#auBackPlan").onclick = () => { state.stage = "plan"; render(); };
     v.querySelector("#auLockAll").onclick = async () => { p.characters.forEach(c => c.locked = true); await D.project.save(p); render(); };
     v.querySelector("#auStartGen").onclick = () => { state.stage = "gen"; render(); };
@@ -201,15 +206,21 @@
     const p = state.project;
     const kind = D.engine.isRealistic(p) ? "video" : "image";
     if (!D.isConfigured(kind)) { msg("还没配置" + (kind === "video" ? "视频" : "生图") + "服务，请到「设置 → 短剧服务」填写", "err"); return; }
+    if (state.busy) { msg("正在生成，请等待当前任务结束…", ""); return; }
+    state.busy = true;
     const ids = (p.shots || []).map(s => s.id);
     msg("开始批量生成 " + ids.length + " 镜…", "");
-    const r = await D.engine.generateMany(p, ids, {
-      concurrency: 2,
-      onEach: (done, total) => msg("生成进度 " + done + "/" + total + "…", ""),
-      onProgress: (st, sid) => {}
-    });
-    (p.shots || []).forEach(s => D.ui.refreshShot(p, s));
-    msg(r.errors.length ? "完成，" + r.errors.length + " 镜失败，下一关可重绘。" : "全部生成完成，去逐镜检查。", r.errors.length ? "warn" : "ok");
+    try {
+      const r = await D.engine.generateMany(p, ids, {
+        concurrency: 2,
+        onEach: (done, total) => msg("生成进度 " + done + "/" + total + "…", ""),
+        onProgress: (st, sid) => {}
+      });
+      (p.shots || []).forEach(s => D.ui.refreshShot(p, s));
+      msg(r.errors.length ? "完成，" + r.errors.length + " 镜失败，下一关可重绘。" : "全部生成完成，去逐镜检查。", r.errors.length ? "warn" : "ok");
+    } finally {
+      state.busy = false;
+    }
   }
 
   function renderReview(body) {
@@ -291,9 +302,15 @@
       const ids = p.shots.filter(s => s.line && !s.audioUrl).map(s => s.id);
       if (!ids.length) { msg("配音都齐了", "ok"); return; }
       if (!D.isConfigured("tts")) { msg("还没配置语音服务，请到「设置 → 短剧服务」填写", "err"); return; }
+      if (state.busy) { msg("正在处理，请等待当前任务结束…", ""); return; }
+      state.busy = true;
       msg("正在配音 " + ids.length + " 镜…", "");
-      const r = await D.engine.synthMany(p, ids, {});
-      msg(r.errors.length ? "有 " + r.errors.length + " 镜配音失败。" : "配音完成。", r.errors.length ? "err" : "ok");
+      try {
+        const r = await D.engine.synthMany(p, ids, {});
+        msg(r.errors.length ? "有 " + r.errors.length + " 镜配音失败。" : "配音完成。", r.errors.length ? "err" : "ok");
+      } finally {
+        state.busy = false;
+      }
     };
     v.querySelector("#auApprove3").onclick = () => { state.stage = "compose"; render(); };
   }
@@ -305,9 +322,13 @@
       '<button class="btn" id="auApprove4">通过，去终审</button></div>' +
       '<div id="auComposeOut"></div></div>';
     const v = view();
-    v.querySelector("#auCompose").onclick = async () => {
+    const btn = v.querySelector("#auCompose");
+    btn.onclick = async () => {
+      if (state.busy) { msg("正在合成，请勿重复点击…", ""); return; }
+      state.busy = true;
+      btn.disabled = true;
       try {
-        msg("正在合成…", "");
+        msg("正在合成…请勿切走页面…", "");
         const blob = await D.compose.client(state.project, { onProgress: (pr) => msg("合成中 " + Math.round(pr.elapsed) + "/" + Math.round(pr.total) + " 秒…", "") });
         state.lastComposed = blob;
         await D.compliance.archive(state.project, { kind: "browser-webm", size: blob.size });
@@ -315,34 +336,34 @@
         document.getElementById("auComposeOut").innerHTML = '<video class="dw-preview" controls src="' + url + '"></video>';
         msg("合成完成。", "ok");
       } catch (e) { msg((e && e.message) || "合成失败", "err"); }
+      finally { state.busy = false; btn.disabled = false; }
     };
     v.querySelector("#auApprove4").onclick = () => { state.stage = "final"; render(); };
   }
 
   function renderFinal(body) {
     const p = state.project;
-    const cc = D.compliance.verify(p);
     body.innerHTML = '<div class="dw-card"><h3>关卡三 · 终审与发布</h3>' +
-      '<div class="dw-hint">' + (cc.ok ? "合规检查通过。" : "合规问题：" + cc.blockers.join("；")) + "</div>" +
       '<div class="dw-bar" style="margin-top:10px">' +
-        '<button class="btn" id="auConsent">' + (D.compliance.needsConsent(p) ? "做肖像授权确认" : "无需肖像授权") + "</button>" +
         '<button class="btn primary" id="auDownload">下载成片</button>' +
         '<button class="btn" id="auPack">导出素材包</button>' +
         '<button class="btn" id="auRestart">做下一部</button>' +
       "</div>" +
       '<div class="dw-hint" style="margin-top:8px">发布到抖音前请保留 AI 生成标注。可直接下载成片，或导出素材包用剪映二次剪辑。</div>' +
-    "</div>";
+    "</div>" +
+    D.ui.complianceCard(p, { prefix: "au" });
     const v = view();
-    v.querySelector("#auConsent").onclick = () => {
-      if (!D.compliance.needsConsent(p)) { U.toast("本作品不涉及真人形象", "info"); return; }
-      const subject = prompt("请输入被授权人称呼（如：本人 / 张三）：", "本人");
-      if (subject == null) return;
-      const rec = D.compliance.recordConsent(subject, "本人肖像用于 AI 短剧生成");
-      p.compliance.consentIds = (p.compliance.consentIds || []).concat([rec.id]);
-      D.project.save(p);
-      render();
-      U.toast("授权已留痕", "ok");
-    };
+    D.ui.bindCompliance(v, p, {
+      prefix: "au",
+      onChange: async () => { await D.project.save(p); render(); },
+      onCheck: () => {
+        const vv = D.project.validate(p);
+        const c2 = D.compliance.verify(p);
+        msg((vv.ok ? "画面与配音齐全。" : "还缺：" + vv.missing.map(m => "第" + m.seq + "镜" + m.reason).join("、")) +
+          (c2.ok ? " 合规检查通过。" : " 合规问题：" + c2.blockers.join("；")),
+          vv.ok && c2.ok ? "ok" : "err");
+      }
+    });
     v.querySelector("#auDownload").onclick = () => {
       if (!state.lastComposed) { U.toast("还没合成成片，请回到上一步合成", "warn"); return; }
       U.download(p.title + ".webm", state.lastComposed);

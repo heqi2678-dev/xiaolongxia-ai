@@ -3,7 +3,13 @@
  * 覆盖：角色提示词、适配器请求构造与响应解析、剧种引擎、工程模型、合规校验、合成导出。 */
 const test = require("node:test");
 const assert = require("node:assert");
+const fs = require("node:fs");
+const path = require("node:path");
 const { createDrama, mockJson, setAdapter } = require("./drama-harness.js");
+
+function dramaSrc(file) {
+  return fs.readFileSync(path.resolve(__dirname, "..", "src", "drama", file), "utf8");
+}
 
 function sleepStub(D) { D.adapterUtil.sleep = async () => {}; }
 
@@ -331,4 +337,113 @@ test("合成：srt 忽略无台词分镜但保留时间推进", () => {
   const srt = D.compose.srt(p);
   assert.match(srt, /00:00:05,000 --> 00:00:10,000/);
   assert.ok(!/00:00:00,000 --> 00:00:05,000/.test(srt));
+});
+
+/* ============ 跨工程角色库 ============ */
+
+test("角色库：同名同外观原地更新，不重复入库", () => {
+  const { D, sandbox } = createDrama();
+  assert.equal(D.character.libAll().length, 0);
+  const a = D.character.libSave({ name: "小美", appearance: "长发红裙" });
+  const b = D.character.libSave({ name: "小美", appearance: "长发红裙" });
+  assert.equal(a.id, b.id, "同名同外观应更新同一条，而不是新增");
+  assert.equal(D.character.libAll().length, 1);
+  D.character.libSave({ name: "阿强", appearance: "寸头" });
+  assert.equal(D.character.libAll().length, 2);
+  assert.ok(D.character.libGet(a.id));
+  D.character.libRemove(a.id);
+  assert.equal(D.character.libGet(a.id), null);
+  assert.equal(D.character.libAll().length, 1);
+  assert.ok(sandbox.localStorage.getItem("xlx_drama_library") !== null, "角色库应落在独立存储键上");
+});
+
+test("角色库：缺外观的角色拒绝入库", async () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  const c = D.project.addCharacter(p, "小美");
+  await assert.rejects(() => D.character.libFromProject(p, c.id), (e) => e.code === "CHAR_INCOMPLETE");
+  assert.equal(D.character.libAll().length, 0);
+});
+
+test("角色库：工程存卡把参考图落进资源仓，导入后跨工程可用", async () => {
+  const { D } = createDrama();
+  const p1 = D.project.blank({});
+  const c1 = D.project.addCharacter(p1, "小美");
+  c1.identity = "女主";
+  c1.appearance = "长发红裙";
+  c1.refImages = ["data:image/png;base64,QUJD"];
+  const rec = await D.character.libFromProject(p1, c1.id);
+  assert.equal(rec.refImages.length, 1);
+  assert.match(rec.refImages[0], /^asset:/, "data/blob 参考图要转成可复用的 asset: 引用");
+
+  const p2 = D.project.blank({});
+  const c2 = await D.character.libToProject(p2, rec);
+  assert.equal(p2.characters.length, 1);
+  assert.equal(c2.name, "小美");
+  assert.equal(c2.identity, "女主");
+  assert.equal(c2.appearance, "长发红裙");
+  assert.equal(c2.libraryId, rec.id);
+  assert.equal(c2.refImages.length, 1);
+  assert.ok(c2.refImages[0], "导入后参考图应能解析成可显示地址");
+  assert.notEqual(c2.id, c1.id, "导入是复制一份，改库不影响已有工程");
+});
+
+test("角色库：真人角色导入后需补肖像授权才能过合规", async () => {
+  const { D } = createDrama();
+  const rec = D.character.libSave({ name: "真人甲", appearance: "短发", realPerson: true });
+  const p = D.project.blank({ genre: "realistic" });
+  const c = await D.character.libToProject(p, rec);
+  assert.equal(c.realPerson, true);
+  assert.equal(D.compliance.needsConsent(p), true);
+  assert.equal(D.compliance.verify(p).ok, false);
+  const r = D.compliance.recordConsent("真人甲", "本人授权");
+  p.compliance.consentIds = [r.id];
+  assert.equal(D.compliance.verify(p).ok, true);
+});
+
+/* ============ 共用合规/角色库组件 ============ */
+
+test("共用合规组件：按前缀生成授权表单与检查入口", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({ genre: "realistic" });
+  const manual = D.ui.complianceCard(p, { prefix: "dw" });
+  assert.match(manual, /id="dwAigc"/);
+  assert.match(manual, /id="dwConsentForm"/);
+  assert.match(manual, /id="dwConsentSave"/);
+  assert.match(manual, /data-act="checkcompliance"/);
+  assert.match(manual, /data-act="addconsent"/);
+  const auto = D.ui.complianceCard(p, { prefix: "au" });
+  assert.match(auto, /id="auAigc"/);
+  assert.match(auto, /id="auConsentForm"/);
+  assert.ok(!/id="dwAigc"/.test(auto), "另一套前缀不应混入");
+  assert.equal(typeof D.ui.bindCompliance, "function");
+  assert.equal(typeof D.ui.bindLib, "function");
+  assert.equal(typeof D.ui.libPanel, "function");
+});
+
+test("角色库面板：列出已存角色并带加入与删除入口", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  assert.match(D.ui.libPanel(p, { prefix: "dw" }), /id="dwLibPanel"/);
+  D.character.libSave({ name: "阿强", identity: "反派", appearance: "寸头" });
+  const html = D.ui.libPanel(p, { prefix: "au" });
+  assert.match(html, /id="auLibPanel"/);
+  assert.match(html, /阿强/);
+  assert.match(html, /反派/);
+  assert.match(html, /data-act="libadd"/);
+  assert.match(html, /data-act="libdel"/);
+});
+
+test("两个工作台都复用共用组件，半自动台不再用 prompt 收集授权", () => {
+  const manual = dramaSrc("manual.js");
+  assert.match(manual, /D\.ui\.complianceCard\(p, \{ prefix: "dw" \}\)/);
+  assert.match(manual, /D\.ui\.bindLib\(v, state\.project/);
+  assert.ok(!/id="dwCheck2"/.test(manual), "手搓台不应再保留内联授权区");
+  assert.ok(!/function complianceCard/.test(manual), "授权区已抽到 ui.js 共用");
+
+  const auto = dramaSrc("auto.js");
+  assert.match(auto, /D\.ui\.complianceCard\(p, \{ prefix: "au" \}\)/);
+  assert.match(auto, /D\.ui\.bindCompliance\(/);
+  assert.match(auto, /D\.ui\.bindLib\(v, p/);
+  assert.ok(!/prompt\(/.test(auto), "终审不应再用 prompt() 收集授权");
 });
