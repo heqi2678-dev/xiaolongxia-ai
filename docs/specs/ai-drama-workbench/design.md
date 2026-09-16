@@ -276,7 +276,7 @@ graph TD
 ## 十、测试策略
 
 1. 单元：适配器请求构造与响应解析、角色提示词组装、状态机迁移、合规校验。
-   - 前端测试位于 `tests/drama.test.js`，用最小 DOM/fetch 桩加载 `src/drama/*.js`，运行 `node --test tests/drama.test.js`（当前 24 项）。
+   - 前端测试位于 `tests/drama.test.js`，用最小 DOM/fetch 桩加载 `src/drama/*.js`，运行 `node --test tests/drama.test.js`（当前 25 项）。
 2. 接口：工程 CRUD、房间隔离（两个账号交叉验证）、合成接口、发布接口。
 3. 端到端：手搓台从剧本到导出；半自动台从题材到发布；失败镜重试路径。
 4. 合规：导出产物含显式与隐式标注；无授权时禁止真人形象导出。

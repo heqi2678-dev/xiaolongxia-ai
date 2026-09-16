@@ -270,6 +270,29 @@ test("合规：未授权工程导出素材包被拦截", async () => {
   await assert.rejects(() => D.compose.exportPack(p), (e) => e.code === "COMPLIANCE");
 });
 
+test("剧种引擎：仿真人单镜串联视频、配音与口型", async () => {
+  const { D, sandbox } = createDrama();
+  sleepStub(D);
+  setAdapter(D, "video", { provider: "seedance", key: "k", base: "https://ark.test" });
+  setAdapter(D, "tts", { provider: "volc", appId: "a", key: "t", voice: "v" });
+  setAdapter(D, "lipsync", { provider: "volc-koubo", base: "https://ls.test", key: "k" });
+  mockJson(sandbox, (url) => {
+    if (url.indexOf("/contents/generations/tasks/") >= 0) return { status: "succeeded", content: { video_url: "https://cdn/v.mp4" } };
+    if (url.indexOf("/contents/generations/tasks") >= 0) return { id: "v1" };
+    if (url.indexOf("/tools/lipsync") >= 0) return { task_id: "L1" };
+    if (url.indexOf("/tasks/L1") >= 0) return { status: "completed", video_url: "https://cdn/out.mp4" };
+    return { data: "QUJD" };
+  });
+  const p = D.project.blank({ genre: "realistic" });
+  p.shots[0].prompt = "雨夜奔跑";
+  p.shots[0].line = "别回头";
+  const shot = await D.engine.generateShot(p, p.shots[0].id, {});
+  assert.equal(shot.status, "done");
+  assert.equal(shot.videoUrl, "https://cdn/v.mp4");
+  assert.match(shot.audioUrl, /^blob:/);
+  assert.equal(shot.lipsyncUrl, "https://cdn/out.mp4");
+});
+
 test("手搓台：首次渲染自动建工程并注入合规授权区", async () => {
   const { D } = createDrama();
   await D.manual.load();
