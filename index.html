@@ -1751,52 +1751,54 @@ XLX.search = (function () {
     /* 优先同源聚合代理（服务端抓取所选渠道，无 CORS 限制），
        若用户配置了 360 智搜官方 API Key，则一并传给代理，360 渠道优先走官方接口；
        其次前端可直连的 CORS 渠道（维基中/英、GitHub），最后旧代理链兜底 */
-    let proxyUrl = new URL("/api/search?q=" + q + "&engines=" + sel.join(","), location.href).href;
+    let proxyUrl = location.origin + location.pathname.replace(/[^/]*$/, "") + "api/search?q=" + q + "&engines=" + sel.join(",");
     const k360 = (s && s.so360Key || "").trim();
     if (k360) proxyUrl += "&key=" + encodeURIComponent(k360);
+    /* t = 该渠道的超时（毫秒）。同源代理/维基/GitHub 是主力，给足时间；
+       兜底公共代理常挂，超时给短一点，避免拖慢整体（对话侧只等 6 秒）。 */
     const attempts = [
-      { name: "proxy", parse: parseApiJson, url: proxyUrl },
+      { name: "proxy", parse: parseApiJson, url: proxyUrl, t: 7000 },
     ];
-    if (has("wikipedia_zh")) attempts.push({ name: "wikipedia_zh", parse: parseWiki("zh"), url: wikiZhUrl });
-    if (has("wikipedia_en")) attempts.push({ name: "wikipedia_en", parse: parseWiki("en"), url: wikiEnUrl });
-    if (has("github")) attempts.push({ name: "github", parse: parseGithub, url: ghUrl });
+    if (has("wikipedia_zh")) attempts.push({ name: "wikipedia_zh", parse: parseWiki("zh"), url: wikiZhUrl, t: 3500 });
+    if (has("wikipedia_en")) attempts.push({ name: "wikipedia_en", parse: parseWiki("en"), url: wikiEnUrl, t: 3500 });
+    if (has("github")) attempts.push({ name: "github", parse: parseGithub, url: ghUrl, t: 3500 });
     const ddgUrl = "https://html.duckduckgo.com/html/?q=" + q;
     attempts.push(
-      { name: "jina", parse: parseMarkdownLinks, url: "https://r.jina.ai/" + ddgUrl },
-      { name: "allorigins", parse: parseDuckDuckGo, url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(ddgUrl) },
-      { name: "corsproxy", parse: parseDuckDuckGo, url: "https://corsproxy.io/?url=" + encodeURIComponent(ddgUrl) }
+      { name: "jina", parse: parseMarkdownLinks, url: "https://r.jina.ai/" + ddgUrl, t: 2200 },
+      { name: "allorigins", parse: parseDuckDuckGo, url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(ddgUrl), t: 2200 },
+      { name: "corsproxy", parse: parseDuckDuckGo, url: "https://corsproxy.io/?url=" + encodeURIComponent(ddgUrl), t: 2200 }
     );
-    const lastErr = null;
-    const results = await Promise.race([
-      (async () => {
-        const timeout = new Promise(res => setTimeout(() => res([]), 3000));
-        return Promise.all(attempts.map(async (a) => {
-          try {
-            const text = await fetchText(a.url, 3000);
-            const res = a.parse(text);
-            if (res && res.length) return res;
-          } catch (e) { return []; }
-          return [];
-        })).then(lists => lists.reduce((acc, l) => acc.concat(l), []));
-      })(),
-      (async () => {
-        const custom = (s && Array.isArray(s.customEngines)) ? s.customEngines : [];
-        if (custom.length) {
-          for (const ce of custom) {
-            try {
-              const res = await searchCustomEngine(query, ce);
-              if (res && res.length) return res;
-            } catch (e) { return []; }
-          }
-        }
-        return [];
-      })()
-    ]);
+    /* 并发请求所有渠道并合并结果（不可用渠道返回空，不阻断其它渠道）。
+       旧实现用 Promise.race 与“自定义引擎”那一路赛跑，当用户没配自定义引擎时
+       第二路会立刻返回空数组，把已拿到的维基/GitHub 结果全部丢掉，故恒为 0 条。 */
+    const lists = await Promise.all(attempts.map(async (a) => {
+      try {
+        const text = await fetchText(a.url, a.t || 6000);
+        const res = a.parse(text);
+        return (res && res.length) ? res : [];
+      } catch (e) { return []; }
+    }));
+    let results = lists.reduce((acc, l) => acc.concat(l), []);
+    if (!results.length) {
+      const custom = (s && Array.isArray(s.customEngines)) ? s.customEngines : [];
+      for (const ce of custom) {
+        try {
+          const res = await searchCustomEngine(query, ce);
+          if (res && res.length) { results = res; break; }
+        } catch (e) {}
+      }
+    }
+    const seen = {};
+    results = results.filter(r => {
+      const k = (r && (r.url || r.title)) || "";
+      if (!k || seen[k]) return false;
+      seen[k] = 1; return true;
+    });
     return results.slice(0, 12);
   }
 
   async function searchCustomEngine(query, ce) {
-    const url = new URL("/api/custom_search", location.href).href;
+    const url = location.origin + location.pathname.replace(/[^/]*$/, "") + "api/custom_search";
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 15000);
     try {
@@ -2534,6 +2536,8 @@ XLX.market = (function () {
   function fillPrompt(skill, input) {
     let p = skill.prompt || "";
     p = p.replace(/\{input\}/g, input || "");
+    p = p.replace(/\{search\}/g, "（联网搜索到的资料见下方「自动搜索到的网页资料」）");
+    p = p.replace(/\{err\}/g, "");
     return p;
   }
 
@@ -2650,7 +2654,10 @@ XLX.tools = (function () {
   ];
 
   /* 免费 CORS 代理（抓取第三方页面用） */
+  /* 同源代理优先（本站服务端抓取，无 CORS 问题、稳定）；
+     后面三条免费公共代理仅作兜底，实测常失效。 */
   const PROXIES = [
+    u => location.origin + location.pathname.replace(/[^/]*$/, "") + "api/fetch?url=" + encodeURIComponent(u),
     u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
     u => "https://corsproxy.io/?url=" + encodeURIComponent(u),
     u => "https://r.jina.ai/" + u
@@ -2702,17 +2709,25 @@ XLX.tools = (function () {
   /* ===================== 商品图下载 ===================== */
 
   /* 按 URL 下载图片：优先 fetch 转 blob，失败时新窗口打开 */
+  /* 图片等跨域资源经同源代理取回，避免浏览器 CORS 拦截导致存不下来 */
+  function sameOriginFetchUrl(u) {
+    return location.origin + location.pathname.replace(/[^/]*$/, "") + "api/fetch?url=" + encodeURIComponent(u);
+  }
+
   function downloadImgByUrl(url, filename) {
-    fetch(url)
-      .then(r => r.blob())
-      .then(b => XLX.util.download(filename, b, b.type))
-      .catch(() => {
-        const a = document.createElement("a");
-        a.href = url;
-        a.target = "_blank";
-        a.rel = "noopener";
-        a.click();
-      });
+    fetch(sameOriginFetchUrl(url))
+      .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.blob(); })
+      .then(b => { if (!b || b.size < 100) throw new Error("空文件"); XLX.util.download(filename, b, b.type || "image/jpeg"); })
+      .catch(() => fetch(url)
+        .then(r => r.blob())
+        .then(b => XLX.util.download(filename, b, b.type))
+        .catch(() => {
+          const a = document.createElement("a");
+          a.href = url;
+          a.target = "_blank";
+          a.rel = "noopener";
+          a.click();
+        }));
   }
 
   function renderItemDL(box) {
@@ -2797,9 +2812,10 @@ XLX.tools = (function () {
 
   function fetchArrayBuffer(url) {
     return new Promise(resolve => {
-      fetch(url).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
+      const grab = u => fetch(u).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); });
+      grab(sameOriginFetchUrl(url))
         .then(b => resolve(new Uint8Array(b)))
-        .catch(() => resolve(null));
+        .catch(() => grab(url).then(b => resolve(new Uint8Array(b))).catch(() => resolve(null)));
     });
   }
 
@@ -3085,7 +3101,12 @@ XLX.tools = (function () {
     "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.4.0",
     "https://esm.sh/@huggingface/transformers@3.4.0"
   ];
+  /* 同源优先：模型文件随站点一起部署在 models/Xenova/whisper-*，
+     直接从本站下载最稳（GitHub 上的 models 已移出仓库，旧地址会 404）。
+     下面第一个绝对地址覆盖线上 /dian/ 部署，第二个按当前页面相对定位做兜底。 */
   const ASR_MODEL_HOSTS = [
+    { host: location.origin + "/dian/models/", tpl: "{model}/" },
+    { host: location.origin + location.pathname.replace(/[^/]*$/, "") + "models/", tpl: "{model}/" },
     { host: "https://heqi2678-dev.github.io/xiaolongxia-ai/models/", tpl: "{model}/" },
     { host: "https://ghfast.top/https://raw.githubusercontent.com/heqi2678-dev/xiaolongxia-ai/main/models/", tpl: "{model}/" },
     { host: "https://gh-proxy.com/https://raw.githubusercontent.com/heqi2678-dev/xiaolongxia-ai/main/models/", tpl: "{model}/" },

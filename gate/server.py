@@ -2,15 +2,19 @@
 import base64
 import hashlib
 import hmac
+import html as html_mod
+import ipaddress
 import json
 import os
 import re
 import secrets
 import shutil
+import socket
 import socketserver
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from http.cookies import SimpleCookie
@@ -99,6 +103,69 @@ STATIC_TYPES = {
 }
 
 _lock = threading.Lock()
+
+# ---------- 联网搜索：服务端抓取必应/360（国内可直连，绕开浏览器 CORS） ----------
+
+_TAG_RE = re.compile(r"<[^>]+>")
+_FETCH_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+
+
+def _strip_tags(s):
+    return re.sub(r"\s+", " ", html_mod.unescape(_TAG_RE.sub("", s or ""))).strip()
+
+
+def _http_get_text(url, timeout=12, limit=4 * 1024 * 1024):
+    req = urllib.request.Request(
+        url, headers={"User-Agent": _FETCH_UA, "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"}
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        raw = resp.read(limit + 1)
+        if len(raw) > limit:
+            raise ValueError("响应过大")
+        charset = resp.headers.get_content_charset() or "utf-8"
+        return raw.decode(charset, errors="replace")
+
+
+def scrape_bing(q, limit=8):
+    url = "https://cn.bing.com/search?q=" + urllib.parse.quote(q) + "&ensearch=0"
+    page = _http_get_text(url)
+    out = []
+    for block in page.split('<li class="b_algo"')[1:]:
+        a = re.search(r'<h2[^>]*>\s*<a[^>]*?href="([^"]+)"[^>]*>(.*?)</a>', block, re.S)
+        if not a:
+            continue
+        u = html_mod.unescape(a.group(1))
+        title = _strip_tags(a.group(2))
+        p = re.search(r"<p[^>]*>(.*?)</p>", block, re.S)
+        snippet = _strip_tags(p.group(1)) if p else ""
+        if title and u.startswith("http"):
+            out.append({"title": title, "url": u, "snippet": snippet, "source": "bing"})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def scrape_360(q, limit=8):
+    url = "https://www.so.com/s?q=" + urllib.parse.quote(q)
+    page = _http_get_text(url)
+    out = []
+    for block in page.split('<li class="res-list"')[1:]:
+        a = re.search(r'<h3[^>]*>.*?<a\b[^>]*?href="([^"]+)"[^>]*>(.*?)</a>', block, re.S)
+        if not a:
+            continue
+        md = re.search(r'data-mdurl="([^"]+)"', block)
+        u = html_mod.unescape(md.group(1) if md else a.group(1))
+        title = _strip_tags(a.group(2))
+        p = re.search(r'<p class="res-desc"[^>]*>(.*?)</p>', block, re.S)
+        snippet = _strip_tags(p.group(1)) if p else ""
+        if title and u.startswith("http"):
+            out.append({"title": title, "url": u, "snippet": snippet, "source": "so360"})
+        if len(out) >= limit:
+            break
+    return out
 
 
 class ThreadingHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
@@ -598,6 +665,12 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._login_page()
             return
+        if path == "/api/search":
+            self._handle_search()
+            return
+        if path == "/api/fetch":
+            self._handle_fetch()
+            return
         if path.startswith("/api/"):
             self._json(404, {"ok": False, "error": "没有这个接口"})
             return
@@ -816,6 +889,101 @@ class Handler(BaseHTTPRequestHandler):
             if room:
                 mine = read_guide(room / "shuoming" / "guide.md")
         self._json(200, {"ok": True, "shop": shop, "mine": mine})
+
+    def _fetch_target_ok(self, url):
+        """校验抓取目标：仅 http/https，且不得指向内网/本机（防 SSRF）。"""
+        try:
+            u = urlparse(url)
+        except Exception:
+            return False
+        if u.scheme not in ("http", "https") or not u.hostname:
+            return False
+        port = u.port or (443 if u.scheme == "https" else 80)
+        try:
+            infos = socket.getaddrinfo(u.hostname, port, proto=socket.IPPROTO_TCP)
+        except Exception:
+            return False
+        for info in infos:
+            try:
+                addr = ipaddress.ip_address(info[4][0])
+            except ValueError:
+                return False
+            if (addr.is_private or addr.is_loopback or addr.is_link_local
+                    or addr.is_reserved or addr.is_multicast or addr.is_unspecified):
+                return False
+        return True
+
+    def _handle_fetch(self):
+        """同源抓取代理：服务端取回目标页面文本，绕开浏览器 CORS 限制。"""
+        me = self._current()
+        if not me:
+            self._json(401, {"ok": False, "error": "未登录"})
+            return
+        qs = parse_qs(urlparse(self.path).query)
+        target = (qs.get("url") or [""])[0].strip()
+        if not target:
+            self._json(400, {"ok": False, "error": "缺少 url 参数"})
+            return
+        if not self._fetch_target_ok(target):
+            self._json(400, {"ok": False, "error": "该链接不允许抓取"})
+            return
+        req = urllib.request.Request(
+            target,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                ),
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                "Accept": "*/*",
+            },
+        )
+        limit = 12 * 1024 * 1024
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                ctype = resp.headers.get("Content-Type") or "application/octet-stream"
+                raw = resp.read(limit + 1)
+                if len(raw) > limit:
+                    self._send(502, "目标文件过大")
+                    return
+        except Exception as e:
+            self._send(502, "抓取失败：" + str(e)[:120])
+            return
+        # 原样回传字节并保留 Content-Type：图片等二进制资源也能正确下载
+        self._send(200, raw, ctype, raw=True)
+
+    def _handle_search(self):
+        """同源聚合搜索：服务端抓取必应/360，返回统一 JSON 给前端。"""
+        me = self._current()
+        if not me:
+            self._json(401, {"ok": False, "error": "未登录"})
+            return
+        qs = parse_qs(urlparse(self.path).query)
+        q = (qs.get("q") or [""])[0].strip()
+        if not q:
+            self._json(400, {"ok": False, "error": "缺少 q 参数"})
+            return
+        engines = [e for e in (qs.get("engines") or [""])[0].split(",") if e]
+        if not engines:
+            engines = ["bing", "so360"]
+        results, sources = [], []
+        if "bing" in engines:
+            try:
+                r = scrape_bing(q, 8)
+                if r:
+                    results += r
+                    sources.append("bing")
+            except Exception:
+                pass
+        if "so360" in engines and len(results) < 12:
+            try:
+                r = scrape_360(q, 8)
+                if r:
+                    results += r
+                    sources.append("so360")
+            except Exception:
+                pass
+        self._json(200, {"ok": True, "q": q, "results": results[:12], "sources": sources})
 
     def _handle_clerk_new(self):
         me = self._current()
