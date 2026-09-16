@@ -33,6 +33,18 @@ Entries discovered by the Agent during task execution should follow this format:
 
 [Project Knowledge Summary]
 - Date: 2026-09-16
+- Context: Discovered by Agent while 生成《AI短剧工作台使用教程》图文视频
+- Category: Build Methods
+- Instructions:
+  - 教程视频源码在 `docs/tutorials/video/`：`deck.py` 定内容、`render.py` 出图与字幕、`build_video.py` 合成 mp4。
+  - 重建：`python3 render.py && python3 build_video.py`；可用 `VCRF/VPRESET/VFPS/VSUFFIX` 覆盖码率与输出名（出小体积分享版：`VCRF=26 VPRESET=medium VFPS=25 VSUFFIX=lite`）。
+  - 依赖：Python3 + Pillow（`pip3 install --break-system-packages pillow`）、`ffmpeg`、中文字体 `fonts-wqy-zenhei`（`render.py` 硬编码字体路径 `/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc`）。
+  - 本机无中文 TTS（ffmpeg 只有英文 flite，无 espeak/festival），成片只能做无旁白版；配音走 `旁白稿.md` + `字幕.srt` 的人工/TTS 后期。
+  - 每页时长由 `render.py` 按字数自动计算（`2.6 + 字数/7.6` 秒，夹在 4-17 秒），改文案后总时长会自动变。
+  - 成片与卡片图不进 Git，交付包放在工作区 `/workspace/AI短剧工作台教程视频/`（含 mp4 + slides + 字幕 + 旁白稿 + 说明）。
+
+[Project Knowledge Summary]
+- Date: 2026-09-16
 - Context: Discovered by Agent while 实测服务端合成（ffmpeg）链路
 - Category: Operations & Deployment
 - Instructions:
