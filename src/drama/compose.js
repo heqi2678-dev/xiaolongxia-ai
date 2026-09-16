@@ -197,6 +197,8 @@
     opts = opts || {};
     const v = D.project.validate(project);
     if (!v.ok) throw D.err("NOT_READY", "还不能合成，缺：" + v.missing.map(m => "第" + m.seq + "镜" + m.reason).join("、"));
+    const comp = D.compliance.verify(project);
+    if (!comp.ok) throw D.err("COMPLIANCE", comp.blockers.join("；"));
     const allUrls = [];
     project.shots.forEach(s => { if (s.videoUrl) allUrls.push(s.videoUrl); if (s.imageUrl) allUrls.push(s.imageUrl); if (s.audioUrl) allUrls.push(s.audioUrl); if (s.lipsyncUrl) allUrls.push(s.lipsyncUrl); });
     const bad = allUrls.find(u => u.startsWith("asset:") || u.startsWith("blob:") || u.startsWith("data:"));
@@ -265,6 +267,8 @@
   /* 素材包：分镜画面/视频、配音、字幕、分镜表、合规说明、成片 */
   async function exportPack(project, composedBlob, opts) {
     opts = opts || {};
+    const comp = D.compliance.verify(project);
+    if (!comp.ok) throw D.err("COMPLIANCE", comp.blockers.join("；"));
     const files = [];
     for (const shot of project.shots) {
       const tag = String(shot.seq).padStart(2, "0");

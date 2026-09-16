@@ -223,6 +223,63 @@ test("合规：仿真人剧必须有有效肖像授权", () => {
   assert.equal(D.compliance.verify(p).ok, true);
 });
 
+test("合规：移除授权后仿真人剧重新被拦截", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({ genre: "realistic" });
+  const rec = D.compliance.recordConsent("模特甲", "授权 AI 短剧");
+  p.compliance.consentIds = [rec.id];
+  assert.equal(D.compliance.verify(p).ok, true);
+  p.compliance.consentIds = [];
+  const bad = D.compliance.verify(p);
+  assert.equal(bad.ok, false);
+  assert.match(bad.blockers.join(), /肖像授权/);
+});
+
+test("合规：角色标记真人时漫剧也需要授权", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({ genre: "comic" });
+  const c = D.project.addCharacter(p, "真人甲");
+  c.realPerson = true;
+  assert.equal(D.compliance.needsConsent(p), true);
+  assert.equal(D.compliance.verify(p).ok, false);
+  const rec = D.compliance.recordConsent("真人甲", "本人授权");
+  p.compliance.consentIds = [rec.id];
+  assert.equal(D.compliance.verify(p).ok, true);
+});
+
+test("合规：浏览器不支持人脸检测时放行并提示", async () => {
+  const { D } = createDrama();
+  assert.equal(D.compliance.faceDetectorAvailable(), false);
+  const r = await D.compliance.guardUpload({ name: "x.png" }, "reference");
+  assert.equal(r.ok, true);
+  assert.match(r.warn, /自行确认/);
+});
+
+test("合规：未授权仿真人剧被服务端合成拦截", async () => {
+  const { D } = createDrama();
+  const p = D.project.blank({ genre: "realistic" });
+  p.shots[0].videoUrl = "https://cdn/v.mp4";
+  p.shots[0].line = "";
+  assert.equal(D.project.validate(p).ok, true);
+  await assert.rejects(() => D.compose.server(p), (e) => e.code === "COMPLIANCE");
+});
+
+test("合规：未授权工程导出素材包被拦截", async () => {
+  const { D } = createDrama();
+  const p = D.project.blank({ genre: "realistic" });
+  await assert.rejects(() => D.compose.exportPack(p), (e) => e.code === "COMPLIANCE");
+});
+
+test("手搓台：首次渲染自动建工程并注入合规授权区", async () => {
+  const { D } = createDrama();
+  await D.manual.load();
+  assert.ok(D.manual.state.project, "应自动创建并加载工程");
+  assert.equal(D.manual.state.project.genre, "comic");
+  assert.deepEqual(D.manual.state.project.compliance.consentIds, []);
+  await D.manual.render();
+  assert.equal(D.project.list().length, 1);
+});
+
 test("合成：SRT 时间轴与 CSV 分镜表", () => {
   const { D } = createDrama();
   const p = D.project.blank({ genre: "comic" });

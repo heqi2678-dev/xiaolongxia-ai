@@ -6,24 +6,32 @@
 
   function view() { return document.getElementById("dwManual"); }
 
-  function ensureProject(pid) {
-    const list = D.project.list();
+  async function ensureProject(pid) {
+    let list = D.project.list();
     if (!list.length) {
       const p = D.project.blank({ title: "我的第一部短剧" });
-      D.project.save(p);
-      state.pid = p.id;
-      return;
+      await D.project.save(p);
+      list = D.project.list();
     }
     if (!pid || !D.project.get(pid)) pid = list[0].id;
     state.pid = pid;
   }
 
   async function load(pid) {
-    ensureProject(pid);
+    await ensureProject(pid);
     const raw = D.project.get(state.pid);
-    state.project = raw;
+    state.project = normalize(raw);
+    if (!state.project) throw D.err("NO_PROJECT", "工程不存在");
     try { await D.project.hydrateAssets(state.project); } catch (e) {}
     return state.project;
+  }
+
+  function normalize(p) {
+    if (!p) return p;
+    if (!p.compliance) p.compliance = { aigcMarked: true, consentIds: [] };
+    if (typeof p.compliance.aigcMarked !== "boolean") p.compliance.aigcMarked = true;
+    if (!Array.isArray(p.compliance.consentIds)) p.compliance.consentIds = [];
+    return p;
   }
 
   async function save() {
@@ -79,6 +87,7 @@
         '<label class="label">剧情大纲</label><textarea class="inp" id="dwOutline" style="min-height:70px">' + D.ui.esc(p.script.outline) + "</textarea>" +
       "</div>" +
       charCard(p) +
+      complianceCard(p) +
       '<div class="dw-card">' +
         '<h3>分镜 <span class="dw-hint">（共 ' + (p.shots || []).length + ' 镜）</span></h3>' +
         '<div id="dwShots"></div>' +
@@ -138,6 +147,51 @@
     html += '<div class="dw-bar" style="margin-top:6px"><button class="btn small" data-act="addchar">＋ 新增角色</button></div>';
     html += "</div>";
     return html;
+  }
+
+  function complianceCard(p) {
+    const need = D.compliance.needsConsent(p);
+    const ids = p.compliance.consentIds;
+    const mine = D.compliance.consents().filter(c => ids.indexOf(c.id) >= 0);
+    const v = D.compliance.verify(p);
+    let html = '<div class="dw-card"><h3>合规与授权 <span class="dw-hint">（发布前必看）</span></h3>';
+    html += '<label class="dw-chip' + (p.compliance.aigcMarked ? " on" : "") + '" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">' +
+      '<input type="checkbox" id="dwAigc"' + (p.compliance.aigcMarked ? " checked" : "") + "> AI 生成标注（平台要求，关闭将无法合成导出）</label>";
+    html += '<div class="dw-hint" style="margin:8px 0">' + (need ? "本作品涉及真人形象，必须登记肖像授权后才能合成与导出。" : "当前剧种为漫剧，无需真人肖像授权。") + "</div>";
+    if (mine.length) {
+      html += '<div class="dw-hint">已登记授权：</div>';
+      html += mine.map(c =>
+        '<div class="dw-char" style="align-items:center"><div style="flex:1">' +
+          '<div style="font-size:13px">' + D.ui.esc(c.subject) + "</div>" +
+          '<div class="dw-hint">' + D.ui.esc(c.scope) + " · " + new Date(c.confirmedAt).toLocaleString() + "</div>" +
+        "</div>" +
+        '<button class="btn small ghost danger" data-act="delconsent" data-cid="' + c.id + '">移除</button></div>'
+      ).join("");
+    }
+    html += '<div class="dw-bar" style="margin-top:6px">' +
+      '<button class="btn small" data-act="addconsent">＋ 登记肖像授权</button>' +
+      '<button class="btn small" id="dwCheck2">检查合规</button>' +
+    "</div>";
+    html += '<div id="dwConsentForm" style="display:none;margin-top:8px">' +
+      '<input class="inp" id="dwConsentName" placeholder="授权人姓名（本人或已获授权的模特）">' +
+      '<input class="inp" id="dwConsentScope" style="margin-top:6px" value="本人肖像用于 AI 短剧生成">' +
+      '<div class="dw-bar" style="margin-top:6px"><button class="btn small primary" id="dwConsentSave">确认登记</button>' +
+      '<button class="btn small" id="dwConsentCancel">取消</button></div>' +
+    "</div>";
+    html += '<div class="dw-hint" style="margin-top:8px;color:' + (v.ok ? "var(--green)" : "var(--red)") + '">' +
+      (v.ok ? "合规检查通过，可以合成与导出。" : "待处理：" + v.blockers.join("；")) + "</div>";
+    html += "</div>";
+    return html;
+  }
+
+  function checkCompliance() {
+    const vv = D.project.validate(state.project);
+    const cc = D.compliance.verify(state.project);
+    setStatus(
+      (vv.ok ? "画面与配音齐全。" : "还缺：" + vv.missing.map(m => "第" + m.seq + "镜" + m.reason).join("、")) +
+      (cc.ok ? " 合规检查通过。" : " 合规问题：" + cc.blockers.join("；")),
+      vv.ok && cc.ok ? "ok" : "err"
+    );
   }
 
   function renderShots() {
@@ -320,11 +374,7 @@
     v.querySelector("#dwCompose").onclick = () => compose();
     v.querySelector("#dwComposeServer").onclick = () => composeServer();
     v.querySelector("#dwExport").onclick = () => exportPack();
-    v.querySelector("#dwCheck").onclick = () => {
-      const vv = D.project.validate(state.project);
-      const cc = D.compliance.verify(state.project);
-      setStatus((vv.ok ? "画面与配音齐全。" : "还缺：" + vv.missing.map(m => "第" + m.seq + "镜" + m.reason).join("、")) + (cc.ok ? " 合规检查通过。" : " 合规问题：" + cc.blockers.join("；")), vv.ok && cc.ok ? "ok" : "err");
-    };
+    v.querySelector("#dwCheck").onclick = () => checkCompliance();
 
     /* 角色卡区事件 */
     v.querySelectorAll("[data-cf]").forEach(el => {
@@ -338,6 +388,34 @@
     v.querySelectorAll('[data-act="addchar"]').forEach(b => b.onclick = async () => { D.project.addCharacter(state.project); await save(); render(); });
     v.querySelectorAll('[data-act="delchar"]').forEach(b => b.onclick = async () => { D.project.removeCharacter(state.project, b.dataset.cid); await save(); render(); });
     v.querySelectorAll('[data-act="charref"]').forEach(b => b.onclick = () => pickCharRef(b.dataset.cid));
+
+    /* 合规与授权区事件 */
+    const aigc = v.querySelector("#dwAigc");
+    if (aigc) aigc.onchange = async () => { state.project.compliance.aigcMarked = aigc.checked; await save(); render(); };
+    v.querySelectorAll('[data-act="addconsent"]').forEach(b => b.onclick = () => {
+      const f = document.getElementById("dwConsentForm");
+      if (f) f.style.display = "block";
+    });
+    v.querySelectorAll('[data-act="delconsent"]').forEach(b => b.onclick = async () => {
+      state.project.compliance.consentIds = state.project.compliance.consentIds.filter(x => x !== b.dataset.cid);
+      await save();
+      render();
+    });
+    v.querySelectorAll("#dwConsentCancel").forEach(b => b.onclick = () => {
+      const f = document.getElementById("dwConsentForm");
+      if (f) f.style.display = "none";
+    });
+    v.querySelectorAll("#dwConsentSave").forEach(b => b.onclick = async () => {
+      const name = ((document.getElementById("dwConsentName") || {}).value || "").trim();
+      const scope = ((document.getElementById("dwConsentScope") || {}).value || "").trim();
+      if (!name) { U.toast("请填写授权人姓名", "warn"); return; }
+      const rec = D.compliance.recordConsent(name, scope);
+      state.project.compliance.consentIds.push(rec.id);
+      await save();
+      render();
+      U.toast("肖像授权已登记", "ok");
+    });
+    v.querySelectorAll("#dwCheck2").forEach(b => b.onclick = () => checkCompliance());
   }
 
   function needsGen(s) {
