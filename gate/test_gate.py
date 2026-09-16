@@ -390,6 +390,120 @@ class GateTests(unittest.TestCase):
         room = self.gate.ensure_room("liyu")
         self.assertTrue((room / "shuoming" / "guide.md").exists())
 
+    def _drama_project(self, pid="x-proj-crud"):
+        return {
+            "id": pid,
+            "title": "外卖小哥逆袭",
+            "genre": "comic",
+            "engine": "image",
+            "script": {"logline": "小人物翻盘", "outline": "", "scenes": []},
+            "characters": [
+                {"id": "c1", "name": "阿强", "identity": "外卖员", "appearance": "短发", "refImages": [], "locked": True}
+            ],
+            "shots": [
+                {"id": "s1", "seq": 1, "prompt": "街头奔跑", "line": "今天必须送到", "roleIds": ["c1"],
+                 "duration": 5, "motion": "zoom-in", "imageUrl": "https://x/a.png",
+                 "videoUrl": "", "audioUrl": "", "lipsyncUrl": "", "status": "done", "error": ""}
+            ],
+            "style": "cn-manhua",
+            "subtitle": {"enabled": True, "font": "default", "color": "#fff", "stroke": "#000"},
+            "bgm": "",
+            "output": {"ratio": "9:16", "resolution": "1080p", "fps": 30},
+            "compliance": {"aigcMarked": True, "consentIds": []},
+            "createdAt": 1,
+            "updatedAt": 1,
+        }
+
+    def test_drama_requires_login(self):
+        opener, _ = self.opener()
+        code, _, _ = self.req(opener, "/api/drama/projects")
+        self.assertEqual(code, 401)
+
+    def test_drama_project_crud(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        pid = "x-proj-crud"
+        code, body, _ = self.req(opener, "/api/drama/projects", method="POST", json_body={"project": self._drama_project(pid)})
+        self.assertEqual(code, 200)
+        self.assertTrue(json.loads(body.decode("utf-8"))["ok"])
+        code, body, _ = self.req(opener, "/api/drama/projects")
+        self.assertEqual(code, 200)
+        ids = [p["id"] for p in json.loads(body.decode("utf-8"))["projects"]]
+        self.assertIn(pid, ids)
+        code, body, _ = self.req(opener, "/api/drama/projects/" + pid)
+        self.assertEqual(code, 200)
+        got = json.loads(body.decode("utf-8"))["project"]
+        self.assertEqual(got["title"], "外卖小哥逆袭")
+        self.assertEqual(len(got["shots"]), 1)
+        self.assertEqual(got["shots"][0]["line"], "今天必须送到")
+        code, body, _ = self.req(opener, "/api/drama/projects/delete", method="POST", json_body={"id": pid})
+        self.assertEqual(code, 200)
+        self.assertTrue(json.loads(body.decode("utf-8"))["deleted"])
+        code, _, _ = self.req(opener, "/api/drama/projects/" + pid)
+        self.assertEqual(code, 404)
+
+    def test_drama_project_isolation(self):
+        owner_opener, _ = self.opener()
+        self.req(owner_opener, "/api/login", method="POST", json_body={"username": "zhuren", "password": "owner-pass"})
+        friend_opener, _ = self.opener()
+        self.req(friend_opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        pid = "x-proj-private"
+        code, _, _ = self.req(friend_opener, "/api/drama/projects", method="POST", json_body={"project": self._drama_project(pid)})
+        self.assertEqual(code, 200)
+        code, _, _ = self.req(owner_opener, "/api/drama/projects/" + pid)
+        self.assertEqual(code, 404)
+        code, body, _ = self.req(owner_opener, "/api/drama/projects/delete", method="POST", json_body={"id": pid})
+        self.assertEqual(code, 200)
+        self.assertFalse(json.loads(body.decode("utf-8"))["deleted"])
+        code, body, _ = self.req(owner_opener, "/api/drama/projects", method="POST", json_body={"project": self._drama_project(pid)})
+        self.assertEqual(code, 400)
+
+    def test_drama_project_rejects_bad_payload(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        code, _, _ = self.req(opener, "/api/drama/projects", method="POST", json_body={"nope": 1})
+        self.assertEqual(code, 400)
+        bad = self._drama_project("y" * 200)
+        code, _, _ = self.req(opener, "/api/drama/projects", method="POST", json_body={"project": bad})
+        self.assertEqual(code, 400)
+
+    def test_drama_publishes_record(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        rec = {
+            "id": "pub-test-1",
+            "projectId": "x-proj-crud",
+            "title": "外卖小哥逆袭",
+            "meta": {"generator": "铜龙电商 AI 短剧工作台", "aigc": True},
+            "consentIds": ["consent-test-1"],
+            "at": 1700000000,
+        }
+        code, body, _ = self.req(opener, "/api/drama/publishes", method="POST", json_body={"record": rec})
+        self.assertEqual(code, 200)
+        self.assertTrue(json.loads(body.decode("utf-8"))["ok"])
+        code, body, _ = self.req(opener, "/api/drama/publishes")
+        self.assertEqual(code, 200)
+        items = json.loads(body.decode("utf-8"))["publishes"]
+        mine = [p for p in items if p["id"] == "pub-test-1"]
+        self.assertEqual(len(mine), 1)
+        self.assertTrue(mine[0]["markedAigc"])
+        self.assertEqual(mine[0]["meta"]["aigc"], True)
+
+    def test_drama_compose_rejects_empty(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        project = self._drama_project("x-proj-empty")
+        project["shots"] = []
+        code, body, _ = self.req(opener, "/api/drama/compose", method="POST", json_body={"project": project})
+        self.assertIn(code, (400, 501))
+        self.assertFalse(json.loads(body.decode("utf-8"))["ok"])
+
+    def test_drama_out_rejects_bad_name(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        code, _, _ = self.req(opener, "/api/drama/out/evil.exe")
+        self.assertEqual(code, 400)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -673,6 +673,12 @@ select.inp{padding-right:34px}
       <div class="market-wrap"><div class="market-inner" id="toolsContent"></div></div>
     </div>
 
+    <!-- 短剧手搓台（逐镜工坊） -->
+    <div id="dramaView" class="view"><div id="dwManual"></div></div>
+
+    <!-- 短剧半自动台（分镜流水线） -->
+    <div id="autoView" class="view"><div id="dwAuto"></div></div>
+
     <!-- 记忆习惯 -->
     <div id="memoryView" class="view">
       <div class="mem-wrap"><div class="mem-inner" id="memContent"></div></div>
@@ -4084,6 +4090,21 @@ XLX.studio = (function () {
 
 </script>
 <script src="src/settings.js"></script>
+<script src="src/drama/config.js"></script>
+<script src="src/drama/adapters.js"></script>
+<script src="src/drama/adapters/image.js"></script>
+<script src="src/drama/adapters/video.js"></script>
+<script src="src/drama/adapters/tts.js"></script>
+<script src="src/drama/adapters/lipsync.js"></script>
+<script src="src/drama/project.js"></script>
+<script src="src/drama/character.js"></script>
+<script src="src/drama/engine.js"></script>
+<script src="src/drama/compliance.js"></script>
+<script src="src/drama/compose.js"></script>
+<script src="src/drama/ui.js"></script>
+<script src="src/drama/guide.js"></script>
+<script src="src/drama/manual.js"></script>
+<script src="src/drama/auto.js"></script>
 <script>
 /* ===== 记忆习惯视图 & 客户端下载视图 ===== */
 
@@ -4251,7 +4272,7 @@ XLX.dlview = (function () {
 /* ===== 主应用：路由、导航、事件绑定 ===== */
 
 XLX.app = (function () {
-  const VIEWS = ["chat", "market", "studio", "tools", "memory", "download", "settings"];
+  const VIEWS = ["chat", "market", "studio", "drama", "auto", "tools", "memory", "download", "settings"];
   let currentView = "chat";
 
   function navItems() {
@@ -4259,6 +4280,8 @@ XLX.app = (function () {
       { id: "chat", name: "智能对话", icon: "chat", group: "开始" },
       { id: "market", name: "技能市场", icon: "grid", group: "开始", badge: String(XLX.SKILL_COUNT) },
       { id: "studio", name: "软件工坊", icon: "hammer", group: "开始", sub: "AI开发软件" },
+      { id: "drama", name: "短剧手搓台", icon: "film", group: "开始", sub: "逐镜工坊" },
+      { id: "auto", name: "短剧半自动台", icon: "clapper", group: "开始", sub: "分镜流水线" },
       { id: "memory", name: "记忆习惯", icon: "brain", group: "开始", sub: "越用越懂你" },
       { id: "tools", name: "工具箱", icon: "palette", group: "工具" },
       { id: "download", name: "客户端下载", icon: "download", group: "工具", sub: "手机/电脑" },
@@ -4295,7 +4318,7 @@ XLX.app = (function () {
   }
 
   function renderTopbar() {
-    const names = { chat: ["智能对话", "多平台免费模型 · 流式秒回"], market: ["技能市场", XLX.SKILL_COUNT + " 个免费实用技能，点击即用"], studio: ["软件工坊", "AI 开发完整软件 → 预览 → 一键打包下载"], tools: ["工具箱", "商品图下载、去水印、视频提取文案"], memory: ["记忆习惯", "AI 记住你的偏好，自动处理重复工作"], download: ["客户端下载", "手机 / 电脑 / 离线版"], settings: ["设置", "接入多个平台的免费 API Key"] };
+    const names = { chat: ["智能对话", "多平台免费模型 · 流式秒回"], market: ["技能市场", XLX.SKILL_COUNT + " 个免费实用技能，点击即用"], studio: ["软件工坊", "AI 开发完整软件 → 预览 → 一键打包下载"], drama: ["短剧手搓台", "逐镜生成 · 自由掌控每一帧"], auto: ["短剧半自动台", "一句话 → 分镜流水线 → 成品"], tools: ["工具箱", "商品图下载、去水印、视频提取文案"], memory: ["记忆习惯", "AI 记住你的偏好，自动处理重复工作"], download: ["客户端下载", "手机 / 电脑 / 离线版"], settings: ["设置", "接入多个平台的免费 API Key"] };
     const t = document.getElementById("pageTitle");
     const s = document.getElementById("pageSub");
     const viewMeta = names[currentView] || ["", ""];
@@ -4323,6 +4346,8 @@ XLX.app = (function () {
     }
     if (view === "market") XLX.market.render();
     if (view === "studio") XLX.studio.render();
+    if (view === "drama") XLX.drama.manual.render();
+    if (view === "auto") XLX.drama.auto.render();
     if (view === "tools") XLX.tools.render();
     if (view === "memory") XLX.memview.render();
     if (view === "download") XLX.dlview.render();

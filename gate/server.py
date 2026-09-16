@@ -11,6 +11,8 @@ import secrets
 import shutil
 import socket
 import socketserver
+import sqlite3
+import subprocess
 import threading
 import time
 import urllib.error
@@ -402,6 +404,536 @@ def save_json(name, data):
     tmp.replace(p)
 
 
+# ============ AI 短剧：工程存储（SQLite） ============
+DRAMA_MAX_PROJECTS = 300
+DRAMA_MAX_BYTES = 3 * 1024 * 1024
+_drama_lock = threading.Lock()
+_drama_ready = False
+
+
+def _drama_db_path():
+    return DATA_DIR / "drama.db"
+
+
+def _drama_conn():
+    conn = sqlite3.connect(str(_drama_db_path()), timeout=15)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
+def ensure_drama():
+    global _drama_ready
+    ensure_data()
+    with _drama_lock:
+        conn = _drama_conn()
+        try:
+            conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS projects (
+                    id TEXT PRIMARY KEY,
+                    owner TEXT NOT NULL,
+                    title TEXT NOT NULL DEFAULT '',
+                    genre TEXT NOT NULL DEFAULT 'comic',
+                    engine TEXT NOT NULL DEFAULT 'image',
+                    status TEXT NOT NULL DEFAULT 'draft',
+                    data_json TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_projects_owner ON projects(owner, updated_at);
+                CREATE TABLE IF NOT EXISTS characters (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    name TEXT NOT NULL DEFAULT '',
+                    identity TEXT NOT NULL DEFAULT '',
+                    appearance TEXT NOT NULL DEFAULT '',
+                    ref_images_json TEXT NOT NULL DEFAULT '[]',
+                    locked INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE INDEX IF NOT EXISTS idx_characters_project ON characters(project_id);
+                CREATE TABLE IF NOT EXISTS shots (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    seq INTEGER NOT NULL DEFAULT 0,
+                    prompt TEXT NOT NULL DEFAULT '',
+                    line TEXT NOT NULL DEFAULT '',
+                    duration REAL NOT NULL DEFAULT 0,
+                    motion TEXT NOT NULL DEFAULT '',
+                    image_url TEXT NOT NULL DEFAULT '',
+                    video_url TEXT NOT NULL DEFAULT '',
+                    audio_url TEXT NOT NULL DEFAULT '',
+                    lipsync_url TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'pending'
+                );
+                CREATE INDEX IF NOT EXISTS idx_shots_project ON shots(project_id, seq);
+                CREATE TABLE IF NOT EXISTS assets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    project_id TEXT NOT NULL,
+                    shot_id TEXT NOT NULL DEFAULT '',
+                    kind TEXT NOT NULL DEFAULT '',
+                    url TEXT NOT NULL DEFAULT '',
+                    local_path TEXT NOT NULL DEFAULT '',
+                    meta_json TEXT NOT NULL DEFAULT '{}',
+                    created_at REAL NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_assets_project ON assets(project_id);
+                CREATE TABLE IF NOT EXISTS consents (
+                    id TEXT PRIMARY KEY,
+                    owner TEXT NOT NULL,
+                    subject TEXT NOT NULL DEFAULT '',
+                    scope TEXT NOT NULL DEFAULT '',
+                    confirmed_at REAL NOT NULL,
+                    ip_hash TEXT NOT NULL DEFAULT ''
+                );
+                CREATE INDEX IF NOT EXISTS idx_consents_owner ON consents(owner);
+                CREATE TABLE IF NOT EXISTS publishes (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL DEFAULT '',
+                    owner TEXT NOT NULL,
+                    output_url TEXT NOT NULL DEFAULT '',
+                    meta_json TEXT NOT NULL DEFAULT '{}',
+                    marked_aigc INTEGER NOT NULL DEFAULT 1,
+                    created_at REAL NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_publishes_owner ON publishes(owner, created_at);
+                CREATE TABLE IF NOT EXISTS usage (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    owner TEXT NOT NULL,
+                    day TEXT NOT NULL,
+                    count INTEGER NOT NULL DEFAULT 0,
+                    limit_count INTEGER NOT NULL DEFAULT 0,
+                    UNIQUE(owner, day)
+                );
+                """
+            )
+            conn.commit()
+            _drama_ready = True
+        finally:
+            conn.close()
+
+
+def drama_save(owner, project):
+    ensure_drama()
+    if not isinstance(project, dict):
+        raise ValueError("工程格式不对")
+    pid = str(project.get("id") or "").strip()
+    if not pid or len(pid) > 64:
+        raise ValueError("工程 ID 不合规")
+    payload = json.dumps(project, ensure_ascii=False)
+    if len(payload.encode("utf-8")) > DRAMA_MAX_BYTES:
+        raise ValueError("工程太大，请减少分镜或素材链接")
+    shots = project.get("shots") if isinstance(project.get("shots"), list) else []
+    chars = project.get("characters") if isinstance(project.get("characters"), list) else []
+    now_ts = time.time()
+    done = sum(1 for s in shots if isinstance(s, dict) and s.get("status") == "done")
+    status = "done" if shots and done == len(shots) else "draft"
+    with _drama_lock:
+        conn = _drama_conn()
+        try:
+            row = conn.execute(
+                "SELECT owner, created_at FROM projects WHERE id = ?", (pid,)
+            ).fetchone()
+            if row and row["owner"] != owner:
+                raise ValueError("这不是你的工程")
+            if not row:
+                count = conn.execute(
+                    "SELECT COUNT(*) AS c FROM projects WHERE owner = ?", (owner,)
+                ).fetchone()["c"]
+                if count >= DRAMA_MAX_PROJECTS:
+                    raise ValueError("工程数量已达上限")
+            created = row["created_at"] if row else now_ts
+            conn.execute(
+                """INSERT INTO projects(id, owner, title, genre, engine, status, data_json, created_at, updated_at)
+                   VALUES(?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(id) DO UPDATE SET
+                     title=excluded.title, genre=excluded.genre, engine=excluded.engine,
+                     status=excluded.status, data_json=excluded.data_json, updated_at=excluded.updated_at""",
+                (
+                    pid,
+                    owner,
+                    str(project.get("title") or "")[:120],
+                    str(project.get("genre") or "comic"),
+                    str(project.get("engine") or "image"),
+                    status,
+                    payload,
+                    created,
+                    now_ts,
+                ),
+            )
+            conn.execute("DELETE FROM characters WHERE project_id = ?", (pid,))
+            for c in chars:
+                if not isinstance(c, dict) or not c.get("id"):
+                    continue
+                refs = json.dumps(c.get("refImages") or [], ensure_ascii=False)
+                conn.execute(
+                    "INSERT OR REPLACE INTO characters(id, project_id, name, identity, appearance, ref_images_json, locked) VALUES(?,?,?,?,?,?,?)",
+                    (
+                        str(c.get("id")),
+                        pid,
+                        str(c.get("name") or ""),
+                        str(c.get("identity") or ""),
+                        str(c.get("appearance") or ""),
+                        refs,
+                        1 if c.get("locked") else 0,
+                    ),
+                )
+            conn.execute("DELETE FROM shots WHERE project_id = ?", (pid,))
+            for s in shots:
+                if not isinstance(s, dict) or not s.get("id"):
+                    continue
+                conn.execute(
+                    "INSERT OR REPLACE INTO shots(id, project_id, seq, prompt, line, duration, motion, image_url, video_url, audio_url, lipsync_url, status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        str(s.get("id")),
+                        pid,
+                        int(s.get("seq") or 0),
+                        str(s.get("prompt") or ""),
+                        str(s.get("line") or ""),
+                        float(s.get("duration") or 0),
+                        str(s.get("motion") or ""),
+                        str(s.get("imageUrl") or ""),
+                        str(s.get("videoUrl") or ""),
+                        str(s.get("audioUrl") or ""),
+                        str(s.get("lipsyncUrl") or ""),
+                        str(s.get("status") or "pending"),
+                    ),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+    return {"id": pid, "updatedAt": now_ts, "status": status}
+
+
+def drama_list(owner):
+    ensure_drama()
+    with _drama_lock:
+        conn = _drama_conn()
+        try:
+            rows = conn.execute(
+                "SELECT id, title, genre, engine, status, updated_at FROM projects WHERE owner = ? ORDER BY updated_at DESC LIMIT 200",
+                (owner,),
+            ).fetchall()
+        finally:
+            conn.close()
+    return [
+        {
+            "id": r["id"],
+            "title": r["title"],
+            "genre": r["genre"],
+            "engine": r["engine"],
+            "status": r["status"],
+            "updatedAt": r["updated_at"],
+        }
+        for r in rows
+    ]
+
+
+def drama_get(owner, pid):
+    ensure_drama()
+    with _drama_lock:
+        conn = _drama_conn()
+        try:
+            row = conn.execute(
+                "SELECT data_json FROM projects WHERE id = ? AND owner = ?", (pid, owner)
+            ).fetchone()
+        finally:
+            conn.close()
+    if not row:
+        return None
+    try:
+        return json.loads(row["data_json"])
+    except json.JSONDecodeError:
+        return None
+
+
+def drama_delete(owner, pid):
+    ensure_drama()
+    with _drama_lock:
+        conn = _drama_conn()
+        try:
+            cur = conn.execute(
+                "DELETE FROM projects WHERE id = ? AND owner = ?", (pid, owner)
+            )
+            conn.execute("DELETE FROM characters WHERE project_id = ?", (pid,))
+            conn.execute("DELETE FROM shots WHERE project_id = ?", (pid,))
+            conn.execute("DELETE FROM assets WHERE project_id = ?", (pid,))
+            conn.commit()
+            return cur.rowcount > 0
+        finally:
+            conn.close()
+
+
+def drama_add_publish(owner, record, ip_hash=""):
+    ensure_drama()
+    record = record or {}
+    rid = str(record.get("id") or ("pub" + secrets.token_hex(6)))[:64]
+    meta = record.get("meta") if isinstance(record.get("meta"), dict) else {}
+    with _drama_lock:
+        conn = _drama_conn()
+        try:
+            conn.execute(
+                "INSERT OR REPLACE INTO publishes(id, project_id, owner, output_url, meta_json, marked_aigc, created_at) VALUES(?,?,?,?,?,?,?)",
+                (
+                    rid,
+                    str(record.get("projectId") or ""),
+                    owner,
+                    str(record.get("outputUrl") or ""),
+                    json.dumps(meta, ensure_ascii=False),
+                    0 if record.get("markedAigc") is False else 1,
+                    float(record.get("at") or time.time()),
+                ),
+            )
+            consent_ids = record.get("consentIds") or []
+            now_ts = time.time()
+            for cid in consent_ids:
+                if not cid:
+                    continue
+                conn.execute(
+                    "INSERT OR REPLACE INTO consents(id, owner, subject, scope, confirmed_at, ip_hash) VALUES(?,?,?,?,?,?)",
+                    (
+                        str(cid)[:64],
+                        owner,
+                        str(record.get("title") or "")[:120],
+                        "AI 短剧肖像授权",
+                        now_ts,
+                        ip_hash,
+                    ),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+    return {"id": rid}
+
+
+def drama_list_publishes(owner):
+    ensure_drama()
+    with _drama_lock:
+        conn = _drama_conn()
+        try:
+            rows = conn.execute(
+                "SELECT id, project_id, output_url, meta_json, marked_aigc, created_at FROM publishes WHERE owner = ? ORDER BY created_at DESC LIMIT 200",
+                (owner,),
+            ).fetchall()
+        finally:
+            conn.close()
+    out = []
+    for r in rows:
+        try:
+            meta = json.loads(r["meta_json"])
+        except json.JSONDecodeError:
+            meta = {}
+        out.append(
+            {
+                "id": r["id"],
+                "projectId": r["project_id"],
+                "outputUrl": r["output_url"],
+                "meta": meta,
+                "markedAigc": bool(r["marked_aigc"]),
+                "createdAt": r["created_at"],
+            }
+        )
+    return out
+
+
+DRAMA_FFMPEG = os.environ.get("DRAMA_FFMPEG", "ffmpeg")
+DRAMA_COMPOSE_TIMEOUT = int(os.environ.get("DRAMA_COMPOSE_TIMEOUT", "900"))
+DRAMA_ASSET_MAX = 200 * 1024 * 1024
+
+
+def _drama_dims(ratio):
+    return {
+        "9:16": (720, 1280),
+        "16:9": (1280, 720),
+        "1:1": (720, 720),
+        "3:4": (720, 960),
+        "4:3": (960, 720),
+    }.get(str(ratio or "9:16"), (720, 1280))
+
+
+def _drama_out_dir(owner):
+    safe = re.sub(r"[^\w\u4e00-\u9fff-]", "_", str(owner or "guest"))[:40] or "guest"
+    d = ROOM_ROOT / safe / "drama-out"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _download_asset(url, dest):
+    url = str(url or "").strip()
+    if not url:
+        raise ValueError("素材地址为空")
+    if url.startswith("data:"):
+        raw = decode_data_url(url)
+    elif url.startswith("http://") or url.startswith("https://"):
+        req = urllib.request.Request(url, headers={"User-Agent": "xiaolongxia-drama/1"})
+        with urllib.request.urlopen(req, timeout=60) as res:
+            raw = res.read(DRAMA_ASSET_MAX + 1)
+        if len(raw) > DRAMA_ASSET_MAX:
+            raise ValueError("素材超过 200MB")
+    else:
+        raise ValueError("不支持的素材地址")
+    dest.write_bytes(raw)
+    return dest
+
+
+def _ff_run(args, timeout=DRAMA_COMPOSE_TIMEOUT):
+    return subprocess.run(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        timeout=timeout,
+    )
+
+
+def _drama_font():
+    for p in (
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ):
+        if Path(p).is_file():
+            return p
+    if shutil.which("fc-match"):
+        try:
+            out = subprocess.run(
+                ["fc-match", "-f", "%{file}", "sans:lang=zh"],
+                stdout=subprocess.PIPE, timeout=10,
+            ).stdout.decode("utf-8", "ignore").strip()
+            if out and Path(out).is_file():
+                return out
+        except Exception:
+            pass
+    return ""
+
+
+def _drama_srt(shots):
+    def fmt(sec):
+        ms = int(round((sec - int(sec)) * 1000))
+        s = int(sec) % 60
+        m = (int(sec) // 60) % 60
+        h = int(sec) // 3600
+        return "%02d:%02d:%02d,%03d" % (h, m, s, ms)
+
+    lines = []
+    t = 0.0
+    for sh in shots:
+        dur = max(1.0, float(sh.get("duration") or 3))
+        text = str(sh.get("line") or "").strip()
+        if text:
+            lines.append("%d\n%s --> %s\n%s\n" % (len(lines) + 1, fmt(t), fmt(t + dur), text))
+        t += dur
+    return "\n".join(lines)
+
+
+def drama_compose(owner, project):
+    if not shutil.which(DRAMA_FFMPEG):
+        raise RuntimeError("服务器未安装 ffmpeg，请改用浏览器合成")
+    shots = [s for s in (project.get("shots") or []) if isinstance(s, dict)]
+    if not shots:
+        raise ValueError("没有分镜")
+    w, h = _drama_dims((project.get("output") or {}).get("ratio"))
+    fps = int((project.get("output") or {}).get("fps") or 30)
+    out_dir = _drama_out_dir(owner)
+    work = out_dir / ("job" + secrets.token_hex(6))
+    work.mkdir(parents=True, exist_ok=True)
+    pid = re.sub(r"[^\w-]", "", str(project.get("id") or "drama"))[:40] or "drama"
+    clips = []
+    try:
+        for i, sh in enumerate(shots):
+            dur = max(1.0, float(sh.get("duration") or 3))
+            src = sh.get("lipsyncUrl") or sh.get("videoUrl") or sh.get("imageUrl")
+            if not src:
+                raise ValueError("第 %d 镜没有可用画面" % (i + 1))
+            ext = "mp4" if str(src).lower().split("?")[0].endswith((".mp4", ".mov", ".webm")) else "png"
+            if str(src).startswith("data:video") or str(src).startswith("data:image/webp"):
+                pass
+            media = work / ("src%02d.%s" % (i, ext))
+            _download_asset(src, media)
+            audio = work / ("a%02d.mp3" % i)
+            has_audio = False
+            if sh.get("audioUrl"):
+                try:
+                    _download_asset(sh["audioUrl"], audio)
+                    has_audio = True
+                except ValueError:
+                    has_audio = False
+            clip = work / ("c%02d.mp4" % i)
+            if media.suffix.lower() in (".mp4", ".mov", ".webm"):
+                base = [DRAMA_FFMPEG, "-y", "-i", str(media)]
+            else:
+                base = [DRAMA_FFMPEG, "-y", "-loop", "1", "-t", "%.2f" % dur, "-i", str(media)]
+            if has_audio:
+                base += ["-i", str(audio)]
+            else:
+                base += ["-f", "lavfi", "-t", "%.2f" % dur, "-i", "anullsrc=r=44100:cl=stereo"]
+            vf = (
+                "scale=%d:%d:force_original_aspect_ratio=decrease,"
+                "pad=%d:%d:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=%d,format=yuv420p"
+                % (w, h, w, h, fps)
+            )
+            cmd = base + [
+                "-vf", vf,
+                "-t", "%.2f" % dur,
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+                "-c:a", "aac", "-b:a", "128k",
+                "-shortest", "-movflags", "+faststart",
+                str(clip),
+            ]
+            r = _ff_run(cmd)
+            if r.returncode != 0 or not clip.is_file():
+                raise RuntimeError("第 %d 镜合成失败" % (i + 1))
+            clips.append(clip)
+
+        listfile = work / "list.txt"
+        listfile.write_text(
+            "".join("file '%s'\n" % c.name for c in clips), encoding="utf-8"
+        )
+        merged = work / "merged.mp4"
+        r = _ff_run(
+            [DRAMA_FFMPEG, "-y", "-f", "concat", "-safe", "0", "-i", str(listfile),
+             "-c", "copy", str(merged)]
+        )
+        if r.returncode != 0 or not merged.is_file():
+            raise RuntimeError("拼接失败")
+
+        final = out_dir / (pid + "-" + secrets.token_hex(3) + ".mp4")
+        font = _drama_font()
+        filters = []
+        srt = _drama_srt(shots)
+        if srt:
+            srt_file = work / "sub.srt"
+            srt_file.write_text(srt, encoding="utf-8")
+            filters.append(
+                "subtitles='%s':force_style='FontSize=16,PrimaryColour=&H00FFFFFF,"
+                "OutlineColour=&H80000000,BorderStyle=1,Outline=2'" % str(srt_file).replace(":", "\\:")
+            )
+        if font:
+            filters.append(
+                "drawtext=fontfile='%s':text='AI 生成':fontcolor=white@0.85:"
+                "fontsize=%d:box=1:boxcolor=black@0.45:boxborderw=6:"
+                "x=w-tw-%d:y=h-th-%d" % (font.replace(":", "\\:"), max(16, h // 40), w // 40, h // 40)
+            )
+        if filters:
+            r = _ff_run(
+                [DRAMA_FFMPEG, "-y", "-i", str(merged), "-vf", ",".join(filters),
+                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+                 "-c:a", "copy", "-movflags", "+faststart", str(final)]
+            )
+            if r.returncode != 0 or not final.is_file():
+                shutil.copyfile(str(merged), str(final))
+        else:
+            shutil.copyfile(str(merged), str(final))
+        return {
+            "file": final.name,
+            "url": "/dian/api/drama/out/" + final.name,
+            "shots": len(shots),
+        }
+    finally:
+        shutil.rmtree(str(work), ignore_errors=True)
+
+
 def hash_password(password, salt=None):
     if salt is None:
         salt = secrets.token_hex(16)
@@ -671,6 +1203,18 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/fetch":
             self._handle_fetch()
             return
+        if path == "/api/drama/projects":
+            self._handle_drama_projects_list()
+            return
+        if path.startswith("/api/drama/projects/"):
+            self._handle_drama_project_get(path[len("/api/drama/projects/"):])
+            return
+        if path == "/api/drama/publishes":
+            self._handle_drama_publishes_list()
+            return
+        if path.startswith("/api/drama/out/"):
+            self._handle_drama_out(path[len("/api/drama/out/"):])
+            return
         if path.startswith("/api/"):
             self._json(404, {"ok": False, "error": "没有这个接口"})
             return
@@ -711,6 +1255,18 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/publish":
             self._handle_publish()
+            return
+        if path == "/api/drama/projects":
+            self._handle_drama_project_save()
+            return
+        if path == "/api/drama/projects/delete":
+            self._handle_drama_project_delete()
+            return
+        if path == "/api/drama/publishes":
+            self._handle_drama_publish()
+            return
+        if path == "/api/drama/compose":
+            self._handle_drama_compose()
             return
         self._json(404, {"ok": False, "error": "没有这个接口"})
 
@@ -814,6 +1370,152 @@ class Handler(BaseHTTPRequestHandler):
         ensure_room(name)
         extra, out = self._issue_session(name, rec)
         self._json(200, out, extra)
+
+    def _drama_me(self):
+        me = self._current()
+        if not me:
+            self._json(401, {"ok": False, "error": "未登录"})
+            return None
+        return me
+
+    def _drama_body(self):
+        raw = self._read_body()
+        if len(raw) > DRAMA_MAX_BYTES + 1024 * 1024:
+            return None
+        try:
+            obj = json.loads(raw.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            return None
+        return obj if isinstance(obj, dict) else None
+
+    def _handle_drama_projects_list(self):
+        me = self._drama_me()
+        if not me:
+            return
+        try:
+            self._json(200, {"ok": True, "projects": drama_list(me["name"])})
+        except Exception:
+            self._json(500, {"ok": False, "error": "读取工程列表失败"})
+
+    def _handle_drama_project_get(self, pid):
+        me = self._drama_me()
+        if not me:
+            return
+        project = drama_get(me["name"], unquote_to_bytes(pid).decode("utf-8", "ignore"))
+        if not project:
+            self._json(404, {"ok": False, "error": "找不到这个工程"})
+            return
+        self._json(200, {"ok": True, "project": project})
+
+    def _handle_drama_project_save(self):
+        me = self._drama_me()
+        if not me:
+            return
+        obj = self._drama_body()
+        if not obj or not isinstance(obj.get("project"), dict):
+            self._json(400, {"ok": False, "error": "工程内容读不懂"})
+            return
+        try:
+            out = drama_save(me["name"], obj["project"])
+        except ValueError as exc:
+            self._json(400, {"ok": False, "error": str(exc)})
+            return
+        except Exception:
+            self._json(500, {"ok": False, "error": "保存失败，稍后再试"})
+            return
+        self._json(200, {"ok": True, "saved": out})
+
+    def _handle_drama_project_delete(self):
+        me = self._drama_me()
+        if not me:
+            return
+        obj = self._drama_body() or {}
+        pid = str(obj.get("id") or "").strip()
+        if not pid:
+            self._json(400, {"ok": False, "error": "缺少工程 ID"})
+            return
+        try:
+            ok = drama_delete(me["name"], pid)
+        except Exception:
+            self._json(500, {"ok": False, "error": "删除失败"})
+            return
+        self._json(200, {"ok": True, "deleted": bool(ok)})
+
+    def _handle_drama_publishes_list(self):
+        me = self._drama_me()
+        if not me:
+            return
+        try:
+            self._json(200, {"ok": True, "publishes": drama_list_publishes(me["name"])})
+        except Exception:
+            self._json(500, {"ok": False, "error": "读取发布记录失败"})
+
+    def _handle_drama_publish(self):
+        me = self._drama_me()
+        if not me:
+            return
+        obj = self._drama_body()
+        if not obj or not isinstance(obj.get("record"), dict):
+            self._json(400, {"ok": False, "error": "记录读不懂"})
+            return
+        ip = self.client_address[0] if self.client_address else ""
+        ip_hash = hashlib.sha256(("xlx" + ip).encode("utf-8")).hexdigest()[:32]
+        try:
+            out = drama_add_publish(me["name"], obj["record"], ip_hash)
+        except Exception:
+            self._json(500, {"ok": False, "error": "留档失败"})
+            return
+        self._json(200, {"ok": True, "publish": out})
+
+    def _handle_drama_compose(self):
+        me = self._drama_me()
+        if not me:
+            return
+        obj = self._drama_body()
+        if not obj or not isinstance(obj.get("project"), dict):
+            self._json(400, {"ok": False, "error": "工程内容读不懂"})
+            return
+        try:
+            out = drama_compose(me["name"], obj["project"])
+        except ValueError as exc:
+            self._json(400, {"ok": False, "error": str(exc)})
+            return
+        except RuntimeError as exc:
+            self._json(501, {"ok": False, "error": str(exc)})
+            return
+        except subprocess.TimeoutExpired:
+            self._json(504, {"ok": False, "error": "合成超时，请减少镜头或用浏览器合成"})
+            return
+        except Exception:
+            self._json(500, {"ok": False, "error": "合成失败，请稍后再试"})
+            return
+        self._json(200, {"ok": True, "output": out})
+
+    def _handle_drama_out(self, name):
+        me = self._drama_me()
+        if not me:
+            return
+        name = unquote_to_bytes(name).decode("utf-8", "ignore")
+        if not re.match(r"^[A-Za-z0-9_-]+\.(mp4|webm)$", name or ""):
+            self._json(400, {"ok": False, "error": "文件名不合规"})
+            return
+        target = (_drama_out_dir(me["name"]) / name).resolve()
+        try:
+            target.relative_to(_drama_out_dir(me["name"]).resolve())
+        except ValueError:
+            self._json(400, {"ok": False, "error": "路径不合规"})
+            return
+        if not target.is_file():
+            self._json(404, {"ok": False, "error": "找不到成片"})
+            return
+        data = target.read_bytes()
+        self._send(
+            200,
+            data,
+            "video/mp4" if target.suffix == ".mp4" else "video/webm",
+            [("Content-Disposition", 'attachment; filename="' + name + '"')],
+            raw=True,
+        )
 
     def _handle_publish(self):
         me = self._current()

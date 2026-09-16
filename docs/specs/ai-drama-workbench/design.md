@@ -59,21 +59,25 @@ graph TD
 
 ```
 src/drama/
-├── config.js        适配器目录、画风预设、剧种预设
-├── project.js       工程数据模型与本地/服务器同步
-├── character.js     角色卡与一致性提示词组装
-├── engine.js        剧种引擎（漫剧/仿真人）
+├── config.js        适配器目录、画风预设、剧种预设、设置读写
+├── adapters.js      适配器共享工具（XLX.drama.adapterUtil）
 ├── adapters/
 │   ├── image.js     图像适配器
 │   ├── video.js     视频适配器
 │   ├── tts.js       语音适配器
 │   └── lipsync.js   口型适配器
-├── compose.js       分镜合成、字幕、音画、成片
+├── project.js       工程数据模型、IndexedDB 素材库、本地/服务器同步
+├── character.js     角色卡与一致性提示词组装
+├── engine.js        剧种引擎（漫剧/仿真人）
+├── ui.js            共用部件与样式（状态徽章、分镜卡、进度）
 ├── compliance.js    AIGC 标注、肖像授权、素材拦截、留档
-├── manual.js        手搓台
-├── auto.js          半自动台
+├── compose.js       分镜合成、字幕、音画、成片、素材包导出
+├── manual.js        手搓台「逐镜工坊」
+├── auto.js          半自动台「分镜流水线」
 └── guide.js         工作台内教程与提示
 ```
+
+以上模块均已实现（`node --check` 通过，浏览器环境加载烟测通过），`index.html` 新增「短剧手搓台」「短剧半自动台」两个导航入口并按依赖顺序引入脚本。
 
 ## 三、适配器接口
 
@@ -109,7 +113,7 @@ XLX.drama.adapters.video = {
 
 ### 3.3 语音适配器
 
-火山引擎语音合成，客户端 WebSocket 直连（Key 用户本地）。为避免浏览器跨域限制，预留一个轻量转发端点作为可选路径。
+火山引擎语音合成，走其 HTTP 接口（`https://openspeech.bytedance.com/api/v1/tts`，Bearer 鉴权，请求体含 `app.appid/app.token/app.cluster` 与 `audio.voice_type`）。Key 存于用户本地设置，不经过服务端。
 
 ```js
 XLX.drama.adapters.tts = {
@@ -138,7 +142,7 @@ XLX.drama.adapters.lipsync = {
 
 ## 四、数据模型
 
-服务器 SQLite 表（在 `gate/server.py` 内新增，沿用现有用户与房间）：
+服务器 SQLite 表（在 `gate/server.py` 内新增，沿用现有用户与房间；库文件位于 `DATA_DIR` 下，`ensure_drama()` 建表并启用 WAL）：
 
 ```
 projects   (id, owner, title, genre, engine, status, created_at, updated_at)
@@ -166,6 +170,21 @@ usage      (id, owner, day, count, limit)
 ```
 
 分镜状态机：`pending → generating → done | failed`。合成前置校验要求全部 `done`。
+
+服务端接口（`gate/server.py`，前端经 `/dian` 前缀访问，按登录用户隔离）：
+
+```
+GET  /api/drama/projects            列出当前用户的工程
+GET  /api/drama/projects/{id}       读取单个工程（含角色/分镜/素材）
+GET  /api/drama/publishes           列出发布记录
+GET  /api/drama/out/{name}          下载合成成片（mp4/webm，文件名白名单）
+POST /api/drama/projects            新建/覆盖保存工程
+POST /api/drama/projects/delete     删除工程
+POST /api/drama/publishes           记录一次发布（含 AIGC 标注）
+POST /api/drama/compose             提交合成任务（服务端 ffmpeg）
+```
+
+约束：单工程上限 `DRAMA_MAX_PROJECTS`，单请求体上限 `DRAMA_MAX_BYTES`，下载素材上限 `DRAMA_ASSET_MAX`，合成超时 `DRAMA_COMPOSE_TIMEOUT`；服务器无 ffmpeg 时返回 501，合成超时返回 504。输出目录 `ROOM_ROOT/<owner>/drama-out`。
 
 ## 五、关键流程
 

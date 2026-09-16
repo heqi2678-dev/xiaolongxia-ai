@@ -116,6 +116,8 @@ XLX.settings = (function () {
       + '<div class="val"><button class="btn primary small" id="setResolveSave">保存</button> <button class="btn small" id="setResolveTest">测试解析</button></div></div>'
       + '</div>'
 
+      + dramaServiceCard()
+
       + '<div class="set-card">'
       + '<h3><span class="hic">' + svg("shield", 15) + '</span>数据与安全</h3>'
       + '<p class="sd">所有数据（Key、对话、记忆、项目）只保存在当前浏览器本地，清理浏览器数据前请做好备份。</p>'
@@ -146,6 +148,94 @@ XLX.settings = (function () {
     if (rvSave) rvSave.onclick = saveResolveConfig;
     const rvTest = document.getElementById("setResolveTest");
     if (rvTest) rvTest.onclick = testResolveConfig;
+    const dsSave = document.getElementById("dramaSave");
+    if (dsSave) dsSave.onclick = saveDramaServices;
+    const dsGuide = document.getElementById("dramaOpenGuide");
+    if (dsGuide) dsGuide.onclick = () => { if (XLX.drama && XLX.drama.guide) XLX.drama.guide.open("basics"); };
+    DRAMA_KINDS.forEach(k => {
+      const sel = document.getElementById("ds-" + k.id + "-provider");
+      if (!sel) return;
+      sel.onchange = () => {
+        const def = XLX.drama.adapterDef(k.id, sel.value);
+        const base = document.getElementById("ds-" + k.id + "-base");
+        if (base && def && def.base) base.value = def.base;
+      };
+    });
+  }
+
+  const DRAMA_KINDS = [
+    { id: "image", name: "文生图（漫剧画面）", desc: "生成每个分镜的画面，漫剧的核心。" },
+    { id: "video", name: "图生视频（仿真人剧）", desc: "用首帧生成视频，仿真人剧的核心。推荐火山方舟 Seedance。" },
+    { id: "tts", name: "语音合成（配音）", desc: "把台词转成自然的配音。推荐火山语音。" },
+    { id: "lipsync", name: "口型驱动（对口型）", desc: "让画面嘴型与配音对齐，仿真人剧用。" }
+  ];
+
+  function dramaKindBlock(kind) {
+    const meta = DRAMA_KINDS.find(k => k.id === kind.id) || kind;
+    const cfg = XLX.drama.getAdapterConfig(meta.id);
+    const list = XLX.drama.adapterList(meta.id);
+    const isTts = meta.id === "tts";
+    const def = XLX.drama.adapterDef(meta.id, cfg.provider);
+    const voices = (def && def.voices) || [];
+    return ''
+      + '<div class="set-row" style="flex-direction:column;align-items:stretch;gap:8px">'
+      + '<div class="lab"><div class="t">' + meta.name + '</div><div class="d">' + meta.desc + '</div></div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+      + '<select class="inp" id="ds-' + meta.id + '-provider" style="flex:1;min-width:150px">'
+      + list.map(x => '<option value="' + x.id + '"' + (x.id === cfg.provider ? " selected" : "") + '>' + XLX.util.esc(x.name) + '</option>').join("")
+      + '</select>'
+      + '<input class="inp" id="ds-' + meta.id + '-base" placeholder="Base URL（选平台自动填）" style="flex:2;min-width:180px" value="' + XLX.util.esc(cfg.base) + '">'
+      + '</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+      + (isTts
+        ? '<input class="inp" id="ds-' + meta.id + '-appId" placeholder="App ID" style="flex:1;min-width:110px" value="' + XLX.util.esc(cfg.appId) + '">'
+          + '<input class="inp" id="ds-' + meta.id + '-secret" type="password" placeholder="Access Token" style="flex:2;min-width:130px" value="' + XLX.util.esc(cfg.secret || cfg.key) + '">'
+          + '<input class="inp" id="ds-' + meta.id + '-cluster" placeholder="cluster，如 volcano_tts" style="flex:1;min-width:110px" value="' + XLX.util.esc(cfg.cluster) + '">'
+        : '<input class="inp" id="ds-' + meta.id + '-key" type="password" placeholder="API Key" style="flex:2;min-width:140px" value="' + XLX.util.esc(cfg.key) + '">'
+          + '<input class="inp" id="ds-' + meta.id + '-model" placeholder="模型名（可选）" style="flex:1;min-width:110px" value="' + XLX.util.esc(cfg.model) + '">')
+      + '</div>'
+      + (isTts && voices.length
+        ? '<select class="inp" id="ds-' + meta.id + '-voice">' + voices.map(v => '<option value="' + v.id + '"' + (v.id === cfg.voice ? " selected" : "") + '>' + XLX.util.esc(v.name) + '</option>').join("") + '</select>'
+        : (isTts ? '<input class="inp" id="ds-' + meta.id + '-voice" placeholder="音色 ID（可选）" value="' + XLX.util.esc(cfg.voice) + '">' : ''))
+      + '<div class="d" style="color:var(--text3);font-size:11px">' + XLX.util.esc((def && def.keyHint) || "") + ((def && def.keyLink) ? ' · <a href="' + def.keyLink + '" target="_blank" rel="noopener" style="color:var(--green)">去申请</a>' : '') + '</div>'
+      + '</div>';
+  }
+
+  function dramaServiceCard() {
+    return ''
+      + '<div class="set-card">'
+      + '<h3><span class="hic">' + svg("film", 15) + '</span>短剧服务（手搓台 / 半自动台）</h3>'
+      + '<p class="sd">两个 AI 短剧工作台用这里的四类服务。<b>漫剧</b>只需「文生图 + 语音」；<b>仿真人剧</b>还需「图生视频 + 口型」。所有 Key 只保存在浏览器本地，不会上传。填之前可先看工作台里的「看教程」。<b style="color:var(--green)">没有 API Key 也能用半自动台出剧本</b>，但生成画面/配音必须配置对应服务。</p>'
+      + DRAMA_KINDS.map(dramaKindBlock).join("")
+      + '<div class="set-row"><div class="lab"><div class="t">保存短剧服务</div><div class="d">保存后立即在短剧工作台生效</div></div>'
+      + '<div class="val"><button class="btn primary small" id="dramaSave">保存</button> <button class="btn small" id="dramaOpenGuide">看教程</button></div></div>'
+      + '</div>';
+  }
+
+  function saveDramaServices() {
+    if (!XLX.drama) return;
+    DRAMA_KINDS.forEach(k => {
+      const kind = k.id;
+      const providerEl = document.getElementById("ds-" + kind + "-provider");
+      if (!providerEl) return;
+      const cfg = { provider: providerEl.value };
+      const base = document.getElementById("ds-" + kind + "-base");
+      if (base) cfg.base = base.value.trim();
+      const key = document.getElementById("ds-" + kind + "-key");
+      if (key) cfg.key = key.value.trim();
+      const model = document.getElementById("ds-" + kind + "-model");
+      if (model) cfg.model = model.value.trim();
+      const appId = document.getElementById("ds-" + kind + "-appId");
+      if (appId) cfg.appId = appId.value.trim();
+      const secret = document.getElementById("ds-" + kind + "-secret");
+      if (secret) cfg.secret = secret.value.trim();
+      const cluster = document.getElementById("ds-" + kind + "-cluster");
+      if (cluster) cfg.cluster = cluster.value.trim();
+      const voice = document.getElementById("ds-" + kind + "-voice");
+      if (voice) cfg.voice = voice.value;
+      XLX.drama.setAdapterConfig(kind, cfg);
+    });
+    XLX.util.toast("短剧服务已保存", "ok");
   }
 
   function saveResolveConfig() {
