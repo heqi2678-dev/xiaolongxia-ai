@@ -33,6 +33,17 @@ Entries discovered by the Agent during task execution should follow this format:
 
 [Project Knowledge Summary]
 - Date: 2026-09-16
+- Context: Discovered by Agent while 实测服务端合成（ffmpeg）链路
+- Category: Operations & Deployment
+- Instructions:
+  - 服务端合成（`gate/server.py` 的 `drama_compose`）强依赖系统 `ffmpeg` 与中文字体，部署新机器时两者都要装。
+  - 中文字体：`DEBIAN_FRONTEND=noninteractive apt-get install -y fonts-wqy-zenhei`，装完执行 `fc-cache -f`；`fc-list :lang=zh` 应能看到文泉驿。
+  - `_drama_font()` 按固定路径优先匹配 `/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc`，用于烧入「AI 生成」角标；缺失时回退 DejaVuSans，中文角标会变方块。
+  - 字幕走 libass，按字形回退到 fontconfig 匹配的中文字体（日志出现 `Glyph 0x... not found, selecting one more font` 属正常回退）。
+  - 缺 ffmpeg 时 `drama_compose` 抛 `RuntimeError`，接口返回 501，前端应提示改用浏览器合成。
+
+[Project Knowledge Summary]
+- Date: 2026-09-16
 - Context: Discovered by Agent while implementing and verifying the AI 短剧工作台 (src/drama/)
 - Category: Testing Methods
 - Instructions:
