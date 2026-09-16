@@ -7,3 +7,8 @@ gate/*.bak
 
 # 语音模型不进 Git（118MB），只放服务器本地
 models/
+
+# 部署备份不进 Git
+*.bak.*
+*.bak.*/
+src.bak.*/
