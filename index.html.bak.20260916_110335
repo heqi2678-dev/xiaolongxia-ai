@@ -412,11 +412,64 @@ select.inp{padding-right:34px}
   .md{font-size:14px}
 }
 
+/* ===== 创作中心（HookShot 风格首页）===== */
+.create-wrap{display:flex;flex-direction:column;max-width:960px;margin:0 auto;padding:34px 8px 60px}
+.create-hero{text-align:center;margin-bottom:26px}
+.create-hero h1{font-size:30px;font-weight:800;letter-spacing:.5px;background:linear-gradient(135deg,#fff,#b9c8ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;line-height:1.4}
+.create-sub{font-size:13px;color:var(--text3);margin-top:8px}
+.agent-tabs{display:flex;gap:10px;justify-content:center;margin-top:22px;flex-wrap:wrap}
+.agent-tab{display:flex;align-items:center;gap:8px;padding:10px 22px;border-radius:30px;background:var(--panel);border:1px solid var(--border);color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;transition:.18s}
+.agent-tab svg{width:17px;height:17px}
+.agent-tab:hover{border-color:var(--blue);color:var(--text);transform:translateY(-1px)}
+.agent-tab.active{background:linear-gradient(135deg,rgba(74,168,255,.2),rgba(167,139,250,.2));border-color:var(--blue);color:#fff;box-shadow:0 6px 20px rgba(74,168,255,.25)}
+.create-composer{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:18px 20px;box-shadow:var(--shadow);transition:border-color .2s,box-shadow .2s}
+.create-composer:focus-within{border-color:var(--blue);box-shadow:0 0 0 4px rgba(74,168,255,.12),var(--shadow)}
+.create-input{width:100%;background:none;border:none;outline:none;resize:none;font-size:15.5px;line-height:1.7;color:var(--text);min-height:72px}
+.create-input::placeholder{color:var(--text3)}
+.composer-tools{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+.ct-tip{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);flex:1;min-width:180px}
+.ct-tip svg{width:13px;height:13px}
+.ct-btn{display:flex;align-items:center;gap:7px;padding:10px 18px;border-radius:12px;font-size:13.5px;font-weight:700;transition:.15s}
+.ct-btn svg{width:15px;height:15px}
+.ct-btn.ghost{background:var(--panel2);border:1px solid var(--border);color:var(--text2)}
+.ct-btn.ghost:hover{border-color:var(--blue);color:var(--text)}
+.ct-btn.primary{background:linear-gradient(135deg,#4aa8ff,#7c6cf5);color:#fff;box-shadow:0 6px 20px rgba(74,168,255,.4)}
+.ct-btn.primary:hover{transform:translateY(-1px);box-shadow:0 8px 26px rgba(74,168,255,.55)}
+.ct-btn.primary:disabled{opacity:.6;transform:none;cursor:not-allowed}
+.quick-caps{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;justify-content:center}
+.qc{display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:13px;background:var(--card);border:1px solid var(--border);color:var(--text2);font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s}
+.qc svg{width:15px;height:15px}
+.qc:hover{border-color:var(--purple);color:var(--text);transform:translateY(-1px)}
+.qc.active{background:linear-gradient(135deg,rgba(167,139,250,.18),rgba(56,217,230,.14));border-color:var(--purple);color:#fff}
+.proj-section{margin-top:30px}
+.proj-head{display:flex;align-items:center;gap:8px;font-size:14.5px;font-weight:700;margin-bottom:14px;color:var(--text)}
+.proj-head svg{width:15px;height:15px;color:var(--text3)}
+.proj-head .proj-more{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text3);background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:5px 12px;cursor:pointer;transition:.15s}
+.proj-head .proj-more:hover{color:var(--text);border-color:var(--text3)}
+.proj-head .proj-more svg{width:13px;height:13px}
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.proj-card-mini{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;aspect-ratio:1}
+.proj-card-mini img{width:100%;height:100%;object-fit:cover;display:block}
+.proj-card-mini .pm-iact{position:absolute;top:6px;right:6px;display:flex;gap:5px;opacity:0;transition:.15s}
+.proj-card-mini:hover .pm-iact{opacity:1}
+.proj-card-mini .pm-iact button{width:28px;height:28px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.proj-card-mini .pm-iact button svg{width:13px;height:13px}
+.proj-card-mini .pm-lab{position:absolute;left:0;right:0;bottom:0;padding:5px 8px;font-size:10.5px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.72))}
 .empty-box{text-align:center;padding:44px 0;border:1px dashed var(--border);border-radius:14px;color:var(--text3)}
 .empty-box .eb-ic{width:54px;height:54px;border-radius:15px;background:var(--panel2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;color:var(--text3)}
 .empty-box .eb-ic svg{width:26px;height:26px}
 .empty-box .eb-t{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:4px}
 .empty-box .eb-d{font-size:12px}
+@media(max-width:900px){
+  .create-wrap{padding:22px 4px 40px}
+  .create-hero h1{font-size:22px}
+  .agent-tab{padding:8px 14px;font-size:13px}
+  .create-composer{padding:14px}
+  .create-input{font-size:14.5px;min-height:64px}
+  .ct-btn{padding:9px 14px}
+  .qc{padding:8px 12px;font-size:11.5px}
+  .proj-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+}
 
 /* ===== AI 开发过程面板 ===== */
 .gen-proc{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;animation:fadeUp .25s}
@@ -462,6 +515,32 @@ select.inp{padding-right:34px}
 .fm div>span{font-size:11px;color:var(--text3)}
 .fm div{min-width:0}
 
+/* ===== 创作中心：参考图 / 模型选择 / 语言 ===== */
+.composer-opts{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px;padding:0 2px}
+.composer-opts .ct-btn{flex:0 0 auto}
+.co-sel{display:inline-flex;align-items:center;gap:5px;color:var(--text2);border:1px solid var(--border);border-radius:9px;padding:5px 9px;font-size:11.5px;cursor:pointer}
+.co-sel:hover{border-color:var(--accent)}
+.co-sel svg{width:13px;height:13px;color:var(--accent);flex:0 0 auto}
+.co-sel select{background:transparent;border:none;outline:none;color:var(--text);font-size:11.5px;max-width:180px;cursor:pointer}
+.co-sel select option{background:var(--bg);color:var(--text)}
+.composer-ref{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--accent);border-radius:12px;padding:8px 11px;margin:10px 2px 0}
+.composer-ref img{width:46px;height:46px;object-fit:cover;border-radius:8px;border:1px solid var(--border);flex:0 0 auto}
+.composer-ref .cr-info{flex:1;min-width:0}
+.composer-ref .cr-info b{display:block;font-size:12px;color:var(--text)}
+.composer-ref .cr-info span{font-size:10.5px;color:var(--text3)}
+.composer-ref .cr-x{background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;flex:0 0 auto;display:flex}
+.composer-ref .cr-x:hover{color:var(--red)}
+.composer-ref .cr-x svg{width:14px;height:14px}
+
+/* ===== 创作中心：生成失败错误卡片（不再是黑屏） ===== */
+.img-item .iload.errcard{position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:14px;text-align:center;color:var(--text)}
+.err-ic{width:42px;height:42px;border-radius:50%;background:rgba(255,87,87,.14);color:var(--red);display:flex;align-items:center;justify-content:center}
+.err-ic svg{width:21px;height:21px}
+.err-t{font-size:13px;font-weight:700;color:var(--red)}
+.err-msg{font-size:11px;color:var(--text2);word-break:break-all;max-height:60px;overflow:auto}
+.err-hint{font-size:10.5px;color:var(--text3)}
+.err-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+
 /* ===== 全局模型选择器 ===== */
 .ms-container{position:relative;display:inline-block}
 .ms-pill{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-size:11px;cursor:pointer;color:var(--text);transition:border-color .15s}
@@ -484,6 +563,14 @@ select.inp{padding-right:34px}
 .ms-item.ms-manage{border-top:1px solid var(--border);margin-top:4px;padding-top:9px;color:var(--accent)}
 .ms-item.ms-manage svg{width:13px;height:13px;flex:0 0 auto}
 .ms-item.ms-manage .ms-it b{color:var(--accent)}
+
+/* ===== 创作中心 hero 语言模型 pill ===== */
+.hero-model{display:inline-flex;align-items:center;gap:6px;margin-top:10px;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:11px;color:var(--text2);cursor:pointer;transition:border-color .15s}
+.hero-model:hover{border-color:var(--accent)}
+.hero-model span{display:flex;color:var(--accent)}
+.hero-model span svg{width:12px;height:12px}
+.hero-model b{color:var(--text);font-weight:600}
+.hero-model i{font-style:normal;color:var(--accent2)}
 
 </style>
 </head>
@@ -530,8 +617,13 @@ select.inp{padding-right:34px}
       </button>
     </div>
 
+    <!-- 创作中心（HookShot 风格首页） -->
+    <div id="createView" class="view active">
+      <div class="market-wrap"><div class="market-inner" id="createContent"></div></div>
+    </div>
+
     <!-- 智能对话 -->
-    <div id="chatView" class="view active">
+    <div id="chatView" class="view">
       <div id="chatBox">
         <div id="emptyState">
           <div class="hero-logo" id="heroLogo"></div>
@@ -668,7 +760,7 @@ select.inp{padding-right:34px}
       </div>
     </div>
 
-    <!-- 工具箱 -->
+    <!-- AI 生图 -->
     <div id="toolsView" class="view">
       <div class="market-wrap"><div class="market-inner" id="toolsContent"></div></div>
     </div>
@@ -703,9 +795,9 @@ select.inp{padding-right:34px}
 <script src="src/util.js"></script>
 <script>
 /* ===== 模型库：HookShot 式多模型管理 =====
- * 用户可添加/删除任意语言模型，每个模型保存为一套完整配置
+ * 用户可添加/删除任意模型（语言模型 / 生图模型），每个模型保存为一套完整配置
  * （名称、服务商、Base URL、Key、模型名），并标记其中一个为「当前使用」。
- * 之后对话、AI帮写时，直接从模型库读取当前模型，无需来回切换。 */
+ * 之后对话、AI帮写、创作中心生成时，直接从模型库读取当前模型，无需来回切换。 */
 
 XLX.modelHub = (function () {
   function getModels() {
@@ -713,7 +805,7 @@ XLX.modelHub = (function () {
   }
   function save(list) { localStorage.setItem(XLX.K.MODELS, JSON.stringify(list)); }
 
-  /* kind: "llm" 语言模型 */
+  /* kind: "llm" 语言模型 | "image" 生图模型 */
   function all(kind) {
     return getModels().filter(m => m.kind === kind);
   }
@@ -767,6 +859,21 @@ XLX.modelHub = (function () {
     return { id: m.id, name: m.name, base: m.base, key: m.key, model: m.model, models: m.model ? [m.model] : [], desc: "模型库：" + m.name, color: "#7c5cff", free: false };
   }
 
+  /* 判断生图模型走哪个协议 */
+  function imageVendor(m) {
+    if (!m) return null;
+    const v = m.vendor || "custom";
+    if (v === "doubao" || v === "qwen") return v;
+    if (v === "siliconflow" || v === "openai" || v === "custom") return "custom";
+    return v;
+  }
+
+  /* 供 image.generate 使用的生图配置快照 */
+  function imageConfig(m) {
+    if (!m) return null;
+    return { vendor: imageVendor(m), base: m.base, key: m.key, model: m.model };
+  }
+
   /* 语言模型是否为自定义协议（非预置平台） */
   function llmVendor(m) {
     if (!m) return null;
@@ -775,7 +882,7 @@ XLX.modelHub = (function () {
     return "custom";
   }
 
-  /* 一次性迁移：把旧单配置（设置页下方"语言模型"）自动转成模型库条目。
+  /* 一次性迁移：把旧单配置（设置页下方的"语言模型/生图服务"）自动转成模型库条目。
    * 仅在模型库对应分类为空且旧配置有效时执行，避免重复迁移。 */
   function migrateFromSettings() {
     try {
@@ -783,6 +890,36 @@ XLX.modelHub = (function () {
       try { s = JSON.parse(localStorage.getItem(XLX.K.SETTINGS) || "{}"); } catch (e) {}
       const save = () => localStorage.setItem(XLX.K.SETTINGS, JSON.stringify(s));
       let changed = false;
+
+      /* 生图：imageProvider 非 free 且有 Key，模型库 image 分类为空 */
+      if (s.imageProvider && s.imageProvider !== "free" && (s.imageKey || "").trim()) {
+        const hasImg = all("image").length > 0;
+        if (!hasImg) {
+          const vendor = s.imageProvider === "doubao" ? "doubao" : s.imageProvider === "qwen" ? "qwen" : "siliconflow";
+          const bases = {
+            doubao: "https://ark.cn-beijing.volces.com/api/v3",
+            qwen: "https://dashscope.aliyuncs.com",
+            siliconflow: "https://api.siliconflow.cn/v1"
+          };
+          const models = {
+            doubao: "doubao-seedream-5-0-260128",
+            qwen: "qwen-image-3.0-pro",
+            siliconflow: "Qwen/Qwen-Image-Edit-2509"
+          };
+          const names = { doubao: "豆包 Seedream", qwen: "千问通义万相", siliconflow: "硅基流动" };
+          add({
+            kind: "image",
+            name: (names[vendor] || "自定义生图") + "（自动迁移）",
+            vendor,
+            base: (s.imageBase || "").trim() || bases[vendor] || "",
+            key: s.imageKey,
+            model: (s.imageModel || "").trim() || models[vendor] || ""
+          });
+          /* 迁移后清空旧字段，避免下次重复 */
+          s.imageProvider = "free"; s.imageKey = ""; s.imageBase = ""; s.imageModel = "";
+          changed = true;
+        }
+      }
 
       /* 语言模型：非 custom 的 provider + Key，模型库 llm 分类为空 */
       const curPid = s.provider || "";
@@ -810,7 +947,289 @@ XLX.modelHub = (function () {
     } catch (e) { /* 迁移失败不影响使用 */ }
   }
 
-  return { getModels, all, current, add, remove, mark, asProvider, llmVendor, migrateFromSettings };
+  return { getModels, all, current, add, remove, mark, asProvider, imageConfig, imageVendor, llmVendor, migrateFromSettings };
+})();
+
+</script>
+<script>
+/* ===== AI 漫剧工作流：一句话故事 → 剧本 → 分镜 → 漫画生图 → 排版 → 长图/视频 ===== */
+
+XLX.comicdrama = (function () {
+  /* 画风词缀映射（日漫/美漫） */
+  const STYLE_PROMPTS = {
+    japanese: "日式漫画风格，日系动漫，干净线条，色彩明快，漫画分镜，高完成度插画",
+    american: "美式漫画风格，写实笔触，高对比，漫画网点，戏剧化光影，美漫分镜"
+  };
+
+  function stylePrompt(style) {
+    return STYLE_PROMPTS[style] || STYLE_PROMPTS.japanese;
+  }
+
+  /* 宽松解析 LLM 返回的剧本文本 → 剧本对象；非法 JSON 时退化为段落提取 */
+  function parseScript(text) {
+    const out = { title: "", synopsis: "", style: "japanese", roles: [], shots: [] };
+    if (!text) return out;
+    let obj = null;
+    try {
+      let cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
+      const start = cleaned.indexOf("{");
+      const end = cleaned.lastIndexOf("}");
+      if (start >= 0 && end > start) obj = JSON.parse(cleaned.slice(start, end + 1));
+    } catch (e) { obj = null; }
+    const g = (o, keys, dft) => { if (!o) return dft; for (const k of keys) { if (o[k] !== undefined && o[k] !== null) return o[k]; } return dft; };
+    if (obj && (obj.title || obj.shots || obj.分镜)) {
+      out.title = String(g(obj, ["title", "剧名", "名称", "name"], "") || "").trim();
+      out.synopsis = String(g(obj, ["synopsis", "梗概", "简介", "summary", "剧情"], "") || "").trim();
+      if (obj.style === "american" || obj.风格 === "美漫" || obj.画风 === "美漫") out.style = "american";
+      const rolesRaw = g(obj, ["roles", "角色", "characters", "persons"], null);
+      if (Array.isArray(rolesRaw)) out.roles = rolesRaw.map(r => ({
+        name: String(g(r, ["name", "名字", "角色名", "角色", "n"], "") || "").trim() || "角色" + (out.roles.length + 1),
+        desc: String(g(r, ["desc", "description", "形象", "描述", "character", "设定"], "") || "").trim()
+      })).filter(r => r.name);
+      const shotsRaw = g(obj, ["shots", "分镜", "scenes", "镜头", "frames"], null);
+      if (Array.isArray(shotsRaw)) {
+        out.shots = shotsRaw.map(s => ({
+          desc: String(g(s, ["desc", "pic", "description", "画面", "画面描述", "描述", "p"], "") || "").trim(),
+          line: String(g(s, ["line", "lineText", "dialogue", "对白", "台词", "l"], "") || "").trim(),
+          duration: Math.max(1, Math.min(10, parseInt(g(s, ["duration", "时长", "d"], 0), 10) || 4)),
+          roles: Array.isArray(g(s, ["roles", "角色", "chars"], null)) ? g(s, ["roles", "角色", "chars"], []).map(String) : []
+        })).filter(s => s.desc || s.line);
+      }
+      out.shots = out.shots.slice(0, 8);
+      if (out.shots.length < 4 && Array.isArray(shotsRaw)) {
+        out.shots = out.shots.concat(
+          Array.from({ length: Math.min(4 - out.shots.length, 8 - out.shots.length) }, () => ({ desc: "", line: "", duration: 4, roles: [] }))
+        );
+      }
+      return out;
+    }
+    /* 退化解析：按段落分块 */
+    const lines = text.split(/\n+/).map(s => s.trim()).filter(Boolean);
+    for (const ln of lines) {
+      if (/^剧名[：:]\s*(.+)/.test(ln)) out.title = RegExp.$1.trim();
+      else if (/^(梗概|简介|剧情)[：:]\s*(.+)/.test(ln)) out.synopsis = RegExp.$2.trim();
+      else if (/^(分镜|镜头|画面)\s*\d*[：:、.)]\s*(.+)/.test(ln)) {
+        out.shots.push({ desc: RegExp.$2.trim(), line: "", duration: 4, roles: [] });
+      } else if (out.shots.length < 8) out.shots.push({ desc: ln.replace(/^\d+[.、)]\s*/, ""), line: "", duration: 4, roles: [] });
+    }
+    if (!out.title && out.shots.length) out.title = "AI 漫剧";
+    return out;
+  }
+
+  /* 字幕两行换行：按最大宽度断行，最多两行 */
+  function wrapLines(text, maxLen) {
+    const t = String(text || "");
+    if (!t) return [];
+    if (t.length <= maxLen) return [t];
+    let first = t.slice(0, maxLen);
+    const cut = Math.max(first.lastIndexOf("，"), first.lastIndexOf("。"), first.lastIndexOf("！"), first.lastIndexOf("？"), first.lastIndexOf(" "));
+    if (cut > maxLen * 0.5) first = first.slice(0, cut + 1);
+    const rest = t.slice(first.length);
+    const second = rest.length > maxLen ? rest.slice(0, maxLen) : rest;
+    return [first, second];
+  }
+
+  /* ===================== 剧本与分镜生成 ===================== */
+
+  async function genScript(story, style, opts = {}) {
+    const sys = "你是专业漫剧编剧。根据用户一句话故事，生成一部短篇漫剧剧本，严格输出 JSON（不要多余文字），格式："
+      + '{"title":"剧名","synopsis":"一句话梗概","style":"' + (style === "american" ? "american" : "japanese") + '",'
+      + '"roles":[{"name":"角色名","desc":"形象描述，20字内，用于生图提示词"}],'
+      + '"shots":[{"desc":"画面描述，含场景与角色动作，30字内","line":"该镜对白或旁白，无则空字符串","duration":4,"roles":["出现的角色名"]}]}。'
+      + "要求：分镜 4-8 个，剧情有起承转合；每个分镜 desc 要能在无参考图时独立生成画面；角色不超过 4 个，角色名保持一致。";
+    const sysStrict = sys + "\\n\\n重要：只输出一个 JSON 对象，前后不要任何解释文字、不要代码块标记、不要 markdown。";
+    let text = null;
+    let script = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      text = await XLX.llm.chat([
+        { role: "system", content: attempt === 0 ? sys : sysStrict },
+        { role: "user", content: "故事：" + story }
+      ], Object.assign({ stream: false, temperature: 0.85 }, opts));
+      script = parseScript(text || "");
+      script.style = style === "american" ? "american" : "japanese";
+      if (script.shots && script.shots.length >= 4) break;
+      if (attempt === 0) {
+        /* 首轮结果不理想（空/分镜过少/解析失败），用更严格提示重试一次 */
+        await new Promise(r => setTimeout(r, 300));
+      }
+    }
+    if (!script.shots || !script.shots.length) {
+      throw new Error("AI 返回了空内容，未能生成剧本。请重试，或检查「设置」里的对话模型 Key / 模型名是否正确，或更换模型平台。");
+    }
+    if (script.shots.length < 4) {
+      script.shots = script.shots.concat(
+        Array.from({ length: Math.min(4 - script.shots.length, 8 - script.shots.length) }, () => ({ desc: "后续剧情推进画面", line: "", duration: 4, roles: [] }))
+      );
+    }
+    if (!script.title) script.title = "AI 漫剧 · " + story.slice(0, 10);
+    if (opts.onStep) opts.onStep("剧本完成：" + (script.title || "（未命名）"));
+    return script;
+  }
+
+  /* ===================== 逐镜生图 ===================== */
+
+  /* 组装单镜绘图 prompt：画风 + 场景描述 + 该镜角色形象词 */
+  function shotPrompt(script, shot) {
+    const parts = [stylePrompt(script.style), shot.desc];
+    if (Array.isArray(shot.roles) && shot.roles.length) {
+      const descs = shot.roles.map(name => {
+        const r = (script.roles || []).find(x => x.name === name);
+        return r ? r.name + "：" + r.desc : name;
+      }).filter(Boolean);
+      if (descs.length) parts.push("人物：" + descs.join("；"));
+    }
+    return parts.filter(Boolean).join("，");
+  }
+
+  async function genShots(script, refImg, onProgress) {
+    const total = script.shots.length;
+    const results = [];
+    for (let i = 0; i < total; i++) {
+      const shot = script.shots[i];
+      const prompt = shotPrompt(script, shot);
+      const item = Object.assign({}, shot, { imgUrl: null, err: null });
+      try {
+        const url = await XLX.image.generate(prompt, { aspect: "square", image: refImg || undefined });
+        item.imgUrl = url;
+      } catch (e) {
+        item.err = (e && e.message) || String(e);
+      }
+      results.push(item);
+      if (onProgress) onProgress(i + 1, total, item);
+    }
+    return results;
+  }
+
+  /* ===================== 排版 ===================== */
+
+  /* 加载图片元素 */
+  function loadImg(src) {
+    return new Promise((resolve, reject) => {
+      const im = new Image();
+      im.crossOrigin = "anonymous";
+      im.onload = () => resolve(im);
+      im.onerror = () => reject(new Error("图片加载失败"));
+      im.src = src;
+    });
+  }
+
+  /* 绘制单镜到 ctx：按目标宽度等比缩放，底部字幕，角落对白气泡 */
+  function drawShot(ctx, im, shot, W, top, opts) {
+    const scale = W / im.naturalWidth;
+    const H = Math.round(im.naturalHeight * scale);
+    ctx.drawImage(im, 0, top, W, H);
+    if (shot.line) {
+      /* 底部字幕条（白字 + 半透明深底，最多两行） */
+      ctx.font = "600 " + Math.round(W * 0.042) + "px sans-serif";
+      const lines = wrapLines(shot.line, Math.round(W / Math.round(W * 0.042) * 1.8));
+      const lh = Math.round(W * 0.06);
+      const pad = Math.round(W * 0.015);
+      const subH = lines.length * lh + pad * 2;
+      ctx.fillStyle = "rgba(0,0,0,.55)";
+      ctx.fillRect(0, top + H - subH, W, subH);
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      lines.forEach((ln, li) => {
+        ctx.fillText(ln, W / 2, top + H - subH + pad + lh * li + lh / 2);
+      });
+    }
+    if (opts.bubble !== false && shot.line) {
+      /* 对白气泡：左上角圆角矩形 */
+      const bW = Math.min(W * 0.72, ctx.measureText(shot.line).width + W * 0.08);
+      const bH = Math.round(W * 0.1);
+      const x = Math.round(W * 0.03), y = top + Math.round(W * 0.03);
+      ctx.fillStyle = "rgba(255,255,255,.92)";
+      ctx.strokeStyle = "rgba(0,0,0,.5)";
+      ctx.lineWidth = Math.max(1, Math.round(W * 0.004));
+      ctx.beginPath();
+      ctx.roundRect(x, y, bW, bH, Math.round(W * 0.02));
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#111";
+      ctx.font = "600 " + Math.round(W * 0.036) + "px sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(shot.line.slice(0, Math.round(bW / Math.round(W * 0.036) * 1.6)), x + Math.round(W * 0.02), y + bH / 2);
+    }
+    return H;
+  }
+
+  /* 竖屏整页长图 */
+  async function composeLongImage(shots, opts = {}) {
+    const W = opts.width || 800;
+    const loaded = await Promise.all(shots.map(s => loadImg(s.imgUrl)));
+    const heights = loaded.map(im => Math.round(im.naturalHeight * (W / im.naturalWidth)));
+    const totalH = heights.reduce((a, b) => a + b, 0);
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = totalH;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, W, totalH);
+    let top = 0;
+    shots.forEach((shot, i) => {
+      const h = drawShot(ctx, loaded[i], shot, W, top, opts);
+      top += h;
+    });
+    const blob = await new Promise(resolve => canvas.toBlob(b => resolve(b), "image/png"));
+    const url = URL.createObjectURL(blob);
+    return { blob, url, width: W, height: totalH };
+  }
+
+  /* 横屏分页：每页一张分镜 */
+  async function composePages(shots, opts = {}) {
+    const W = opts.width || 800;
+    const pages = [];
+    for (const shot of shots) {
+      const im = await loadImg(shot.imgUrl);
+      const H = Math.round(im.naturalHeight * (W / im.naturalWidth));
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, W, H);
+      drawShot(ctx, im, shot, W, 0, opts);
+      const blob = await new Promise(resolve => canvas.toBlob(b => resolve(b), "image/png"));
+      pages.push(URL.createObjectURL(blob));
+    }
+    return pages;
+  }
+
+  /* ===================== 配音与合成视频 ===================== */
+
+  /* 逐镜配音；失败降级 null */
+  async function ttsShots(shots) {
+    const out = [];
+    for (const s of shots) {
+      let buf = null;
+      if (s.line && XLX.video && XLX.video.ttsToBuffer) {
+        try { buf = await XLX.video.ttsToBuffer(s.line); } catch (e) { buf = null; }
+      }
+      out.push(buf);
+    }
+    return out;
+  }
+
+  async function composeVideo(shots, opts = {}) {
+    if (!XLX.video || !XLX.video.composeVideo) throw new Error("当前浏览器不支持视频合成");
+    const audios = await ttsShots(shots);
+    const scenes = shots.map((s, i) => ({
+      url: s.imgUrl,
+      text: s.line || "",
+      audioBuffer: audios[i],
+      duration: s.duration || 4
+    }));
+    return XLX.video.composeVideo(scenes, opts);
+  }
+
+  return {
+    stylePrompt, parseScript, wrapLines,
+    genScript, genShots, shotPrompt,
+    composeLongImage, composePages,
+    ttsShots, composeVideo
+  };
 })();
 
 </script>
@@ -1196,9 +1615,11 @@ function skillIcon(name, color) {
   return '<svg viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
 }
 
-/* 技能定义。action: chat=对话, search=搜索+对话, code=代码工坊 */
+/* 技能定义。action: chat=对话, image=AI生图, search=搜索+对话, code=代码工坊 */
 XLX.SKILLS = [
   /* ===== 电商 ===== */
+  { id: "product-img", cat: "ecom", name: "AI商品图生成", icon: "image", desc: "一句话生成商品主图、白底图、场景图、模特图", action: "image",
+    prompt: "为电商商品生成高质量的营销图片。商品信息：{input}。要求：{imgNote}" },
   { id: "ecom-copy", cat: "ecom", name: "电商文案撰写", icon: "cart", desc: "商品详情文案、卖点提炼、促销活动文案", action: "chat",
     prompt: "请为我的电商商品撰写完整的营销文案，包含：①吸睛主标题 ②核心卖点（FAB法则）③场景化描述 ④促销方案 ⑤风险逆转（售后保障）。商品信息：{input}" },
   { id: "title-opt", cat: "ecom", name: "商品标题优化", icon: "title", desc: "关键词布局+卖点+信任词，一键优化高转化标题", action: "chat",
@@ -1231,6 +1652,12 @@ XLX.SKILLS = [
     prompt: "请为抖音写一条完整视频脚本，主题：{input}。输出包含：①标题 ②BGM建议 ③分镜表格（镜头/画面/文案/字幕/时长）④封面文案 ⑤发布文案（含话题标签）。" },
 
   /* ===== 视频创作 ===== */
+  { id: "short-drama", cat: "video", name: "AI短剧剧本", icon: "clapper", desc: "黄金3秒开场+连续钩子+反转结局，可直接开拍", action: "chat",
+    prompt: "请创作一部竖屏短剧剧本，主题/方向：{input}。要求：①剧名+一句话卖点 ②人设表（主角/反派/工具人）③分集大纲（10集）④第1集完整剧本（含对白、动作、场景、字幕提示）⑤每集结尾留钩子 ⑥埋3个反转。短剧黄金3秒开场。" },
+  { id: "comic-drama", cat: "video", name: "AI漫剧剧本", icon: "story", desc: "漫画分镜+对白+运镜提示，适配AI漫剧制作", action: "chat",
+    prompt: "请创作一部AI漫剧剧本，主题：{input}。要求：①故事梗概 ②角色设定（含外貌描述用于AI出图）③分镜脚本（每一幕：画面描述/AI绘图提示词/对白/情绪）④全剧5-8幕 ⑤结尾反转或留白。" },
+  { id: "live-drama", cat: "video", name: "AI真人剧剧本", icon: "theater", desc: "多幕剧格式，含台词、舞台指示、人物走位", action: "chat",
+    prompt: "请创作一部真人短视频/短剧剧本，主题：{input}。按标准剧本格式输出：场景标题、人物走位与动作指示、台词、表情与情绪提示、镜头建议，共3-6场戏，故事完整有冲突有结局。" },
   { id: "storyboard", cat: "video", name: "AI分镜脚本", icon: "film", desc: "把文案/剧情转成专业分镜表，含景别、运镜、时长", action: "chat",
     prompt: "请把下面的内容转化为专业视频分镜脚本表格：\n\n【原始内容】{input}\n\n输出表格列：镜号 | 景别(远/全/中/近/特写) | 画面内容 | 运镜方式 | 台词/字幕 | 音效BGM | 时长(秒)。并给出全片总时长与节奏建议。" },
   { id: "research-script", cat: "video", name: "关键词搜资料生成视频脚本", icon: "search", desc: "输入关键词，AI自动搜索网页资料并生成剧情视频脚本", action: "search",
@@ -1239,6 +1666,9 @@ XLX.SKILLS = [
     prompt: "请为我的账号策划短视频选题：账号定位/领域：{input}。输出：①30个选题库（按系列分类）②前7天的更新计划（每天主题+爆点设计）③选题的选题理由与预期数据。" },
   { id: "dubbing", cat: "video", name: "配音/台词润色", icon: "mic", desc: "文案转配音稿、台词口语化润色、情绪标注", action: "chat",
     prompt: "请帮我处理配音/台词稿：{input}。要求：①台词口语化、自然不书面 ②标注每句情绪（兴奋/低沉/惊讶等）③标注重音与停顿（用/符号）④控制句长便于配音 ⑤输出可直接念的成稿。" },
+  { id: "ai-video-gen", cat: "video", name: "AI视频生成", icon: "clapper", desc: "接入火山方舟 Seedance，输入文案/脚本/音频/关键词，AI提炼提示词并生成真实视频", action: "tool", tool: "aidrama",
+    prompt: "" },
+
   /* ===== 办公 ===== */
   { id: "weekly-report", cat: "office", name: "周报月报生成", icon: "report", desc: "结构化输出工作周报/月报，量化成果", action: "chat",
     prompt: "请帮我写一份专业的工作周报/月报：\n\n工作内容与数据：{input}\n\n要求：①本周/本月工作要点 ②量化成果（数字优先）③问题与风险 ④下周/下月计划 ⑤按标题分层，可直接复制使用。" },
@@ -1278,11 +1708,22 @@ XLX.SKILLS = [
     prompt: "请根据需求生成Shell/命令行命令：\n\n需求：{input}\n\n要求：①给出可执行的命令 ②逐条注释每条命令的作用 ③提示注意事项与危险操作 ④给出必要的变量示例。" },
 
   /* ===== AI设计 ===== */
+  { id: "text2img", cat: "design", name: "AI文字生图", icon: "palette", desc: "一句话生成插画/海报/头像/背景图，免费无限次", action: "image",
+    prompt: "请生成高质量的AI图片。画面描述：{input}。{imgNote}" },
+  { id: "logo-design", cat: "design", name: "Logo设计", icon: "logo", desc: "输入品牌名与风格，生成Logo创意图片", action: "image",
+    prompt: "请为品牌设计Logo。品牌名：{input}。{imgNote}" },
   { id: "poster-copy", cat: "design", name: "海报/广告文案", icon: "poster", desc: "活动海报文案：主标题、副标题、卖点、行动号召", action: "chat",
     prompt: "请为我的活动设计海报文案：\n\n活动信息：{input}\n\n输出：①主标题（大字，7字内）②副标题 ③卖点清单 ④行动号召 ⑤海报上各区域文字排版建议 ⑥发朋友圈/社群的配文。" },
   { id: "prompt-enhance", cat: "design", name: "AI绘画提示词优化", icon: "sparkle", desc: "把简单描述优化为专业AI绘画Prompt（Midjourney/SD）", action: "chat",
     prompt: "请把下面的简单描述优化为专业的AI绘画提示词：\n\n原始描述：{input}\n\n输出：①英文Prompt（可直接用于Midjourney/SD）②中文翻译 ③分步扩写（主体/环境/光影/风格/镜头/画质词）④负面提示词建议 ⑤2个不同风格的变体。" },
+  { id: "comic-story", cat: "design", name: "AI漫画剧本+分镜", icon: "story", desc: "一句话生成漫画故事脚本与分镜画面描述", action: "chat",
+    prompt: "请根据主题创作一部AI漫画：\n\n主题：{input}\n\n输出：①故事梗概（3句话）②分镜脚本（每格：画面文字描述+对白+情绪，4-6格）③每格的AI绘图提示词 ④整体画风建议。" },
+
   /* ===== 电商工具箱（免费） ===== */
+  { id: "detail-longimg", cat: "ecom", name: "AI电商详情页长图", icon: "panorama", desc: "免费AI生成竖版商品详情页长图（支持上传参考图以图为中心生成）", action: "image", aspect: "tall",
+    prompt: "请为以下电商商品生成一张【竖版详情页长图】，用于商品详情页展示。要求：画面顶部是商品主图视觉，中部是核心卖点（可带简洁文字说明），底部是购买引导，整体排版疏朗、色彩统一、电商详情页风格。商品信息：{input}。{imgNote}" },
+  { id: "ecom-mainimg", cat: "ecom", name: "AI电商主图生成", icon: "image", desc: "免费AI生成商品主图（支持上传参考图以图为中心生成）", action: "image", aspect: "square",
+    prompt: "请为以下电商商品生成一张【商品主图】（电商平台主图风格），要求画面主体突出、背景干净、质感真实、适合电商展示。商品信息：{input}。{imgNote}" },
   { id: "item-img-dl", cat: "ecom", name: "商品主图详情图下载", icon: "download", desc: "免费下载淘宝/拼多多/京东等商品的主图与详情页图片", action: "tool", tool: "itemdl",
     prompt: "" },
   { id: "img-watermark", cat: "ecom", name: "图片去水印", icon: "wand", desc: "免费去除图片水印：上传图片，涂抹/框选水印区域自动修复", action: "tool", tool: "imgwm",
@@ -1292,6 +1733,9 @@ XLX.SKILLS = [
   { id: "video-text", cat: "video", name: "视频提取文案", icon: "mic", desc: "选择本地视频/音频文件，浏览器本地AI转写说话内容（免费不上传）", action: "tool", tool: "vidtxt",
     prompt: "" }
 ];
+
+/* 暂缓技能先摘掉：不再出现在技能市场与列表里（代码仍在上面，未被删除） */
+XLX.SKILLS = XLX.SKILLS.filter(s => XLX.PARKED_SKILLS.indexOf(s.id) === -1);
 
 /* 技能查询 */
 XLX.getSkill = function (id) {
@@ -1431,6 +1875,323 @@ XLX.memory = (function () {
   }
 
   return { load, save, add, remove, profile, systemPrompt, autoRemember, loadCommands, saveCommands, addCommand, removeCommand };
+})();
+
+</script>
+<script>
+/* ===== AI 生图：免费接口（Pollinations 免Key），支持自定义接口 ===== */
+
+XLX.image = (function () {
+  /* 免费生图接口：pollinations.ai 无需Key，CORS开放 */
+  function freeUrl(prompt, w, h) {
+    const p = encodeURIComponent(prompt);
+    const seed = Math.floor(Math.random() * 100000);
+    return "https://image.pollinations.ai/prompt/" + p + "?width=" + (w || 512) + "&height=" + (h || 512) + "&seed=" + seed + "&nologo=true";
+  }
+
+  /* 识别 b64 真实图片格式（豆包/千问可能返回 jpg/webp，不能一律当 png） */
+  function sniffMime(b64) {
+    try {
+      const bin = atob(b64);
+      if (bin.length < 4) return "image/png";
+      const b0 = bin.charCodeAt(0), b1 = bin.charCodeAt(1);
+      if (b0 === 0xff && b1 === 0xd8) return "image/jpeg";
+      if (b0 === 0x89 && b1 === 0x50) return "image/png";
+      if (b0 === 0x52 && b1 === 0x49) return "image/webp";
+      if (b0 === 0x47 && b1 === 0x49) return "image/gif";
+      return "image/png";
+    } catch (e) { return "image/png"; }
+  }
+
+  /* 校验并兜底图片结果：http→https；无论能否直接加载，都优先 fetch 下载转本地 dataURL，
+   * 彻底避免豆包/千问临时签名地址在页面渲染时过期导致图片显示成横线。
+   * 所有异步路径均带超时，杜绝"请求永远挂起 → 页面只剩边框横线且无任何提示"的状态。 */
+  function finalizeImg(value) {
+    return new Promise((resolve) => {
+      if (!value) { resolve(""); return; }
+      let v = value;
+      if (/^http:\/\//i.test(v)) v = v.replace(/^http:\/\//i, "https://");
+      const withTimeout = (p, ms, fallback) => Promise.race([p, new Promise((ok) => setTimeout(() => ok(fallback), ms))]);
+      const toDataUrl = (src) => fetch(src, { mode: "cors" }).then(r => {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.blob();
+      }).then(blob => new Promise(ok => {
+        const fr = new FileReader();
+        fr.onload = () => ok(fr.result);
+        fr.onerror = () => ok("");
+        fr.readAsDataURL(blob);
+      })).catch(() => "");
+      const tryLoad = (src) => new Promise((ok) => {
+        const im = new Image();
+        im.onload = () => ok(true);
+        im.onerror = () => ok(false);
+        im.src = src;
+      });
+      /* 若已是 dataURL/blob: 直接加载验证即可（本地数据一定可显示） */
+      if (/^data:/.test(v) || /^blob:/.test(v)) {
+        withTimeout(tryLoad(v), 8000, false).then(ok => resolve(ok ? v : ""));
+        return;
+      }
+      /* 网络图片：先 fetch 转 dataURL（图片本地化，8s 超时）；失败则退回原 URL 让 <img> 自己加载，
+       * 原 URL 也做加载验证（12s 超时），能加载才返回，否则视为无效图片 */
+      withTimeout(toDataUrl(v), 8000, "").then(d => {
+        if (d) { resolve(d); return; }
+        withTimeout(tryLoad(v), 12000, false).then(ok => resolve(ok ? v : ""));
+      });
+    });
+  }
+
+  function generate(prompt, opts = {}) {
+    return new Promise((resolve, reject) => {
+      const retries = opts.retries != null ? opts.retries : 2;
+      let settled = false;
+      const done = (fn, v) => { if (!settled) { settled = true; fn(v); } };
+      const s = XLX.llm.getSettings();
+      /* 模型库优先：用户添加并标记的「当前生图模型」优先于单配置 */
+      let hubM = (XLX.modelHub && opts.useHub !== false) ? XLX.modelHub.current("image") : null;
+      if (opts.modelId) hubM = (XLX.modelHub && XLX.modelHub.getModels().find(m => m.id === opts.modelId)) || hubM;
+      let hubCfg = hubM ? XLX.modelHub.imageConfig(hubM) : null;
+      if (opts.single) hubCfg = { vendor: opts.single.vendor, base: opts.single.base, key: opts.single.key, model: opts.single.model };
+      const vendor = hubCfg ? hubCfg.vendor : ((s && s.imageProvider && s.imageProvider !== "free") ? s.imageProvider : "free");
+      const customOn = hubCfg ? !!(hubCfg.key || "").trim() : (vendor !== "free" && !!(s.imageKey || "").trim());
+
+      const hubBase = hubCfg ? hubCfg.base : null;
+      const hubKey = hubCfg ? hubCfg.key : null;
+      const hubModel = hubCfg ? hubCfg.model : null;
+
+      const pickSize = () => {
+        let w = opts.w, h = opts.h;
+        if (opts.aspect === "tall") { w = 640; h = 1280; }
+        else if (opts.aspect === "square") { w = 1024; h = 1024; }
+        else if (opts.aspect === "wide") { w = 1280; h = 640; }
+        if (!w) w = 512; if (!h) h = 512;
+        return { w, h };
+      };
+
+      const refData = () => {
+        if (!opts.image) return null;
+        return typeof opts.image === "string" ? opts.image : (opts.image.dataUrl || opts.image.url);
+      };
+
+      const attempt = (n) => {
+        const { w, h } = pickSize();
+        if (!customOn) { freeAttempt(n, w, h); return; }
+        if (vendor === "doubao") doubaoAttempt(n, w, h);
+        else if (vendor === "qwen") qwenAttempt(n, w, h);
+        else openAiCompatAttempt(n, w, h);
+      };
+
+      function openAiCompatAttempt(n, w, h) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 60000);
+        const base = (hubBase || s.imageBase || "https://api.siliconflow.cn/v1").replace(/\/+$/, "");
+        const body = { model: hubModel || s.imageModel || "FLUX.1-schnell", prompt, image_size: w + "x" + h, num_inference_steps: 20, seed: Math.floor(Math.random() * 100000) };
+        const ref = refData();
+        if (ref) body.image = ref;
+        fetch(base + "/images/generations", {
+          method: "POST",
+          signal: ctrl.signal,
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (hubKey || s.imageKey || "").trim() },
+          body: JSON.stringify(body)
+        }).then(r => r.json()).then(j => {
+          clearTimeout(timer);
+          const img = (j && j.data && j.data[0]) || (j && j.images && j.images[0]);
+          const dataUrl = img && (img.url || (img.b64_json && "data:" + sniffMime(img.b64_json) + ";base64," + img.b64_json));
+          if (dataUrl) finalizeImg(dataUrl).then(u => u ? done(resolve, u) : done(reject, new Error("生图服务返回了无效图片")));
+          else done(reject, new Error("生图服务返回异常：" + JSON.stringify(j).slice(0, 160)));
+        }).catch(e => {
+          clearTimeout(timer);
+          if (n < retries) setTimeout(() => attempt(n + 1), 1500 * (n + 1));
+          else done(reject, new Error("生图失败（自定义服务）：" + (e.message || e)));
+        });
+      }
+
+      function doubaoAttempt(n, w, h) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 90000);
+        const base = (hubBase || s.imageBase || "https://ark.cn-beijing.volces.com/api/v3").replace(/\/+$/, "");
+        const body = { model: hubModel || s.imageModel || "doubao-seedream-5-0-260128", prompt, size: w + "x" + h };
+        const ref = refData();
+        if (ref) body.image = ref;
+        fetch(base + "/images/generations", {
+          method: "POST",
+          signal: ctrl.signal,
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (hubKey || s.imageKey || "").trim() },
+          body: JSON.stringify(body)
+        }).then(r => r.json()).then(j => {
+          clearTimeout(timer);
+          const img = (j && j.data && j.data[0]) || (j && j.images && j.images[0]);
+          const dataUrl = img && (img.url || (img.b64_json && "data:" + sniffMime(img.b64_json) + ";base64," + img.b64_json));
+          if (dataUrl) finalizeImg(dataUrl).then(u => u ? done(resolve, u) : done(reject, new Error("豆包生图返回了无效图片")));
+          else done(reject, new Error("豆包生图返回异常：" + JSON.stringify(j).slice(0, 160)));
+        }).catch(e => {
+          clearTimeout(timer);
+          if (n < retries) setTimeout(() => attempt(n + 1), 1500 * (n + 1));
+          else done(reject, new Error("豆包生图失败：" + (e.message || e)));
+        });
+      }
+
+      function qwenAttempt(n, w, h) {
+        const base = (hubBase || s.imageBase || "https://dashscope.aliyuncs.com").replace(/\/+$/, "");
+        const headers = { "Content-Type": "application/json", "Authorization": "Bearer " + (hubKey || s.imageKey || "").trim() };
+        const content = [{ text: prompt }];
+        const ref = refData();
+        if (ref) content.push({ image: ref });
+        const body = {
+          model: hubModel || s.imageModel || "qwen-image-3.0-pro",
+          input: { messages: [{ role: "user", content }] },
+          parameters: { size: w + "*" + h }
+        };
+        const err = (m) => done(reject, new Error(m));
+        fetch(base + "/api/v1/services/aigc/multimodal-generation/generation", {
+          method: "POST", headers, body: JSON.stringify(body)
+        }).then(r => r.json()).then(j => {
+          const out = j && j.output;
+          if (out) {
+            const c = out.choices && out.choices[0] && out.choices[0].message && out.choices[0].message.content;
+            if (Array.isArray(c)) {
+              const im = c.find(x => x && x.image);
+              if (im && im.image) { done(resolve, im.image); return; }
+            }
+            if (out.task_id) { qwenPoll(out.task_id, 0); return; }
+          }
+          err("千问生图返回异常：" + JSON.stringify(j).slice(0, 160));
+        }).catch(e => {
+          if (n < retries) setTimeout(() => attempt(n + 1), 1500 * (n + 1));
+          else err("千问生图失败：" + (e.message || e));
+        });
+
+        function qwenPoll(taskId, k) {
+          if (k > 40) { err("千问生图超时（任务 " + taskId.slice(0, 8) + "）"); return; }
+          fetch(base + "/api/v1/tasks/" + encodeURIComponent(taskId), { method: "GET", headers })
+            .then(r => r.json()).then(t => {
+              const o = t && t.output;
+              const st = o && o.task_status;
+              if (st === "SUCCEEDED") {
+                const u = o.results && o.results[0] && (o.results[0].url || (o.results[0].b64_image && "data:" + sniffMime(o.results[0].b64_image) + ";base64," + o.results[0].b64_image));
+                if (u) finalizeImg(u).then(fu => fu ? done(resolve, fu) : err("千问生图返回了无效图片"));
+                else err("千问生图返回异常：" + JSON.stringify(t).slice(0, 160));
+              } else if (st === "FAILED" || st === "CANCELED") {
+                err("千问生图失败（任务" + st + "）");
+              } else {
+                setTimeout(() => qwenPoll(taskId, k + 1), 3000);
+              }
+            })
+            .catch(() => {
+              if (k < 8) setTimeout(() => qwenPoll(taskId, k + 1), 3000);
+              else err("千问任务查询失败");
+            });
+        }
+      }
+
+      function freeAttempt(n, w, h) {
+        let url = freeUrl(prompt, w, h);
+        const refUrl = opts.image && (typeof opts.image === "string" ? opts.image : opts.image.url);
+        if (opts.image && !refUrl) {
+          done(reject, new Error("免费接口图生图需要公网可访问的参考图，但参考图上传失败（国内网络常连不上图床）。请到「设置 → AI 生图服务」切换为自定义服务（硅基流动/豆包/千问），几秒即可用，且能真正保留实例图主体"));
+          return;
+        }
+        if (refUrl) url += "&image=" + encodeURIComponent(refUrl);
+        const img = new Image();
+        img.onload = () => done(resolve, url);
+        img.onerror = () => {
+          if (n < retries) setTimeout(() => attempt(n + 1), 1500 * (n + 1));
+          else done(reject, new Error("图片生成失败：免费接口 Pollinations 在国内网络常连不上。建议到「设置 → AI 生图服务」切换为自定义服务（如硅基流动，注册送免费额度），几秒即可用"));
+        };
+        img.src = url;
+        /* 超时兜底：默认直接返回URL让用户自行打开；strict 模式下超时视为失败并重试 */
+        const to = setTimeout(() => {
+          if (!img.complete || img.naturalWidth === 0) {
+            if (opts.strict) {
+              if (n < retries) setTimeout(() => attempt(n + 1), 1500 * (n + 1));
+              else done(reject, new Error("图片生成超时，请重试（免费接口偶发超时，多试几次即可）"));
+            } else {
+              done(resolve, url);
+            }
+          }
+        }, 45000);
+        if (opts.signal) {
+          if (opts.signal.aborted) { clearTimeout(to); done(reject, new Error("已取消")); return; }
+          opts.signal.addEventListener("abort", () => {
+            clearTimeout(to);
+            img.src = "";
+            done(reject, new Error("已取消"));
+          }, { once: true });
+        }
+      }
+
+      attempt(0);
+    });
+  }
+
+  /* 上传参考图：压缩后返回 { url: 图床公网URL(供免费接口), dataUrl: base64(供自定义服务) } */
+  function uploadRefImage(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxDim = 1024;
+          let w = img.naturalWidth, h = img.naturalHeight;
+          const scale = Math.min(1, maxDim / Math.max(w, h));
+          w = Math.round(w * scale); h = Math.round(h * scale);
+          const cv = document.createElement("canvas");
+          cv.width = w; cv.height = h;
+          cv.getContext("2d").drawImage(img, 0, 0, w, h);
+          cv.toBlob(blob => {
+            if (!blob) { reject(new Error("图片处理失败")); return; }
+            const reader = new FileReader();
+            reader.onload = () => {
+              const dataUrl = reader.result;
+              const fd = new FormData();
+              fd.append("file", blob, "ref.jpg");
+              fetch("https://tmpfiles.org/api/v1/upload", { method: "POST", body: fd })
+                .then(r => r.json())
+                .then(j => {
+                  if (j && j.status === "success" && j.data && j.data.url) resolve({ url: j.data.url.replace("tmpfiles.org/", "tmpfiles.org/dl/"), dataUrl });
+                  else resolve({ url: null, dataUrl });
+                })
+                .catch(() => resolve({ url: null, dataUrl }));
+            };
+            reader.onerror = () => resolve({ url: null, dataUrl: null });
+            reader.readAsDataURL(blob);
+          }, "image/jpeg", 0.92);
+        } catch (e) { reject(new Error("图片处理失败：" + e.message)); }
+      };
+      img.onerror = () => reject(new Error("图片读取失败，请换一张图片"));
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  function downloadByUrl(url, filename) {
+    fetch(url)
+      .then(r => r.blob())
+      .then(b => XLX.util.download(filename, b, b.type))
+      .catch(() => {
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.click();
+      });
+  }
+
+  function enhancePrompt(text, cb) {
+    XLX.llm.ask(
+      "你是专业AI绘画提示词工程师。请把用户的描述扩写成高质量中文绘图提示词，保留核心元素，补充风格、光影、构图、细节、画质词，输出一句完整描述（50-120字），不要多余解释。",
+      text
+    ).then(res => cb(res.trim())).catch(() => cb(text));
+  }
+
+  const VENDOR_NAMES = { siliconflow: "硅基流动", doubao: "豆包 Seedream", qwen: "千问通义万相", custom: "自定义服务" };
+
+  function vendorName(s) {
+    const hubM = (XLX.modelHub) ? XLX.modelHub.current("image") : null;
+    if (hubM) return "模型库：" + hubM.name;
+    const v = (s && s.imageProvider && s.imageProvider !== "free") ? s.imageProvider : "free";
+    return v === "free" ? "免费 Pollinations" : (VENDOR_NAMES[v] || "自定义服务");
+  }
+
+  return { generate, downloadByUrl, enhancePrompt, uploadRefImage, vendorName };
 })();
 
 </script>
@@ -1845,6 +2606,16 @@ XLX.chat = (function () {
     return DEV_ACTIONS.test(t) && DEV_OBJECTS.test(t);
   }
 
+  /* 对话驱动剧作：识别「生成漫剧/短剧/真人剧」意图 */
+  function detectDramaIntent(text) {
+    if (XLX.PARKED.drama) return null;   /* 剧作已暂缓，不再自动跳转 */
+    const t = (text || "").trim();
+    const act = /(生成|制作|创作|做|写|拍|编排|导演|策划|制作).{0,8}(漫剧|短剧|真人剧|视频)/;
+    const act2 = /(漫剧|短剧|真人剧|视频).{0,8}(生成|制作|创作|做|写|拍|来|部)/;
+    const m = t.match(act) || t.match(act2);
+    if (!m) return null;
+    return { type: "aidrama", label: "AI视频" };
+  }
   function getDevMode() {
     try {
       const s = JSON.parse(localStorage.getItem(XLX.K.SETTINGS) || "{}");
@@ -2262,6 +3033,38 @@ XLX.chat = (function () {
     mb.appendChild(buildMsg("user", text, Date.now()));
     chatBox().scrollTop = chatBox().scrollHeight;
 
+    /* 对话驱动：识别「生成漫剧/短剧/真人剧」意图，插入剧作跳转卡片 */
+    const dramaMatch = detectDramaIntent(text);
+    if (dramaMatch) {
+      const cn = buildMsg("assistant", "", Date.now());
+      mb.appendChild(cn);
+      const cwrap = cn.querySelector(".bubble");
+      if (cwrap) {
+        const card = document.createElement("div");
+        card.className = "proj-card";
+        card.style.borderColor = "rgba(167,139,250,.4)";
+        card.style.background = "rgba(167,139,250,.07)";
+        card.innerHTML = ''
+          + '<div style="display:flex;align-items:center;gap:10px">'
+          + '<div style="width:36px;height:36px;border-radius:10px;background:#a78bfa22;border:1px solid #a78bfa55;display:flex;align-items:center;justify-content:center;color:#a78bfa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">' + (XLX.ICONS.clapper || "") + '</svg></div>'
+          + '<div style="flex:1"><div style="font-size:13.5px;font-weight:700">AI 视频生成工作站</div>'
+          + '<div style="font-size:11.5px;color:var(--text3);margin-top:2px">接入火山方舟 Seedance 生成真实视频（付费 · 约 0.2 元/秒起）：支持文案 / 脚本 / 音频 / 联网搜索驱动</div></div></div>'
+          + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
+          + '<button class="btn primary small" data-a="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px">' + (XLX.ICONS.clapper || "") + '</svg> 打开视频生成面板</button>'
+          + '<button class="btn small" data-a="copy">发送视频创意</button>'
+          + '</div>';
+        card.querySelector('[data-a=go]').onclick = () => {
+          XLX.router.go("tools");
+          setTimeout(() => XLX.tools.runDrama(dramaMatch.type, ""), 120);
+        };
+        card.querySelector('[data-a=copy]').onclick = () => {
+          const inp = document.getElementById("chatInput");
+          if (inp) { inp.value = "帮我写" + dramaMatch.label + "的视频创意：" + text; inp.focus(); }
+        };
+        cwrap.appendChild(card);
+      }
+    }
+
     /* 构建上下文 */
     const sys = XLX.memory.systemPrompt();
     const isDev = isDevRequest(text);
@@ -2520,7 +3323,7 @@ XLX.chat = (function () {
     XLX.util.toast("配置 Key 即可开始对话，推荐先用免费模型", "info");
   }
 
-  return { send, stop, clearCurrent, renderCurrent, ensureConv, current, newConv, loadConvs, saveConvs, isBusy: () => state.busy, conversationCount, openSettingsGuide, getDevMode, setDevMode, renderDevChip, isDevRequest, getSearchMode, setSearchMode, renderSearchChip, initSearchChip, getClerkMode, setClerkMode, renderClerkChip, initClerkChip };
+  return { send, stop, clearCurrent, renderCurrent, ensureConv, current, newConv, loadConvs, saveConvs, isBusy: () => state.busy, conversationCount, openSettingsGuide, getDevMode, setDevMode, renderDevChip, isDevRequest, getSearchMode, setSearchMode, renderSearchChip, initSearchChip, getClerkMode, setClerkMode, renderClerkChip, initClerkChip, __testDrama: detectDramaIntent };
 })();
 
 </script>
@@ -2531,9 +3334,10 @@ XLX.market = (function () {
   let curCat = "all";
   let keyword = "";
 
-  function fillPrompt(skill, input) {
+  function fillPrompt(skill, input, extra) {
     let p = skill.prompt || "";
     p = p.replace(/\{input\}/g, input || "");
+    p = p.replace(/\{imgNote\}/g, (extra && extra.note) || "请使用英文或中文直接生成，输出4张不同构图/角度的图片（本工具为免费接口）。");
     return p;
   }
 
@@ -2601,21 +3405,65 @@ XLX.market = (function () {
       + '<div class="modal-body">'
       + '<p style="font-size:12.5px;color:var(--text2);margin-bottom:10px">' + XLX.util.esc(skill.desc) + '</p>'
       + (skill.action === "tool"
-          ? ''
+          ? (skill.tool === "aidrama"
+              ? '<label class="label">输入剧情文案 / 脚本（或到「AI剧作」面板用音频/搜索驱动）</label>'
+              + '<textarea id="skillInput" class="inp" style="min-height:100px" placeholder="例如：一只在小龙虾夜市创业的年轻夫妇，遇到竞对恶意挖角，最终靠口碑逆袭…"></textarea>'
+              : '')
           : '<label class="label">描述你的需求</label>'
           + '<textarea id="skillInput" class="inp" style="min-height:110px" placeholder="请输入' + skill.name + '需要的信息，例如：' + (skill.placeholder || "产品的名称、特点、目标人群…") + '"></textarea>')
+      + (skill.action === "image"
+          ? '<label class="label">上传参考图（以图为中心生成，可选）</label>'
+          + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+          + '<input type="file" id="skillImgRef" accept="image/*" style="display:none">'
+          + '<button class="btn ghost" id="skillImgRefBtn">' + svg("upload", 13) + ' 选择参考图</button>'
+          + '<img id="skillImgRefPrev" style="display:none;width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">'
+          + '<button class="btn ghost" id="skillImgRefClear" style="display:none">清除</button>'
+          + '<span id="skillImgRefName" style="font-size:11px;color:var(--text3)"></span></div>'
+          + '<label class="label" style="margin-top:10px">图片风格（可选）</label><input id="skillImgNote" class="inp" placeholder="例如：国潮插画风 / 写实摄影风 / 扁平卡通风 / 3D渲染风…">'
+          : "")
       + '</div>'
       + '<div class="modal-foot">'
       + '<button class="btn ghost" id="modalClose">取消</button>'
-      + '<button class="btn primary" id="modalOk">' + (skill.action === "tool" ? "打开工具" : "生成") + '</button>'
+      + '<button class="btn primary" id="modalOk">' + (skill.action === "image" ? "开始生成图片" : skill.action === "tool" ? (skill.tool === "aidrama" ? "开始创作剧作" : "打开工具") : "生成") + '</button>'
       + '</div></div>';
     m.classList.add("open");
     document.getElementById("modalClose").onclick = () => m.classList.remove("open");
     m.onclick = (e) => { if (e.target === m) m.classList.remove("open"); };
+    /* 参考图选择 */
+    let refUrl = null;
+    const refFile = document.getElementById("skillImgRef");
+    const refBtn = document.getElementById("skillImgRefBtn");
+    const refPrev = document.getElementById("skillImgRefPrev");
+    const refClear = document.getElementById("skillImgRefClear");
+    const refName = document.getElementById("skillImgRefName");
+    if (refBtn) {
+      refBtn.onclick = () => refFile.click();
+      refFile.onchange = async () => {
+        const f = refFile.files[0];
+        if (!f) return;
+        refName.textContent = "上传中…";
+        try {
+          refUrl = await XLX.image.uploadRefImage(f);
+          refName.textContent = "参考图已就绪";
+          refPrev.src = URL.createObjectURL(f);
+          refPrev.style.display = "block";
+          refClear.style.display = "";
+        } catch (e) { refName.textContent = ""; XLX.util.toast(e.message, "warn"); }
+      };
+      refClear.onclick = () => {
+        refUrl = null; refFile.value = ""; refName.textContent = ""; refPrev.style.display = "none"; refClear.style.display = "none";
+      };
+    }
     const ok = document.getElementById("modalOk");
     const run = () => {
       if (skill.action === "tool") {
         m.classList.remove("open");
+        if (skill.tool === "aidrama" && skill.drama) {
+          const input = document.getElementById("skillInput") ? document.getElementById("skillInput").value.trim() : "";
+          XLX.router.go("tools");
+          setTimeout(() => XLX.tools.runDrama(skill.drama, input), 100);
+          return;
+        }
         XLX.router.go("tools");
         setTimeout(() => { XLX.tools.openTool(skill.tool); }, 80);
         return;
@@ -2623,9 +3471,16 @@ XLX.market = (function () {
       const input = document.getElementById("skillInput").value.trim();
       if (!input) { XLX.util.toast("请先填写需求", "warn"); return; }
       m.classList.remove("open");
-      const prompt = fillPrompt(skill, input);
-      XLX.router.go("chat");
-      setTimeout(() => XLX.chat.send(prompt, { search: skill.action === "search" }), 50);
+      if (skill.action === "image") {
+        const note = document.getElementById("skillImgNote") ? document.getElementById("skillImgNote").value.trim() : "";
+        const prompt = fillPrompt(skill, input, { note });
+        XLX.router.go("tools");
+        XLX.tools.runImage(prompt, { aspect: skill.aspect, image: refUrl });
+      } else {
+        const prompt = fillPrompt(skill, input);
+        XLX.router.go("chat");
+        setTimeout(() => XLX.chat.send(prompt, { search: skill.action === "search" }), 50);
+      }
     };
     ok.onclick = run;
     const inp = document.getElementById("skillInput");
@@ -2638,16 +3493,19 @@ XLX.market = (function () {
 
 </script>
 <script>
-/* ===== 工具集：电商工具箱（全部免费） ===== */
+/* ===== 工具集：AI 生图 + 电商工具箱（全部免费） ===== */
 
 XLX.tools = (function () {
+  /* 暂缓期间默认落在「商品图下载」，不再默认进「AI生图」 */
   let curTab = "itemdl";
   const TABS = [
+    { id: "img", name: "AI生图", icon: "palette" },
+    { id: "aidrama", name: "AI剧作", icon: "clapper" },
     { id: "itemdl", name: "商品图下载", icon: "download" },
     { id: "imgwm", name: "图片去水印", icon: "wand" },
     { id: "videowm", name: "视频去水印", icon: "video" },
     { id: "vidtxt", name: "视频提取文案", icon: "mic" }
-  ];
+  ].filter(t => !(XLX.PARKED.image && t.id === "img") && !(XLX.PARKED.drama && t.id === "aidrama"));
 
   /* 免费 CORS 代理（抓取第三方页面用） */
   const PROXIES = [
@@ -2686,7 +3544,9 @@ XLX.tools = (function () {
       + '<div id="toolPanel"></div>';
     box.querySelectorAll(".tool-tab").forEach(b => b.onclick = () => { curTab = b.dataset.tab; render(); });
     const panel = document.getElementById("toolPanel");
-    if (curTab === "itemdl") renderItemDL(panel);
+    if (curTab === "img") renderImg(panel);
+    else if (curTab === "aidrama") renderDrama(panel);
+    else if (curTab === "itemdl") renderItemDL(panel);
     else if (curTab === "imgwm") renderImgWM(panel);
     else if (curTab === "videowm") renderVideoWM(panel);
     else if (curTab === "vidtxt") renderVidTxt(panel);
@@ -2698,22 +3558,172 @@ XLX.tools = (function () {
     render();
   }
 
+  /* ===================== AI 生图（以图生图：上传实例图 + 选渠道 + 输入指令） ===================== */
+
+  /* 供 runImage/market 预填参考图 */
+  let pendingRefUrl = null;
+
+  const IMG_CHANNELS = [
+    { id: "ecommerce", name: "电商图", ratio: "square", hint: "商品主体清晰，电商展示效果", tpl: "以实例图为参考，保留图中主体商品不变，生成电商商品展示图" },
+    { id: "poster", name: "海报图", ratio: "wide", hint: "宣传海报构图，视觉冲击力强", tpl: "以实例图为参考，保留图中主体商品不变，制作宣传海报" },
+    { id: "normal", name: "普通图", ratio: "square", hint: "常规生成，忠实还原实例图", tpl: "以实例图为参考，忠实还原图中主体内容" },
+    { id: "white", name: "白底图", ratio: "square", hint: "纯白背景商品图，干净无杂物", tpl: "以实例图为参考，保留图中主体商品不变，把背景换成纯白色，背景纯净无杂物" },
+    { id: "transparent", name: "透明图", ratio: "square", hint: "透明背景（免费接口以白底近似）", tpl: "以实例图为参考，保留图中主体商品不变，主体完整，背景纯白（近似透明底）" }
+  ];
+
+  function renderImg(box) {
+    const chHTML = IMG_CHANNELS.map((c, i) =>
+      '<button class="preset-chip channel-chip' + (i === 0 ? " active" : "") + '" data-c="' + c.id + '">' + c.name + '</button>'
+    ).join(" ");
+    box.innerHTML = ''
+      + '<div class="notice" style="font-size:12px;color:var(--text2);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:12px">'
+      + '以图生图模式：<b>先上传实例图 → 选择渠道 → 输入指令</b>，生成与实例图相关的结果。'
+      + '<br>例如：上传一张产品照片，渠道选「白底图」，输入「把背景换成纯白」，得到干净的白底商品图。'
+      + '<br><b style="color:var(--warn)">重要：免费接口不保留实例图主体</b>（结果可能与原图无关）。想保留主体生成电商/白底图，请用「设置 → AI 生图服务」配置自定义服务（硅基流动 / 豆包 / 千问，均送免费额度）。</div>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
+      + '<div style="flex:1;min-width:260px"><label class="label">指令（描述你想要的修改/效果，可留空用渠道默认效果）</label>'
+      + '<textarea id="imgPrompt" class="inp" style="min-height:80px" placeholder="例如：把背景换成纯白 / 加上促销文案氛围 / 保留主体换到沙滩场景"></textarea></div>'
+      + '<button class="btn primary" id="imgGenBtn" style="margin-bottom:2px">' + svg("sparkle", 15) + ' 生成图片</button>'
+      + '<div id="imgSvcTip" style="flex:0 0 100%;font-size:11px;color:var(--text3)"></div>'
+      + '</div>'
+      + '<div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">'
+      + '<input type="file" id="imgRefFile" accept="image/*" style="display:none">'
+      + '<button class="btn primary" id="imgRefBtn" style="background:var(--panel2);color:var(--text)">' + svg("upload", 14) + ' 上传实例图（必填）</button>'
+      + '<span id="imgRefName" style="font-size:11.5px;color:var(--text3)"></span>'
+      + '<img id="imgRefPreview" style="display:none;width:64px;height:64px;object-fit:cover;border-radius:9px;border:1px solid var(--border)">'
+      + '<button class="btn ghost" id="imgRefClear" style="display:none">' + svg("x", 13) + ' 清除</button>'
+      + '</div>'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">'
+      + '<label class="label" style="margin:0">渠道：</label>' + chHTML
+      + '<span id="imgChannelHint" style="font-size:11px;color:var(--text3)">' + IMG_CHANNELS[0].hint + '</span>'
+      + '</div>'
+      + '<div id="imgResult" class="img-grid"></div>';
+
+    const genBtn = document.getElementById("imgGenBtn");
+    const promptEl = document.getElementById("imgPrompt");
+    const resultBox = document.getElementById("imgResult");
+    let refUrl = pendingRefUrl;
+    let channel = IMG_CHANNELS[0];
+    pendingRefUrl = null;
+
+    const refFile = document.getElementById("imgRefFile");
+    const refName = document.getElementById("imgRefName");
+    const refPreview = document.getElementById("imgRefPreview");
+    const refClear = document.getElementById("imgRefClear");
+    (function () {
+      const st = XLX.llm.getSettings();
+      const tip = document.getElementById("imgSvcTip");
+      const customOn = st && st.imageProvider && st.imageProvider !== "free" && !!(st.imageKey || "").trim();
+      if (tip) tip.textContent = customOn
+        ? "当前生图服务：" + (XLX.image.vendorName ? XLX.image.vendorName(st) : "自定义服务") + "（" + (st.imageModel || "未设置模型") + "），可真正保留实例图主体。在 设置 → AI 生图服务 中可改"
+        : "当前生图服务：免费 Pollinations（国内网络可能较慢）。注意：免费接口图生图不保留实例图主体，想保留主体做电商/白底图请到「设置 → AI 生图服务」配置自定义服务（硅基流动 / 豆包 / 千问，均送免费额度）";
+    })();
+    box.querySelectorAll(".channel-chip").forEach(b => b.onclick = () => {
+      box.querySelectorAll(".channel-chip").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      channel = IMG_CHANNELS.find(c => c.id === b.dataset.c);
+      document.getElementById("imgChannelHint").textContent = channel.hint;
+    });
+    document.getElementById("imgRefBtn").onclick = () => refFile.click();
+    refFile.onchange = async () => {
+      const f = refFile.files[0];
+      if (!f) return;
+      refName.textContent = "上传中…";
+      try {
+        refUrl = await XLX.image.uploadRefImage(f);
+        refName.textContent = "实例图已就绪";
+        refPreview.src = URL.createObjectURL(f);
+        refPreview.style.display = "block";
+        refClear.style.display = "";
+      } catch (e) {
+        refName.textContent = "";
+        XLX.util.toast(e.message, "warn");
+      }
+    };
+    refClear.onclick = () => {
+      refUrl = null; refFile.value = ""; refName.textContent = ""; refPreview.style.display = "none"; refClear.style.display = "none";
+    };
+
+    const history = loadHistory();
+    const makeImgItem = (i, h) => {
+      const it = document.createElement("div");
+      it.className = "img-item";
+      it.dataset.i = String(i);
+      it.dataset.time = h.time ? String(h.time) : "";
+      it.innerHTML = '<img loading="lazy" src="' + h.url + '"><div class="iact">'
+        + '<button data-a="dl" title="下载">' + svg("download", 14) + '</button>'
+        + '<button data-a="del" title="删除">' + svg("trash", 14) + '</button></div>'
+        + '<div class="ilab">' + XLX.util.esc((h.channel || "普通图") + (h.prompt ? " · " + h.prompt.slice(0, 40) : "")) + '</div>';
+      it.querySelector("[data-a=dl]").onclick = () => {
+        XLX.image.downloadByUrl(h.url, "xlx-" + (h.prompt.slice(0, 16).replace(/[^\w\u4e00-\u9fa5]/g, "") || "img") + "-" + Date.now() + ".png");
+      };
+      it.querySelector("[data-a=del]").onclick = () => {
+        const list = loadHistory();
+        const t = it.dataset.time;
+        if (t) {
+          const idx = list.findIndex(x => String(x.time) === t);
+          if (idx >= 0) list.splice(idx, 1);
+        }
+        saveHistory(list);
+        it.remove();
+      };
+      return it;
+    };
+    if (history.length) {
+      history.forEach((h, i) => resultBox.appendChild(makeImgItem(i, h)));
+    }
+
+    const run = async () => {
+      const hasRef = refUrl && (refUrl.url || refUrl.dataUrl);
+      if (!hasRef) { XLX.util.toast("请先上传实例图", "warn"); return; }
+      const st = XLX.llm.getSettings();
+      const customOn = st && st.imageProvider && st.imageProvider !== "free" && !!(st.imageKey || "").trim();
+      if (!customOn && !window.confirm("当前是免费 Pollinations 接口：它的图生图「不保留实例图主体」，生成结果可能与你的图片无关（会按指令自由发挥）。\n\n要得到保留主体的电商图/白底图，建议先到「设置 → AI 生图服务」配置自定义服务（硅基流动 / 豆包 / 千问，注册都送免费额度，几秒可用）。\n\n仍要用免费接口继续吗？")) return;
+      const raw = promptEl.value.trim();
+      const prompt = [channel.tpl, raw].filter(Boolean).join("，");
+      genBtn.disabled = true;
+      genBtn.innerHTML = customOn
+        ? '<span class="spin" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> 生成中…（商业模型约需10-90秒）'
+        : '<span class="spin" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> 生成中…（免费接口约需5-40秒，国内网络连不上可到设置切自定义服务）';
+      const ph = document.createElement("div");
+      ph.className = "img-item";
+      const _t0 = Date.now();
+      ph.dataset.time = "";
+      ph.innerHTML = '<div class="iload"><div class="spinner"></div>正在生成图片…<div style="font-size:10px">' + (customOn ? "商业模型约需10-90秒，请稍候" : "免费接口 Pollinations 偶发超时；若一直无结果，建议到「设置 → AI 生图服务」切换自定义服务") + '</div>'
+        + '<div class="iact"><button data-a="del" title="删除">' + svg("trash", 14) + '</button></div>';
+      ph.querySelector("[data-a=del]").onclick = () => ph.remove();
+      resultBox.insertBefore(ph, resultBox.firstChild ? resultBox.firstChild.nextSibling : null);
+      try {
+        const url = await XLX.image.generate(prompt, { aspect: channel.ratio, image: refUrl });
+        ph.innerHTML = '<img src="' + url + '" style="aspect-ratio:auto"><div class="iact"><button data-a="dl">' + svg("download", 14) + '</button><button data-a="del" title="删除">' + svg("trash", 14) + '</button></div><div class="ilab">' + XLX.util.esc(channel.name + (prompt ? " · " + prompt.slice(0, 40) : "")) + '</div>';
+        ph.querySelector("[data-a=dl]").onclick = () => XLX.image.downloadByUrl(url, "xlx-" + Date.now() + ".png");
+        const list = loadHistory();
+        list.unshift({ url, prompt, channel: channel.name, time: _t0 });
+        saveHistory(list);
+        ph.dataset.time = String(_t0);
+        ph.querySelector("[data-a=del]").onclick = () => {
+          const l2 = loadHistory();
+          const idx = l2.findIndex(x => String(x.time) === String(_t0));
+          if (idx >= 0) l2.splice(idx, 1);
+          saveHistory(l2);
+          ph.remove();
+        };
+      } catch (e) {
+        ph.querySelector(".iload").innerHTML = '<div style="color:var(--red);text-align:center;padding:10px">' + XLX.util.esc(e.message) + '</div>';
+      }
+      genBtn.disabled = false;
+      genBtn.innerHTML = svg("sparkle", 15) + ' 生成图片';
+    };
+    genBtn.onclick = run;
+    promptEl.onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run(); };
+  }
+
+  function loadHistory() {
+    try { return JSON.parse(localStorage.getItem(XLX.K.IMAGES) || "[]"); } catch (e) { return []; }
+  }
+  function saveHistory(list) { localStorage.setItem(XLX.K.IMAGES, JSON.stringify(list.slice(0, 60))); }
 
   /* ===================== 商品图下载 ===================== */
-
-  /* 按 URL 下载图片：优先 fetch 转 blob，失败时新窗口打开 */
-  function downloadImgByUrl(url, filename) {
-    fetch(url)
-      .then(r => r.blob())
-      .then(b => XLX.util.download(filename, b, b.type))
-      .catch(() => {
-        const a = document.createElement("a");
-        a.href = url;
-        a.target = "_blank";
-        a.rel = "noopener";
-        a.click();
-      });
-  }
 
   function renderItemDL(box) {
     box.innerHTML = ''
@@ -2754,13 +3764,13 @@ XLX.tools = (function () {
         result.querySelectorAll(".img-item [data-a=dl]").forEach(b => {
           b.onclick = () => {
             const u = b.closest(".img-item").dataset.u;
-            downloadImgByUrl(u, "img-" + Date.now() + ".jpg");
+            XLX.image.downloadByUrl(u, "img-" + Date.now() + ".jpg");
           };
         });
         document.getElementById("dlAll").onclick = async () => {
           XLX.util.toast("开始逐个下载…", "info");
           for (const u of imgs) {
-            await new Promise(r => { downloadImgByUrl(u, "img-" + Date.now() + ".jpg"); setTimeout(r, 400); });
+            await new Promise(r => { XLX.image.downloadByUrl(u, "img-" + Date.now() + ".jpg"); setTimeout(r, 400); });
           }
         };
         document.getElementById("dlAllZip").onclick = async () => {
@@ -3490,6 +4500,476 @@ XLX.tools = (function () {
     };
   }
 
+  /* ===================== AI 视频生成（付费 · 火山方舟/可灵） ===================== */
+  const VIDEO_RATIOS = ["16:9", "9:16", "1:1"];
+  const VIDEO_DURS = [5, 10];
+  const DRAMA_DRIVERS = [
+    { id: "wenan", name: "文案", icon: "pen", ph: "输入剧情想法/故事梗概，例如：一对中年夫妻在小龙虾夜市摊重燃爱情火花……", tip: "输入一段剧情想法，AI 提炼成适合视频模型的提示词，再生成真实视频" },
+    { id: "juben", name: "脚本", icon: "story", ph: "粘贴已有剧本/对白/分场……", tip: "粘贴已写好的剧本或对白，AI 提炼成视频提示词并生成真实视频" },
+    { id: "audio", name: "音频", icon: "mic", ph: "", tip: "上传音频文件，浏览器端直接语音转写为文案（Chrome/Edge），或粘贴音频里的台词" },
+    { id: "search", name: "搜索", icon: "search", ph: "输入主题/关键词，联网搜索网感素材……", tip: "输入一个主题关键词，联网搜索热门网感元素，再提炼成视频提示词" }
+  ];
+
+  function renderDrama(box) {
+    let dDriver = "wenan";
+    let stopFlag = false;
+    const vpName = XLX.videogen.providerDef().name;
+    const resoOpts = XLX.videogen.resoOptions();
+    const defReso = (XLX.videogen.cfg().reso) || (resoOpts[0] ? resoOpts[0].v : "720p");
+    box.innerHTML = ''
+      + '<div style="display:flex;gap:8px;margin-bottom:12px">'
+      + '<button class="btn ghost" id="dramaModeShort" style="background:var(--accent);color:#fff;border-color:var(--accent)">' + svg("film", 13) + ' 短视频</button>'
+      + '<button class="btn ghost" id="dramaModeLong">' + svg("clapper", 13) + ' 长视频</button>'
+      + '<button class="btn ghost" id="dramaModeComic">' + svg("story", 13) + ' 漫剧</button>'
+      + '</div>'
+      + '<div class="notice" style="font-size:12px;color:var(--text2);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:12px">'
+      + '<b>AI 视频生成</b>（付费 · ' + vpName + '）：选一种驱动方式（<b>文案 / 脚本 / 音频 / 联网搜索</b>）→ AI 提炼视频提示词 → 生成真实视频。'
+      + '<br>' + (XLX.videogen.isConfigured() ? '已配置视频平台，可直接生成。' : '<span style="color:var(--warn)">尚未配置视频平台 Key，请先到「设置」页填写。</span>')
+      + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
+      + DRAMA_DRIVERS.map(d => '<button class="btn ghost drama-driver" data-d="' + d.id + '" style="' + (d.id === dDriver ? 'background:var(--accent);color:#fff;border-color:var(--accent)' : '') + '">' + svg(d.icon, 13) + ' ' + d.name + '</button>').join("")
+      + '</div>'
+      + '<div id="dramaInput" class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px;margin-bottom:12px"></div>'
+      + '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">'
+      + '<label class="label" style="margin:0">画幅</label>'
+      + '<select class="inp" id="vdRatio" style="width:92px;padding:6px">' + VIDEO_RATIOS.map(r => '<option' + (r === "16:9" ? " selected" : "") + '>' + r + '</option>').join("") + '</select>'
+      + '<label class="label" style="margin:0">清晰度</label>'
+      + '<select class="inp" id="vdReso" style="width:110px;padding:6px">' + resoOpts.map(r => '<option value="' + r.v + '"' + (r.v === defReso ? " selected" : "") + '>' + r.l + '</option>').join("") + '</select>'
+      + '<label class="label" style="margin:0">时长</label>'
+      + '<select class="inp" id="vdDur" style="width:76px;padding:6px">' + VIDEO_DURS.map(r => '<option' + (r === 5 ? " selected" : "") + '>' + r + '秒</option>').join("") + '</select>'
+      + '</div>'
+      + '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">'
+      + '<button class="btn primary" id="dramaGenBtn" style="flex:1;min-width:200px">' + svg("clapper", 15) + ' 生成视频</button>'
+      + '<button class="btn ghost" id="dramaStopBtn" style="display:none">' + svg("x", 14) + ' 停止</button>'
+      + '</div>'
+      + '<div id="dramaOutput"></div>';
+
+    box.querySelectorAll(".drama-driver").forEach(b => b.onclick = () => {
+      dDriver = b.dataset.d;
+      box.querySelectorAll(".drama-driver").forEach(x => { x.style.background = ""; x.style.color = ""; x.style.borderColor = ""; });
+      b.style.background = "var(--accent)"; b.style.color = "#fff"; b.style.borderColor = "var(--accent)";
+      renderInput();
+    });
+    const modeShortBtn = document.getElementById("dramaModeShort");
+    const modeLongBtn = document.getElementById("dramaModeLong");
+    if (modeShortBtn) modeShortBtn.onclick = () => renderDrama(box);
+    if (modeLongBtn) modeLongBtn.onclick = () => renderLongVideo(box);
+    const modeComicBtn = document.getElementById("dramaModeComic");
+    if (modeComicBtn) modeComicBtn.onclick = () => renderComic(box);
+
+    const renderInput = () => {
+      const D = DRAMA_DRIVERS.find(x => x.id === dDriver);
+      const inp = document.getElementById("dramaInput");
+      if (!inp) return;
+      let html = '<div style="font-size:11.5px;color:var(--text3);margin-bottom:8px">' + D.name + '：' + D.tip + '</div>';
+      if (D.id === "audio") {
+        html += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
+          + '<div style="flex:1;min-width:240px"><label class="label">上传音频（AI 自动转写为文案）</label>'
+          + '<input type="file" id="dramaAudio" accept="audio/*,video/*" class="inp" style="padding:8px"></div>'
+          + '<button class="btn ghost" id="dramaAudioTrans">' + svg("mic", 14) + ' 转写音频</button>'
+          + '</div>'
+          + '<div id="dramaAudioText" style="margin-top:10px">'
+          + '<label class="label">转写结果 / 或手动粘贴音频里的台词</label>'
+          + '<textarea id="dramaAudioCtx" class="inp" style="min-height:70px" placeholder="音频转写结果会显示在这里，也可直接粘贴台词…"></textarea></div>';
+      } else if (D.id === "search") {
+        html += '<label class="label">联网搜索关键词</label>'
+          + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
+          + '<input id="dramaSearchKw" class="inp" style="flex:1;min-width:240px" placeholder="例如：今年最火的小龙虾夜宵店创业故事">'
+          + '<button class="btn ghost" id="dramaSearchBtn">' + svg("search", 14) + ' 搜索素材</button>'
+          + '</div>'
+          + '<div id="dramaSearchResult" style="margin-top:8px;font-size:12px;color:var(--text3)"></div>'
+          + '<label class="label" style="margin-top:10px">搜索素材（自动填充，可编辑）</label>'
+          + '<textarea id="dramaSearchCtx" class="inp" style="min-height:80px" placeholder="联网搜索结果会自动汇总到这里…"></textarea>';
+      } else {
+        html += '<label class="label">' + (D.id === "juben" ? "剧本 / 对白内容" : "剧情文案") + '</label>'
+          + '<textarea id="dramaCtx" class="inp" style="min-height:110px" placeholder="' + D.ph + '"></textarea>';
+      }
+      inp.innerHTML = html;
+      /* 事件绑定 */
+      const audioEl = document.getElementById("dramaAudio");
+      const audioCtx = document.getElementById("dramaAudioCtx");
+      if (audioEl && audioCtx) {
+        const transBtn = document.getElementById("dramaAudioTrans");
+        if (transBtn) transBtn.onclick = () => transcribeAudio(audioEl.files && audioEl.files[0], audioCtx);
+      }
+      const searchBtn = document.getElementById("dramaSearchBtn");
+      const searchKw = document.getElementById("dramaSearchKw");
+      const searchCtx = document.getElementById("dramaSearchCtx");
+      if (searchBtn && searchKw && searchCtx) {
+        searchBtn.onclick = async () => {
+          const kw = searchKw.value.trim();
+          if (!kw) { XLX.util.toast("请输入搜索关键词", "warn"); return; }
+          searchBtn.disabled = true; searchBtn.innerHTML = svg("search", 14) + ' 搜索中…';
+          const res = document.getElementById("dramaSearchResult");
+          res.innerHTML = '正在联网搜索「' + XLX.util.esc(kw) + '」…';
+          try {
+            const results = await XLX.search.search(kw);
+            if (!results.length) throw new Error("无结果");
+            searchCtx.value = XLX.search.toText(results).slice(0, 2600);
+            res.innerHTML = '<span style="color:var(--ok)">已获取 ' + results.length + ' 条网感素材，可直接生成。</span>';
+          } catch (e) {
+            res.innerHTML = '<span style="color:var(--warn)">联网搜索失败，可手动输入主题后直接生成。</span>';
+            searchCtx.placeholder = "（联网失败）手动输入剧情主题/素材…";
+          }
+          searchBtn.disabled = false; searchBtn.innerHTML = svg("search", 14) + ' 搜索素材';
+        };
+      }
+    };
+
+    const transcribeAudio = (file, ctxEl) => {
+      if (!ctxEl) return;
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        XLX.util.toast("当前浏览器不支持语音转写，请用 Chrome/Edge，或直接粘贴台词", "warn");
+        return;
+      }
+      if (!file) { XLX.util.toast("请先选择音频文件", "warn"); return; }
+      ctxEl.value = "正在用浏览器语音识别转写，请确保音频在播放中（或扬声器外放）…";
+      const rec = new SR();
+      rec.lang = "zh-CN"; rec.interimResults = true; rec.continuous = true;
+      let full = "";
+      rec.onresult = (e) => {
+        let interim = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) full += t;
+          else interim += t;
+        }
+        ctxEl.value = full + (interim ? "…" + interim : "");
+      };
+      rec.onerror = (e) => { ctxEl.value = full || ""; XLX.util.toast("转写中断（" + e.error + "），可播放音频时重试", "warn"); };
+      rec.onend = () => { ctxEl.value = full; XLX.util.toast("转写结束", "ok"); };
+      rec.start();
+    };
+
+    const out = document.getElementById("dramaOutput");
+    const genBtn = document.getElementById("dramaGenBtn");
+    const stopBtn = document.getElementById("dramaStopBtn");
+    genBtn.onclick = async () => {
+      const D = DRAMA_DRIVERS.find(x => x.id === dDriver);
+      let source = "";
+      if (D.id === "audio") {
+        const c = document.getElementById("dramaAudioCtx");
+        source = c ? c.value.trim() : "";
+      } else if (D.id === "search") {
+        const c = document.getElementById("dramaSearchCtx");
+        source = c ? c.value.trim() : "";
+      } else {
+        const c = document.getElementById("dramaCtx");
+        source = c ? c.value.trim() : "";
+      }
+      if (!source) { XLX.util.toast("请先填写内容或素材", "warn"); return; }
+      if (!XLX.videogen.isConfigured()) {
+        XLX.util.toast("请先到「设置」页配置视频生成平台", "warn");
+        if (XLX.app && XLX.app.showView) XLX.app.showView("settings");
+        return;
+      }
+      stopFlag = false;
+      const aborter = new AbortController();
+      genBtn.disabled = true; stopBtn.style.display = "";
+      stopBtn.onclick = () => { stopFlag = true; aborter.abort(); };
+      const genStart = Date.now();
+      out.innerHTML = '<div class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px">'
+        + '<div class="label">步骤 1/2 · AI 提炼视频提示词…</div>'
+        + '<div class="iload" style="padding:18px 0"><div class="spinner"></div>正在根据素材构思画面、动作与运镜，请稍候…</div></div>';
+      let prompt = null;
+      try {
+        prompt = await writeVideoPrompt(D, source, aborter.signal);
+      } catch (e) {
+        genBtn.disabled = false; stopBtn.style.display = "none";
+        out.innerHTML = '<div style="color:var(--warn)">' + (e.message === "已取消" ? "已停止生成" : "提示词生成失败：" + e.message) + '</div>';
+        return;
+      }
+      if (stopFlag) { genBtn.disabled = false; stopBtn.style.display = "none"; return; }
+      const vopts = {
+        ratio: document.getElementById("vdRatio").value,
+        resolution: document.getElementById("vdReso").value,
+        duration: parseInt(document.getElementById("vdDur").value, 10) || 5
+      };
+      out.innerHTML = '<div class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px;margin-bottom:12px">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
+        + '<div class="label">视频提示词（可手动修改）</div>'
+        + '<button class="btn ghost" id="dramaRePrompt">' + svg("refresh", 13) + ' 重新生成</button></div>'
+        + '<textarea id="vdPrompt" class="inp" style="min-height:90px;font-size:12.5px">' + XLX.util.esc(prompt) + '</textarea></div>'
+        + '<div class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px">'
+        + '<div class="label">步骤 2/2 · 提交视频生成任务（' + vopts.resolution + ' · ' + vopts.ratio + ' · ' + vopts.duration + ' 秒）…</div>'
+        + '<div class="iload" style="padding:14px 0"><div class="spinner"></div><span id="vdStatus">正在创建任务…</span></div>'
+        + '<div class="progress-bar" style="height:8px;background:var(--bg);border-radius:6px;overflow:hidden;border:1px solid var(--border)">'
+        + '<div id="vdBar" style="width:0%;height:100%;background:var(--accent);transition:width .2s"></div></div></div>';
+      document.getElementById("dramaRePrompt").onclick = async () => {
+        const ta = document.getElementById("vdPrompt");
+        ta.value = "正在重新生成…";
+        try {
+          ta.value = await writeVideoPrompt(D, source, null);
+        } catch (e) {
+          ta.value = prompt;
+          XLX.util.toast("重新生成失败：" + e.message, "err");
+        }
+      };
+      const vdStatus = document.getElementById("vdStatus");
+      const vdBar = document.getElementById("vdBar");
+      let lastPct = 0;
+      try {
+        const result = await XLX.videogen.generate(document.getElementById("vdPrompt").value.trim(), {
+          ratio: vopts.ratio, resolution: vopts.resolution, duration: vopts.duration,
+          onStatus: (st) => {
+            if (stopFlag) return;
+            if (st.phase === "created") {
+              vdStatus.textContent = "任务已提交（" + String(st.taskId).slice(0, 10) + "…），AI 正在生成，通常需 1-3 分钟…";
+              vdBar.style.width = "8%";
+            } else if (st.phase === "polling") {
+              lastPct = Math.min(85, lastPct + 3 + Math.random() * 4);
+              vdBar.style.width = lastPct + "%";
+              vdStatus.textContent = "AI 绘制中…（已等待约 " + Math.round((Date.now() - genStart) / 1000) + " 秒）";
+            }
+          }
+        });
+        if (stopFlag) return;
+        vdBar.style.width = "100%";
+        vdStatus.textContent = "";
+        out.insertAdjacentHTML("beforeend",
+          '<div class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px;margin-top:12px">'
+          + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
+          + '<div class="label">生成完成</div>'
+          + '<button class="btn primary" id="vdDl">' + svg("download", 14) + ' 下载视频</button></div>'
+          + '<video src="' + result.videoUrl + '" controls playsinline style="width:100%;border-radius:9px;background:#000;max-height:480px"></video>'
+          + '<div style="font-size:11.5px;color:var(--text3);margin-top:6px">视频链接 24 小时内有效，请及时下载保存。</div></div>');
+        document.getElementById("vdDl").onclick = () => {
+          const a = document.createElement("a");
+          a.href = result.videoUrl; a.download = "ai-video-" + Date.now() + ".mp4";
+          a.target = "_blank"; a.rel = "noopener"; a.click();
+        };
+        XLX.util.toast("视频生成完成", "ok");
+      } catch (e) {
+        if (e.message === "已取消") {
+          XLX.util.toast("已停止生成", "info");
+        } else {
+          out.insertAdjacentHTML("beforeend", '<div style="color:var(--warn);font-size:12px;margin-top:8px">生成失败：' + XLX.util.esc(e.message) + '</div>');
+        }
+      } finally {
+        genBtn.disabled = false; stopBtn.style.display = "none";
+      }
+    };
+    stopBtn.onclick = () => { stopFlag = true; };
+    renderInput();
+  }
+
+  /* 调用 LLM 把素材提炼成文生视频提示词 */
+  /* ===================== 长视频生成（分段生成 + 浏览器本地拼接） ===================== */
+  function renderLongVideo(box) {
+    let shots = [];
+    let stopFlag = false;
+    const resoOpts = XLX.videogen.resoOptions();
+    const defReso = (XLX.videogen.cfg().reso) || (resoOpts[0] ? resoOpts[0].v : "720p");
+
+    box.innerHTML = ''
+      + '<div style="display:flex;gap:8px;margin-bottom:12px">'
+      + '<button class="btn ghost" id="dramaModeShort">' + svg("film", 13) + ' 短视频</button>'
+      + '<button class="btn ghost" id="dramaModeLong" style="background:var(--accent);color:#fff;border-color:var(--accent)">' + svg("clapper", 13) + ' 长视频</button>'
+      + '<button class="btn ghost" id="dramaModeComic">' + svg("story", 13) + ' 漫剧</button>'
+      + '</div>'
+      + '<div class="notice" style="font-size:12px;color:var(--text2);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:12px">'
+      + '<b>长视频生成</b>：填一个主题 → AI 自动拆成分镜 → 每段生成短视频 → 浏览器本地自动拼接成一个完整视频下载。<br>'
+      + '视频接口单条最长只有 15-30 秒，所以 1.5-3 分钟的长视频按"分段生成 + 拼接"实现。<br>'
+      + (XLX.videogen.isConfigured() ? '视频平台已配置，可直接生成。' : '<span style="color:var(--warn)">尚未配置视频平台 Key，请先到「设置」页填写。</span>')
+      + '</div>'
+      + '<div style="flex:1;min-width:260px;margin-bottom:10px"><label class="label">长视频主题 / 内容描述</label>'
+      + '<textarea id="lvTopic" class="inp" style="min-height:76px" placeholder="例如：我的小龙虾店的一天——从清晨进货、清洗处理、秘制爆炒到端上餐桌，全程展示烟火气和招牌菜"></textarea></div>'
+      + '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+      + '<label class="label">画幅</label><select class="inp" id="lvRatio" style="width:92px;padding:6px">' + VIDEO_RATIOS.map(r => '<option' + (r === "16:9" ? " selected" : "") + '>' + r + '</option>').join("") + '</select>'
+      + '<label class="label">清晰度</label><select class="inp" id="lvReso" style="width:110px;padding:6px">' + resoOpts.map(r => '<option value="' + r.v + '"' + (r.v === defReso ? " selected" : "") + '>' + r.l + '</option>').join("") + '</select>'
+      + '<label class="label">总时长</label><select class="inp" id="lvTotal" style="width:104px;padding:6px">' + [90, 120, 150, 180].map(s => '<option' + (s === 120 ? " selected" : "") + '>' + s + '秒</option>').join("") + '</select>'
+      + '<label class="label">每段</label><select class="inp" id="lvPer" style="width:76px;padding:6px"><option value="10">10秒</option><option value="15">15秒</option></select>'
+      + '<span id="lvCount" style="font-size:11.5px;color:var(--text3)"></span>'
+      + '</div>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
+      + '<button class="btn primary" id="lvShotsBtn">' + svg("story", 14) + ' 生成分镜脚本</button>'
+      + '<button class="btn ghost" id="lvGenBtn" style="flex:1;min-width:200px">' + svg("clapper", 15) + ' 逐段生成并拼接</button>'
+      + '<button class="btn ghost" id="lvStopBtn" style="display:none">' + svg("x", 14) + ' 停止</button>'
+      + '</div>'
+      + '<div id="lvShotsBox"></div>'
+      + '<div id="lvOutput"></div>';
+
+    const totalEl = document.getElementById("lvTotal");
+    const perEl = document.getElementById("lvPer");
+    const countEl = document.getElementById("lvCount");
+    const shotsBox = document.getElementById("lvShotsBox");
+    const out = document.getElementById("lvOutput");
+    const genBtn = document.getElementById("lvGenBtn");
+    const stopBtn = document.getElementById("lvStopBtn");
+    const shotsBtn = document.getElementById("lvShotsBtn");
+
+    const updateCount = () => {
+      const t = parseInt(totalEl.value, 10), p = parseInt(perEl.value, 10);
+      const n = Math.max(1, Math.ceil(t / p));
+      countEl.textContent = '共 ' + n + ' 段（约 ' + n * p + ' 秒），按当前平台约 ' + Math.round(n * p * 0.3) + ' 元（0.3元/秒估算，实际以平台计费为准）';
+      return n;
+    };
+    totalEl.onchange = updateCount; perEl.onchange = updateCount;
+    updateCount();
+
+    document.getElementById("dramaModeShort").onclick = () => renderDrama(box);
+    document.getElementById("dramaModeLong").onclick = () => renderLongVideo(box);
+    document.getElementById("dramaModeComic").onclick = () => renderComic(box);
+
+    const parseShots = (text) => {
+      const m = text.match(/\[[\s\S]*\]/);
+      if (m) {
+        try {
+          const arr = JSON.parse(m[0]);
+          if (Array.isArray(arr) && arr.length) return arr.filter(x => x && (x.prompt || x.text)).map((x, i) => ({ title: x.title || ("第" + (i + 1) + "段"), prompt: (x.prompt || x.text).trim() }));
+        } catch (e) {}
+      }
+      return null;
+    };
+    const fallbackShots = (topic, n) => Array.from({ length: n }, (_, i) => ({
+      title: "第" + (i + 1) + "段",
+      prompt: topic + "，第" + (i + 1) + "段/共" + n + "段：延续上一个画面继续推进，运镜自然、画面连贯"
+    }));
+
+    shotsBtn.onclick = async () => {
+      const topic = document.getElementById("lvTopic").value.trim();
+      if (!topic) { XLX.util.toast("请先填写长视频主题", "warn"); return; }
+      const n = updateCount();
+      shotsBtn.disabled = true; shotsBtn.innerHTML = svg("story", 14) + ' 生成中…';
+      let shots2 = null;
+      if (XLX.llm && XLX.llm.chat) {
+        try {
+          const sys = '你是短视频导演。把用户的长视频主题拆分成 ' + n + ' 个连续分镜，每个分镜是一条 ' + perEl.value + ' 秒可生成的视频提示词。要求：画面与前一镜连贯（同一场景/主体延续），描述主体/动作/运镜/光线，动态感强，避免静态长镜头。只输出一个 JSON 数组，格式 [{"title":"分镜名","prompt":"提示词"}]，不要输出任何其他文字。';
+          const user = '主题：' + topic + '\n拆成 ' + n + ' 个分镜，每段 ' + perEl.value + ' 秒。';
+          const text = await new Promise((resolve, reject) => {
+            let settled = false;
+            const timer = setTimeout(() => { if (!settled) { settled = true; reject(new Error("生成超时")); } }, 90000);
+            XLX.llm.chat([{ role: "system", content: sys }, { role: "user", content: user }], {
+              temperature: 0.8, maxTokens: 2000, stream: false,
+              onDone: t => { if (!settled) { settled = true; clearTimeout(timer); resolve(t); } },
+              onError: e => { if (!settled) { settled = true; clearTimeout(timer); reject(e); } }
+            }).catch(e => { if (!settled) { settled = true; clearTimeout(timer); reject(e); } });
+          });
+          shots2 = parseShots(text);
+        } catch (e) {}
+      }
+      if (!shots2 || shots2.length !== n) {
+        shots2 = fallbackShots(topic, n);
+        if (XLX.llm && XLX.llm.chat) XLX.util.toast("AI 分镜生成失败，已用模板分镜（可手动编辑）", "warn");
+      }
+      shots = shots2;
+      renderShots();
+      shotsBtn.disabled = false; shotsBtn.innerHTML = svg("story", 14) + ' 生成分镜脚本';
+    };
+
+    const renderShots = () => {
+      if (!shots.length) { shotsBox.innerHTML = ""; return; }
+      shotsBox.innerHTML = '<div class="label" style="margin-bottom:6px">分镜脚本（每段提示词可手动修改）</div>'
+        + shots.map((s, i) => '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">'
+          + '<span style="flex:0 0 44px;font-size:11.5px;color:var(--text3);padding-top:8px">第' + (i + 1) + '段</span>'
+          + '<textarea class="inp lv-shot" data-i="' + i + '" style="flex:1;min-height:52px;font-size:12.5px">' + XLX.util.esc(s.prompt) + '</textarea></div>').join("");
+      shotsBox.querySelectorAll(".lv-shot").forEach(ta => ta.oninput = () => { shots[parseInt(ta.dataset.i, 10)].prompt = ta.value.trim(); });
+    };
+
+    genBtn.onclick = async () => {
+      if (!XLX.videogen.isConfigured()) { XLX.util.toast("请先到「设置」页配置视频生成平台", "warn"); return; }
+      if (!shots.length) { XLX.util.toast("请先生成或确认分镜脚本", "warn"); return; }
+      const prompts = shots.map(s => s.prompt).filter(Boolean);
+      if (!prompts.length) { XLX.util.toast("分镜提示词为空", "warn"); return; }
+      const ratio = document.getElementById("lvRatio").value;
+      const resolution = document.getElementById("lvReso").value;
+      const duration = parseInt(perEl.value, 10) || 10;
+      stopFlag = false;
+      genBtn.disabled = true; stopBtn.style.display = "";
+      stopBtn.onclick = () => { stopFlag = true; };
+      out.innerHTML = "";
+      const urls = [];
+      let failed = false;
+      for (let i = 0; i < prompts.length; i++) {
+        if (stopFlag) break;
+        const card = document.createElement("div");
+        card.className = "panel2";
+        card.style.cssText = "border:1px solid var(--border);border-radius:11px;padding:12px;margin-bottom:10px";
+        card.innerHTML = '<div class="label">第 ' + (i + 1) + '/' + prompts.length + ' 段：' + XLX.util.esc(shots[i].title || "") + '</div>'
+          + '<div class="iload" style="padding:12px 0"><div class="spinner"></div><span>正在提交并生成（' + duration + ' 秒），通常需 1-3 分钟…</span></div>';
+        out.appendChild(card);
+        try {
+          const result = await XLX.videogen.generate(prompts[i], {
+            ratio, resolution, duration,
+            onStatus: (st) => {
+              const sp = card.querySelector("span");
+              if (sp && st.phase === "polling") sp.textContent = "AI 绘制中…";
+            }
+          });
+          urls.push(result.videoUrl);
+          card.innerHTML = '<div class="label">第 ' + (i + 1) + '/' + prompts.length + ' 段 · 完成</div>'
+            + '<video src="' + result.videoUrl + '" controls playsinline style="width:100%;border-radius:9px;background:#000;max-height:240px"></video>';
+        } catch (e) {
+          if (e.message === "已取消") break;
+          card.innerHTML = '<div class="label" style="color:var(--red)">第 ' + (i + 1) + ' 段生成失败：' + XLX.util.esc(e.message) + '</div>';
+          failed = true; break;
+        }
+      }
+      genBtn.disabled = false; stopBtn.style.display = "none";
+      if (!urls.length) { if (!failed) XLX.util.toast("已停止生成", "info"); return; }
+      out.insertAdjacentHTML("beforeend",
+        '<div class="panel2" style="border:1px solid var(--green);border-radius:11px;padding:14px;margin-top:4px">'
+        + '<div class="label">已生成 ' + urls.length + ' 段（共约 ' + urls.length * duration + ' 秒）</div>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">'
+        + '<button class="btn primary" id="lvConcat">' + svg("film", 14) + ' 自动拼接下载</button>'
+        + '<button class="btn ghost" id="lvAllDl">' + svg("download", 14) + ' 逐段下载</button></div>'
+        + '<div id="lvConcatStatus" style="font-size:12px;color:var(--text3)"></div></div>');
+      document.getElementById("lvAllDl").onclick = () => {
+        urls.forEach((u, i) => { const a = document.createElement("a"); a.href = u; a.download = "clip-" + (i + 1) + ".mp4"; a.target = "_blank"; a.rel = "noopener"; a.click(); });
+      };
+      document.getElementById("lvConcat").onclick = async () => {
+        const btn = document.getElementById("lvConcat");
+        const stEl = document.getElementById("lvConcatStatus");
+        btn.disabled = true; btn.textContent = "拼接中…";
+        try {
+          stEl.textContent = "正在下载片段并本地拼接（浏览器内完成）…";
+          const blob = await XLX.videogen.concatVideos(urls, {
+            onProgress: (p) => { if (stEl) stEl.textContent = p.phase === "download" ? "下载片段 " + p.done + "/" + p.total + "…" : "拼接画面 " + p.done + "/" + p.total + "…"; }
+          });
+          const u = URL.createObjectURL(blob);
+          stEl.innerHTML = '拼接完成！<br><video src="' + u + '" controls playsinline style="width:100%;border-radius:9px;background:#000;max-height:300px;margin-top:8px"></video>';
+          btn.textContent = "重新拼接";
+          const dl = document.createElement("a");
+          dl.href = u; dl.download = "long-video-" + Date.now() + "." + (blob.type.includes("mp4") ? "mp4" : "webm");
+          document.body.appendChild(dl); dl.click(); dl.remove();
+          XLX.util.toast("长视频拼接完成", "ok");
+        } catch (e) {
+          stEl.innerHTML = '<span style="color:var(--warn)">自动拼接失败：' + XLX.util.esc(e.message) + '。<br>通常是平台视频不支持浏览器跨域读取。请改用「逐段下载」，再用剪映等剪辑软件按顺序拼成完整视频。</span>';
+        }
+        btn.disabled = false; btn.textContent = svg("film", 14) + ' 自动拼接下载';
+      };
+    };
+    stopBtn.onclick = () => { stopFlag = true; };
+  }
+
+  function writeVideoPrompt(D, source, signal) {
+    const sys = '你是一位资深 AI 视频导演与提示词工程师。根据素材写出一段适合文生视频大模型（如 Seedance）的提示词。'
+      + '要求：①单镜头、可生成，描述主体、场景、动作、运镜、光线、氛围，画面要有动态感，避免静态长镜头；'
+      + '②如素材含对白/台词，把关键台词嵌入人物口型与动作描述中；'
+      + '③300 字以内，直接输出提示词正文，不要任何前缀、标签或解释。';
+    const user = '驱动方式：' + D.name + '\n素材：\n' + source.slice(0, 3500);
+    const once = () => new Promise((resolve, reject) => {
+      if (!XLX.llm || !XLX.llm.chat) { reject(new Error("LLM 未加载")); return; }
+      let timer = null;
+      let settled = false;
+      const clearT = () => { if (timer) { clearTimeout(timer); timer = null; } };
+      timer = setTimeout(() => { if (!settled) { settled = true; reject(new Error("生成超时，请重试")); } }, 120000);
+      if (signal) signal.addEventListener("abort", () => { if (!settled) { settled = true; clearT(); reject(new Error("已取消")); } });
+      XLX.llm.chat([{ role: "system", content: sys }, { role: "user", content: user }], {
+        temperature: 0.85,
+        maxTokens: 1200,
+        stream: false,
+        signal,
+        onDone: (t) => { if (!settled) { settled = true; clearT(); resolve(t); } },
+        onError: (e) => { if (!settled) { settled = true; clearT(); reject(e); } }
+      }).catch(e => { if (!settled) { settled = true; clearT(); reject(e); } });
+    });
+    return once().catch(e => {
+      if (e.message === "已取消") throw e;
+      return once();
+    });
+  }
 
   /* 生成视频去水印本地脚本（yt-dlp 免费开源） */
   function makeVideoDLScript(url) {
@@ -3605,7 +5085,1267 @@ if __name__ == "__main__":
     ];
   }
 
-  return { render, openTool, tryResolve };
+  /* ===================== AI 漫剧工作流 ===================== */
+
+  function renderComic(box) {
+    let script = null;
+    let refImg = null;
+    let style = "japanese";
+    let busy = false;
+
+    box.innerHTML = ''
+      + '<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">'
+      + '<button class="btn ghost" id="dramaModeShort">' + svg("film", 13) + ' 短视频</button>'
+      + '<button class="btn ghost" id="dramaModeLong">' + svg("clapper", 13) + ' 长视频</button>'
+      + '<button class="btn ghost" id="dramaModeComic" style="background:var(--accent);color:#fff;border-color:var(--accent)">' + svg("story", 13) + ' 漫剧</button>'
+      + '<span style="font-size:10.5px;color:var(--accent);border:1px solid var(--accent);border-radius:20px;padding:2px 8px;margin-left:auto" title="当前版本">' + (XLX.VERSION || "v?") + '</span>'
+      + '</div>'
+      + '<div class="notice" style="font-size:12px;color:var(--text2);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:12px">'
+      + '<b>AI 漫剧工作流</b>：一句话故事 → 自动生成剧本与分镜 → 逐镜生成漫画画面 → 多格排版成漫剧 → 可下载长图 / 合成配音视频。<br>'
+      + '免费接口即可生成；想保留角色形象一致，可先上传一张角色参考图，或在「设置 → AI 生图服务」配置硅基流动 / 豆包 / 千问。</div>'
+      + '<div style="flex:1;min-width:260px;margin-bottom:10px"><label class="label">一句话故事（剧情越具体，成品越好）</label>'
+      + '<textarea id="comicStory" class="inp" style="min-height:70px" placeholder="例如：加班的深夜，女孩走进小龙虾夜市摊，与摊主因一份麻辣小龙虾展开缘分，最后发现摊主就是她多年未见的发小"></textarea></div>'
+      + '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+      + '<label class="label" style="margin:0">画风</label>'
+      + '<select class="inp" id="comicStyle" style="width:110px;padding:6px">'
+      + '<option value="japanese" selected>日漫</option><option value="american">美漫</option></select>'
+      + '<input type="file" id="comicRefFile" accept="image/*" style="display:none">'
+      + '<button class="btn ghost" id="comicRefBtn">' + svg("upload", 14) + ' 上传角色参考图（可选）</button>'
+      + '<span id="comicRefName" style="font-size:11.5px;color:var(--text3)"></span>'
+      + '</div>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
+      + '<button class="btn primary" id="comicGenBtn" style="flex:1;min-width:200px">' + svg("story", 15) + ' 一键生成漫剧</button>'
+      + '<button class="btn ghost" id="comicStopBtn" style="display:none">' + svg("x", 14) + ' 停止</button>'
+      + '</div>'
+      + '<div id="comicProgress"></div>'
+      + '<div id="comicDraftBox"></div>'
+      + '<div id="comicShotsBox"></div>'
+      + '<div id="comicOutput"></div>';
+
+    document.getElementById("dramaModeShort").onclick = () => renderDrama(box);
+    document.getElementById("dramaModeLong").onclick = () => renderLongVideo(box);
+    document.getElementById("dramaModeComic").onclick = () => renderComic(box);
+
+    const genBtn = document.getElementById("comicGenBtn");
+    const stopBtn = document.getElementById("comicStopBtn");
+    const progBox = document.getElementById("comicProgress");
+    const draftBox = document.getElementById("comicDraftBox");
+    const out = document.getElementById("comicOutput");
+    const storyEl = document.getElementById("comicStory");
+    const styleSel = document.getElementById("comicStyle");
+    const refNameEl = document.getElementById("comicRefName");
+    const refFile = document.getElementById("comicRefFile");
+    let stopFlag = false;
+    let draft = null;
+
+    const saveDraft = () => {
+      if (!draft) return;
+      draft.updatedAt = Date.now();
+      try { localStorage.setItem(XLX.K.COMIC, JSON.stringify(draft)); } catch (e) {}
+    };
+
+    const clearDraft = () => { try { localStorage.removeItem(XLX.K.COMIC); } catch (e) {} draft = null; };
+
+    /* 恢复上次进度 */
+    try {
+      const d = JSON.parse(localStorage.getItem(XLX.K.COMIC) || "null");
+      if (d && d.script && Array.isArray(d.script.shots)) {
+        draft = d;
+        script = d.script;
+        refImg = d.refImg || null;
+        style = d.style || "japanese";
+        styleSel.value = style;
+        if (refImg) refNameEl.textContent = "已选用角色参考图";
+        renderDraftEditor();
+        renderOutput();
+        progBox.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:8px 0"><b>已恢复上次漫剧进度</b>（' + new Date(d.updatedAt || Date.now()).toLocaleString() + '）。可直接编辑分镜继续生图，或重新生成。</div>';
+      }
+    } catch (e) {}
+
+    styleSel.onchange = () => { style = styleSel.value; if (script) { script.style = style; saveDraft(); } };
+
+    document.getElementById("comicRefBtn").onclick = () => refFile.click();
+    refFile.onchange = async () => {
+      const f = refFile.files && refFile.files[0];
+      if (!f) return;
+      refNameEl.textContent = "正在读取…";
+      try {
+        const dataUrl = await readFileAsDataURL(f);
+        refImg = dataUrl;
+        refNameEl.textContent = "已选用角色参考图：" + f.name;
+        if (draft) { draft.refImg = refImg; saveDraft(); }
+        XLX.util.toast("角色参考图已就绪，将用于保持角色一致", "ok");
+      } catch (e) {
+        refNameEl.textContent = "";
+        XLX.util.toast("读取图片失败：" + e.message, "err");
+      }
+    };
+
+    genBtn.onclick = async () => {
+      if (busy) return;
+      const story = storyEl.value.trim();
+      if (!story) { XLX.util.toast("请先输入一句话故事", "warn"); return; }
+      busy = true; stopFlag = false;
+      genBtn.disabled = true;
+      stopBtn.style.display = "";
+      stopBtn.onclick = () => { stopFlag = true; };
+      out.innerHTML = "";
+      progBox.innerHTML = '<div class="iload" style="padding:16px 0"><div class="spinner"></div>正在生成剧本与分镜…（AI 构思中，约 10-30 秒）</div>';
+      try {
+        script = await XLX.comicdrama.genScript(story, style, {
+          signal: (() => { if (window.AbortController) { const ac = new AbortController(); const t = setInterval(() => { if (stopFlag) ac.abort(); }, 300); stopBtn.onclick = () => { stopFlag = true; ac.abort(); }; return ac.signal; } return undefined; })()
+        });
+        if (stopFlag) { throw new Error("已取消"); }
+        draft = { script: JSON.parse(JSON.stringify(script)), style, refImg, shotImgs: null, updatedAt: Date.now() };
+        saveDraft();
+        progBox.innerHTML = '';
+        renderDraftEditor();
+        XLX.util.toast("剧本生成完成：<b>" + (script.title || "未命名") + "</b>", "ok");
+      } catch (e) {
+        progBox.innerHTML = '<div style="color:var(--warn);padding:10px 0">' + (e.message === "已取消" ? "已停止生成" : "剧本生成失败：" + XLX.util.esc(e.message)) + '</div>';
+      }
+      busy = false;
+      genBtn.disabled = false;
+      stopBtn.style.display = "none";
+    };
+
+    /* 分镜编辑区 + 开始生图按钮 */
+    function renderDraftEditor() {
+      if (!script) return;
+      const s = script;
+      draftBox.innerHTML = ''
+        + '<div class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px;margin-bottom:12px">'
+        + '<div style="font-size:12.5px;font-weight:600;margin-bottom:6px">' + XLX.util.esc(s.title || "未命名") + '</div>'
+        + '<div style="font-size:12px;color:var(--text3);margin-bottom:10px">' + XLX.util.esc(s.synopsis || "") + ' · ' + s.shots.length + ' 个分镜 · ' + (style === "american" ? "美漫" : "日漫") + '</div>'
+        + s.shots.map((sh, i) =>
+          '<div style="border:1px solid var(--border);border-radius:9px;padding:10px;margin-bottom:8px">'
+          + '<div style="font-size:11.5px;color:var(--text3);margin-bottom:6px">分镜 ' + (i + 1) + ' · 时长 ' + sh.duration + ' 秒' + (sh.roles && sh.roles.length ? ' · 角色：' + sh.roles.join("、") : '') + '</div>'
+          + '<textarea class="inp comic-shot-desc" data-i="' + i + '" style="min-height:52px;font-size:12.5px;margin-bottom:6px" placeholder="画面描述">' + XLX.util.esc(sh.desc || "") + '</textarea>'
+          + '<input class="inp comic-shot-line" data-i="' + i + '" style="font-size:12.5px" placeholder="对白（可留空）" value="' + XLX.util.esc(sh.line || "") + '">'
+          + '</div>').join("")
+        + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">'
+        + '<button class="btn primary" id="comicStartShotsBtn" style="flex:1;min-width:200px">' + svg("palette", 15) + ' 开始逐镜生图</button>'
+        + '<button class="btn ghost" id="comicRedoBtn">' + svg("refresh", 14) + ' 重新生成剧本</button>'
+        + '</div></div>';
+
+      draftBox.querySelectorAll(".comic-shot-desc").forEach(ta => {
+        ta.oninput = () => { script.shots[+ta.dataset.i].desc = ta.value; if (draft) { draft.script = JSON.parse(JSON.stringify(script)); saveDraft(); } };
+      });
+      draftBox.querySelectorAll(".comic-shot-line").forEach(inp => {
+        inp.oninput = () => { script.shots[+inp.dataset.i].line = inp.value; if (draft) { draft.script = JSON.parse(JSON.stringify(script)); saveDraft(); } };
+      });
+      document.getElementById("comicStartShotsBtn").onclick = runShots;
+      document.getElementById("comicRedoBtn").onclick = () => { clearDraft(); script = null; draftBox.innerHTML = ""; out.innerHTML = ""; progBox.innerHTML = ""; storyEl.focus(); };
+    }
+
+    /* 逐镜生图 */
+    async function runShots() {
+      if (busy) return;
+      if (!script) return;
+      busy = true; stopFlag = false;
+      document.getElementById("comicStartShotsBtn").disabled = true;
+      stopBtn.style.display = "";
+      stopBtn.onclick = () => { stopFlag = true; };
+      out.innerHTML = "";
+      progBox.innerHTML = '<div class="iload" style="padding:16px 0"><div class="spinner"></div>开始逐镜生图…（每镜约 10-60 秒，共 ' + script.shots.length + ' 镜）</div>';
+      let shots = [];
+      try {
+        for (let i = 0; i < script.shots.length; i++) {
+          if (stopFlag) throw new Error("已取消");
+          const shot = script.shots[i];
+          progBox.innerHTML = '<div class="iload" style="padding:14px 0"><div class="spinner"></div>正在生成分镜 ' + (i + 1) + '/' + script.shots.length + '：' + XLX.util.esc(shot.desc.slice(0, 24)) + '…</div>';
+          const item = { desc: shot.desc, line: shot.line, duration: shot.duration, roles: shot.roles, imgUrl: null, err: null };
+          try {
+            const url = await XLX.image.generate(XLX.comicdrama.shotPrompt(script, shot), { aspect: "square", image: refImg || undefined });
+            item.imgUrl = url;
+          } catch (e) {
+            item.err = (e && e.message) || String(e);
+          }
+          shots.push(item);
+          if (draft) { draft.shotImgs = shots.map(s => ({ imgUrl: s.imgUrl, err: s.err })); saveDraft(); }
+        }
+        if (stopFlag) throw new Error("已取消");
+        script.shots = shots;
+        if (draft) { draft.script = JSON.parse(JSON.stringify(script)); draft.shotImgs = shots.map(s => ({ imgUrl: s.imgUrl, err: s.err })); saveDraft(); }
+        progBox.innerHTML = '';
+        renderShots();
+        renderOutput();
+      } catch (e) {
+        progBox.innerHTML = '<div style="color:var(--warn);padding:10px 0">' + (e.message === "已取消" ? "已停止生成" : "生图中断：" + XLX.util.esc(e.message)) + '</div>';
+      }
+      busy = false;
+      document.getElementById("comicStartShotsBtn").disabled = false;
+      stopBtn.style.display = "none";
+    }
+
+    /* 逐镜结果展示（含失败错误卡） */
+    function renderShots() {
+      const shots = script.shots;
+      const shotsBox = document.getElementById("comicShotsBox");
+      shotsBox.innerHTML = ''
+        + '<div class="label" style="margin-bottom:8px">逐镜画面</div>'
+        + '<div class="img-grid">'
+        + shots.map((s, i) =>
+          s.err
+            ? '<div class="img-item"><div class="iload errcard">'
+              + '<div class="err-ic">' + svg("alert", 20) + '</div>'
+              + '<div class="err-t">分镜 ' + (i + 1) + ' 生成失败</div>'
+              + '<div class="err-msg">' + XLX.util.esc(s.err) + '</div>'
+              + '<div class="err-act"><button class="btn small" data-retry="' + i + '">重试</button>'
+              + '<button class="btn small primary" data-free="' + i + '">改用免费接口</button></div>'
+              + '</div></div>'
+            : '<div class="img-item"><div class="iload shim" style="position:static;min-height:150px"><div class="spinner"></div>画面加载中…</div>'
+              + '<img src="' + XLX.util.esc(s.imgUrl) + '" style="aspect-ratio:auto">'
+              + '<div class="ilab">分镜 ' + (i + 1) + '</div></div>'
+        ).join("") + '</div>';
+
+      /* 图片加载成功时移除「加载中」遮罩；失败/超时则显示错误提示而不是空白横线 */
+      shotsBox.querySelectorAll(".img-item img").forEach((im, idx) => {
+        let done = false;
+        const shim = im.closest(".img-item") && im.closest(".img-item").querySelector(".shim");
+        const failCard = (why) => {
+          if (done) return;
+          done = true;
+          const j = idx + 1;
+          const srcUrl = (script.shots[idx] && script.shots[idx].imgUrl) || "";
+          const urlBrief = srcUrl.slice(0, 60);
+          im.closest(".img-item").innerHTML = '<div class="iload" style="position:static;min-height:150px">'
+            + '<div class="err-ic">' + svg("alert", 20) + '</div>'
+            + '<div class="err-t">分镜 ' + j + ' 图片加载失败</div>'
+            + '<div class="err-msg" style="font-size:11px;color:var(--text3);padding:0 10px">'
+            + XLX.util.esc(why) + '</div>'
+            + '<div class="err-msg" style="font-size:10px;color:var(--text3);padding:0 10px;word-break:break-all;opacity:.7">图源：' + XLX.util.esc(urlBrief) + '</div></div>';
+        };
+        im.onerror = () => failCard("图片地址无法显示（可能已过期或网络问题），点「重试」重新生成");
+        im.onload = () => {
+          done = true;
+          if (shim && shim.parentNode) shim.parentNode.removeChild(shim);
+        };
+        /* 若 12 秒后图片仍未加载出来（既无成功也无失败），强制给出错误提示，避免只剩横线无反馈 */
+        setTimeout(() => {
+          if (!done && (!im.complete || im.naturalWidth === 0)) {
+            failCard("图片 12 秒仍未加载完成（网络慢或地址失效），请点「重试」重新生成");
+          }
+        }, 12000);
+      });
+
+      shotsBox.querySelectorAll("[data-retry]").forEach(b => b.onclick = async () => {
+        const i = +b.dataset.retry;
+        const shot = script.shots[i];
+        b.disabled = true; b.textContent = "重试中…";
+        try {
+          const url = await XLX.image.generate(XLX.comicdrama.shotPrompt(script, shot), { aspect: "square", image: refImg || undefined });
+          shot.imgUrl = url; shot.err = null;
+          if (draft) { draft.script = JSON.parse(JSON.stringify(script)); saveDraft(); }
+          renderShots(); renderOutput();
+        } catch (e) {
+          shot.err = (e && e.message) || String(e);
+          b.disabled = false; b.textContent = "重试";
+          XLX.util.toast("重试失败：" + (e && e.message), "err");
+        }
+      });
+      shotsBox.querySelectorAll("[data-free]").forEach(b => b.onclick = () => {
+        const i = +b.dataset.free;
+        const shot = script.shots[i];
+        shot._free = true;
+        XLX.util.toast("已标记改用免费接口，点击「重试」将用免费接口重新生成", "info");
+        b.parentElement.innerHTML = '<span style="font-size:11px;color:var(--text3)">已切换免费，点重试生效</span>';
+        b.closest("[data-retry]") && b.closest("[data-retry]");
+      });
+    }
+
+    /* 输出层：长图 + 逐镜下载 + 合成视频 */
+    async function renderOutput() {
+      const shots = script.shots;
+      const okShots = shots.filter(s => !s.err);
+      if (!okShots.length) return;
+      out.innerHTML = ''
+        + '<div class="label" style="margin:14px 0 8px">漫剧成品</div>'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
+        + '<button class="btn primary" id="comicLongBtn">' + svg("image", 15) + ' 生成竖屏长图</button>'
+        + '<button class="btn ghost" id="comicDlBtn">' + svg("download", 14) + ' 下载逐镜图片</button>'
+        + '<button class="btn ghost" id="comicVideoBtn">' + svg("film", 14) + ' 合成配音视频</button>'
+        + '</div>'
+        + '<div id="comicLongBox"></div>'
+        + '<div id="comicVideoBox"></div>';
+
+      document.getElementById("comicLongBtn").onclick = async () => {
+        const btn = document.getElementById("comicLongBtn");
+        btn.disabled = true; btn.innerHTML = svg("image", 15) + ' 排版中…';
+        try {
+          const res = await XLX.comicdrama.composeLongImage(okShots, { width: 800 });
+          const box = document.getElementById("comicLongBox");
+          box.innerHTML = ''
+            + '<div style="text-align:center;margin-bottom:8px"><img src="' + res.url + '" style="max-width:100%;max-height:70vh;border-radius:11px;border:1px solid var(--border)"></div>'
+            + '<div style="display:flex;gap:8px;justify-content:center"><button class="btn primary small" id="comicSaveLong">' + svg("download", 14) + ' 下载长图 PNG</button></div>';
+          document.getElementById("comicSaveLong").onclick = () => XLX.util.download("漫剧-" + (script.title || "未命名") + ".png", res.blob, "image/png");
+        } catch (e) {
+          document.getElementById("comicLongBox").innerHTML = '<div style="color:var(--warn);font-size:12px">长图排版失败：' + XLX.util.esc(e.message) + '</div>';
+        }
+        btn.disabled = false; btn.innerHTML = svg("image", 15) + ' 生成竖屏长图';
+      };
+
+      document.getElementById("comicDlBtn").onclick = async () => {
+        okShots.forEach((s, i) => {
+          if (!s.imgUrl) return;
+          fetch(s.imgUrl).then(r => r.blob()).then(b => {
+            XLX.util.download("分镜" + (i + 1) + ".png", b, b.type || "image/png");
+          }).catch(() => {});
+        });
+        XLX.util.toast("开始下载逐镜图片…", "info");
+      };
+
+      document.getElementById("comicVideoBtn").onclick = async () => {
+        const btn = document.getElementById("comicVideoBtn");
+        btn.disabled = true; btn.innerHTML = svg("film", 14) + ' 合成中…（TTS 配音，约需数分钟）';
+        const box = document.getElementById("comicVideoBox");
+        box.innerHTML = '<div class="iload" style="padding:14px 0"><div class="spinner"></div>正在合成配音视频…每个分镜对白用浏览器语音朗读并录制，全部完成后生成视频。</div>';
+        try {
+          const res = await XLX.comicdrama.composeVideo(okShots, { width: 800, height: 800, fps: 30 });
+          const url = URL.createObjectURL(res.blob);
+          box.innerHTML = ''
+            + '<div style="text-align:center;margin-bottom:8px"><video src="' + url + '" controls style="max-width:100%;max-height:60vh;border-radius:11px;border:1px solid var(--border);background:#000"></video></div>'
+            + '<div style="display:flex;gap:8px;justify-content:center"><button class="btn primary small" id="comicSaveVideo">' + svg("download", 14) + ' 下载视频（' + res.duration.toFixed(0) + ' 秒）</button></div>';
+          document.getElementById("comicSaveVideo").onclick = () => XLX.util.download("漫剧-" + (script.title || "未命名") + ".webm", res.blob, "video/webm");
+        } catch (e) {
+          box.innerHTML = '<div style="color:var(--warn);font-size:12px">视频合成失败：' + XLX.util.esc(e.message) + '。可仅使用长图。</div>';
+        }
+        btn.disabled = false; btn.innerHTML = svg("film", 14) + ' 合成配音视频';
+      };
+    }
+  }
+
+  function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = () => reject(new Error("读取失败"));
+      fr.readAsDataURL(file);
+    });
+  }
+
+  /* 供市场技能跳转 / 生图 */
+  function runImage(prompt, opts) {
+    if (opts && opts.image) pendingRefUrl = opts.image;
+    curTab = "img";
+    render();
+    setTimeout(() => {
+      const p = document.getElementById("imgPrompt");
+      if (p) p.value = prompt || "";
+      if (opts && opts.aspect) {
+        const targetId = opts.aspect === "wide" ? "poster" : opts.aspect === "tall" ? "ecommerce" : "normal";
+        const chip = document.querySelector('.channel-chip[data-c="' + targetId + '"]');
+        if (chip) chip.click();
+      }
+      const b = document.getElementById("imgGenBtn");
+      if (b) b.click();
+    }, 100);
+  }
+
+  /* 供视频生成技能跳转：切到工具页，预填素材 */
+  function runDrama(type, source) {
+    curTab = "aidrama";
+    render();
+    setTimeout(() => {
+      const c = document.getElementById("dramaCtx");
+      if (c && source) c.value = source;
+      const b = document.getElementById("dramaGenBtn");
+      if (b && source) b.click();
+    }, 120);
+  }
+
+  return { render, runImage, runDrama, openTool, tryResolve };
+})();
+
+</script>
+<script>
+/* ===== 创作中心（HookShot 风格首页） =====
+ * 左侧导航 + 中央大输入框 + 快捷功能胶囊 + 项目卡片区，深色科技风。
+ * 核心功能：电商图片智能体 —— 输入产品名/卖点/场景 → AI帮写 → 一键生成主图/详情页/SKU/海报。
+ *
+ * ===== 后端计费/账号接口位（预留，暂未启用）=====
+ * 未来商业化时只需填写下方 BIZ.endpoint 指向自建后端（如 https://api.你的域名.com），
+ * 再为「登录、积分扣费、云端同步项目」补实现即可，无需改动创作流程代码。
+ * 当前阶段：全部本地免费，Key 只存浏览器 localStorage，无需后端。 */
+XLX.biz = {
+  enabled: false,
+  endpoint: "",
+  pointsName: "虾币",
+  /* 预留：login() / deduct(points) / syncProjects() —— 未启用 */
+};
+
+XLX.create = (function () {
+  let curAgent = "ecom";
+  let curCapsule = null;
+
+  function svg(n, s) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:' + s + 'px;height:' + s + 'px">' + (XLX.ICONS[n] || "") + '</svg>'; }
+
+  const AGENTS = {
+    ecom: {
+      name: "电商图片",
+      icon: "cart",
+      desc: "输入产品名/卖点/场景，一键生成主图、详情页、SKU、海报",
+      placeholder: "例如：一款粉色便携榨汁杯，卖点是无线充电、快速出汁，用于露营和办公室场景",
+      caps: [
+        { id: "detail", name: "详情页复刻", icon: "layers", aspect: "tall", tpl: "电商商品详情页长图，卖点分区、规格参数、使用场景、细节特写，竖版长图构图，高端质感" },
+        { id: "sku", name: "SKU图", icon: "grid", aspect: "square", tpl: "电商SKU展示图，商品主体清晰，多角度陈列，干净背景，促销氛围" },
+        { id: "canvas", name: "智能画布", icon: "wand", aspect: "square", tpl: "电商商品主视觉图，主体清晰突出，构图留白，高级质感" },
+        { id: "detaildesign", name: "详情页设计", icon: "doc", aspect: "tall", tpl: "商品详情页设计，信息层级清晰，卖点突出，竖版长图，电商风格" },
+        { id: "poster", name: "电商海报设计", icon: "poster", aspect: "wide", tpl: "电商促销海报，大字报排版，氛围感强，横向构图，视觉冲击力" }
+      ]
+    },
+    cloth: {
+      name: "服装种草",
+      icon: "heart",
+      desc: "服装/穿搭种草图：上新海报、SKU、穿搭场景，模特上身体验",
+      placeholder: "例如：一款白色法式连衣裙，面料轻薄飘逸，适合海边度假和日常通勤",
+      caps: [
+        { id: "outfit", name: "服装种草", icon: "heart", aspect: "square", tpl: "服装穿搭种草图，模特上身，背景干净，面料质感真实，氛围自然" },
+        { id: "skuc", name: "服装SKU", icon: "grid", aspect: "square", tpl: "服装多色SKU展示图，颜色齐全，平铺或上身展示，干净背景" },
+        { id: "posterc", name: "上新海报", icon: "poster", aspect: "wide", tpl: "服装新品上架海报，时尚大气，模特上身，横向构图" }
+      ]
+    },
+    video: {
+      name: "视频创作",
+      icon: "clapper",
+      desc: "AI 剧作：输入主题，AI 拆分分镜脚本，逐段生成视频，可本地拼接",
+      placeholder: "例如：做一条 30 秒的零食好物安利短视频，节奏快、种草感强",
+      caps: [
+        { id: "short", name: "短视频脚本", icon: "clapper", aspect: "", tpl: "" },
+        { id: "long", name: "长视频脚本", icon: "film", aspect: "", tpl: "" }
+      ]
+    }
+  };
+
+  function render(box) {
+    const A = AGENTS[curAgent];
+    const tabsHTML = ["ecom", "cloth", "video"].map(k => {
+      const a = AGENTS[k];
+      return '<button class="agent-tab' + (k === curAgent ? " active" : "") + '" data-agent="' + k + '">'
+        + svg(a.icon, 17) + '<span>' + a.name + '</span></button>';
+    }).join("");
+
+    box.innerHTML = ''
+      + '<div class="create-wrap">'
+      + '<div class="create-hero">'
+      + '<h1>您好！今天您想创作什么呢？</h1>'
+      + '<p class="create-sub">' + A.desc + '</p>'
+      + '<div class="agent-tabs">' + tabsHTML + '</div>'
+      + '<div class="hero-model" id="heroModel" onclick="XLX.app.go(\'settings\')"><span>' + svg("box", 12) + '</span><b>语言模型</b>：<i>' + XLX.util.esc((XLX.modelsel && XLX.modelsel.currentLabel ? XLX.modelsel.currentLabel() : "未配置")) + '</i> · 点击管理</div>'
+      + '</div>'
+      + '<div class="create-composer">'
+      + '<textarea id="createInput" class="create-input" rows="3" placeholder="' + A.placeholder + '"></textarea>'
+      + '<div class="composer-ref" id="composerRef" hidden>'
+      + '<img id="refPreview" alt="参考图">'
+      + '<div class="cr-info"><b>参考图已添加</b><span>将保留实例图主体，按你的指令改背景/场景/卖点</span></div>'
+      + '<button class="cr-x" id="refRemove" title="移除">' + svg("x", 14) + '</button>'
+      + '</div>'
+      + '<div class="composer-opts">'
+      + '<button class="ct-btn ghost" id="refBtn" title="上传实例图，图生图保留主体">' + svg("image", 15) + ' 上传实例图</button>'
+      + '<label class="co-sel">' + svg("box", 13) + '<select id="imgModelSel" title="选择生图模型"></select></label>'
+      + '<label class="co-sel">' + svg("globe", 13) + '<select id="langSel" title="生成图中文字的语言"><option value="zh">中文</option><option value="en">English</option></select></label>'
+      + '<input type="file" id="refFile" accept="image/*" hidden>'
+      + '</div>'
+      + '<div class="composer-tools">'
+      + '<span class="ct-tip">' + svg("sparkle", 13) + ' 输入产品描述，AI 帮你扩写成高级提示词</span>'
+      + '<button class="ct-btn ghost" id="aiWriteBtn">' + svg("pen", 14) + ' AI帮写</button>'
+      + '<button class="ct-btn primary" id="createGenBtn">' + svg("zap", 15) + ' 一键生成</button>'
+      + '</div>'
+      + '</div>'
+      + '<div class="quick-caps" id="quickCaps">' + A.caps.map((c, i) =>
+        '<button class="qc' + (i === 0 ? " active" : "") + '" data-c="' + c.id + '">' + svg(c.icon, 15) + '<span>' + c.name + '</span></button>').join("") + '</div>'
+      + '<div id="createResult" class="img-grid" style="margin-top:6px"></div>'
+      + '<div class="proj-section">'
+      + '<div class="proj-head"><span>' + svg("history", 15) + ' 最近项目</span><button class="proj-more" onclick="XLX.app.go(\'tools\')">' + svg("grid", 13) + ' 全部历史</button></div>'
+      + '<div class="proj-grid" id="createProjects"></div>'
+      + '</div>'
+      + '</div>';
+
+    box.querySelectorAll(".agent-tab").forEach(b => b.onclick = () => { curAgent = b.dataset.agent; curCapsule = null; render(box); });
+    bind(box);
+  }
+
+  function bind(box) {
+    const input = document.getElementById("createInput");
+    const genBtn = document.getElementById("createGenBtn");
+    const resultBox = document.getElementById("createResult");
+    const A = AGENTS[curAgent];
+    let refImg = null;          /* { url, dataUrl } 上传的实例图 */
+    let curModelId = "";        /* 当前选中的生图模型 */
+
+    /* ===== 生图模型下拉：模型库 + 单配置 ===== */
+    function fillModelSel() {
+      const sel = document.getElementById("imgModelSel");
+      if (!sel) return;
+      const hub = XLX.modelHub.all("image");
+      const s = XLX.llm.getSettings();
+      const opts = [{ v: "__default__", t: "跟随设置（" + XLX.image.vendorName(s) + "）" }];
+      hub.forEach(m => opts.push({ v: m.id, t: "⭐ " + (m.name || m.vendor) + (m.marked ? "（当前）" : "") }));
+      const singleOn = !hub.length && s.imageProvider && s.imageProvider !== "free" && (s.imageKey || "").trim();
+      if (singleOn) opts.push({ v: "__single__", t: "当前单配置（" + XLX.image.vendorName(s) + "）" });
+      sel.innerHTML = opts.map(o => '<option value="' + o.v + '">' + o.t + '</option>').join("");
+      sel.value = curModelId && hub.some(m => m.id === curModelId) ? curModelId : "__default__";
+    }
+    fillModelSel();
+
+    /* ===== 参考图上传 ===== */
+    const refFile = document.getElementById("refFile");
+    const refBtn = document.getElementById("refBtn");
+    refBtn.onclick = () => refFile.click();
+    refFile.onchange = () => {
+      const f = refFile.files && refFile.files[0];
+      if (!f) return;
+      const btn = refBtn;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spin" style="width:12px;height:12px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> 处理中…';
+      XLX.image.uploadRefImage(f).then(r => {
+        if (r && r.dataUrl) {
+          refImg = r;
+          const row = document.getElementById("composerRef");
+          row.hidden = false;
+          document.getElementById("refPreview").src = r.dataUrl;
+          XLX.util.toast("实例图已添加，生成时将保留主体", "ok");
+        } else {
+          XLX.util.toast("参考图处理失败，请重试", "err");
+        }
+      }).catch(e => {
+        XLX.util.toast("参考图处理失败：" + (e.message || e), "err");
+      }).finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = svg("image", 15) + ' 上传实例图';
+        refFile.value = "";
+      });
+    };
+    document.getElementById("refRemove").onclick = () => {
+      refImg = null;
+      const row = document.getElementById("composerRef");
+      row.hidden = true;
+      document.getElementById("refPreview").src = "";
+    };
+
+    const applyCapsule = (c) => {
+      curCapsule = c;
+      box.querySelectorAll(".qc").forEach(x => x.classList.toggle("active", x.dataset.c === c.id));
+      if (c.tpl && input && !input.value.trim()) input.placeholder = c.tpl;
+    };
+    box.querySelectorAll(".qc").forEach(b => b.onclick = () => applyCapsule(A.caps.find(c => c.id === b.dataset.c)));
+
+    /* AI帮写：把产品名/卖点/场景扩写成完整生图提示词 */
+    document.getElementById("aiWriteBtn").onclick = async () => {
+      const raw = input.value.trim();
+      if (!raw) { XLX.util.toast("先输入产品描述，我再帮你扩写", "warn"); input.focus(); return; }
+      if (!XLX.llm.isConfigured()) { XLX.util.toast("请先在「设置」配置 AI 对话 Key（智谱/DeepSeek 等免费平台）", "warn"); return; }
+      const btn = document.getElementById("aiWriteBtn");
+      const lang = document.getElementById("langSel").value;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spin" style="width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> 扩写中…';
+      try {
+        const langReq = lang === "en"
+          ? "请用英文输出提示词（图片内文字使用英文），"
+          : "请用中文输出提示词（图片内文字使用中文），";
+        const res = await XLX.llm.ask(
+          "你是电商设计专家。请把用户描述的产品信息扩写成一段可直接用于AI生图的完整提示词，包含：产品主体、材质质感、核心卖点、使用场景、背景氛围、构图建议。",
+          langReq + "80-140字，直接输出提示词本身，不要任何解释和前缀。\n\n产品描述：" + raw
+        );
+        input.value = (res || "").trim();
+        input.focus();
+        XLX.util.toast("已扩写成高级提示词，可直接生成", "ok");
+      } catch (e) {
+        XLX.util.toast("扩写失败：" + (e.message || e), "err");
+      }
+      btn.disabled = false;
+      btn.innerHTML = svg("pen", 14) + ' AI帮写';
+    };
+
+    /* 一键生成 */
+    const run = async () => {
+      const raw = input.value.trim();
+      if (!raw) { XLX.util.toast("请先输入产品描述，或点「AI帮写」", "warn"); return; }
+
+      /* 视频智能体：跳转 AI 剧作（短视频/长视频） */
+      if (curAgent === "video") {
+        XLX.app.go("tools");
+        setTimeout(() => { try { XLX.tools.openTool("aidrama"); } catch (e) {} }, 120);
+        XLX.util.toast("已打开 AI 剧作，输入主题即可生成视频", "info");
+        return;
+      }
+
+      const c = curCapsule || A.caps[0];
+      const lang = document.getElementById("langSel").value;
+      const langHint = lang === "en" ? "，图片内所有文字使用英文" : "，图片内文字使用中文";
+      const prompt = [c.tpl, raw, langHint].filter(Boolean).join("，");
+      const s = XLX.llm.getSettings();
+
+      /* 确定生图模型：模型库下拉选择 / 单配置 / 免费 */
+      const selVal = document.getElementById("imgModelSel").value;
+      const hubM = selVal && selVal !== "__default__" && selVal !== "__single__"
+        ? XLX.modelHub.getModels().find(m => m.id === selVal) : null;
+      const singleCfg = !hubM && !(selVal === "__default__" && XLX.modelHub.current("image"))
+        && s.imageProvider && s.imageProvider !== "free" && (s.imageKey || "").trim()
+        ? { vendor: s.imageProvider, base: s.imageBase, key: s.imageKey, model: s.imageModel } : null;
+      const modelName = hubM ? (hubM.name || hubM.model) : (singleCfg ? XLX.image.vendorName(s) : "免费 Pollinations");
+      const hasRef = !!(refImg && refImg.dataUrl);
+
+      const genOpts = { aspect: c.aspect, strict: true, useHub: false };
+      if (hubM) { genOpts.modelId = hubM.id; genOpts.useHub = true; }
+      else if (singleCfg) genOpts.single = singleCfg;
+      if (hasRef) genOpts.image = refImg;
+
+      genBtn.disabled = true;
+      genBtn.innerHTML = '<span class="spin" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> 生成中…（约10-90秒）';
+      const ph = document.createElement("div");
+      ph.className = "img-item";
+      const _t0 = Date.now();
+      const genInfo = [];
+      if (hasRef) genInfo.push("已上传实例图，将保留主体");
+      genInfo.push("模型：" + modelName);
+      ph.innerHTML = '<div class="iload"><div class="spinner"></div>正在生成 ' + XLX.util.esc(c.name) + '…'
+        + '<div style="font-size:11px">' + genInfo.join(" · ") + '</div>'
+        + '<div class="iact"><button data-a="del" title="删除">' + svg("trash", 14) + '</button></div></div>';
+      ph.querySelector("[data-a=del]").onclick = () => ph.remove();
+      resultBox.insertBefore(ph, resultBox.firstChild);
+      try {
+        const url = await XLX.image.generate(prompt, genOpts);
+        ph.innerHTML = '<img loading="lazy" src="' + url + '"><div class="iact"><button data-a="dl" title="下载">' + svg("download", 14) + '</button><button data-a="del" title="删除">' + svg("trash", 14) + '</button></div><div class="ilab">' + XLX.util.esc(c.name + (raw ? " · " + raw.slice(0, 24) : "")) + '</div>';
+        ph.querySelector("[data-a=dl]").onclick = () => XLX.image.downloadByUrl(url, "xlx-create-" + Date.now() + ".png");
+        ph.querySelector("[data-a=del]").onclick = () => {
+          const list = loadHistory();
+          const idx = list.findIndex(x => String(x.time) === String(_t0));
+          if (idx >= 0) list.splice(idx, 1);
+          saveHistory(list);
+          ph.remove();
+        };
+        const list = loadHistory();
+        list.unshift({ url, prompt, channel: c.name, time: _t0, ref: hasRef });
+        saveHistory(list);
+        ph.dataset.time = String(_t0);
+        renderProjects();
+      } catch (e) {
+        const msg = XLX.util.esc(e.message || String(e));
+        const freeHint = (hubM || singleCfg)
+          ? '<div class="err-hint">提示：当前模型返回失败，可能原因：API Key 无效/已过期、模型名不对、余额不足。可尝试：</div>'
+          : '<div class="err-hint">提示：免费接口偶发超时/国内网络连不上，可重试，或换用商业模型。</div>';
+        ph.innerHTML = '<div class="iload errcard">'
+          + '<div class="err-ic">' + svg("alert", 22) + '</div>'
+          + '<div class="err-t">生成失败</div>'
+          + '<div class="err-msg">' + msg + '</div>'
+          + freeHint
+          + '<div class="err-act">'
+          + (hubM || singleCfg ? '<button class="btn small" data-a="free" style="margin-right:6px">改用免费接口</button>' : '')
+          + '<button class="btn small primary" data-a="retry">重试</button>'
+          + '</div>'
+          + '</div>';
+        ph.querySelector("[data-a=del]") || true;
+        const freeBtn = ph.querySelector("[data-a=free]");
+        if (freeBtn) freeBtn.onclick = () => {
+          curModelId = "__free__";
+          document.getElementById("imgModelSel").value = "__default__";
+          document.getElementById("imgModelSel").innerHTML = '<option value="__default__">跟随设置（免费 Pollinations）</option>';
+          genBtn.disabled = false;
+          genBtn.innerHTML = svg("zap", 15) + ' 一键生成';
+          XLX.util.toast("已切换为免费接口，重新点击「一键生成」", "info");
+          ph.remove();
+        };
+        ph.querySelector("[data-a=retry]").onclick = () => { ph.remove(); run(); };
+        genBtn.disabled = false;
+        genBtn.innerHTML = svg("zap", 15) + ' 一键生成';
+        return;
+      }
+      genBtn.disabled = false;
+      genBtn.innerHTML = svg("zap", 15) + ' 一键生成';
+    };
+    genBtn.onclick = run;
+    input.onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run(); };
+
+    renderProjects();
+  }
+
+  function loadHistory() {
+    try { return JSON.parse(localStorage.getItem(XLX.K.IMAGES) || "[]"); } catch (e) { return []; }
+  }
+  function saveHistory(list) { localStorage.setItem(XLX.K.IMAGES, JSON.stringify(list.slice(0, 60))); }
+
+  function renderProjects() {
+    const box = document.getElementById("createProjects");
+    if (!box) return;
+    const list = loadHistory();
+    if (!list.length) {
+      box.innerHTML = '<div class="empty-box"><div class="eb-ic">' + svg("box", 26) + '</div><div class="eb-t">还没有创作记录</div><div class="eb-d">在上方输入产品描述，一键生成主图 / 详情页 / SKU / 海报</div></div>';
+      return;
+    }
+    box.innerHTML = list.slice(0, 8).map((h, i) => {
+      return '<div class="proj-card-mini" data-time="' + (h.time || "") + '">'
+        + '<img loading="lazy" src="' + XLX.util.esc(h.url) + '" onerror="this.style.opacity=.15">'
+        + '<div class="pm-iact"><button data-a="dl" title="下载">' + svg("download", 13) + '</button><button data-a="del" title="删除">' + svg("trash", 13) + '</button></div>'
+        + '<div class="pm-lab">' + XLX.util.esc(h.channel || "创作") + '</div></div>';
+    }).join("");
+    box.querySelectorAll(".proj-card-mini [data-a=dl]").forEach(b => {
+      b.onclick = () => {
+        const t = b.closest(".proj-card-mini").dataset.time;
+        const h = loadHistory().find(x => String(x.time) === String(t));
+        if (h) XLX.image.downloadByUrl(h.url, "xlx-create-" + Date.now() + ".png");
+      };
+    });
+    box.querySelectorAll(".proj-card-mini [data-a=del]").forEach(b => {
+      b.onclick = () => {
+        const t = b.closest(".proj-card-mini").dataset.time;
+        const list = loadHistory();
+        const idx = list.findIndex(x => String(x.time) === String(t));
+        if (idx >= 0) list.splice(idx, 1);
+        saveHistory(list);
+        renderProjects();
+      };
+    });
+  }
+
+  return { render, openAgent: (a) => { if (AGENTS[a]) { curAgent = a; } } };
+})();
+
+</script>
+<script>
+/* ===== 一键成片：剧照 + TTS配音 + 字幕 + 镜头运动 合成视频（纯前端 WebM） ===== */
+
+XLX.video = (function () {
+  function icon(n, s) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:' + s + 'px;height:' + s + 'px">' + (XLX.ICONS[n] || "") + '</svg>'; }
+
+  function isSupported() {
+    return !!(window.MediaRecorder && HTMLCanvasElement.prototype.captureStream &&
+      window.AudioContext && window.speechSynthesis);
+  }
+
+  /* 把文字用浏览器 TTS 合成并录制为 AudioBuffer；无中文语音/失败时返回 null */
+  function ttsToBuffer(text) {
+    return new Promise((resolve) => {
+      try {
+        if (!window.speechSynthesis || !text) return resolve(null);
+        const voices = speechSynthesis.getVoices();
+        const zh = voices.find(v => /zh|cmn|Chinese/i.test(v.lang + " " + v.name)) || voices[0];
+        if (!zh) return resolve(null);
+        const AC = new AudioContext();
+        const dest = AC.createMediaStreamDestination();
+        const src = AC.createBufferSource();
+        const chunks = [];
+        const rec = new MediaRecorder(dest.stream, { mimeType: (window.MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "") });
+        rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+        rec.onstop = async () => {
+          try {
+            const blob = new Blob(chunks, { type: "audio/webm" });
+            const ab = await blob.arrayBuffer();
+            const buf = await AC.decodeAudioData(ab);
+            await AC.close();
+            resolve(buf);
+          } catch (e) { try { await AC.close(); } catch (_) {} resolve(null); }
+        };
+        rec.onerror = () => { try { AC.close(); } catch (_) {} resolve(null); };
+        /* 先写一帧静音占位，否则 MediaRecorder 不产出数据 */
+        src.connect(dest);
+        src.start();
+        rec.start();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.voice = zh;
+        utter.lang = zh.lang || "zh-CN";
+        utter.rate = 1.0;
+        utter.pitch = 1.0;
+        utter.onend = () => {
+          setTimeout(() => { try { rec.stop(); } catch (e) {} }, 120);
+        };
+        utter.onerror = () => {
+          setTimeout(() => { try { rec.stop(); } catch (e) {} }, 120);
+        };
+        speechSynthesis.speak(utter);
+        /* 超时兜底（长句最多 40 秒） */
+        setTimeout(() => { try { if (rec.state === "recording") rec.stop(); } catch (e) {} }, 40000);
+      } catch (e) {
+        resolve(null);
+      }
+    });
+  }
+
+  /* 预加载一张图片 */
+  function loadImage(url) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+
+  /* 字幕按宽度换行，最多两行 */
+  function wrapText(ctx, text, maxWidth, maxLines) {
+    const lines = [];
+    let cur = "";
+    for (const ch of text) {
+      const test = cur + ch;
+      if (ctx.measureText(test).width > maxWidth && cur) {
+        lines.push(cur);
+        cur = ch;
+        if (lines.length >= maxLines) break;
+      } else cur = test;
+    }
+    if (cur) lines.push(cur);
+    return lines.slice(0, maxLines);
+  }
+
+  /* 核心：把场景列表合成视频。
+     scenes: [{ url, text, audioBuffer, duration }]
+     opts: { width, height, fps, onProgress, signal }
+     返回 { blob, duration } */
+  async function composeVideo(scenes, opts = {}) {
+    const width = opts.width || 1280;
+    const height = opts.height || 720;
+    const fps = opts.fps || 30;
+    if (!isSupported()) throw new Error("当前浏览器不支持视频合成，请用 Chrome/Edge 最新版");
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    const stream = canvas.captureStream(fps);
+
+    /* 音频轨：把各镜配音按时间轴合到混音总线。
+       注意：浏览器 speechSynthesis 输出不经过 Web Audio 图，
+       createMediaStreamDestination 无法捕获 TTS 声音，因此音频 buffer
+       通常为 null，成片为「画面+字幕」无声视频。 */
+    const AC = new AudioContext();
+    const master = AC.createMediaStreamDestination();
+    let hasAudio = false;
+    const totalSec = scenes.reduce((acc, s) => acc + (s.duration || 4), 0);
+    let t = 0;
+    for (const s of scenes) {
+      if (s.audioBuffer) {
+        const srcNode = AC.createBufferSource();
+        srcNode.buffer = s.audioBuffer;
+        const gain = AC.createGain();
+        gain.gain.value = 1.0;
+        srcNode.connect(gain).connect(master);
+        srcNode.start(AC.currentTime + t);
+        hasAudio = true;
+      }
+      t += (s.duration || 4);
+    }
+    if (hasAudio) stream.addTrack(master.stream.getAudioTracks()[0]);
+
+    /* 录制 */
+    const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "video/webm";
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6 * 1024 * 1024 });
+    const chunks = [];
+    rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise((res) => { rec.onstop = res; });
+    rec.start(1000);
+
+    /* 预加载所有剧照 */
+    const imgs = [];
+    for (let i = 0; i < scenes.length; i++) {
+      if (opts.signal && opts.signal.aborted) { rec.stop(); throw new Error("已取消"); }
+      imgs.push(await loadImage(scenes[i].url));
+    }
+
+    const totalFrames = Math.round(totalSec * fps);
+    const KENBURNS = 1.12;
+
+    const drawScene = (scene, img, frame, sceneFrames) => {
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, width, height);
+      if (img) {
+        const p = frame / Math.max(sceneFrames - 1, 1);
+        const scale = 1 + (KENBURNS - 1) * p;
+        const iw = img.naturalWidth || width, ih = img.naturalHeight || height;
+        const cover = Math.max(width / iw, height / ih) * scale;
+        const dw = iw * cover, dh = ih * cover;
+        const maxOffX = (dw - width) / 2, maxOffY = (dh - height) / 2;
+        const dirX = scene._dir === "even" ? -1 : 1;
+        const dirY = scene._dir === "even" ? 1 : -1;
+        const offX = maxOffX * (1 - Math.abs(1 - 2 * p)) * dirX;
+        const offY = maxOffY * (1 - Math.abs(1 - 2 * p)) * dirY;
+        ctx.drawImage(img, (width - dw) / 2 + offX, (height - dh) / 2 + offY, dw, dh);
+      }
+      /* 字幕 */
+      if (scene.text) {
+        const fs = Math.max(22, Math.round(width * 0.028));
+        ctx.font = "600 " + fs + "px system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        const maxW = width * 0.84;
+        const lines = wrapText(ctx, scene.text, maxW, 2);
+        const lh = fs * 1.4;
+        const blockH = lines.length * lh + 16;
+        const baseY = height - 20;
+        ctx.fillStyle = "rgba(0,0,0,0.45)";
+        ctx.fillRect(width * 0.04, baseY - blockH, width * 0.92, blockH + 8);
+        ctx.fillStyle = "#fff";
+        ctx.shadowColor = "rgba(0,0,0,0.8)"; ctx.shadowBlur = 4;
+        lines.forEach((ln, i) => {
+          ctx.fillText(ln, width / 2, baseY - 10 - (lines.length - i - 1) * lh);
+        });
+        ctx.shadowBlur = 0;
+      }
+    };
+
+    /* 逐帧渲染：每帧按真实时间推进，保证 MediaRecorder 采集到的
+       帧时间戳正确分布（同步狂奔会导致 WebM 时间轴损坏无法播放） */
+    let frame = 0;
+    const track = stream.getVideoTracks()[0];
+    const frameMs = 1000 / fps;
+    for (let si = 0; si < scenes.length; si++) {
+      const scene = scenes[si];
+      const sceneFrames = Math.round((scene.duration || 4) * fps);
+      scene._dir = si % 2 === 0 ? "even" : "odd";
+      for (let f = 0; f < sceneFrames; f++) {
+        if (opts.signal && opts.signal.aborted) {
+          try { rec.stop(); } catch (e) {}
+          throw new Error("已取消");
+        }
+        drawScene(scene, imgs[si], f, sceneFrames);
+        if (track.requestFrame) track.requestFrame();
+        frame++;
+        if (opts.onProgress) opts.onProgress(frame / totalFrames);
+        await new Promise(r => setTimeout(r, frameMs));
+      }
+    }
+
+    rec.stop();
+    await stopped;
+    try { await AC.close(); } catch (e) {}
+    if (opts.signal && opts.signal.aborted) throw new Error("已取消");
+    const blob = new Blob(chunks, { type: mime.split(";")[0] });
+    if (!blob.size) throw new Error("录制结果为空，请重试或换用 Edge/Chrome");
+    return { blob, duration: totalSec };
+  }
+
+  function renderOutput(box, result) {
+    const url = URL.createObjectURL(result.blob);
+    box.innerHTML = ''
+      + '<div class="panel2" style="border:1px solid var(--border);border-radius:11px;padding:14px;margin-top:12px">'
+      + '<div class="label" style="margin-bottom:8px">成片完成（' + result.duration.toFixed(1) + ' 秒 · WebM）</div>'
+      + '<video controls style="width:100%;max-height:420px;border-radius:9px;background:#000" src="' + url + '"></video>'
+      + '<div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">'
+      + '<button class="btn primary" id="vidDownload">' + icon("download", 14) + ' 下载视频</button>'
+      + '<button class="btn ghost" id="vidPreview">' + icon("play", 14) + ' 在线预览</button></div></div>';
+    box.querySelector("#vidDownload").onclick = () => {
+      const a = document.createElement("a");
+      a.href = url; a.download = "剧作成片_" + Date.now() + ".webm";
+      a.click();
+    };
+    box.querySelector("#vidPreview").onclick = () => {
+      const v = box.querySelector("video");
+      if (v) { v.scrollIntoView({ behavior: "smooth", block: "center" }); v.play(); }
+    };
+  }
+
+  return { isSupported, ttsToBuffer, composeVideo, renderOutput };
+})();
+
+</script>
+<script>
+/* ===== 付费 AI 视频生成：火山方舟 Seedance / 阿里云百炼可灵 Kling / 自定义服务（异步任务 API）=====
+ * 火山方舟：POST /api/v3/contents/generations/tasks → GET /tasks/{id}，成功 content.video_url
+ * 阿里云百炼(可灵)：POST /api/v1/services/aigc/video-generation/video-synthesis → GET /api/v1/tasks/{id}，成功 output.video_url
+ * 自定义服务：任务式（与火山同协议）/ 同步式（POST /api/video 直接返回 video_url）
+ */
+XLX.videogen = (function () {
+  const PROVIDERS = [
+    { id: "volcengine", name: "火山方舟 Seedance", color: "#3370ff",
+      base: "https://ark.cn-beijing.volces.com",
+      defaultModel: "doubao-seedance-2-0-mini-260615",
+      keyPlaceholder: "sk-...（火山方舟 API Key）",
+      keyLink: "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey",
+      baseHint: "火山方舟官方地址已预置，通常无需修改",
+      protocol: "task",
+      models: [
+        { id: "doubao-seedance-2-0-mini-260615", name: "Seedance 2.0 mini（最便宜，约0.2元/秒@720p 限时4折）" },
+        { id: "doubao-seedance-2-0-fast-260128", name: "Seedance 2.0 fast（快速，约0.6元/秒@720p 限时75折）" },
+        { id: "doubao-seedance-2-0-260128", name: "Seedance 2.0（标准）" },
+        { id: "doubao-seedance-2-5-260628", name: "Seedance 2.5（旗舰，4-30秒有声）" }
+      ],
+      resoOptions: [
+        { v: "720p", l: "720p 高清" },
+        { v: "480p", l: "480p 标清" }
+      ] },
+    { id: "aliyun", name: "可灵 Kling（阿里云百炼）", color: "#ff6a3d",
+      base: "https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com",
+      defaultModel: "kling/kling-v3-turbo-video-generation",
+      keyPlaceholder: "sk-...（阿里云百炼 API Key）",
+      keyLink: "https://bailian.console.aliyun.com/",
+      baseHint: "必填：将 {WorkspaceId} 替换为你的百炼业务空间 ID，如 https://maas-xxx.cn-beijing.maas.aliyuncs.com",
+      protocol: "task",
+      models: [
+        { id: "kling/kling-v3-turbo-video-generation", name: "可灵 V3 turbo（高速版，3-15秒）" },
+        { id: "kling/kling-v3-video-generation", name: "可灵 V3 标准版（std720p/pro1080p/4k）" },
+        { id: "kling/kling-v3-omni-video-generation", name: "可灵 V3 全能版（参考生视频/视频编辑）" }
+      ],
+      resoOptions: [
+        { v: "std", l: "720p 标清" },
+        { v: "pro", l: "1080p 高清" }
+      ] },
+    { id: "custom", name: "自定义服务（自托管）", color: "#10b981",
+      base: "https://your-server.example.com",
+      defaultModel: "your-video-model",
+      keyPlaceholder: "API Key（可选，若你的服务需要）",
+      keyLink: "",
+      baseHint: "填你自己的视频服务地址。任务式：POST {base}/api/v3/contents/generations/tasks 创建、GET /tasks/{id} 轮询、成功返回 content.video_url；同步式：POST {base}/api/video 直接返回 {video_url}",
+      protocol: "task",
+      models: [],
+      resoOptions: [
+        { v: "720p", l: "720p 高清" },
+        { v: "480p", l: "480p 标清" }
+      ] }
+  ];
+
+  function getSettings() {
+    let s = {};
+    try { s = JSON.parse(localStorage.getItem(XLX.K.SETTINGS) || "{}"); } catch (e) {}
+    return s;
+  }
+  function saveSettings(s) {
+    localStorage.setItem(XLX.K.SETTINGS, JSON.stringify(s));
+  }
+  function getQuickServices() {
+    const s = getSettings();
+    return (s.videoQuickServices && Array.isArray(s.videoQuickServices)) ? s.videoQuickServices : [];
+  }
+  function saveQuickService(name, cfg) {
+    const s = getSettings();
+    const list = getQuickServices();
+    const item = {
+      name: name,
+      base: cfg.base || "",
+      key: cfg.key || "",
+      model: cfg.model || "",
+      protocol: cfg.protocol || "task"
+    };
+    const i = list.findIndex(q => q.name === name);
+    if (i >= 0) list[i] = item; else list.push(item);
+    s.videoQuickServices = list;
+    saveSettings(s);
+  }
+  function removeQuickService(i) {
+    const s = getSettings();
+    const list = getQuickServices();
+    if (i >= 0 && i < list.length) list.splice(i, 1);
+    s.videoQuickServices = list;
+    saveSettings(s);
+  }
+  function providerDef(pid) {
+    const p = PROVIDERS.find(x => x.id === pid);
+    return p || PROVIDERS[0];
+  }
+  function cfg() {
+    const s = getSettings();
+    const p = providerDef(s.videoProvider || "volcengine");
+    return {
+      provider: p.id,
+      protocol: (s.videoProvider === "custom" ? (s.videoProtocol || "task") : "task"),
+      base: ((s.videoBase && s.videoBase.trim()) ? s.videoBase.trim() : p.base).replace(/\/+$/, ""),
+      key: s.videoKey || "",
+      model: s.videoModel || p.defaultModel,
+      ratio: s.videoRatio || "16:9",
+      reso: s.videoReso || (p.resoOptions[0] ? p.resoOptions[0].v : ""),
+      duration: parseInt(s.videoDuration, 10) || 5
+    };
+  }
+  function isConfigured() {
+    const c = cfg();
+    if (c.provider === "custom") return !!c.base && c.base.indexOf("your-server") < 0;
+    return !!c.key;
+  }
+  function resoOptions(pid) {
+    return providerDef(pid || cfg().provider).resoOptions;
+  }
+  function getHeaders(extra) {
+    const h = { "Content-Type": "application/json" };
+    const c = cfg();
+    if (c.key) h["Authorization"] = "Bearer " + c.key;
+    if (extra) Object.assign(h, extra);
+    return h;
+  }
+  async function request(path, options) {
+    const res = await fetch(cfg().base + path, options);
+    let data = null;
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) {
+      const msg = (data && ((data.error && (data.error.message || data.error.msg)) || data.message)) || ("HTTP " + res.status);
+      throw new Error(msg);
+    }
+    return data;
+  }
+  function buildCreateBody(prompt, opts) {
+    const c = cfg();
+    const ratio = (opts && opts.ratio) || c.ratio;
+    const resolution = (opts && opts.resolution) || c.reso;
+    const duration = (opts && opts.duration) || c.duration;
+    if (c.provider === "aliyun") {
+      return {
+        model: c.model,
+        input: { prompt: prompt },
+        parameters: { mode: resolution, aspect_ratio: ratio, duration: duration, audio: false, watermark: true }
+      };
+    }
+    if (c.provider === "custom" && c.protocol === "sync") {
+      return { model: c.model, prompt: prompt, ratio: ratio, resolution: resolution, duration: duration };
+    }
+    /* 火山方舟 / 自定义任务式：同协议 */
+    return {
+      model: c.model,
+      content: [{ type: "text", text: prompt }],
+      ratio: ratio,
+      resolution: resolution,
+      duration: duration
+    };
+  }
+  async function createTask(prompt, opts) {
+    const c = cfg();
+    if (c.provider === "aliyun") {
+      const data = await request("/api/v1/services/aigc/video-generation/video-synthesis", {
+        method: "POST",
+        headers: getHeaders({ "X-DashScope-Async": "enable" }),
+        body: JSON.stringify(buildCreateBody(prompt, opts))
+      });
+      const id = (data.output && data.output.task_id) || null;
+      if (!id) throw new Error("创建任务失败：接口未返回 task_id");
+      return id;
+    }
+    const data = await request("/api/v3/contents/generations/tasks", {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(buildCreateBody(prompt, opts))
+    });
+    const id = data.id || (data.data && data.data.id) || null;
+    if (!id) throw new Error("创建任务失败：接口未返回任务 ID");
+    return id;
+  }
+  async function getTask(taskId) {
+    const c = cfg();
+    if (c.provider === "aliyun") {
+      return await request("/api/v1/tasks/" + encodeURIComponent(taskId), { method: "GET", headers: getHeaders() });
+    }
+    return await request("/api/v3/contents/generations/tasks/" + encodeURIComponent(taskId), { method: "GET", headers: getHeaders() });
+  }
+  function parseStatus(data) {
+    if (cfg().provider === "aliyun") {
+      const o = data.output || {};
+      const st = o.task_status || "";
+      if (st === "SUCCEEDED") return { done: true, url: o.video_url || null };
+      if (st === "FAILED" || st === "CANCELED") throw new Error((o.message || o.code || "视频生成失败").toString());
+      if (st === "UNKNOWN") throw new Error("任务不存在或已过期，请重新生成");
+      return { done: false, status: st };
+    }
+    const st = data.status || "";
+    if (st === "succeeded") return { done: true, url: (data.content && data.content.video_url) || null };
+    if (st === "failed") throw new Error((data.error && data.error.message) || data.message || "视频生成失败");
+    return { done: false, status: st || "running" };
+  }
+  /* 完整流程：创建任务 → 轮询 → 返回 { taskId, videoUrl, data } */
+  async function generate(prompt, opts) {
+    if (!prompt || !prompt.trim()) throw new Error("视频提示词为空");
+    if (!isConfigured()) throw new Error("未配置视频生成平台 Key");
+    const onStatus = opts && opts.onStatus;
+    const c = cfg();
+    /* 自定义服务·同步式：POST 单请求直接返回视频 */
+    if (c.provider === "custom" && c.protocol === "sync") {
+      const res = await request("/api/video", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(buildCreateBody(prompt, opts))
+      });
+      const url = res.video_url || (res.output && res.output.video_url) || (res.data && res.data.video_url) || null;
+      if (!url) throw new Error("同步接口未返回 video_url");
+      if (onStatus) onStatus({ phase: "done", videoUrl: url, data: res });
+      return { taskId: "", videoUrl: url, data: res };
+    }
+    const taskId = await createTask(prompt, opts);
+    if (onStatus) onStatus({ phase: "created", taskId: taskId });
+    const timeoutMs = (opts && opts.timeout) || 420000;
+    const intervalMs = (opts && opts.interval) || 8000;
+    const start = Date.now();
+    for (;;) {
+      if (Date.now() - start > timeoutMs) throw new Error("视频生成超时（任务仍在后台，可稍后重试）");
+      const data = await getTask(taskId);
+      const r = parseStatus(data);
+      if (r.done) {
+        if (!r.url) throw new Error("任务成功但未返回视频地址");
+        if (onStatus) onStatus({ phase: "done", videoUrl: r.url, data: data });
+        return { taskId: taskId, videoUrl: r.url, data: data };
+      }
+      if (onStatus) onStatus({ phase: "polling", status: r.status, data: data });
+      await new Promise(res => setTimeout(res, intervalMs));
+    }
+  }
+
+  /* 拼接多段视频：浏览器端 canvas 依次播放各段并录制，返回 Blob（webm/mp4）。无外部依赖。 */
+  function loadVideoBlob(blob) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(blob);
+      const v = document.createElement("video");
+      v.preload = "auto"; v.muted = true; v.playsInline = true;
+      v.src = url;
+      const timer = setTimeout(() => { URL.revokeObjectURL(url); reject(new Error("视频加载超时")); }, 30000);
+      v.onloadedmetadata = () => {
+        const p = v.play(); if (p && p.catch) p.catch(() => { });
+        setTimeout(() => { clearTimeout(timer); resolve(v); }, 400);
+      };
+      v.onerror = () => { clearTimeout(timer); URL.revokeObjectURL(url); reject(new Error("视频片段无法解析")); };
+    });
+  }
+
+  async function concatVideos(urls, opts = {}) {
+    if (!urls || !urls.length) throw new Error("没有可拼接的片段");
+    const width = opts.width || 1280;
+    const height = opts.height || 720;
+    const mimeCands = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"];
+    const mimeType = (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported)
+      ? (mimeCands.find(m => MediaRecorder.isTypeSupported(m)) || "video/webm") : "video/webm";
+    const els = [];
+    for (let i = 0; i < urls.length; i++) {
+      const r = await fetch(urls[i]);
+      if (!r.ok) throw new Error("片段 " + (i + 1) + " 下载失败（HTTP " + r.status + "）");
+      const blob = await r.blob();
+      els.push(await loadVideoBlob(blob));
+      if (opts.onProgress) opts.onProgress({ phase: "download", done: i + 1, total: urls.length });
+    }
+    const cv = document.createElement("canvas");
+    cv.width = width; cv.height = height;
+    const ctx = cv.getContext("2d");
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, width, height);
+    const stream = cv.captureStream(30);
+    const rec = new MediaRecorder(stream, { mimeType: mimeType, videoBitsPerSecond: 8000000 });
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise(res => rec.onstop = () => res());
+    rec.start(200);
+    let frame = null;
+    let curIdx = 0;
+    const tick = () => {
+      const v = els[curIdx];
+      if (v && !v.paused && !v.ended && v.currentTime > 0) { try { ctx.drawImage(v, 0, 0, width, height); } catch (e) {} }
+      frame = requestAnimationFrame(tick);
+    };
+    for (curIdx = 0; curIdx < els.length; curIdx++) {
+      const v = els[curIdx];
+      v.currentTime = 0;
+      try { ctx.drawImage(v, 0, 0, width, height); } catch (e) {}
+      await new Promise((res) => {
+        const onEnd = () => { v.removeEventListener("ended", onEnd); res(); };
+        v.addEventListener("ended", onEnd);
+        v.muted = true;
+        const p = v.play(); if (p && p.catch) p.catch(() => { });
+        tick();
+        if (opts.onProgress) opts.onProgress({ phase: "play", done: curIdx + 1, total: els.length });
+      });
+      cancelAnimationFrame(frame);
+    }
+    rec.stop();
+    await stopped;
+    const blob = new Blob(chunks, { type: rec.mimeType || "video/webm" });
+    els.forEach(e => { if (e.src) URL.revokeObjectURL(e.src); });
+    return blob;
+  }
+
+  return {
+    PROVIDERS, providerDef, getSettings, saveSettings, cfg, isConfigured, resoOptions,
+    createTask, getTask, generate, getQuickServices, saveQuickService, removeQuickService,
+    concatVideos
+  };
 })();
 
 </script>
@@ -4230,11 +6970,13 @@ XLX.dlview = (function () {
 /* ===== 主应用：路由、导航、事件绑定 ===== */
 
 XLX.app = (function () {
-  const VIEWS = ["chat", "market", "studio", "tools", "memory", "download", "settings"];
-  let currentView = "chat";
+  const VIEWS = ["create", "chat", "market", "studio", "tools", "memory", "download", "settings"];
+  /* 生图暂缓期间「创作中心」整页收起，默认进「智能对话」 */
+  let currentView = XLX.PARKED.image ? "chat" : "create";
 
   function navItems() {
     return [
+      { id: "create", name: "创作中心", icon: "zap", group: "开始" },
       { id: "chat", name: "智能对话", icon: "chat", group: "开始" },
       { id: "market", name: "技能市场", icon: "grid", group: "开始", badge: String(XLX.SKILL_COUNT) },
       { id: "studio", name: "软件工坊", icon: "hammer", group: "开始", sub: "AI开发软件" },
@@ -4242,7 +6984,7 @@ XLX.app = (function () {
       { id: "tools", name: "工具箱", icon: "palette", group: "工具" },
       { id: "download", name: "客户端下载", icon: "download", group: "工具", sub: "手机/电脑" },
       { id: "settings", name: "设置", icon: "settings", group: "工具" }
-    ];
+    ].filter(item => !(XLX.PARKED.image && item.id === "create"));
   }
 
   function renderSidebar() {
@@ -4262,7 +7004,7 @@ XLX.app = (function () {
 
     /* 手机端底部导航（只渲染菜单里真实存在的页面；摘掉某页后不会再出错） */
     const mn = document.getElementById("mobileNav");
-    mn.innerHTML = ["chat", "market", "tools", "studio"]
+    mn.innerHTML = ["create", "chat", "market", "tools", "studio"]
       .map(id => navItems().find(x => x.id === id))
       .filter(Boolean)
       .map(item =>
@@ -4274,7 +7016,7 @@ XLX.app = (function () {
   }
 
   function renderTopbar() {
-    const names = { chat: ["智能对话", "多平台免费模型 · 流式秒回"], market: ["技能市场", XLX.SKILL_COUNT + " 个免费实用技能，点击即用"], studio: ["软件工坊", "AI 开发完整软件 → 预览 → 一键打包下载"], tools: ["工具箱", "商品图下载、去水印、视频提取文案"], memory: ["记忆习惯", "AI 记住你的偏好，自动处理重复工作"], download: ["客户端下载", "手机 / 电脑 / 离线版"], settings: ["设置", "接入多个平台的免费 API Key"] };
+    const names = { create: ["创作中心", "输入产品描述 → AI帮写 → 一键生成主图/详情页/SKU/海报"], chat: ["智能对话", "多平台免费模型 · 流式秒回"], market: ["技能市场", XLX.SKILL_COUNT + " 个免费实用技能，点击即用"], studio: ["软件工坊", "AI 开发完整软件 → 预览 → 一键打包下载"], tools: ["工具箱", "商品图下载、去水印、视频提取文案"], memory: ["记忆习惯", "AI 记住你的偏好，自动处理重复工作"], download: ["客户端下载", "手机 / 电脑 / 离线版"], settings: ["设置", "接入多个平台的免费 API Key"] };
     const t = document.getElementById("pageTitle");
     const s = document.getElementById("pageSub");
     const viewMeta = names[currentView] || ["", ""];
@@ -4302,6 +7044,7 @@ XLX.app = (function () {
     }
     if (view === "market") XLX.market.render();
     if (view === "studio") XLX.studio.render();
+    if (view === "create") XLX.create.render(document.getElementById("createContent"));
     if (view === "tools") XLX.tools.render();
     if (view === "memory") XLX.memview.render();
     if (view === "download") XLX.dlview.render();
@@ -4341,12 +7084,14 @@ XLX.app = (function () {
     const items = [
       { icon: "cart", c: "#ff8f5a", t: "写电商文案", d: "商品卖点提炼+促销文案", go: "market", sid: "ecom-copy" },
       { icon: "book", c: "#4aa8ff", t: "写公众号文章", d: "10万+爆文结构创作", go: "market", sid: "gzh-article" },
+      { icon: "clapper", c: "#a78bfa", t: "写AI短剧剧本", d: "竖屏短剧黄金3秒开场", go: "market", sid: "short-drama" },
+      { icon: "palette", c: "#ff7aa8", t: "AI文字生图", d: "免费无限次生成图片", go: "tools", sid: "", park: "image" },
       { icon: "hammer", c: "#38d9e6", t: "AI开发软件", d: "生成可运行软件并打包", go: "studio", sid: "" },
       { icon: "zap", c: "#3ddc84", t: "一键周报", d: "快捷指令解决重复工作", go: "memory", sid: "" },
       { icon: "trend", c: "#f5c451", t: "关键词热度盘点", d: "自动搜索网页资料分析", go: "market", sid: "keyword-heat" },
       { icon: "film", c: "#9aa7bd", t: "生成分镜脚本", d: "专业分镜表格一键出", go: "market", sid: "storyboard" }
-    /* 已删除的技能不再出现在首页推荐里（避免点了没反应） */
-    ].filter(it => (!it.sid || XLX.getSkill(it.sid)));
+    /* 已暂缓的功能不再出现在首页推荐里（避免点了没反应） */
+    ].filter(it => (!it.sid || XLX.getSkill(it.sid)) && !(it.park && XLX.PARKED[it.park]));
     box.innerHTML = items.map(it =>
       '<div class="suggest-card" data-it="' + it.sid + '" data-go="' + it.go + '">'
       + '<div class="ic" style="background:' + it.c + '22;color:' + it.c + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + (XLX.ICONS[it.icon] || "") + '</svg></div>'
@@ -4447,7 +7192,7 @@ XLX.app = (function () {
     XLX.chat.initSearchChip();
     initStudio();
     initKeys();
-    go("chat");
+    go("create");
     refreshStatus();
     setTimeout(() => {
       const l = document.getElementById("loader");

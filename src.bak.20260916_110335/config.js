@@ -5,6 +5,16 @@ const XLX = {};
 XLX.VERSION = "v71";
 XLX.APP_NAME = "铜龙电商";
 
+/* ===== 暂缓功能开关（主人要求先摘掉，后续重新加入） =====
+ * 摘掉的是「AI 生图」与「AI 剧作」两块：界面入口全部隐藏，实现代码原样保留。
+ * 想恢复：把下面 image / drama 改成 false，并清空 XLX.PARKED_SKILLS 即可。
+ */
+XLX.PARKED = { image: true, drama: true };
+XLX.PARKED_SKILLS = [
+  "product-img", "text2img", "logo-design", "detail-longimg", "ecom-mainimg",
+  "comic-story", "short-drama", "comic-drama", "live-drama", "ai-video-gen"
+];
+
 /* 存储键 */
 XLX.K = {
   SETTINGS: "xlx_settings",
@@ -14,7 +24,8 @@ XLX.K = {
   PROJECT: "xlx_project",
   IMAGES: "xlx_images",
   CHATS: "xlx_chat_meta",
-  MODELS: "xlx_models"
+  MODELS: "xlx_models",
+  COMIC: "xlx_comic_draft"
 };
 
 /* 免费/低价模型平台预设（用户自带Key，按 OpenAI 兼容接口 /chat/completions 调用） */
