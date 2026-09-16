@@ -228,7 +228,7 @@
       const guard = await D.compliance.guardUpload(f, "reference");
       if (!guard.ok) { U.toast(guard.reason, "err"); return; }
       if (guard.warn) U.toast(guard.warn, "warn");
-      const url = await D.adapters.fileToDataUrl(f);
+      const url = await D.adapterUtil.fileToDataUrl(f);
       const shot = (state.project.shots || []).find(s => s.id === sid);
       if (!shot) return;
       shot.imageUrl = url;
@@ -255,7 +255,7 @@
         if (!guard.ok) { U.toast(guard.reason, "err"); continue; }
         if (guard.warn) U.toast(guard.warn, "warn");
         c.refImages = c.refImages || [];
-        c.refImages.push(await D.adapters.fileToDataUrl(f));
+        c.refImages.push(await D.adapterUtil.fileToDataUrl(f));
       }
       D.character.markAffected(state.project, cid);
       await save();
