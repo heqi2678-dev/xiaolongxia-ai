@@ -104,7 +104,22 @@ STATIC_TYPES = {
     ".woff2": "font/woff2",
     ".bin": "application/octet-stream",
     ".onnx": "application/octet-stream",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".m4a": "audio/mp4",
+    ".aac": "audio/aac",
 }
+
+DRAMA_PUBLIC_BASE = os.environ.get("DRAMA_PUBLIC_BASE", "").rstrip("/")
+DRAMA_PUB_DIR = DATA_DIR / "pub"
+DRAMA_PUB_EXT = {
+    "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png", "image/webp": ".webp",
+    "audio/mpeg": ".mp3", "audio/mp3": ".mp3", "audio/wav": ".wav", "audio/x-wav": ".wav",
+    "audio/mp4": ".m4a", "audio/aac": ".aac", "video/mp4": ".mp4",
+}
+DRAMA_PUB_NAME = re.compile(r"^[A-Za-z0-9_-]{16,64}\.(mp4|mp3|wav|m4a|aac|jpg|jpeg|png|webp)$")
+# 火山数字人只接受公网 URL，单文件上限 200MB 与服务端合成保持一致
+DRAMA_PUB_MAX = 200 * 1024 * 1024
 
 _lock = threading.Lock()
 
@@ -196,6 +211,7 @@ def ensure_data():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     ROOM_ROOT.mkdir(parents=True, exist_ok=True)
     PUBLISH_ROOT.mkdir(parents=True, exist_ok=True)
+    DRAMA_PUB_DIR.mkdir(parents=True, exist_ok=True)
     for name in ("users.json", "sessions.json", "quota.json", "friend.json"):
         p = DATA_DIR / name
         if not p.exists():
@@ -1395,6 +1411,9 @@ class Handler(BaseHTTPRequestHandler):
             js = (GATE_DIR / "inject.js").read_text(encoding="utf-8")
             self._send(200, js, "application/javascript; charset=utf-8")
             return
+        if path.startswith("/pub/"):
+            self._handle_drama_pub(path[len("/pub/"):])
+            return
         me = self._current()
         if not me:
             if path.startswith("/api/"):
@@ -1478,6 +1497,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/drama/visual":
             self._handle_drama_visual()
+            return
+        if path == "/api/drama/asset":
+            self._handle_drama_asset()
             return
         self._json(404, {"ok": False, "error": "没有这个接口"})
 
@@ -1760,6 +1782,67 @@ class Handler(BaseHTTPRequestHandler):
             self._json(502, {"ok": False, "error": "火山智能视觉调用失败，请检查 Key 与网络"})
             return
         self._json(200, {"ok": True, "data": data})
+
+    # ---------- 火山数字人只收公网 URL：/dian/pub/<token>.<ext> 免登录只读 ----------
+    def _public_base(self):
+        if DRAMA_PUBLIC_BASE:
+            return DRAMA_PUBLIC_BASE
+        host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "")
+        host = host.split(",")[0].strip()
+        if not host:
+            return ""
+        proto = (self.headers.get("X-Forwarded-Proto") or "").split(",")[0].strip()
+        if not proto:
+            local = host.split(":")[0]
+            proto = "http" if local in ("localhost", "0.0.0.0") or local.startswith("127.") else "https"
+        return proto + "://" + host
+
+    def _handle_drama_pub(self, name):
+        name = unquote_to_bytes(name).decode("utf-8", "ignore")
+        if not DRAMA_PUB_NAME.match(name or ""):
+            self._json(404, {"ok": False, "error": "找不到素材"})
+            return
+        target = (DRAMA_PUB_DIR / name).resolve()
+        try:
+            target.relative_to(DRAMA_PUB_DIR.resolve())
+        except ValueError:
+            self._json(404, {"ok": False, "error": "找不到素材"})
+            return
+        if not target.is_file():
+            self._json(404, {"ok": False, "error": "找不到素材"})
+            return
+        self._send(
+            200,
+            target.read_bytes(),
+            STATIC_TYPES.get(target.suffix.lower(), "application/octet-stream"),
+            raw=True,
+        )
+
+    def _handle_drama_asset(self):
+        me = self._drama_me()
+        if not me:
+            return
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        ext = DRAMA_PUB_EXT.get(ctype)
+        if not ext:
+            self._json(400, {"ok": False, "error": "只支持图片/音频/视频素材"})
+            return
+        n = int(self.headers.get("Content-Length") or 0)
+        if n <= 0:
+            self._json(400, {"ok": False, "error": "素材为空"})
+            return
+        if n > DRAMA_PUB_MAX:
+            self._json(400, {"ok": False, "error": "素材超过 200MB"})
+            return
+        base = self._public_base()
+        if not base:
+            self._json(400, {"ok": False, "error": "拿不到公网地址，请配置 DRAMA_PUBLIC_BASE"})
+            return
+        raw = self.rfile.read(n)
+        name = secrets.token_hex(16) + ext
+        DRAMA_PUB_DIR.mkdir(parents=True, exist_ok=True)
+        (DRAMA_PUB_DIR / name).write_bytes(raw)
+        self._json(200, {"ok": True, "url": base + "/dian/pub/" + name, "name": name})
 
     def _handle_drama_out(self, name):
         me = self._drama_me()

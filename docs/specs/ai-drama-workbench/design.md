@@ -150,14 +150,25 @@ body   { key: AccessKeyID, secret: SecretAccessKey, action, version, service, re
 
 上游契约（`visual.volcengineapi.com`，签名 v4）：
 
-- 创建：`Action=CVSubmitTask`，`body.req_key=realman_avatar_picture_omni_v2`，
-  `image_url`（图片人像）+ `audio_url`（驱动音频）；返回 `code=10000`，任务号在 `data.task_id`。
+- 创建：`Action=CVSubmitTask`，`body.req_key=jimeng_realman_avatar_picture_omni_v15`（OmniHuman1.5，
+  主体识别侧为 `jimeng_realman_avatar_picture_create_role_omni_v15`），
+  `image_url`（公网图片人像）+ `audio_url`（公网驱动音频，须 <60 秒）；可选 `mask_url`（数组，
+  指定说话主体）、`prompt`（≤300 字）、`output_resolution`（`720`|`1080`）、`pe_fast_mode`、
+  `seed`。返回 `code=10000`，任务号在 `data.task_id`。
 - 查询：`Action=CVGetResult`，`body.task_id=<id>`；`code=10000`，进度在 `data.status`
-  （`not_found`/`processing`/`done`/`failed`），成片在 `data.video_url`，失败原因在 `data.resp_data`。
+  （`not_found`/`processing`/`done`/`failed`），成片在 `data.video_url`（**仅 1 小时有效**）。
 - 固定参数：`Version=2022-08-31`、`service=cv`、`region=cn-north-1`。版本改为其他值会报
   `Could not find operation CVSubmitTask for version ...`。
-- 错误码翻译：`50200` req_key 不支持、`50400` 未开通/无权限、`50430` 并发额度为 0。
-  `50430` 在参数校验之前返回，表示该账号对此模型的并发为 0，需在火山控制台开通模型或申请并发。
+- 错误码翻译：`50200` 参数/req_key 不支持、`50215` 输入无效（多为音频超 60 秒）、
+  `50400` 未开通/无权限、`50429` QPS 超限、`50430` 并发为 0 或已满、`50220` 素材 URL 不可下载、
+  `50500` 上游内部错误。`50429/50430/50500/50501` 属可重试，适配器退避重试 5 次。
+- 上游**只接受公网 http(s) 素材**，`data:` URL 会被拒（图片报 `50220`、音频报 `50500`）。
+  本地素材先经 `POST /dian/api/drama/asset` 上传换取公网地址：
+  ```
+  POST /dian/api/drama/asset   原始字节 body + Content-Type 头（需登录）
+  返回 200 { ok: true, url: "<base>/dian/pub/<token>.<ext>", name }
+  GET  /dian/pub/<token>.<ext> 免登录只读，供上游回源下载
+  ```
 
 响应中 `code=10000` 表示成功（`0` 也视为成功），业务错误集中在 `code` 上。
 

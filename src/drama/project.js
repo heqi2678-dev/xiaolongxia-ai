@@ -70,6 +70,33 @@
     return URL.createObjectURL(rec.blob);
   }
 
+  /* 云端模型（如火山数字人）只收公网 URL，把本地 blob/asset: 上传到网关换回公网地址。
+     已经是 http(s) 的原样返回。 */
+  async function toPublicUrl(v) {
+    const url = String(v || "");
+    if (!url) return "";
+    if (/^https?:\/\//i.test(url)) return url;
+    let blob = null;
+    if (url.startsWith("asset:")) {
+      const rec = await idbGet(url.slice(6));
+      blob = rec && rec.blob;
+    } else if (isLocalRef(url)) {
+      blob = await fetch(url).then(r => r.blob()).catch(() => null);
+    }
+    if (!blob) throw D.err("NO_ASSET", "本地素材读不到，请重新生成");
+    const r = await fetch("/dian/api/drama/asset", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": blob.type || "application/octet-stream" },
+      body: blob
+    });
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j || !j.ok || !j.url) {
+      throw D.err("UPLOAD_FAIL", (j && j.error) || "素材上传到公网失败，请稍后再试");
+    }
+    return j.url;
+  }
+
   const ASSET_FIELDS = ["imageUrl", "videoUrl", "audioUrl", "lipsyncUrl"];
 
   async function persistAssets(p) {
@@ -367,7 +394,7 @@
     addShot, removeShot, moveShot, renumber,
     addCharacter, removeCharacter, characterName,
     validate, setStatus, migrate, cover, duplicate,
-    persistAssets, hydrateAssets,
+    persistAssets, hydrateAssets, toPublicUrl,
     assets: { put: idbPut, get: idbGet, toRef, hydrateRef },
     remote
   };

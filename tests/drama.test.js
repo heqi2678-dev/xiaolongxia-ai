@@ -180,6 +180,21 @@ test("自定义口型适配器创建与轮询状态映射", async () => {
   assert.equal(done.url, "https://cdn/out.mp4");
 });
 
+test("火山即梦数字人口型 720P 走快速模式并截断超长提示词", async () => {
+  const { D, sandbox } = createDrama();
+  setAdapter(D, "lipsync", { provider: "volc-koubo", key: "AKTEST", secret: "SKTEST", resolution: 720 });
+  mockJson(sandbox, { ok: true, data: { code: 10000, message: "Success", data: { task_id: "L1" } } });
+  await D.adapters.lipsync.create({
+    imageUrl: "https://cdn/i.jpg", audioUrl: "https://cdn/a.mp3",
+    prompt: "镜".repeat(400), maskUrl: "https://cdn/m.png"
+  });
+  const body = JSON.parse(sandbox.__calls[0].opts.body).body;
+  assert.equal(body.output_resolution, 720);
+  assert.equal(body.pe_fast_mode, true);
+  assert.equal(body.prompt.length, 300);
+  assert.deepEqual(body.mask_url, ["https://cdn/m.png"]);
+});
+
 test("火山即梦数字人口型走同源签名代理", async () => {
   const { D, sandbox } = createDrama();
   setAdapter(D, "lipsync", { provider: "volc-koubo", key: "AKTEST", secret: "SKTEST" });
@@ -198,9 +213,11 @@ test("火山即梦数字人口型走同源签名代理", async () => {
   assert.equal(body.version, "2022-08-31");
   assert.equal(body.service, "cv");
   assert.equal(body.region, "cn-north-1");
-  assert.equal(body.body.req_key, "realman_avatar_picture_omni_v2");
+  assert.equal(body.body.req_key, "jimeng_realman_avatar_picture_omni_v15");
   assert.equal(body.body.image_url, "https://cdn/i.jpg");
   assert.equal(body.body.audio_url, "https://cdn/a.mp3");
+  assert.equal(body.body.output_resolution, 1080);
+  assert.equal(body.body.pe_fast_mode, false);
 
   mockJson(sandbox, { ok: true, data: { code: 10000, message: "Success", data: { status: "done", video_url: "https://cdn/out.mp4" } } });
   const st = await D.adapters.lipsync.poll("L1");
@@ -209,6 +226,7 @@ test("火山即梦数字人口型走同源签名代理", async () => {
   const pollBody = JSON.parse(sandbox.__calls[1].opts.body);
   assert.equal(pollBody.action, "CVGetResult");
   assert.equal(pollBody.body.task_id, "L1");
+  assert.equal(pollBody.body.output_resolution, undefined);
 });
 
 test("火山即梦数字人口型缺凭证与代理报错时给出可读提示", async () => {
@@ -224,6 +242,7 @@ test("火山即梦数字人口型缺凭证与代理报错时给出可读提示",
     D.adapters.lipsync.create({ imageUrl: "https://cdn/i.jpg", audioUrl: "https://cdn/a.mp3" }),
     /Access Denied/
   );
+  setAdapter(D, "lipsync", { provider: "volc-koubo", key: "AKTEST", secret: "SKTEST", retryDelay: 0 });
   mockJson(sandbox, { ok: true, data: { code: 50430, message: "Request Has Reached API Concurrent Limit" } });
   await assert.rejects(
     D.adapters.lipsync.create({ imageUrl: "https://cdn/i.jpg", audioUrl: "https://cdn/a.mp3" }),
@@ -234,22 +253,75 @@ test("火山即梦数字人口型缺凭证与代理报错时给出可读提示",
     D.adapters.lipsync.create({ imageUrl: "https://cdn/i.jpg", audioUrl: "https://cdn/a.mp3" }),
     /未开通/
   );
+  mockJson(sandbox, { ok: true, data: { code: 50215, message: "Input invalid for this service." } });
+  await assert.rejects(
+    D.adapters.lipsync.create({ imageUrl: "https://cdn/i.jpg", audioUrl: "https://cdn/a.mp3" }),
+    /60 秒/
+  );
 });
 
 test("火山口型轮询解析 data.status 与 video_url", async () => {
   const { D, sandbox } = createDrama();
   setAdapter(D, "lipsync", { provider: "volc-koubo", key: "AKTEST", secret: "SKTEST" });
-  mockJson(sandbox, { ok: true, data: { code: 10000, message: "Success", data: { status: "not_found", video_url: "" } } });
+  mockJson(sandbox, { ok: true, data: { code: 10000, message: "Success", data: { status: "in_queue" } } });
+  const queued = await D.adapters.lipsync.poll("L1");
+  assert.equal(queued.status, "running");
+  mockJson(sandbox, { ok: true, data: { code: 10000, message: "Success", data: { status: "generating" } } });
   const running = await D.adapters.lipsync.poll("L1");
   assert.equal(running.status, "running");
   mockJson(sandbox, { ok: true, data: { code: 10000, message: "Success", data: { status: "done", video_url: "https://cdn/out.mp4" } } });
   const done = await D.adapters.lipsync.poll("L1");
   assert.equal(done.status, "done");
   assert.equal(done.url, "https://cdn/out.mp4");
-  mockJson(sandbox, { ok: true, data: { code: 10000, message: "Success", data: { status: "failed", resp_data: "音频时长超限" } } });
+  mockJson(sandbox, { ok: true, data: { code: 10000, message: "Success", data: { status: "expired" } } });
+  const expired = await D.adapters.lipsync.poll("L1");
+  assert.equal(expired.status, "failed");
+  assert.match(expired.error, /过期/);
+  mockJson(sandbox, { ok: true, data: { code: 50514, message: "Pre Audio Risk Not Pass" } });
   const bad = await D.adapters.lipsync.poll("L1");
   assert.equal(bad.status, "failed");
-  assert.match(bad.error, /音频时长超限/);
+  assert.match(bad.error, /音频/);
+});
+
+test("本地素材上传网关换公网地址，http 地址原样透传", async () => {
+  const { D, sandbox } = createDrama();
+  const blob = new sandbox.Blob([new Uint8Array([1, 2, 3])], { type: "audio/mpeg" });
+  await D.project.assets.put("x1", blob, { mime: "audio/mpeg" });
+  mockJson(sandbox, { ok: true, url: "https://pub.example/dian/pub/abc.mp3" });
+  assert.equal(await D.project.toPublicUrl("asset:x1"), "https://pub.example/dian/pub/abc.mp3");
+  const call = sandbox.__calls[0];
+  assert.equal(call.url, "/dian/api/drama/asset");
+  assert.equal(call.opts.method, "POST");
+  assert.equal(call.opts.headers["Content-Type"], "audio/mpeg");
+  assert.equal(await D.project.toPublicUrl("https://cdn/x.png"), "https://cdn/x.png");
+  mockJson(sandbox, { ok: false, error: "素材超过 200MB" });
+  await assert.rejects(D.project.toPublicUrl("asset:x1"), /200MB/);
+  await assert.rejects(D.project.toPublicUrl("asset:nope"), /读不到/);
+});
+
+test("火山口型把本地配音换成公网地址后再提交", async () => {
+  const { D, sandbox } = createDrama();
+  setAdapter(D, "lipsync", { provider: "volc-koubo", key: "AKTEST", secret: "SKTEST", retryDelay: 0 });
+  const blob = new sandbox.Blob([new Uint8Array([1])], { type: "audio/mpeg" });
+  await D.project.assets.put("a1", blob, { mime: "audio/mpeg" });
+  sandbox.fetch = async (url, opts) => {
+    sandbox.__calls = sandbox.__calls || [];
+    sandbox.__calls.push({ url: String(url), opts: opts || {} });
+    const body = String(url).indexOf("/api/drama/asset") >= 0
+      ? { ok: true, url: "https://pub.example/dian/pub/a1.mp3" }
+      : { ok: true, data: { code: 10000, message: "Success", data: { task_id: "L9" } } };
+    return {
+      ok: true, status: 200,
+      text: async () => JSON.stringify(body),
+      json: async () => body,
+      blob: async () => new sandbox.Blob([])
+    };
+  };
+  const created = await D.adapters.lipsync.create({ imageUrl: "https://cdn/i.jpg", audioUrl: "asset:a1" });
+  assert.equal(created.jobId, "L9");
+  const submit = JSON.parse(sandbox.__calls[sandbox.__calls.length - 1].opts.body);
+  assert.equal(submit.body.audio_url, "https://pub.example/dian/pub/a1.mp3");
+  assert.equal(submit.body.image_url, "https://cdn/i.jpg");
 });
 
 test("剧种引擎：漫剧单镜生成写入画面与配音", async () => {

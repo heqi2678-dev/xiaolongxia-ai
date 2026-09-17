@@ -747,6 +747,41 @@ class GateTests(unittest.TestCase):
         self.assertEqual(code, 400)
         self.assertIn("AccessKey", json.loads(body.decode("utf-8"))["error"])
 
+    def test_drama_asset_upload_then_public_read_without_login(self):
+        opener, _ = self.opener()
+        code, _, _ = self.req(opener, "/api/drama/asset", method="POST",
+                              data=b"MP3RAW", headers={"Content-Type": "audio/mpeg"})
+        self.assertEqual(code, 401)
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        code, body, _ = self.req(opener, "/api/drama/asset", method="POST",
+                                 data=b"MP3RAW", headers={"Content-Type": "audio/mpeg"})
+        self.assertEqual(code, 200)
+        obj = json.loads(body.decode("utf-8"))
+        self.assertTrue(obj["ok"])
+        self.assertRegex(obj["name"], r"^[A-Za-z0-9_-]{16,64}\.mp3$")
+        self.assertTrue(obj["url"].endswith("/dian/pub/" + obj["name"]))
+        with urllib.request.urlopen(obj["url"], timeout=5) as res:
+            self.assertEqual(res.getcode(), 200)
+            self.assertEqual(res.read(), b"MP3RAW")
+            self.assertEqual(res.headers.get("Content-Type"), "audio/mpeg")
+
+    def test_drama_asset_rejects_bad_type_and_empty(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        code, body, _ = self.req(opener, "/api/drama/asset", method="POST",
+                                 data=b"X", headers={"Content-Type": "application/json"})
+        self.assertEqual(code, 400)
+        self.assertIn("图片/音频/视频", json.loads(body.decode("utf-8"))["error"])
+        code, body, _ = self.req(opener, "/api/drama/asset", method="POST",
+                                 data=b"", headers={"Content-Type": "audio/mpeg"})
+        self.assertEqual(code, 400)
+        self.assertIn("为空", json.loads(body.decode("utf-8"))["error"])
+
+    def test_drama_pub_missing_file_is_404(self):
+        opener, _ = self.opener()
+        code, _, _ = self.req(opener, "/pub/" + "a" * 32 + ".mp3")
+        self.assertEqual(code, 404)
+
 
 if __name__ == "__main__":
     unittest.main()

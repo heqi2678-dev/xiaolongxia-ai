@@ -101,3 +101,15 @@ Entries discovered by the Agent during task execution should follow this format:
   - **前端不能直连**：该接口预检只放行 `X-Api-Resource-Id` 等头，**不放行 `X-Api-Key`**（唯一可用的鉴权头），浏览器会拦成 `Failed to fetch`；`X-Api-Access-Key`/`X-Api-App-Key`/`Authorization` 均报 `code 45000000`。
   - 语音统一走同源网关转发：前端口令 `POST /dian/api/drama/tts`（body `{key,resource,text,speaker,speed,format}`），`gate/server.py` 的函数 `drama_tts()` 代发火山并回传 `audio/mpeg`；上游错误转成 502 + `{"error":...}`。改协议只需改 `drama_tts()`，前端 `tts.js` 不必动。
   - 旧版 `/api/v1/tts`（`Bearer;<token>` + `app.appid/token/cluster`）已弃用，代码不要再走该协议。
+
+[Project Knowledge Summary]
+- Date: 2026-09-17
+- Context: Discovered by Agent while 探测火山智能视觉（视觉智能开放平台）口型模型真实契约
+- Category: Troubleshooting & Debugging
+- Instructions:
+  - 视觉智能接口：`POST https://visual.volcengineapi.com`，`service=cv`、`Version=2022-08-31`、`region=cn-north-1`（换版本报 `Could not find operation ...`）。签名头不在浏览器 CORS 白名单，统一走同源网关 `POST /dian/api/drama/visual` 由 `gate/server.py` 的 `volc_sign()` / `drama_visual()` 代签。
+  - **口型正确 req_key 是 `jimeng_realman_avatar_picture_omni_v15`（OmniHuman1.5，主体识别为 `jimeng_realman_avatar_picture_create_role_omni_v15`）**；实测 `realman_avatar_picture_omni_v2` 恒报 `50430`（旧错值，与开通无关）、`jimeng_realman_avatar_picture_omni_v2` 报 `50400`、`realman_avatar_picture_v2` 提交得 `10000` 但 GetResult 报 `50215`。不存在的 req_key 报 `50200 req_key <x> not supported`。
+  - 官方文档取数走 API 而非网页（网页需 JS）：库列表 `GET https://docs.volcengine.com/api/doc/getDocList?LibraryID=85621&lang=zh`，详情 `GET .../getDocDetail?DocumentID=<id>&lang=zh`，正文在 `Result.MDContent`。即梦数字人库 `85621`（`JimengAI`），视频生成文档 `1829013`、主体识别 `1828975`。
+  - 错误码语义：`50200` 参数/req_key 不支持、`50215` 输入无效（多为音频超 60 秒）、`50400` 未开通/无权限、`50429` QPS 超限、`50430` 并发为 0 或已满（模型并发仅 1，撞上属常态，需退避重试）、`50220` 素材 URL 不可下载、`50500` 上游内部错误。响应成功码为 `10000`。
+  - `CVSubmitTask` 返回 `data.task_id`；`CVGetResult` 返回 `data.status`（`not_found`/`processing`/`done`/`failed`）、成片 `data.video_url`（**仅 1 小时有效**）、失败原因 `data.resp_data`。
+  - 本地素材必须先经网关 `POST /dian/api/drama/asset` 上传换公网地址（上游只收 http(s)，`data:` 会被拒）。
