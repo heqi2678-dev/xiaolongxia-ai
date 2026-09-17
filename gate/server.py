@@ -960,7 +960,7 @@ def drama_compose(owner, project):
                 "-vf", vf,
                 "-t", "%.2f" % dur,
                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-                "-c:a", "aac", "-b:a", "128k",
+                "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
                 "-shortest", "-movflags", "+faststart",
                 str(clip),
             ]

@@ -499,6 +499,51 @@ class GateTests(unittest.TestCase):
         self.assertIn(code, (400, 501))
         self.assertFalse(json.loads(body.decode("utf-8"))["ok"])
 
+    def _mock_compose_ff(self, captured):
+        import types
+
+        def fake_download(url, dest):
+            dest.write_bytes(b"x")
+            return dest
+
+        def fake_ff(args, timeout=None):
+            captured.append(list(args))
+            Path(args[-1]).write_bytes(b"v")
+            return types.SimpleNamespace(returncode=0, stdout=b"")
+
+        self.addCleanup(self._restore(self.gate, "_download_asset", self.gate._download_asset))
+        self.addCleanup(self._restore(self.gate, "_ff_run", self.gate._ff_run))
+        self.addCleanup(self._restore(self.gate.shutil, "which", self.gate.shutil.which))
+        self.addCleanup(self._restore(self.gate, "_drama_font", self.gate._drama_font))
+        self.gate._download_asset = fake_download
+        self.gate._ff_run = fake_ff
+        self.gate.shutil.which = lambda name: "/usr/bin/" + name
+        self.gate._drama_font = lambda: ""
+
+    @staticmethod
+    def _restore(obj, name, old):
+        return lambda: setattr(obj, name, old)
+
+    def test_drama_compose_normalizes_audio_for_concat(self):
+        captured = []
+        self._mock_compose_ff(captured)
+        project = {
+            "id": "x-comp",
+            "output": {"ratio": "9:16", "fps": 30},
+            "shots": [
+                {"duration": 3, "imageUrl": "http://x.test/a.jpg", "audioUrl": "http://x.test/a.mp3", "line": "一"},
+                {"duration": 4, "videoUrl": "http://x.test/b.mp4", "line": "二"},
+            ],
+        }
+        out = self.gate.drama_compose("liyu", project)
+        self.assertTrue(out["file"].endswith(".mp4"))
+        per_shot = [c for c in captured if "-c:a" in c and c[c.index("-c:a") + 1] == "aac"]
+        self.assertEqual(len(per_shot), 2)
+        for cmd in per_shot:
+            self.assertIn("44100", cmd)
+            self.assertIn("-ac", cmd)
+
+
     def test_drama_out_rejects_bad_name(self):
         opener, _ = self.opener()
         self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
