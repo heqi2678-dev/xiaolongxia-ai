@@ -167,7 +167,7 @@ XLX.settings = (function () {
     { id: "image", name: "文生图（漫剧画面）", desc: "生成每个分镜的画面，漫剧的核心。" },
     { id: "video", name: "图生视频（仿真人剧）", desc: "用首帧生成视频，仿真人剧的核心。推荐火山方舟 Seedance。" },
     { id: "tts", name: "语音合成（配音）", desc: "把台词转成自然的配音。推荐火山语音。" },
-    { id: "lipsync", name: "口型驱动（对口型）", desc: "让画面嘴型与配音对齐，仿真人剧用。" }
+    { id: "lipsync", name: "口型驱动（对口型）", desc: "让画面嘴型与配音对齐，仿真人剧用。火山即梦需填 AccessKey ID + Secret Access Key，并先在控制台开通对应模型。" }
   ];
 
   function dramaKindBlock(kind) {
@@ -192,7 +192,10 @@ XLX.settings = (function () {
           + ((def && def.id === "volc")
             ? '<input class="inp" id="ds-' + meta.id + '-cluster" placeholder="资源 ID，如 seed-tts-2.0" style="flex:2;min-width:160px" value="' + XLX.util.esc(cfg.cluster) + '">'
             : '')
-        : '<input class="inp" id="ds-' + meta.id + '-key" type="password" placeholder="API Key" style="flex:2;min-width:140px" value="' + XLX.util.esc(cfg.key) + '">'
+        : '<input class="inp" id="ds-' + meta.id + '-key" type="password" placeholder="' + XLX.util.esc((def && def.keyHint) || "API Key") + '" style="flex:2;min-width:140px" value="' + XLX.util.esc(cfg.key) + '">'
+          + ((def && def.secretHint)
+            ? '<input class="inp" id="ds-' + meta.id + '-secret" type="password" placeholder="' + XLX.util.esc(def.secretHint) + '" style="flex:2;min-width:160px" value="' + XLX.util.esc(cfg.secret) + '">'
+            : '')
           + '<input class="inp" id="ds-' + meta.id + '-model" placeholder="模型名（可选）" style="flex:1;min-width:110px" value="' + XLX.util.esc(cfg.model) + '">')
       + '</div>'
       + (isTts && voices.length

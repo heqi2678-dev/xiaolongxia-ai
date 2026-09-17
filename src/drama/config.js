@@ -161,11 +161,16 @@
   XLX.drama.LIPSYNC_PROVIDERS = [
     {
       id: "volc-koubo",
-      name: "火山口型驱动",
-      base: "https://openspeech.bytedance.com",
-      keyHint: "火山口型服务凭证",
-      keyLink: "https://console.volcengine.com/",
-      mode: "video",
+      name: "火山即梦数字人（口型）",
+      base: "https://visual.volcengineapi.com",
+      model: "jimeng_realman_avatar_picture_omni_v2",
+      action: "CVSubmitTask",
+      pollAction: "CVGetResult",
+      version: "2022-08-31",
+      keyHint: "AccessKey ID",
+      secretHint: "Secret Access Key",
+      keyLink: "https://console.volcengine.com/iam/keymanage/",
+      mode: "image",
       color: "#3370ff"
     },
     {
@@ -248,6 +253,9 @@
       appId: cur.appId || "",
       cluster: (cur.cluster || def.cluster || "").trim(),
       model: (cur.model || def.model || "").trim(),
+      action: (cur.action || def.action || "").trim(),
+      pollAction: (cur.pollAction || def.pollAction || "").trim(),
+      version: (cur.version || def.version || "").trim(),
       voice: cur.voice || ((def.voices && def.voices[0]) ? def.voices[0].id : "")
     };
   };

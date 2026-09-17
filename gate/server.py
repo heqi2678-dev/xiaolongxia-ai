@@ -933,9 +933,10 @@ def _volc_quote(value):
 
 
 def volc_sign(ak, sk, action, body_obj, region=None, service=None,
-              version=None, host=None, now=None):
+              version=None, host=None, now=None, token=None):
     """火山引擎签名 v4（visual.volcengineapi.com）。
 
+    传入 token（临时凭证 / STS）时会附加 X-Security-Token 并纳入签名。
     返回 (url, headers, payload)，其中 headers 已含 Authorization。
     """
     ak = str(ak or "").strip()
@@ -945,6 +946,7 @@ def volc_sign(ak, sk, action, body_obj, region=None, service=None,
     action = str(action or "").strip()
     if not action:
         raise ValueError("缺少口型接口 Action")
+    token = str(token or "").strip()
     host = str(host or VOLC_VISUAL_HOST).strip()
     region = str(region or VOLC_VISUAL_REGION).strip()
     service = str(service or VOLC_VISUAL_SERVICE).strip()
@@ -960,13 +962,20 @@ def volc_sign(ak, sk, action, body_obj, region=None, service=None,
     canonical_query = "&".join(
         "%s=%s" % (_volc_quote(k), _volc_quote(v)) for k, v in sorted(query)
     )
-    canonical_headers = (
-        "content-type:application/json\n"
-        "host:%s\n"
-        "x-content-sha256:%s\n"
-        "x-date:%s\n" % (host, payload_hash, x_date)
-    )
-    signed_headers = "content-type;host;x-content-sha256;x-date"
+    header_lines = [
+        "content-type:application/json",
+        "host:%s" % host,
+        "x-content-sha256:%s" % payload_hash,
+        "x-date:%s" % x_date,
+    ]
+    signed_names = ["content-type", "host", "x-content-sha256", "x-date"]
+    if token:
+        header_lines.append("x-security-token:%s" % token)
+        signed_names.append("x-security-token")
+    header_lines.sort()
+    signed_names.sort()
+    canonical_headers = "\n".join(header_lines) + "\n"
+    signed_headers = ";".join(signed_names)
     canonical_request = "\n".join([
         "POST", "/", canonical_query, canonical_headers, signed_headers, payload_hash,
     ])
@@ -991,15 +1000,17 @@ def volc_sign(ak, sk, action, body_obj, region=None, service=None,
         "X-Content-Sha256": payload_hash,
         "Authorization": authorization,
     }
+    if token:
+        headers["X-Security-Token"] = token
     return url, headers, payload
 
 
 def drama_visual(ak, sk, action, body, region=None, service=None,
-                 version=None, timeout=60):
+                 version=None, timeout=60, token=None):
     """调用火山智能视觉接口，返回解析后的 JSON。"""
     body = body if isinstance(body, dict) else {}
     url, headers, payload = volc_sign(
-        ak, sk, action, body, region=region, service=service, version=version
+        ak, sk, action, body, region=region, service=service, version=version, token=token
     )
     req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
     raw = ""
@@ -1737,6 +1748,7 @@ class Handler(BaseHTTPRequestHandler):
                 obj.get("region"),
                 obj.get("service"),
                 obj.get("version"),
+                token=obj.get("token"),
             )
         except ValueError as exc:
             self._json(400, {"ok": False, "error": str(exc)})

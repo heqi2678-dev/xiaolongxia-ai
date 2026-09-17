@@ -165,9 +165,9 @@ test("视频适配器 seedance 任务创建与轮询", async () => {
   assert.equal(st.url, "https://cdn/v.mp4");
 });
 
-test("口型适配器创建与轮询状态映射", async () => {
+test("自定义口型适配器创建与轮询状态映射", async () => {
   const { D, sandbox } = createDrama();
-  setAdapter(D, "lipsync", { provider: "volc-koubo", base: "https://ls.example.com", key: "k" });
+  setAdapter(D, "lipsync", { provider: "custom-lipsync", base: "https://ls.example.com", key: "k" });
   mockJson(sandbox, { task_id: "L1" });
   const created = await D.adapters.lipsync.create({ videoUrl: "https://cdn/v.mp4", audioUrl: "https://cdn/a.mp3" });
   assert.equal(created.jobId, "L1");
@@ -178,6 +178,52 @@ test("口型适配器创建与轮询状态映射", async () => {
   const done = await D.adapters.lipsync.poll("L1");
   assert.equal(done.status, "done");
   assert.equal(done.url, "https://cdn/out.mp4");
+});
+
+test("火山即梦数字人口型走同源签名代理", async () => {
+  const { D, sandbox } = createDrama();
+  setAdapter(D, "lipsync", { provider: "volc-koubo", key: "AKTEST", secret: "SKTEST" });
+  mockJson(sandbox, { ok: true, data: { task_id: "L1" } });
+  const created = await D.adapters.lipsync.create({
+    imageUrl: "https://cdn/i.jpg", audioUrl: "https://cdn/a.mp3"
+  });
+  assert.equal(created.jobId, "L1");
+  assert.equal(created.provider, "volc-koubo");
+  const call = sandbox.__calls[0];
+  assert.equal(call.url, "/dian/api/drama/visual");
+  const body = JSON.parse(call.opts.body);
+  assert.equal(body.key, "AKTEST");
+  assert.equal(body.secret, "SKTEST");
+  assert.equal(body.action, "CVSubmitTask");
+  assert.equal(body.version, "2022-08-31");
+  assert.equal(body.service, "cv");
+  assert.equal(body.region, "cn-north-1");
+  assert.equal(body.body.req_key, "jimeng_realman_avatar_picture_omni_v2");
+  assert.equal(body.body.image_url, "https://cdn/i.jpg");
+  assert.equal(body.body.audio_url, "https://cdn/a.mp3");
+
+  mockJson(sandbox, { ok: true, data: { status: "succeeded", video_url: "https://cdn/out.mp4" } });
+  const st = await D.adapters.lipsync.poll("L1");
+  assert.equal(st.status, "done");
+  assert.equal(st.url, "https://cdn/out.mp4");
+  const pollBody = JSON.parse(sandbox.__calls[1].opts.body);
+  assert.equal(pollBody.action, "CVGetResult");
+  assert.equal(pollBody.body.task_id, "L1");
+});
+
+test("火山即梦数字人口型缺凭证与代理报错时给出可读提示", async () => {
+  const { D, sandbox } = createDrama();
+  setAdapter(D, "lipsync", { provider: "volc-koubo", key: "AKTEST" });
+  await assert.rejects(
+    D.adapters.lipsync.create({ imageUrl: "https://cdn/i.jpg", audioUrl: "https://cdn/a.mp3" }),
+    /Secret Access Key/
+  );
+  setAdapter(D, "lipsync", { provider: "volc-koubo", key: "AKTEST", secret: "SKTEST" });
+  mockJson(sandbox, { ok: false, error: "火山智能视觉报错：Access Denied" });
+  await assert.rejects(
+    D.adapters.lipsync.create({ imageUrl: "https://cdn/i.jpg", audioUrl: "https://cdn/a.mp3" }),
+    /Access Denied/
+  );
 });
 
 test("剧种引擎：漫剧单镜生成写入画面与配音", async () => {
@@ -320,7 +366,7 @@ test("剧种引擎：仿真人单镜串联视频、配音与口型", async () =>
   sleepStub(D);
   setAdapter(D, "video", { provider: "seedance", key: "k", base: "https://ark.test" });
   setAdapter(D, "tts", { provider: "volc", appId: "a", key: "t", voice: "v" });
-  setAdapter(D, "lipsync", { provider: "volc-koubo", base: "https://ls.test", key: "k" });
+  setAdapter(D, "lipsync", { provider: "custom-lipsync", base: "https://ls.test", key: "k" });
   mockJson(sandbox, (url) => {
     if (url.indexOf("/contents/generations/tasks/") >= 0) return { status: "succeeded", content: { video_url: "https://cdn/v.mp4" } };
     if (url.indexOf("/contents/generations/tasks") >= 0) return { id: "v1" };
