@@ -74,4 +74,17 @@ Entries discovered by the Agent during task execution should follow this format:
 - Category: Environment Configuration
 - Instructions:
   - 仓库远端为 `git@github.com:heqi2678-dev/xiaolongxia-ai.git`，本仓库历史直接在 `main` 上提交。
-  - 本开发环境推送 GitHub 使用专用密钥 `/root/.ssh/id_drama`，并通过 `/root/.ssh/config` 将 `github.com` 指向 `ssh.github.com:443`（22 端口不通时走 443）。
+   - 本开发环境推送 GitHub 使用专用密钥 `/root/.ssh/id_drama`，并通过 `/root/.ssh/config` 将 `github.com` 指向 `ssh.github.com:443`（22 端口不通时走 443）。
+
+[Project Knowledge Summary]
+- Date: 2026-09-17
+- Context: Discovered by Agent while 接通火山方舟真实模型（Seedream 生图 / Seedance 生视频）做端到端冒烟
+- Category: Environment Configuration
+- Instructions:
+  - 火山方舟模型 ID 必须使用带版本号的完整值（如 `doubao-seedream-4-5-251128`）；控制台模型广场展示的简称不能直接当 model 传，会报模型不存在。
+  - API 基址 `https://ark.cn-beijing.volces.com/api/v3`；图像 `POST /images/generations`，视频 `POST /contents/generations/tasks` + `GET /contents/generations/tasks/{id}` 轮询（结果在 `content.video_url`）。
+  - 火山方舟接口**支持浏览器跨域（CORS）**：OPTIONS 预检会回显 Origin 与请求头，因此前端可直连，无需自建代理。
+  - Seedream 4.5 对输入/输出图有**最小像素限制 3,686,400（约 368.64 万）**，`768x1344` 这类小图会被拒；比例表统一升到 2K 档（9:16=1440x2560、16:9=2560x1440、1:1=2048x2048、3:4=1728x2304）。
+  - Seedance **2.x 系列开通需账户余额/代金券 ≥ 200 元**（硬门槛，绕不过）；**1.0 系列无此门槛**，可直接开通并享有免费额度，做链路验证用 1.0。
+  - Seedance 1.0 pro-fast 实测：5 秒 720p 竖屏约 24 秒完成、消耗约 10.4 万 tokens，输出 704x1248 / 24fps；免费额度 200 万 tokens。
+  - Ark API Key 只存本地文件（如 `/tmp/opencode/xlx/.ark`，权限 600），不进仓库、不在聊天回显。

@@ -51,8 +51,8 @@ test("图像适配器 seedream 请求体与响应解析", async () => {
   const call = sandbox.__calls[0];
   assert.match(call.url, /\/images\/generations$/);
   const body = JSON.parse(call.opts.body);
-  assert.equal(body.model, "doubao-seedream-5-0-260128");
-  assert.equal(body.size, "768x1344");
+  assert.equal(body.model, "doubao-seedream-4-5-251128");
+  assert.equal(body.size, "1440x2560");
   assert.equal(body.image, "https://cdn/ref.png");
   assert.equal(body.response_format, "url");
   assert.equal(call.opts.headers.Authorization, "Bearer k");
@@ -118,7 +118,7 @@ test("视频适配器 seedance 任务创建与轮询", async () => {
   const body = JSON.parse(sandbox.__calls[0].opts.body);
   assert.match(body.content[0].text, /--ratio 9:16/);
   assert.match(body.content[0].text, /--duration 5/);
-  assert.equal(body.model, "doubao-seedance-2-0-mini-260615");
+  assert.equal(body.model, "doubao-seedance-1-0-pro-fast-251015");
 
   mockJson(sandbox, { status: "succeeded", content: { video_url: "https://cdn/v.mp4" } });
   const st = await D.adapters.video.poll("task-1");

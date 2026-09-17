@@ -19,12 +19,12 @@
       id: "seedream",
       name: "豆包 Seedream（火山方舟）",
       base: "https://ark.cn-beijing.volces.com/api/v3",
-      model: "doubao-seedream-5-0-260128",
-      models: ["doubao-seedream-5-0-260128", "doubao-seedream-4-0-250828"],
+      model: "doubao-seedream-4-5-251128",
+      models: ["doubao-seedream-4-5-251128", "doubao-seedream-5-0-260128", "doubao-seedream-4-0-250828"],
       keyHint: "火山方舟 API Key",
       keyLink: "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey",
       ref: true,
-      ratios: { "1:1": [1024, 1024], "9:16": [768, 1344], "16:9": [1344, 768], "3:4": [896, 1152] },
+      ratios: { "1:1": [2048, 2048], "9:16": [1440, 2560], "16:9": [2560, 1440], "3:4": [1728, 2304] },
       color: "#3370ff"
     },
     {
@@ -72,8 +72,10 @@
       id: "seedance",
       name: "火山方舟 Seedance",
       base: "https://ark.cn-beijing.volces.com",
-      model: "doubao-seedance-2-0-mini-260615",
+      model: "doubao-seedance-1-0-pro-fast-251015",
       models: [
+        "doubao-seedance-1-0-pro-fast-251015",
+        "doubao-seedance-1-0-pro-250528",
         "doubao-seedance-2-0-mini-260615",
         "doubao-seedance-2-0-fast-260128",
         "doubao-seedance-2-0-260128",
