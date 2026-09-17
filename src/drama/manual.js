@@ -9,6 +9,9 @@
 
   let rafId = null;
   let lastTs = 0;
+  let trackAudio = null;
+  let trackSrc = "";
+  let audition = null;
 
   function view() { return document.getElementById("dwManual"); }
 
@@ -209,6 +212,7 @@
     if (seg) state.time = seg.start;
     const keep = !!o.keepPlaying;
     pause();
+    stopAudition();
     paintAll();
     if (keep) play();
   }
@@ -225,6 +229,7 @@
     if (!light) {
       const v = stageVideo();
       if (v && seg) { try { v.currentTime = Math.max(0, state.time - seg.start); } catch (e) {} }
+      seekTrack();
       paintTimeline();
     } else {
       paintPlayhead();
@@ -249,6 +254,7 @@
     lastTs = 0;
     const v = stageVideo();
     if (v) { v.play().catch(() => {}); }
+    syncTrack(true);
     rafId = requestAnimationFrame(tick);
   }
 
@@ -257,6 +263,51 @@
     if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     const v = stageVideo();
     if (v) { try { v.pause(); } catch (e) {} }
+    pauseTrack();
+  }
+
+  /* 时间轴播放时同步当前镜的配音：切镜换源，按片段时间对轴。 */
+  function syncTrack(playing) {
+    const shot = curShot();
+    if (!shot || !shot.audioUrl) { pauseTrack(); return; }
+    const seg = segOf();
+    if (!trackAudio) trackAudio = new Audio();
+    if (trackSrc !== shot.audioUrl) {
+      trackSrc = shot.audioUrl;
+      trackAudio.src = shot.audioUrl;
+    }
+    const off = Math.max(0, state.time - (seg ? seg.start : 0));
+    const setOff = () => { try { trackAudio.currentTime = off; } catch (e) {} };
+    if (trackAudio.readyState >= 1) setOff();
+    else if (typeof trackAudio.addEventListener === "function") trackAudio.addEventListener("loadedmetadata", setOff, { once: true });
+    const pr = trackAudio.play();
+    if (pr && pr.catch) pr.catch(() => {});
+  }
+
+  function pauseTrack() {
+    if (trackAudio) { try { trackAudio.pause(); } catch (e) {} }
+  }
+
+  function seekTrack() {
+    const shot = curShot();
+    if (!trackAudio || !shot || !shot.audioUrl || trackSrc !== shot.audioUrl) return;
+    const seg = segOf();
+    try { trackAudio.currentTime = Math.max(0, state.time - (seg ? seg.start : 0)); } catch (e) {}
+  }
+
+  function stopAudition() {
+    if (audition) { try { audition.pause(); } catch (e) {} audition = null; }
+  }
+
+  function doAudition(sid) {
+    const shot = shotById(sid);
+    stopAudition();
+    if (!shot || !shot.audioUrl) { U.toast("这一镜还没配音，先点「配音」", "warn"); return; }
+    const a = new Audio(shot.audioUrl);
+    audition = a;
+    a.onended = () => { if (audition === a) audition = null; };
+    const pr = a.play();
+    if (pr && pr.catch) pr.catch(() => U.toast("浏览器拦了自动播放，请再点一次「试听」", "warn"));
   }
 
   function tick(ts) {
@@ -305,6 +356,7 @@
           '<button class="btn small primary" data-iact="gen">' + (rl ? "生成视频" : "生成画面") + "</button>" +
           (rl ? '<button class="btn small" data-iact="lipsync">只做口型</button>' : "") +
           '<button class="btn small" data-iact="tts">配音</button>' +
+          (shot.audioUrl ? '<button class="btn small" data-iact="audition">试听</button>' : "") +
           '<button class="btn small" data-iact="upload">换封面图</button>' +
           '<button class="btn small ghost" data-iact="move" data-dir="-1">上移</button>' +
           '<button class="btn small ghost" data-iact="move" data-dir="1">下移</button>' +
@@ -359,6 +411,7 @@
     const act = (name, fn) => { const b = el.querySelector('[data-iact="' + name + '"]'); if (b) b.onclick = fn; };
     act("gen", () => doGen(shot.id));
     act("tts", () => doTts(shot.id));
+    act("audition", () => doAudition(shot.id));
     act("lipsync", () => doLipsync(shot.id));
     act("upload", () => pickCover(shot.id));
     act("dup", async () => {

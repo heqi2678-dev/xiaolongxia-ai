@@ -67,7 +67,7 @@ function boot() {
   const dom = new JSDOM(HTML, { url: "https://preview.test/work", runScripts: "outside-only", pretendToBeVisual: true, virtualConsole: vc });
   const { window } = dom;
   const doc = window.document;
-  const state = { calls: [], toasts: [], downloads: [], zip: null, jobs: 0, urlSeq: 0 };
+  const state = { calls: [], toasts: [], downloads: [], zip: null, jobs: 0, urlSeq: 0, audios: [] };
   let lastFileInput = null;
 
   /* ---- 浏览器 API 桩 ---- */
@@ -91,6 +91,9 @@ function boot() {
   Object.defineProperty(MEP, "currentTime", { configurable: true, get() { return 0; }, set() {} });
   MEP.play = function () { return Promise.resolve(); };
   MEP.pause = function () {};
+  const RealAudio = window.Audio;
+  window.Audio = function (src) { const a = new RealAudio(); state.audios.push(a); if (src !== undefined) a.src = src; return a; };
+  window.Audio.prototype = RealAudio.prototype;
   Object.defineProperty(window.HTMLImageElement.prototype, "src", {
     configurable: true,
     get() { return this.__src || ""; },
@@ -260,6 +263,15 @@ async function flowManualComic(env) {
 
   await click(doc, '[data-iact="tts"]', 12);
   eq(D.project.get(cur.id).shots[0].audioUrl, "https://cdn.test/tts/line.mp3", "手动补配音成功");
+
+  state.audios.length = 0;
+  await click(doc, '[data-iact="audition"]', 4);
+  ok(state.audios.some((a) => a.__src === "https://cdn.test/tts/line.mp3"), "试听按当前配音建了音频");
+
+  state.audios.length = 0;
+  await click(doc, "#dwPlay", 4);
+  ok(state.audios.some((a) => a.__src === "https://cdn.test/tts/line.mp3"), "时间轴播放带动配音");
+  await click(doc, "#dwPlay", 4);
 
   await click(doc, "#dwCheck");
   has(q(doc, "#dwStatus").textContent, "合规检查通过", "合规检查状态提示");
