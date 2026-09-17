@@ -131,16 +131,19 @@
 
     const items = [];
     for (const shot of project.shots) {
+      const videoUrl = await D.project.assets.hydrateRef(shot.videoUrl);
+      const imageUrl = await D.project.assets.hydrateRef(shot.imageUrl);
+      const audioUrl = await D.project.assets.hydrateRef(shot.audioUrl);
       let media = null;
-      if (shot.videoUrl) {
-        try { media = await loadVideo(shot.videoUrl); } catch (e) { media = null; }
+      if (videoUrl) {
+        try { media = await loadVideo(videoUrl); } catch (e) { media = null; }
       }
-      if (!media && shot.imageUrl) {
-        try { media = await loadImage(shot.imageUrl); } catch (e) { media = null; }
+      if (!media && imageUrl) {
+        try { media = await loadImage(imageUrl); } catch (e) { media = null; }
       }
       let audio = null;
-      if (shot.audioUrl) {
-        audio = new Audio(shot.audioUrl);
+      if (audioUrl) {
+        audio = new Audio(audioUrl);
         audio.crossOrigin = "anonymous";
         try {
           const node = ac.createMediaElementSource(audio);
@@ -149,7 +152,7 @@
         } catch (e) { /* 已连接过则忽略 */ }
       }
       const dur = Math.max(1, Number(shot.duration) || (audio && isFinite(audio.duration) ? audio.duration : 3) || 3);
-      items.push({ shot, media, audio, dur });
+      items.push({ shot, media, audio, hasVideo: !!videoUrl, dur });
     }
 
     const combined = new MediaStream([].concat(stream.getVideoTracks(), dest.stream.getAudioTracks()));
@@ -166,7 +169,7 @@
     let elapsed = 0;
     for (const it of items) {
       const start = performance.now();
-      if (it.media && it.media.play && it.shot.videoUrl) { try { it.media.currentTime = 0; await it.media.play(); } catch (e) {} }
+      if (it.media && it.media.play && it.hasVideo) { try { it.media.currentTime = 0; await it.media.play(); } catch (e) {} }
       if (it.audio) { try { it.audio.currentTime = 0; await it.audio.play(); } catch (e) {} }
       await new Promise(resolve => {
         function frame() {
@@ -192,22 +195,28 @@
     return new Blob(chunks, { type: chunks[0] && chunks[0].type ? chunks[0].type : "video/webm" });
   }
 
-  /* 服务端合成：素材必须都是公网 http(s)，由 ffmpeg 出 mp4 */
+  /* 服务端合成：素材先换成公网 http(s)，再由 ffmpeg 出 mp4 */
   async function server(project, opts) {
     opts = opts || {};
     const v = D.project.validate(project);
     if (!v.ok) throw D.err("NOT_READY", "还不能合成，缺：" + v.missing.map(m => "第" + m.seq + "镜" + m.reason).join("、"));
     const comp = D.compliance.verify(project);
     if (!comp.ok) throw D.err("COMPLIANCE", comp.blockers.join("；"));
-    const allUrls = [];
-    project.shots.forEach(s => { if (s.videoUrl) allUrls.push(s.videoUrl); if (s.imageUrl) allUrls.push(s.imageUrl); if (s.audioUrl) allUrls.push(s.audioUrl); if (s.lipsyncUrl) allUrls.push(s.lipsyncUrl); });
-    const bad = allUrls.find(u => u.startsWith("asset:") || u.startsWith("blob:") || u.startsWith("data:"));
-    if (bad) throw D.err("LOCAL_ASSET", "有本地素材，服务端合成需要先把素材上传或改用浏览器合成");
+    const body = sanitize(project);
+    if (!D.project.toPublicUrl) throw D.err("LOCAL_ASSET", "当前版本不支持上传本地素材，请改用浏览器合成");
+    body.shots = await Promise.all(body.shots.map(async (s) => {
+      const out = Object.assign({}, s);
+      for (const f of ["imageUrl", "videoUrl", "audioUrl", "lipsyncUrl", "firstFrame"]) {
+        if (out[f]) out[f] = await D.project.toPublicUrl(out[f]);
+      }
+      return out;
+    }));
+    if (body.bgm) body.bgm = await D.project.toPublicUrl(body.bgm);
     const r = await fetch("/dian/api/drama/compose", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project: sanitize(project) })
+      body: JSON.stringify({ project: body })
     });
     if (!r.ok) throw D.err("HTTP_" + r.status, "服务端合成失败");
     const j = await r.json();
@@ -261,6 +270,7 @@
 
   async function fetchBlob(url) {
     if (!url) return null;
+    if (D.project.readBlob) return D.project.readBlob(url);
     try { return await fetch(url).then(r => r.blob()); } catch (e) { return null; }
   }
 

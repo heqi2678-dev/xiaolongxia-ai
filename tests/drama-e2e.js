@@ -147,6 +147,7 @@ function boot() {
     const method = ((opts && opts.method) || "GET").toUpperCase();
     state.calls.push({ url: u, method });
     if (u.startsWith("data:") || u.startsWith("blob:")) return J({});
+    if (u.includes("/dian/api/drama/asset")) return J({ ok: true, url: "https://cdn.test/pub/up.bin" });
     if (u.includes("/dian/api/drama/compose")) return J({ ok: true, url: "https://cdn.test/out/final.mp4" });
     if (u.includes("/dian/api/drama/publishes")) return J({ ok: true });
     if (u.includes("/dian/api/drama/projects")) return J({ ok: true, projects: state.remoteProjects || [], project: state.remoteProject || null });
@@ -258,7 +259,7 @@ async function flowManualComic(env) {
   await click(doc, '[data-iact="gen"]', 16);
   const s1 = D.project.get(cur.id).shots[0];
   eq(s1.status, "done", "单镜生成后状态 done");
-  eq(s1.imageUrl, "https://cdn.test/img/shot.png", "画面 URL 已回填");
+  ok(/^asset:r/.test(s1.imageUrl), "画面已转存本地资源仓");
   eq(s1.audioUrl, "https://cdn.test/tts/line.mp3", "有台词时生成画面顺带自动配音");
 
   await click(doc, '[data-iact="tts"]', 12);
@@ -323,9 +324,9 @@ async function flowManualRealistic(env) {
   await click(doc, '[data-iact="gen"]', 24);
   const s = D.project.get(p.id).shots[0];
   eq(s.status, "done", "视频单镜生成完成");
-  eq(s.videoUrl, "https://cdn.test/vid/job.mp4", "视频 URL 已回填");
+  ok(/^asset:r/.test(s.videoUrl), "视频已转存本地资源仓");
   eq(s.audioUrl, "https://cdn.test/tts/line.mp3", "自动配音完成");
-  eq(s.lipsyncUrl, "https://cdn.test/lip/out.mp4", "自动口型完成");
+  ok(/^asset:r/.test(s.lipsyncUrl), "口型成片已转存本地资源仓");
 
   /* 合规闸门：真人剧未授权必须被拦住 */
   const ver = D.compliance.verify(D.manual.state.project);

@@ -169,6 +169,9 @@ body   { key: AccessKeyID, secret: SecretAccessKey, action, version, service, re
   返回 200 { ok: true, url: "<base>/dian/pub/<token>.<ext>", name }
   GET  /dian/pub/<token>.<ext> 免登录只读，供上游回源下载
   ```
+- 上游产物链接为临时地址（口型成片 `video_url` 仅 1 小时有效），生成成功后立刻用
+  `D.project.cacheRemote()` 转存 IndexedDB 并记为 `asset:<id>`；浏览器合成走 `hydrateRef`
+  还原成 `blob:`，服务端合成与素材包分别走 `toPublicUrl`（上传换公网）与 `readBlob`（读原始字节）。
 
 响应中 `code=10000` 表示成功（`0` 也视为成功），业务错误集中在 `code` 上。
 

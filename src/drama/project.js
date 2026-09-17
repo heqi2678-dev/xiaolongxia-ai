@@ -97,6 +97,43 @@
     return j.url;
   }
 
+  /* 统一把 asset:/blob:/data:/http(s) 读成 Blob，供合成与素材打包使用 */
+  async function readBlob(v) {
+    const s = String(v || "");
+    if (!s) return null;
+    if (s.startsWith("asset:")) {
+      const rec = await idbGet(s.slice(6));
+      return rec && rec.blob ? rec.blob : null;
+    }
+    try {
+      const r = await fetch(s);
+      if (!r.ok) return null;
+      const b = await r.blob();
+      return b && b.size ? b : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /* 云端成片地址多为临时链接（火山口型 video_url 仅 1 小时有效），拿到就转存本地资源仓，
+     返回 asset:<id> 供离线编辑/导出复用；转存失败时退回原地址，不阻断生成。 */
+  async function cacheRemote(url, meta) {
+    const s = String(url || "");
+    if (!s || s.startsWith("asset:")) return s;
+    if (!/^https?:\/\//i.test(s)) return toRef(s, meta);
+    try {
+      const res = await fetch(s);
+      if (!res.ok) return s;
+      const blob = await res.blob();
+      if (!blob || !blob.size) return s;
+      const id = "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      const ok = await idbPut(id, blob, Object.assign({ mime: blob.type, size: blob.size, src: "remote" }, meta || {}));
+      return ok ? "asset:" + id : s;
+    } catch (e) {
+      return s;
+    }
+  }
+
   const ASSET_FIELDS = ["imageUrl", "videoUrl", "audioUrl", "lipsyncUrl"];
 
   async function persistAssets(p) {
@@ -394,7 +431,7 @@
     addShot, removeShot, moveShot, renumber,
     addCharacter, removeCharacter, characterName,
     validate, setStatus, migrate, cover, duplicate,
-    persistAssets, hydrateAssets, toPublicUrl,
+    persistAssets, hydrateAssets, toPublicUrl, cacheRemote, readBlob,
     assets: { put: idbPut, get: idbGet, toRef, hydrateRef },
     remote
   };

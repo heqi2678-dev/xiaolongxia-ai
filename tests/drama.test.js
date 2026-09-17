@@ -283,6 +283,19 @@ test("火山口型轮询解析 data.status 与 video_url", async () => {
   assert.match(bad.error, /音频/);
 });
 
+test("readBlob 统一读取本地资源仓与远端地址", async () => {
+  const { D, sandbox } = createDrama();
+  const blob = new sandbox.Blob([new Uint8Array([1, 2, 3])], { type: "video/mp4" });
+  await D.project.assets.put("b1", blob, {});
+  assert.equal((await D.project.readBlob("asset:b1")).size, 3);
+  assert.equal(await D.project.readBlob("asset:none"), null);
+  assert.equal(await D.project.readBlob(""), null);
+  mockJson(sandbox, {});
+  assert.equal((await D.project.readBlob("https://cdn/v.mp4")).size, 3);
+  mockJson(sandbox, {}, false);
+  assert.equal(await D.project.readBlob("https://cdn/x.mp4"), null);
+});
+
 test("本地素材上传网关换公网地址，http 地址原样透传", async () => {
   const { D, sandbox } = createDrama();
   const blob = new sandbox.Blob([new Uint8Array([1, 2, 3])], { type: "audio/mpeg" });
@@ -297,6 +310,18 @@ test("本地素材上传网关换公网地址，http 地址原样透传", async 
   mockJson(sandbox, { ok: false, error: "素材超过 200MB" });
   await assert.rejects(D.project.toPublicUrl("asset:x1"), /200MB/);
   await assert.rejects(D.project.toPublicUrl("asset:nope"), /读不到/);
+});
+
+test("云端临时成片地址转存本地资源仓", async () => {
+  const { D, sandbox } = createDrama();
+  assert.equal(await D.project.cacheRemote("asset:keep"), "asset:keep");
+  assert.equal(await D.project.cacheRemote(""), "");
+  mockJson(sandbox, {});
+  assert.match(await D.project.cacheRemote("https://cdn/v.mp4", { role: "videoUrl" }), /^asset:r/);
+  mockJson(sandbox, {}, false);
+  assert.equal(await D.project.cacheRemote("https://cdn/bad.mp4"), "https://cdn/bad.mp4");
+  sandbox.fetch = async () => ({ ok: true, blob: async () => new sandbox.Blob([], {}) });
+  assert.equal(await D.project.cacheRemote("https://cdn/empty.mp4"), "https://cdn/empty.mp4");
 });
 
 test("火山口型把本地配音换成公网地址后再提交", async () => {
@@ -339,7 +364,7 @@ test("剧种引擎：漫剧单镜生成写入画面与配音", async () => {
   p.shots[0].roleIds = [c.id];
   const shot = await D.engine.generateShot(p, p.shots[0].id, {});
   assert.equal(shot.status, "done");
-  assert.equal(shot.imageUrl, "https://cdn/shot1.png");
+  assert.match(shot.imageUrl, /^asset:r/);
   assert.match(shot.audioUrl, /^blob:/);
   assert.equal(shot.stale, false);
 });
@@ -477,9 +502,9 @@ test("剧种引擎：仿真人单镜串联视频、配音与口型", async () =>
   p.shots[0].line = "别回头";
   const shot = await D.engine.generateShot(p, p.shots[0].id, {});
   assert.equal(shot.status, "done");
-  assert.equal(shot.videoUrl, "https://cdn/v.mp4");
+  assert.match(shot.videoUrl, /^asset:r/);
   assert.match(shot.audioUrl, /^blob:/);
-  assert.equal(shot.lipsyncUrl, "https://cdn/out.mp4");
+  assert.match(shot.lipsyncUrl, /^asset:r/);
 });
 
 test("手搓台：首次渲染自动建工程并注入合规授权区", async () => {

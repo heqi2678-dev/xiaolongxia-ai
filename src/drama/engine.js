@@ -35,7 +35,7 @@
   async function lipsyncShot(project, shot) {
     if (!shot.videoUrl || !shot.audioUrl) return shot;
     const r = await D.adapters.lipsync.generate({ videoUrl: shot.videoUrl, audioUrl: shot.audioUrl, imageUrl: shot.imageUrl });
-    shot.lipsyncUrl = r.url;
+    shot.lipsyncUrl = await D.project.cacheRemote(r.url, { role: "lipsyncUrl" });
     return shot;
   }
 
@@ -58,7 +58,7 @@
           resolution: project.output.resolution === "1080p" ? "1080p" : "720p",
           model: project.videoModel
         }, opts.onProgress, ctrl.signal);
-        shot.videoUrl = r.url;
+        shot.videoUrl = await D.project.cacheRemote(r.url, { role: "videoUrl" });
         shot.imageUrl = shot.imageUrl || shot.firstFrame || "";
         if (shot.line) {
           await synthShot(project, shot);
@@ -72,7 +72,7 @@
           refImages: refs,
           model: project.imageModel
         });
-        shot.imageUrl = r.url;
+        shot.imageUrl = await D.project.cacheRemote(r.url, { role: "imageUrl" });
         if (shot.line) await synthShot(project, shot);
       }
       D.project.setStatus(shot, "done");

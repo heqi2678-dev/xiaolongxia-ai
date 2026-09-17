@@ -81,7 +81,11 @@ function createDrama() {
     requestAnimationFrame: noop, alert: noop,
     atob, btoa,
     AbortController: function () { this.signal = { aborted: false }; this.abort = noop; },
-    Blob: function (parts, opts) { this.parts = parts; this.type = (opts && opts.type) || ""; this.size = 0; },
+    Blob: function (parts, opts) {
+      this.parts = parts || [];
+      this.type = (opts && opts.type) || "";
+      this.size = this.parts.reduce((n, p) => n + (p && (p.length || p.byteLength || 0)), 0);
+    },
     FileReader: function () { this.readAsDataURL = noop; },
     Image: function () {},
     Audio: function () {
@@ -142,7 +146,7 @@ function mockJson(sandbox, json, ok) {
       status: ok === false ? 500 : 200,
       text: async () => JSON.stringify(body),
       json: async () => body,
-      blob: async () => new sandbox.Blob([], { type: "image/png" })
+      blob: async () => new sandbox.Blob([new Uint8Array([1, 2, 3])], { type: "image/png" })
     };
   };
 }
