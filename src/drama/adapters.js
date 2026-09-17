@@ -18,14 +18,6 @@
     });
   }
 
-  function httpText(url, opts) {
-    return fetch(url, opts).then(async (r) => {
-      const text = await r.text();
-      if (!r.ok) throw D.err("HTTP_" + r.status, text.slice(0, 200) || ("HTTP " + r.status));
-      return text;
-    });
-  }
-
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
   function httpBlobUrl(url, opts, mime) {
@@ -115,6 +107,6 @@
   }
 
   XLX.drama.adapterUtil = {
-    httpJson, httpText, httpBlobUrl, sleep, fileToDataUrl, urlToDataUrl, b64ToBlobUrl, audioDuration, ratioSize, pick, taskPoll
+    httpJson, httpBlobUrl, sleep, fileToDataUrl, urlToDataUrl, b64ToBlobUrl, audioDuration, ratioSize, pick, taskPoll
   };
 })();
