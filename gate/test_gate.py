@@ -687,6 +687,18 @@ class GateTests(unittest.TestCase):
             {"req_key": "lipsync", "video_url": "http://x/v.mp4", "audio_url": "http://x/a.mp3"},
         )
 
+    def test_volc_sign_with_token_adds_signed_header(self):
+        url, headers, payload = self.gate.volc_sign(
+            "AKTEST", "SKTEST", "CVSubmitTask", {"req_key": "x"}, token="TOK123",
+        )
+        self.assertEqual(headers["X-Security-Token"], "TOK123")
+        self.assertIn(
+            "SignedHeaders=content-type;host;x-content-sha256;x-date;x-security-token",
+            headers["Authorization"],
+        )
+        _, plain, _ = self.gate.volc_sign("AKTEST", "SKTEST", "CVSubmitTask", {"req_key": "x"})
+        self.assertNotEqual(headers["Authorization"], plain["Authorization"])
+
     def test_volc_sign_requires_credentials_and_action(self):
         with self.assertRaises(ValueError):
             self.gate.volc_sign("", "SK", "CVSubmitTask", {})

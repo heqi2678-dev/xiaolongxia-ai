@@ -163,7 +163,7 @@
       id: "volc-koubo",
       name: "火山即梦数字人（口型）",
       base: "https://visual.volcengineapi.com",
-      model: "jimeng_realman_avatar_picture_omni_v2",
+      model: "realman_avatar_picture_omni_v2",
       action: "CVSubmitTask",
       pollAction: "CVGetResult",
       version: "2022-08-31",

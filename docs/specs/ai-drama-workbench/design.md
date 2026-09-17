@@ -136,9 +136,34 @@ XLX.drama.adapters.lipsync = {
 };
 ```
 
-内置实现：`volc-koubo`、`custom`。
+内置实现：`volc-koubo`、`custom-lipsync`。
+
+#### 3.4.1 火山即梦数字人（`volc-koubo`，实测契约）
+
+浏览器不能直连火山智能视觉（签名头不在 CORS 白名单），统一经同源网关代签。
+
+```
+POST /dian/api/drama/visual
+body   { key: AccessKeyID, secret: SecretAccessKey, action, version, service, region, body, token? }
+返回   200 { ok: true, data: <上游 JSON> }  /  200 { ok: false, error }  /  502 { ok: false, error }
+```
+
+上游契约（`visual.volcengineapi.com`，签名 v4）：
+
+- 创建：`Action=CVSubmitTask`，`body.req_key=realman_avatar_picture_omni_v2`，
+  `image_url`（图片人像）+ `audio_url`（驱动音频）；返回 `code=10000`，任务号在 `data.task_id`。
+- 查询：`Action=CVGetResult`，`body.task_id=<id>`；`code=10000`，进度在 `data.status`
+  （`not_found`/`processing`/`done`/`failed`），成片在 `data.video_url`，失败原因在 `data.resp_data`。
+- 固定参数：`Version=2022-08-31`、`service=cv`、`region=cn-north-1`。版本改为其他值会报
+  `Could not find operation CVSubmitTask for version ...`。
+- 错误码翻译：`50200` req_key 不支持、`50400` 未开通/无权限、`50430` 并发额度为 0。
+  `50430` 在参数校验之前返回，表示该账号对此模型的并发为 0，需在火山控制台开通模型或申请并发。
+
+响应中 `code=10000` 表示成功（`0` 也视为成功），业务错误集中在 `code` 上。
 
 适配器注册表在 `src/drama/config.js`，设置页复用 `XLX.settings` 的模型库交互新增短剧服务分组。
+`volc-koubo` 需要两个凭证（AccessKey ID + Secret Access Key），设置页对带 `secretHint` 的适配器
+额外渲染 Secret 输入框。
 
 ## 四、数据模型
 

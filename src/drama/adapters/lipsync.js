@@ -7,7 +7,7 @@
   /* 火山智能视觉必须用 AccessKey 签名，且签名头不在浏览器 CORS 白名单内，
      统一走同源网关 /dian/api/drama/visual 由服务端代签名转发。
      实测契约：host visual.volcengineapi.com、Action CVSubmitTask、Version 2022-08-31、
-     service cv、region cn-north-1、模型 jimeng_realman_avatar_picture_omni_v2。 */
+     service cv、region cn-north-1、模型 realman_avatar_picture_omni_v2。 */
   const PROXY = "/dian/api/drama/visual";
 
   const lipsync = {
@@ -61,11 +61,25 @@
   }
 
   function volcInput(c, opts) {
-    const b = { req_key: c.model || "jimeng_realman_avatar_picture_omni_v2" };
+    const b = { req_key: c.model || "realman_avatar_picture_omni_v2" };
     if (opts.videoUrl) b.video_url = opts.videoUrl;
     if (opts.imageUrl) b.image_url = opts.imageUrl;
     if (opts.audioUrl) b.audio_url = opts.audioUrl;
     return b;
+  }
+
+  /* 火山视觉返回 code=10000 表示成功，业务错误码集中在这里翻译成中文 */
+  function volcOk(j) {
+    return !j || !j.code || j.code === 0 || j.code === 10000;
+  }
+
+  function volcError(j) {
+    const code = j && j.code;
+    const msg = (j && (j.message || U.pick(j, "data.message"))) || "";
+    if (code === 50400) return "火山口型未开通或无权限（Access Denied），请到火山控制台开通「即梦数字人」口型服务";
+    if (code === 50430) return "火山口型当前并发额度为 0，模型可能未开通或额度用尽，请到火山控制台开通模型或申请并发";
+    if (code === 50200) return "火山口型参数不被接受：" + msg;
+    return msg || ("火山口型报错 code " + code);
   }
 
   function volcJobId(j) {
@@ -77,7 +91,7 @@
     if (!opts.audioUrl) throw D.err("NO_AUDIO", "口型同步需要先有配音");
     if (!opts.imageUrl && !opts.videoUrl) throw D.err("NO_MEDIA", "口型同步需要先有画面");
     const j = await visual(c, c.action, volcInput(c, opts));
-    if (j && j.code && j.code !== 0) throw D.err("VISUAL_FAIL", j.message || ("火山口型报错 code " + j.code));
+    if (!volcOk(j)) throw D.err("VISUAL_FAIL", volcError(j));
     const id = volcJobId(j);
     if (!id) throw D.err("BAD_RESP", "口型任务创建失败：" + JSON.stringify(j).slice(0, 160));
     return { jobId: id, provider: c.provider };
@@ -87,20 +101,16 @@
     const body = volcInput(c, {});
     body.task_id = jobId;
     const j = await visual(c, c.pollAction || "CVGetResult", body);
-    const raw = String(U.pick(j, "status") || U.pick(j, "data.status") || U.pick(j, "state") || U.pick(j, "data.state") || "");
-    if (j && j.code && j.code !== 0) {
-      return { status: "failed", url: "", error: j.message || ("code " + j.code), raw: j };
-    }
-    const url = j && (j.video_url || j.url)
-      || U.pick(j, "data.video_url") || U.pick(j, "data.url")
-      || U.pick(j, "Result.video_url") || "";
-    const done = /succeed|success|done|complete|finish|^2$/i.test(raw) || (!!url && !/process|running|queue|pending|wait/i.test(raw));
+    if (!volcOk(j)) return { status: "failed", url: "", error: volcError(j), raw: j };
+    const inner = (j && j.data) || {};
+    const raw = String(inner.status || U.pick(j, "status") || "");
+    const url = inner.video_url || inner.image_url || U.pick(j, "data.video_url") || "";
     const failed = /fail|error|cancel|reject/i.test(raw);
-    if (!raw && !url) return { status: "running", url: "", raw: j };
+    const done = /succeed|success|done|complete|finish|^2$/i.test(raw) || (!!url && !failed);
     return {
       status: failed ? "failed" : (done ? "done" : "running"),
       url: url,
-      error: j && (j.message || U.pick(j, "data.message")),
+      error: failed ? (inner.resp_data || raw) : "",
       raw: j
     };
   }
