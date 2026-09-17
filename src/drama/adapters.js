@@ -28,6 +28,19 @@
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+  function httpBlobUrl(url, opts, mime) {
+    return fetch(url, opts).then(async (r) => {
+      if (!r.ok) {
+        const text = await r.text();
+        let msg = "";
+        try { msg = (JSON.parse(text) || {}).error || ""; } catch (e) { msg = text.slice(0, 200); }
+        throw D.err("HTTP_" + r.status, msg || ("HTTP " + r.status));
+      }
+      const blob = await r.blob();
+      return URL.createObjectURL(blob.type ? blob : new Blob([blob], { type: mime || "audio/mpeg" }));
+    });
+  }
+
   function fileToDataUrl(file) {
     return new Promise((resolve, reject) => {
       if (!file) return reject(D.err("NO_FILE", "未选择文件"));
@@ -102,6 +115,6 @@
   }
 
   XLX.drama.adapterUtil = {
-    httpJson, httpText, sleep, fileToDataUrl, urlToDataUrl, b64ToBlobUrl, audioDuration, ratioSize, pick, taskPoll
+    httpJson, httpText, httpBlobUrl, sleep, fileToDataUrl, urlToDataUrl, b64ToBlobUrl, audioDuration, ratioSize, pick, taskPoll
   };
 })();

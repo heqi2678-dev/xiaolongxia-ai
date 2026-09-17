@@ -5,7 +5,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
-const { createDrama, mockJson, mockText, setAdapter } = require("./drama-harness.js");
+const { createDrama, mockJson, mockBlob, setAdapter } = require("./drama-harness.js");
 
 function dramaSrc(file) {
   return fs.readFileSync(path.resolve(__dirname, "..", "src", "drama", file), "utf8");
@@ -95,48 +95,47 @@ test("未配置生图服务时抛出 NO_KEY", async () => {
   );
 });
 
-test("语音适配器 volc 请求构造与 NDJSON 流式解析", async () => {
+test("语音适配器 volc 走同源网关代理并透传凭据与台词", async () => {
   const { D, sandbox } = createDrama();
   setAdapter(D, "tts", { provider: "volc", key: "tok", cluster: "seed-tts-2.0", voice: "zh_female_vv_uranus_bigtts" });
-  mockText(sandbox, '{"code":0,"message":"","data":"QUJD"}\n'
-    + '{"code":0,"message":"","data":null,"sentence":{"text":"你好"}}\n'
-    + '{"code":20000000,"message":"OK","data":null}\n');
+  mockBlob(sandbox, "audio/mpeg");
   const r = await D.adapters.tts.synth({ text: "你好", voice: "zh_female_vv_uranus_bigtts", speed: 1 });
   assert.match(r.url, /^blob:/);
   const call = sandbox.__calls[0];
-  assert.match(call.url, /\/api\/v3\/tts\/unidirectional$/);
-  assert.equal(call.opts.headers["X-Api-Key"], "tok");
-  assert.equal(call.opts.headers["X-Api-Resource-Id"], "seed-tts-2.0");
-  assert.equal(call.opts.headers.Authorization, undefined);
+  assert.equal(call.url, "/dian/api/drama/tts");
+  assert.equal(call.opts.headers["X-Api-Key"], undefined);
+  assert.equal(call.opts.headers["X-Api-Resource-Id"], undefined);
   const body = JSON.parse(call.opts.body);
-  assert.equal(body.app, undefined);
-  assert.equal(body.req_params.text, "你好");
-  assert.equal(body.req_params.speaker, "zh_female_vv_uranus_bigtts");
-  assert.equal(body.req_params.audio_params.format, "mp3");
-  assert.equal(body.req_params.audio_params.speech_rate, undefined);
+  assert.equal(body.key, "tok");
+  assert.equal(body.resource, "seed-tts-2.0");
+  assert.equal(body.text, "你好");
+  assert.equal(body.speaker, "zh_female_vv_uranus_bigtts");
+  assert.equal(body.speed, 1);
+  assert.equal(body.format, "mp3");
 });
 
-test("语音适配器 volc 兼容设置页 secret 字段并映射语速", async () => {
+test("语音适配器 volc 兼容设置页 secret 字段并透传语速", async () => {
   const { D, sandbox } = createDrama();
-  setAdapter(D, "tts", { provider: "volc", secret: "tok", cluster: "seed-tts-2.0" });
-  mockText(sandbox, '{"code":0,"data":"QUJD"}\n{"code":20000000,"message":"OK"}\n');
+  setAdapter(D, "tts", { provider: "volc", secret: "tok", cluster: "seed-tts-1.0" });
+  mockBlob(sandbox, "audio/mpeg");
   const r = await D.adapters.tts.synth({ text: "你好", voice: "v", speed: 1.5 });
   assert.match(r.url, /^blob:/);
-  assert.equal(sandbox.__calls[0].opts.headers["X-Api-Key"], "tok");
   const body = JSON.parse(sandbox.__calls[0].opts.body);
-  assert.equal(body.req_params.audio_params.speech_rate, 50);
+  assert.equal(body.key, "tok");
+  assert.equal(body.resource, "seed-tts-1.0");
+  assert.equal(body.speed, 1.5);
 });
 
-test("语音适配器 volc 缺 Key 抛 NO_KEY，错误帧抛 BAD_RESP", async () => {
+test("语音适配器 volc 缺 Key 抛 NO_KEY，网关报错透出提示", async () => {
   const { D, sandbox } = createDrama();
   setAdapter(D, "tts", { provider: "volc", key: "" });
   await assert.rejects(() => D.adapters.tts.synth({ text: "你好" }), (e) => e.code === "NO_KEY");
 
   setAdapter(D, "tts", { provider: "volc", key: "tok" });
-  mockText(sandbox, '{"reqid":"","code":55000000,"message":"resource ID is mismatched with speaker related resource"}\n');
+  mockBlob(sandbox, "audio/mpeg", false, JSON.stringify({ ok: false, error: "语音合成未返回音频：resource ID is mismatched" }));
   await assert.rejects(
     () => D.adapters.tts.synth({ text: "你好", voice: "bad" }),
-    (e) => e.code === "BAD_RESP" && /mismatched/.test(e.message)
+    (e) => e.code === "HTTP_502" && /mismatched/.test(e.message)
   );
 });
 

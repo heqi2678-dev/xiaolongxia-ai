@@ -829,6 +829,87 @@ def _drama_srt(shots):
     return "\n".join(lines)
 
 
+VOLC_TTS_URL = "https://openspeech.bytedance.com/api/v3/tts/unidirectional"
+
+
+def drama_tts(api_key, resource, text, speaker, speed=1.0, fmt=None, sample_rate=None):
+    api_key = str(api_key or "").strip()
+    resource = str(resource or "").strip() or "seed-tts-2.0"
+    text = str(text or "").strip()
+    speaker = str(speaker or "").strip()
+    if not api_key:
+        raise ValueError("缺少语音 API Key，请先到设置里填好")
+    if not text:
+        raise ValueError("没有可配音的台词")
+    if not speaker:
+        raise ValueError("没有选择音色")
+    audio = {
+        "format": str(fmt or "mp3").strip() or "mp3",
+        "sample_rate": int(sample_rate or 24000),
+    }
+    try:
+        sp = float(speed)
+        if abs(sp - 1.0) > 1e-6:
+            audio["speech_rate"] = max(-50, min(100, int(round((sp - 1) * 100))))
+    except (TypeError, ValueError):
+        pass
+    payload = {
+        "user": {"uid": "xlx-drama"},
+        "req_params": {"text": text, "speaker": speaker, "audio_params": audio},
+    }
+    req = urllib.request.Request(
+        VOLC_TTS_URL,
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "X-Api-Key": api_key,
+            "X-Api-Resource-Id": resource,
+        },
+        method="POST",
+    )
+    raw = ""
+    try:
+        with urllib.request.urlopen(req, timeout=60) as res:
+            raw = res.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", "replace")
+    except urllib.error.URLError as exc:
+        raise RuntimeError("连不上语音服务，请检查网络：" + str(exc.reason))
+    chunks = []
+    err = ""
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            frame = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(frame, dict):
+            continue
+        header = frame.get("header")
+        if isinstance(header, dict) and header.get("code") not in (0, None):
+            err = str(header.get("message") or ("code %s" % header.get("code")))
+        code = frame.get("code")
+        if isinstance(code, int) and code not in (0, 20000000):
+            err = str(frame.get("message") or ("code %s" % code))
+            continue
+        data = frame.get("data")
+        if data:
+            chunks.append(data)
+    if not chunks:
+        raise RuntimeError("语音合成未返回音频：" + (err or "无数据"))
+    out = bytearray()
+    for chunk in chunks:
+        try:
+            out += base64.b64decode(chunk)
+        except Exception:
+            continue
+    if not out:
+        raise RuntimeError("语音合成音频解码失败")
+    return bytes(out)
+
+
 def drama_compose(owner, project):
     if not shutil.which(DRAMA_FFMPEG):
         raise RuntimeError("服务器未安装 ffmpeg，请改用浏览器合成")
@@ -1270,6 +1351,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/drama/compose":
             self._handle_drama_compose()
             return
+        if path == "/api/drama/tts":
+            self._handle_drama_tts()
+            return
         self._json(404, {"ok": False, "error": "没有这个接口"})
 
     def _handle_consume(self):
@@ -1492,6 +1576,35 @@ class Handler(BaseHTTPRequestHandler):
             self._json(500, {"ok": False, "error": "合成失败，请稍后再试"})
             return
         self._json(200, {"ok": True, "output": out})
+
+    def _handle_drama_tts(self):
+        me = self._drama_me()
+        if not me:
+            return
+        obj = self._drama_body()
+        if not obj:
+            self._json(400, {"ok": False, "error": "请求读不懂"})
+            return
+        try:
+            audio = drama_tts(
+                obj.get("key"),
+                obj.get("resource"),
+                obj.get("text"),
+                obj.get("speaker"),
+                obj.get("speed"),
+                obj.get("format"),
+                obj.get("sampleRate"),
+            )
+        except ValueError as exc:
+            self._json(400, {"ok": False, "error": str(exc)})
+            return
+        except RuntimeError as exc:
+            self._json(502, {"ok": False, "error": str(exc)})
+            return
+        except Exception:
+            self._json(502, {"ok": False, "error": "语音合成失败，请检查 Key 与网络"})
+            return
+        self._send(200, audio, "audio/mpeg", raw=True)
 
     def _handle_drama_out(self, name):
         me = self._drama_me()

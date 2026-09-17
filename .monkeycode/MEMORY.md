@@ -98,5 +98,6 @@ Entries discovered by the Agent during task execution should follow this format:
   - 鉴权用 `X-Api-Key: <API Key>` + `X-Api-Resource-Id: seed-tts-2.0`，**不需要 App ID / Access Token**；用旧凭证会报 `code 3001` 或 `45000010`。
   - `seed-tts-2.0` 只能配 `*_uranus_bigtts` / `*_jupiter_bigtts` 音色（即控制台「Vivi 2.0/云舟 2.0/小天 2.0」等），配 1.0 的 `*_conversation_wvae_bigtts` 会报 `code 55000000 resource ID is mismatched with speaker related resource`。
   - 响应为 **HTTP Chunked 的 NDJSON**（每行一个 JSON）：音频分片在 `data`（base64，首片带 ID3、后续为裸 MP3 帧，逐片解码后拼接即为完整 MP3），`code 20000000` 为结束帧；**错误也以 HTTP 200 返回**，需按帧内 `code` 判断而非 HTTP 状态码。
-  - 接口支持浏览器跨域（`access-control-allow-origin: *`，且允许 `X-Api-Resource-Id` 头），前端可直连。
+  - **前端不能直连**：该接口预检只放行 `X-Api-Resource-Id` 等头，**不放行 `X-Api-Key`**（唯一可用的鉴权头），浏览器会拦成 `Failed to fetch`；`X-Api-Access-Key`/`X-Api-App-Key`/`Authorization` 均报 `code 45000000`。
+  - 语音统一走同源网关转发：前端口令 `POST /dian/api/drama/tts`（body `{key,resource,text,speaker,speed,format}`），`gate/server.py` 的函数 `drama_tts()` 代发火山并回传 `audio/mpeg`；上游错误转成 502 + `{"error":...}`。改协议只需改 `drama_tts()`，前端 `tts.js` 不必动。
   - 旧版 `/api/v1/tts`（`Bearer;<token>` + `app.appid/token/cluster`）已弃用，代码不要再走该协议。

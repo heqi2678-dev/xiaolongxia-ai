@@ -12,51 +12,23 @@
     }
   };
 
+  /* 火山语音新版协议要求 X-Api-Key，但该头不在浏览器 CORS 白名单内，
+     故统一走同源网关 /dian/api/drama/tts 由服务端代发。 */
   async function volc(c, opts) {
     if (!c.key) throw D.err("NO_KEY", "火山语音需要 API Key，请到「设置 → 短剧服务」填写");
-    const text = await U.httpText(c.base, {
+    const url = await U.httpBlobUrl("/dian/api/drama/tts", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Api-Key": c.key,
-        "X-Api-Resource-Id": c.cluster || "seed-tts-2.0"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        user: { uid: "xlx-drama" },
-        req_params: {
-          text: opts.text,
-          speaker: opts.voice || c.voice,
-          audio_params: volcAudioParams(opts)
-        }
+        key: c.key,
+        resource: c.cluster || "seed-tts-2.0",
+        text: opts.text,
+        speaker: opts.voice || c.voice,
+        speed: Number(opts.speed || 1),
+        format: opts.format || "mp3"
       })
-    });
-    const chunks = [];
-    let errMsg = "";
-    String(text).split("\n").forEach((line) => {
-      const s = line.trim();
-      if (!s) return;
-      let j = null;
-      try { j = JSON.parse(s); } catch (e) { return; }
-      if (!j) return;
-      if (typeof j.code === "number" && j.code !== 0 && j.code !== 20000000) {
-        errMsg = j.message || ("code " + j.code);
-        return;
-      }
-      if (j.data) chunks.push(j.data);
-    });
-    if (!chunks.length) throw D.err("BAD_RESP", "语音合成未返回音频：" + (errMsg || "无数据"));
-    const url = U.b64ToBlobUrl(chunks, "audio/mpeg");
+    }, "audio/mpeg");
     return { url, duration: await U.audioDuration(url), provider: c.provider };
-  }
-
-  /* 火山语音 v3 音频参数：语速用 speech_rate（[-50,100]，100 即 2 倍速）。 */
-  function volcAudioParams(opts) {
-    const a = { format: opts.format || "mp3", sample_rate: 24000 };
-    const speed = Number(opts.speed || 1);
-    if (isFinite(speed) && speed !== 1) {
-      a.speech_rate = Math.max(-50, Math.min(100, Math.round((speed - 1) * 100)));
-    }
-    return a;
   }
 
   async function custom(c, opts) {

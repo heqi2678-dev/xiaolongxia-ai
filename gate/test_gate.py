@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import base64
 import json
 import os
 import tempfile
@@ -526,6 +527,96 @@ class GateTests(unittest.TestCase):
         code, body, _ = self.req(opener, "/tutorial-video.mp4")
         self.assertEqual(code, 200)
         self.assertIn(b"login", body.lower() + b"login")
+
+    def _mock_urlopen(self, payload, status=200):
+        captured = {}
+
+        class FakeResp:
+            def __init__(self, data):
+                self._data = data
+
+            def read(self, *args):
+                return self._data
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        def fake(req, timeout=None):
+            captured["url"] = req.full_url
+            captured["headers"] = {k.lower(): v for k, v in req.header_items()}
+            captured["body"] = json.loads(req.data.decode("utf-8"))
+            return FakeResp(payload.encode("utf-8"))
+
+        old = self.gate.urllib.request.urlopen
+        self.gate.urllib.request.urlopen = fake
+        self.addCleanup(lambda: setattr(self.gate.urllib.request, "urlopen", old))
+        return captured
+
+    def test_drama_tts_maps_speech_rate_and_joins_ndjson_frames(self):
+        frames = "\n".join([
+            json.dumps({"code": 0, "data": base64.b64encode(b"abc").decode()}),
+            json.dumps({"code": 0, "data": base64.b64encode(b"def").decode()}),
+            json.dumps({"code": 20000000, "message": "OK"}),
+        ])
+        captured = self._mock_urlopen(frames)
+        out = self.gate.drama_tts("tok", "seed-tts-2.0", "你好", "zh_female_vv_uranus_bigtts", 1.5)
+        self.assertEqual(out, b"abcdef")
+        self.assertEqual(captured["url"], self.gate.VOLC_TTS_URL)
+        self.assertEqual(captured["headers"]["x-api-key"], "tok")
+        self.assertEqual(captured["headers"]["x-api-resource-id"], "seed-tts-2.0")
+        params = captured["body"]["req_params"]
+        self.assertEqual(params["text"], "你好")
+        self.assertEqual(params["speaker"], "zh_female_vv_uranus_bigtts")
+        self.assertEqual(params["audio_params"]["format"], "mp3")
+        self.assertEqual(params["audio_params"]["sample_rate"], 24000)
+        self.assertEqual(params["audio_params"]["speech_rate"], 50)
+
+    def test_drama_tts_defaults_resource_and_omits_speech_rate(self):
+        captured = self._mock_urlopen(json.dumps({"code": 0, "data": base64.b64encode(b"x").decode()}))
+        out = self.gate.drama_tts("tok", "", "你好", "v", 1)
+        self.assertEqual(out, b"x")
+        self.assertEqual(captured["headers"]["x-api-resource-id"], "seed-tts-2.0")
+        self.assertNotIn("speech_rate", captured["body"]["req_params"]["audio_params"])
+
+    def test_drama_tts_surfaces_upstream_error(self):
+        frames = json.dumps({"code": 55000000, "message": "resource ID is mismatched"})
+        self._mock_urlopen(frames)
+        with self.assertRaises(RuntimeError) as ctx:
+            self.gate.drama_tts("tok", "seed-tts-1.0", "你好", "bad", 1)
+        self.assertIn("mismatched", str(ctx.exception))
+
+    def test_drama_tts_requires_key_and_text(self):
+        with self.assertRaises(ValueError):
+            self.gate.drama_tts("", "seed-tts-2.0", "你好", "v")
+        with self.assertRaises(ValueError):
+            self.gate.drama_tts("tok", "seed-tts-2.0", "", "v")
+
+    def test_drama_tts_endpoint_serves_audio(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        frames = (json.dumps({"code": 0, "data": base64.b64encode(b"MP3DATA").decode()})
+                  + "\n" + json.dumps({"code": 20000000}))
+        captured = self._mock_urlopen(frames)
+        code, body, hdrs = self.req(opener, "/api/drama/tts", method="POST", json_body={
+            "key": "tok", "resource": "seed-tts-2.0", "text": "你好",
+            "speaker": "zh_female_vv_uranus_bigtts", "speed": 1,
+        })
+        self.assertEqual(code, 200)
+        self.assertEqual(hdrs.get("Content-Type"), "audio/mpeg")
+        self.assertEqual(body, b"MP3DATA")
+        self.assertEqual(captured["body"]["req_params"]["speaker"], "zh_female_vv_uranus_bigtts")
+
+    def test_drama_tts_endpoint_guards(self):
+        opener, _ = self.opener()
+        code, _, _ = self.req(opener, "/api/drama/tts", method="POST", json_body={"text": "你好"})
+        self.assertEqual(code, 401)
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        code, body, _ = self.req(opener, "/api/drama/tts", method="POST", json_body={"text": "你好", "speaker": "v"})
+        self.assertEqual(code, 400)
+        self.assertFalse(json.loads(body.decode("utf-8"))["ok"])
 
 
 if __name__ == "__main__":

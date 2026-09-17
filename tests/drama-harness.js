@@ -151,20 +151,19 @@ function setAdapter(D, kind, cfg) {
   D.setAdapterConfig(kind, cfg);
 }
 
-/* 让 httpText 的下一次/所有请求返回指定原始文本（用于 NDJSON 流式响应） */
-function mockText(sandbox, text, ok) {
+/* 让 httpBlobUrl 的下一次/所有请求返回音频 Blob，或 ok=false 时返回错误 JSON */
+function mockBlob(sandbox, mime, ok, errorBody) {
   sandbox.fetch = async (url, opts) => {
     sandbox.__calls = sandbox.__calls || [];
     sandbox.__calls.push({ url: String(url), opts: opts || {} });
-    const body = typeof text === "function" ? text(String(url), opts) : text;
     return {
       ok: ok === undefined ? true : ok,
-      status: ok === false ? 500 : 200,
-      text: async () => body,
+      status: ok === false ? 502 : 200,
+      text: async () => errorBody || JSON.stringify({ ok: false, error: "语音合成失败" }),
       json: async () => ({}),
-      blob: async () => new sandbox.Blob([], { type: "audio/mpeg" })
+      blob: async () => new sandbox.Blob([new Uint8Array([1, 2, 3])], { type: mime || "audio/mpeg" })
     };
   };
 }
 
-module.exports = { createDrama, mockJson, mockText, setAdapter, DRAMA_FILES };
+module.exports = { createDrama, mockJson, mockBlob, setAdapter, DRAMA_FILES };
