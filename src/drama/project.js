@@ -110,7 +110,7 @@
       id: id("s"), seq: seq || 1, name: "分镜 " + (seq || 1),
       prompt: "", line: "", roleIds: [], duration: 5, motion: "zoom-in",
       imageUrl: "", videoUrl: "", audioUrl: "", lipsyncUrl: "",
-      firstFrame: "", status: "pending", error: ""
+      firstFrame: "", status: "pending", error: "", audioDuration: 0
     };
   }
 
@@ -135,6 +135,9 @@
       output: { ratio: opts.ratio || "9:16", resolution: "1080p", fps: 30 },
       compliance: { aigcMarked: true, consentIds: [] },
       source: opts.source || "manual",
+      mode: opts.mode || (opts.source === "auto" ? "pipeline" : "manual"),
+      templateId: opts.templateId || "",
+      thumb: "",
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
@@ -162,6 +165,7 @@
 
   async function save(p) {
     if (!p || !p.id) throw D.err("NO_PROJECT", "工程不存在");
+    migrate(p);
     p.updatedAt = Date.now();
     const copy = JSON.parse(JSON.stringify(p));
     await persistAssets(copy);
@@ -241,6 +245,81 @@
     return s;
   }
 
+  /* 补齐旧工程缺失字段。幂等纯函数，保留未知字段。 */
+  const URL_FIELDS = ["imageUrl", "videoUrl", "audioUrl", "lipsyncUrl", "firstFrame"];
+  function migrate(p) {
+    if (!p || typeof p !== "object") return p;
+    p.title = p.title || "未命名短剧";
+    p.genre = p.genre || "comic";
+    p.engine = p.engine || (p.genre === "realistic" ? "video" : "image");
+    p.mode = p.mode || (p.source === "auto" ? "pipeline" : "manual");
+    if (typeof p.templateId !== "string") p.templateId = "";
+    if (typeof p.thumb !== "string") p.thumb = "";
+    if (typeof p.bgm !== "string") p.bgm = p.bgm || "";
+    if (typeof p.imageModel !== "string") p.imageModel = p.imageModel || "";
+    if (typeof p.videoModel !== "string") p.videoModel = p.videoModel || "";
+
+    if (!p.script || typeof p.script !== "object") p.script = { logline: "", outline: "", scenes: [] };
+    if (typeof p.script.logline !== "string") p.script.logline = "";
+    if (typeof p.script.outline !== "string") p.script.outline = "";
+    if (!Array.isArray(p.script.scenes)) p.script.scenes = [];
+
+    if (!p.output || typeof p.output !== "object") p.output = {};
+    if (!p.output.ratio) p.output.ratio = "9:16";
+    if (!p.output.resolution) p.output.resolution = "1080p";
+    if (!p.output.fps) p.output.fps = 30;
+
+    if (!p.subtitle || typeof p.subtitle !== "object") p.subtitle = { enabled: true, font: "default", color: "#ffffff", stroke: "#000000" };
+    if (typeof p.subtitle.enabled !== "boolean") p.subtitle.enabled = true;
+
+    if (!p.compliance || typeof p.compliance !== "object") p.compliance = { aigcMarked: true, consentIds: [] };
+    if (typeof p.compliance.aigcMarked !== "boolean") p.compliance.aigcMarked = true;
+    if (!Array.isArray(p.compliance.consentIds)) p.compliance.consentIds = [];
+
+    if (!Array.isArray(p.characters)) p.characters = [];
+    p.characters.forEach(c => { if (c && !Array.isArray(c.refImages)) c.refImages = []; });
+
+    if (!Array.isArray(p.shots)) p.shots = [];
+    p.shots.forEach((s, i) => {
+      if (!s.id) s.id = id("s");
+      if (typeof s.seq !== "number") s.seq = i + 1;
+      if (!s.name) s.name = "分镜 " + (i + 1);
+      if (typeof s.prompt !== "string") s.prompt = "";
+      if (typeof s.line !== "string") s.line = "";
+      if (!Array.isArray(s.roleIds)) s.roleIds = [];
+      if (typeof s.duration !== "number" || !(s.duration > 0)) s.duration = 5;
+      if (typeof s.motion !== "string") s.motion = "zoom-in";
+      URL_FIELDS.forEach(f => { if (typeof s[f] !== "string") s[f] = ""; });
+      if (typeof s.status !== "string") s.status = "pending";
+      if (typeof s.error !== "string") s.error = "";
+      if (typeof s.audioDuration !== "number") s.audioDuration = 0;
+    });
+    if (!p.shots.length) p.shots = [newShot(1)];
+    renumber(p);
+
+    if (typeof p.createdAt !== "number") p.createdAt = Date.now();
+    if (typeof p.updatedAt !== "number") p.updatedAt = p.createdAt;
+    return p;
+  }
+
+  function cover(p) {
+    const shot = (p.shots || []).find(s => s.lipsyncUrl || s.videoUrl || s.imageUrl);
+    if (!shot) return "";
+    return shot.lipsyncUrl || shot.videoUrl || shot.imageUrl || "";
+  }
+
+  async function duplicate(pid) {
+    const src = get(pid);
+    if (!src) throw D.err("NO_PROJECT", "工程不存在");
+    const copy = JSON.parse(JSON.stringify(src));
+    copy.id = id();
+    copy.title = (src.title || "未命名短剧") + " · 副本";
+    copy.createdAt = Date.now();
+    copy.updatedAt = Date.now();
+    await save(copy);
+    return copy;
+  }
+
   /* ============ 服务器同步（店门，需登录） ============ */
   const API = "/dian/api/drama/projects";
   const remote = {
@@ -287,7 +366,7 @@
     all, list, get, save, remove,
     addShot, removeShot, moveShot, renumber,
     addCharacter, removeCharacter, characterName,
-    validate, setStatus,
+    validate, setStatus, migrate, cover, duplicate,
     persistAssets, hydrateAssets,
     assets: { put: idbPut, get: idbGet, toRef, hydrateRef },
     remote

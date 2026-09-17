@@ -8,7 +8,8 @@ const vm = require("vm");
 const DRAMA_FILES = [
   "config.js", "adapters.js", "adapters/image.js", "adapters/video.js",
   "adapters/tts.js", "adapters/lipsync.js", "project.js", "character.js",
-  "engine.js", "compliance.js", "compose.js", "ui.js", "guide.js",
+  "engine.js", "compliance.js", "compose.js", "ui.js",
+  "templates.js", "models.js", "timeline.js", "home.js", "guide.js",
   "manual.js", "auto.js"
 ];
 

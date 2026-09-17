@@ -228,7 +228,8 @@ a{color:var(--blue);text-decoration:none}
 .studio-wrap{flex:1;display:flex;min-height:0}
 .studio-left{width:330px;min-width:290px;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg2)}
 .studio-right{flex:1;display:flex;flex-direction:column;min-width:0}
-.studio-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--panel)}
+.studio-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--panel);overflow-x:auto;scrollbar-width:none}
+.studio-tabs::-webkit-scrollbar{height:0}
 .studio-tab{display:flex;align-items:center;gap:7px;padding:11px 16px;font-size:12.5px;color:var(--text2);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
 .studio-tab.active{color:var(--accent2);border-bottom-color:var(--accent);font-weight:600}
 .studio-tab svg{width:15px;height:15px}
@@ -673,10 +674,13 @@ select.inp{padding-right:34px}
       <div class="market-wrap"><div class="market-inner" id="toolsContent"></div></div>
     </div>
 
-    <!-- 短剧手搓台（逐镜工坊） -->
+    <!-- 短剧工作台（项目中心） -->
+    <div id="dramaHomeView" class="view"><div id="dwHome"></div></div>
+
+    <!-- 短剧导演台（逐镜工坊） -->
     <div id="dramaView" class="view"><div id="dwManual"></div></div>
 
-    <!-- 短剧半自动台（分镜流水线） -->
+    <!-- 短剧流水线（分镜流水线） -->
     <div id="autoView" class="view"><div id="dwAuto"></div></div>
 
     <!-- 记忆习惯 -->
@@ -4102,6 +4106,10 @@ XLX.studio = (function () {
 <script src="src/drama/compliance.js"></script>
 <script src="src/drama/compose.js"></script>
 <script src="src/drama/ui.js"></script>
+<script src="src/drama/templates.js"></script>
+<script src="src/drama/models.js"></script>
+<script src="src/drama/timeline.js"></script>
+<script src="src/drama/home.js"></script>
 <script src="src/drama/guide.js"></script>
 <script src="src/drama/manual.js"></script>
 <script src="src/drama/auto.js"></script>
@@ -4272,7 +4280,7 @@ XLX.dlview = (function () {
 /* ===== 主应用：路由、导航、事件绑定 ===== */
 
 XLX.app = (function () {
-  const VIEWS = ["chat", "market", "studio", "drama", "auto", "tools", "memory", "download", "settings"];
+  const VIEWS = ["chat", "market", "studio", "dramaHome", "drama", "auto", "tools", "memory", "download", "settings"];
   let currentView = "chat";
 
   function navItems() {
@@ -4280,8 +4288,9 @@ XLX.app = (function () {
       { id: "chat", name: "智能对话", icon: "chat", group: "开始" },
       { id: "market", name: "技能市场", icon: "grid", group: "开始", badge: String(XLX.SKILL_COUNT) },
       { id: "studio", name: "软件工坊", icon: "hammer", group: "开始", sub: "AI开发软件" },
-      { id: "drama", name: "短剧手搓台", icon: "film", group: "开始", sub: "逐镜工坊" },
-      { id: "auto", name: "短剧半自动台", icon: "clapper", group: "开始", sub: "分镜流水线" },
+      { id: "dramaHome", name: "短剧工作台", icon: "film", group: "开始", sub: "项目中心" },
+      { id: "drama", name: "短剧导演台", icon: "film", group: "开始", sub: "逐镜工坊" },
+      { id: "auto", name: "短剧流水线", icon: "clapper", group: "开始", sub: "分镜流水线" },
       { id: "memory", name: "记忆习惯", icon: "brain", group: "开始", sub: "越用越懂你" },
       { id: "tools", name: "工具箱", icon: "palette", group: "工具" },
       { id: "download", name: "客户端下载", icon: "download", group: "工具", sub: "手机/电脑" },
@@ -4306,7 +4315,7 @@ XLX.app = (function () {
 
     /* 手机端底部导航（只渲染菜单里真实存在的页面；摘掉某页后不会再出错） */
     const mn = document.getElementById("mobileNav");
-    mn.innerHTML = ["chat", "market", "tools", "studio"]
+    mn.innerHTML = ["chat", "market", "dramaHome", "studio", "tools"]
       .map(id => navItems().find(x => x.id === id))
       .filter(Boolean)
       .map(item =>
@@ -4318,7 +4327,7 @@ XLX.app = (function () {
   }
 
   function renderTopbar() {
-    const names = { chat: ["智能对话", "多平台免费模型 · 流式秒回"], market: ["技能市场", XLX.SKILL_COUNT + " 个免费实用技能，点击即用"], studio: ["软件工坊", "AI 开发完整软件 → 预览 → 一键打包下载"], drama: ["短剧手搓台", "逐镜生成 · 自由掌控每一帧"], auto: ["短剧半自动台", "一句话 → 分镜流水线 → 成品"], tools: ["工具箱", "商品图下载、去水印、视频提取文案"], memory: ["记忆习惯", "AI 记住你的偏好，自动处理重复工作"], download: ["客户端下载", "手机 / 电脑 / 离线版"], settings: ["设置", "接入多个平台的免费 API Key"] };
+    const names = { chat: ["智能对话", "多平台免费模型 · 流式秒回"], market: ["技能市场", XLX.SKILL_COUNT + " 个免费实用技能，点击即用"], studio: ["软件工坊", "AI 开发完整软件 → 预览 → 一键打包下载"], dramaHome: ["短剧工作台", "项目管理 · 题材模板 · 一键起盘"], drama: ["短剧导演台", "逐镜生成 · 自由掌控每一帧"], auto: ["短剧流水线", "一句话 → 分镜流水线 → 成品"], tools: ["工具箱", "商品图下载、去水印、视频提取文案"], memory: ["记忆习惯", "AI 记住你的偏好，自动处理重复工作"], download: ["客户端下载", "手机 / 电脑 / 离线版"], settings: ["设置", "接入多个平台的免费 API Key"] };
     const t = document.getElementById("pageTitle");
     const s = document.getElementById("pageSub");
     const viewMeta = names[currentView] || ["", ""];
@@ -4346,6 +4355,7 @@ XLX.app = (function () {
     }
     if (view === "market") XLX.market.render();
     if (view === "studio") XLX.studio.render();
+    if (view === "dramaHome") XLX.drama.home.render();
     if (view === "drama") XLX.drama.manual.render();
     if (view === "auto") XLX.drama.auto.render();
     if (view === "tools") XLX.tools.render();

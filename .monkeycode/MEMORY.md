@@ -64,8 +64,9 @@ Entries discovered by the Agent during task execution should follow this format:
   - 前端（短剧工作台）测试：`node --test tests/drama.test.js`，测试台 `tests/drama-harness.js` 用最小 DOM/fetch 桩在 Node 里加载 `src/drama/*.js`，不触网。
   - 后端（店门）测试：`cd gate && python3 -m unittest test_gate`。
   - 前端脚本单文件语法校验：`node --check <file>`。
-  - 真 DOM 端到端实测：`NODE_PATH=/usr/local/lib/node_modules node tests/drama-e2e.js`，用 jsdom 提供真实 DOM/事件/localStorage，加载 `src/drama/*.js` 后按用户操作点按钮、填表单，全部网络打桩；依赖全局安装的 `jsdom`（本机已装，`/usr/local/lib/node_modules`）。本机无 chromium/firefox，浏览器实测用此脚本替代。
-  - 提交前建议同时跑：drama 前端测试 + drama 端到端 + 店门后端测试 + 对 `src/drama/*` 全部 `node --check`。
+  - 真 DOM 端到端实测：`NODE_PATH=/usr/local/lib/node_modules node tests/drama-e2e.js`，用 jsdom 提供真实 DOM/事件/localStorage，加载 `src/drama/*.js` 后按用户操作点按钮、填表单，全部网络打桩；依赖全局安装的 `jsdom`（本机已装，`/usr/local/lib/node_modules`）。
+  - jsdom 不做排版，测不出 overflow 裁切/滚动类布局缺陷；这类问题必须用真实浏览器布局审计：`AUDIT_USER=zhuren AUDIT_PASS=<口令> python3 tests/layout_audit.py http://127.0.0.1:9140`（依赖 chromium/chromium-driver/selenium，缺任一则打印 SKIP 退出 0）。脚本用 CDP `Emulation.setDeviceMetricsOverride` 做真实移动视口，逐视图检测「视图根 overflow:hidden 却内容溢出」与「元素被不可滚动的 hidden/clip 祖先裁剪」。检测器本身可用 `--self-test` 验证：注入 `.dw-wrap{overflow:hidden;height:220px}` 必须被检出，移除后必须恢复无告警。
+  - 提交前建议同时跑：drama 前端测试 + drama 端到端 + 店门后端测试 + 对 `src/drama/*` 全部 `node --check` + 真实浏览器布局审计（服务在跑时）。
 
 [Project Knowledge Summary]
 - Date: 2026-09-16

@@ -447,3 +447,154 @@ test("两个工作台都复用共用组件，半自动台不再用 prompt 收集
   assert.match(auto, /D\.ui\.bindLib\(v, p/);
   assert.ok(!/prompt\(/.test(auto), "终审不应再用 prompt() 收集授权");
 });
+
+/* ============ 题材模板 ============ */
+
+test("题材模板：list/get 返回副本，get 未知 id 返回 null", () => {
+  const { D } = createDrama();
+  const list = D.templates.list();
+  assert.ok(list.length >= 4);
+  const first = list[0];
+  first.name = "改坏了";
+  assert.notEqual(D.templates.list()[0].name, "改坏了", "list 返回的是副本");
+  assert.equal(D.templates.get("不存在的模板"), null);
+});
+
+test("题材模板：apply 一次性铺好剧本、角色与分镜", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  const tpl = D.templates.get("tpl-counterattack");
+  D.templates.apply(p, tpl);
+  assert.equal(p.templateId, "tpl-counterattack");
+  assert.equal(p.genre, "comic");
+  assert.equal(p.engine, "image");
+  assert.equal(p.style, "cn-manhua");
+  assert.match(p.script.logline, /隐形富豪|商业巨鳄/);
+  assert.equal(p.characters.length, tpl.characters.length);
+  assert.equal(p.shots.length, tpl.shots.length);
+  assert.ok(p.characters[0].id, "角色已生成 id");
+  assert.deepEqual(p.shots[0].roleIds, [p.characters[0].id], "默认把主角挂到每一镜");
+  assert.ok(p.shots[0].prompt.includes(tpl.shots[0].prompt), "提示词并入画风前缀");
+  assert.ok(D.MOTIONS.some(m => m.id === p.shots[0].motion), "运镜合法");
+});
+
+test("题材模板：古风复仇的运镜不再是空串", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  D.templates.apply(p, D.templates.get("tpl-revenge"));
+  p.shots.forEach(s => assert.ok(s.motion && s.motion !== "", "第 " + s.seq + " 镜有运镜"));
+  const evidence = p.shots.find(s => s.name === "证据惊朝");
+  assert.equal(evidence.motion, "pan-right");
+});
+
+/* ============ 工程迁移 / 封面 / 复制 ============ */
+
+test("project.migrate：补齐旧工程缺失字段且幂等", () => {
+  const { D } = createDrama();
+  const old = { id: "old1", source: "auto", shots: [{ prompt: "p", duration: 0 }] };
+  D.project.migrate(old);
+  assert.equal(old.mode, "pipeline", "按 source 推断工作台");
+  assert.equal(old.templateId, "");
+  assert.equal(old.thumb, "");
+  assert.equal(old.shots[0].audioDuration, 0);
+  assert.equal(old.shots[0].duration, 5, "非法时长回落到 5");
+  assert.equal(old.shots[0].status, "pending");
+  assert.ok(old.shots[0].id, "分镜补上 id");
+  assert.ok(Array.isArray(old.compliance.consentIds));
+  const snap = JSON.stringify(old);
+  D.project.migrate(old);
+  assert.equal(JSON.stringify(old), snap, "二次迁移幂等");
+});
+
+test("project.migrate：保留未知字段", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  p.futureField = { a: 1 };
+  D.project.migrate(p);
+  assert.deepEqual(p.futureField, { a: 1 });
+});
+
+test("project.cover：取第一张可用画面，优先成片与视频", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  p.shots[0].imageUrl = "img1";
+  assert.equal(D.project.cover(p), "img1");
+  p.shots[0].videoUrl = "vid1";
+  assert.equal(D.project.cover(p), "vid1");
+  p.shots[0].lipsyncUrl = "lip1";
+  assert.equal(D.project.cover(p), "lip1");
+  assert.equal(D.project.cover(D.project.blank({})), "");
+});
+
+test("project.duplicate：生成独立副本", async () => {
+  const { D } = createDrama();
+  const p = D.project.blank({ title: "原剧" });
+  p.shots[0].prompt = "原提示词";
+  await D.project.save(p);
+  const copy = await D.project.duplicate(p.id);
+  assert.notEqual(copy.id, p.id);
+  assert.match(copy.title, /原剧 · 副本/);
+  copy.shots[0].prompt = "改副本";
+  assert.equal(D.project.get(p.id).shots[0].prompt, "原提示词", "副本改动不影响原工程");
+});
+
+/* ============ 三轨时间轴 ============ */
+
+test("timeline：总时长按分镜时长累加", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  p.shots = [
+    { id: "a", seq: 1, duration: 5, status: "done" },
+    { id: "b", seq: 2, duration: 4, status: "pending" }
+  ];
+  assert.equal(D.timeline.total(p), 9);
+  const segs = D.timeline.layout(p);
+  assert.deepEqual(segs.map(s => [s.sid, s.start, s.end]), [["a", 0, 5], ["b", 5, 9]]);
+});
+
+test("timeline.shotAt：定位归属并夹紧越界", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  p.shots = [
+    { id: "a", seq: 1, duration: 5, status: "done" },
+    { id: "b", seq: 2, duration: 4, status: "done" }
+  ];
+  assert.equal(D.timeline.shotAt(p, 0).sid, "a");
+  assert.equal(D.timeline.shotAt(p, 4.99).sid, "a");
+  assert.equal(D.timeline.shotAt(p, 5).sid, "b", "区间左闭右开");
+  assert.equal(D.timeline.shotAt(p, 999).sid, "b", "超尾夹到末镜");
+  assert.equal(D.timeline.shotAt(p, -3).sid, "a", "负值夹到首镜");
+  assert.equal(D.timeline.shotAt({ shots: [] }, 1), null);
+});
+
+test("timeline.frameStep：按帧率步进且不越过 0", () => {
+  const { D } = createDrama();
+  assert.ok(Math.abs(D.timeline.frameStep(1, 1, 30) - (1 + 1 / 30)) < 1e-9);
+  assert.ok(Math.abs(D.timeline.frameStep(1 / 30, -1, 30)) < 1e-9);
+  assert.equal(D.timeline.frameStep(0, -1, 30), 0);
+  assert.ok(Math.abs(D.timeline.frameStep(0.5, 1) - (0.5 + 1 / 30)) < 1e-9, "缺省 30fps");
+});
+
+test("timeline.fmt：秒数格式化为 mm:ss", () => {
+  const { D } = createDrama();
+  assert.equal(D.timeline.fmt(0), "00:00");
+  assert.equal(D.timeline.fmt(9.6), "00:10");
+  assert.equal(D.timeline.fmt(65), "01:05");
+  assert.equal(D.timeline.fmt(-5), "00:00");
+});
+
+test("timeline.render：三轨带时长与当前镜高亮", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  p.shots = [
+    { id: "a", seq: 1, duration: 5, status: "done", line: "台词", audioUrl: "a.mp3" },
+    { id: "b", seq: 2, duration: 5, status: "pending" }
+  ];
+  const html = D.timeline.render(p, { currentShotId: "b" });
+  assert.match(html, /data-track="video"/);
+  assert.match(html, /data-track="audio"/);
+  assert.match(html, /data-track="subtitle"/);
+  assert.match(html, /总时长 00:10/);
+  assert.match(html, /dw-clip on[^"]*"[^>]*data-sid="b"/, "当前镜高亮");
+  assert.match(html, /共 2 镜/);
+});

@@ -10,7 +10,8 @@ const ROOT = path.resolve(__dirname, "..");
 const DRAMA_FILES = [
   "config.js", "adapters.js", "adapters/image.js", "adapters/video.js",
   "adapters/tts.js", "adapters/lipsync.js", "project.js", "character.js",
-  "engine.js", "compliance.js", "compose.js", "ui.js", "guide.js",
+  "engine.js", "compliance.js", "compose.js", "ui.js",
+  "templates.js", "models.js", "timeline.js", "home.js", "guide.js",
   "manual.js", "auto.js"
 ];
 
@@ -24,6 +25,7 @@ function eq(a, b, name) { ok(a === b, name + " (\u5b9e\u9645=" + JSON.stringify(
 function has(str, sub, name) { const good = String(str).includes(sub); ok(good, good ? name : name + " —未包含 " + sub); }
 
 const HTML = `<!doctype html><html><head><title>t</title></head><body>
+<div id="dramaHomeView" class="view"><div id="dwHome"></div></div>
 <div id="dramaView" class="view"><div id="dwManual"></div></div>
 <div id="autoView" class="view"><div id="dwAuto"></div></div>
 </body></html>`;
@@ -203,7 +205,9 @@ async function flowManualComic(env) {
   const p0 = D.manual.state.project;
   ok(!!p0, "自动建了默认工程");
   eq(p0.shots.length, 1, "默认 1 个分镜");
-  has(q(doc, "#dwManual").innerHTML, "逐镜工坊" === "" ? "" : "写剧本", "步骤条渲染出「写剧本」");
+  has(q(doc, "#dwManual").innerHTML, "dw-console", "导演台三区骨架已渲染");
+  ok(!!q(doc, "#dwRail") && !!q(doc, "#dwStage") && !!q(doc, "#dwInspector"), "左中右三区都在");
+  ok(!!q(doc, "#dwTimeline"), "底部时间轴已渲染");
   has(q(doc, "#dwManual").innerHTML, "合规与授权", "合规区已渲染");
 
   await setField(doc, "#dwLogline", "外卖小哥其实是隐形富豪", 4);
@@ -243,18 +247,18 @@ async function flowManualComic(env) {
   const shot = cur.shots[0];
   await D.project.save(cur);
   await D.manual.render(); await settle();
-  await setField(doc, '[data-act="field"][data-field="prompt"]', "雨夜街头，外卖箱特写", 3);
-  await setField(doc, '[data-act="field"][data-field="line"]', "这单，我送的是命。", 3);
+  await setField(doc, '[data-if="prompt"]', "雨夜街头，外卖箱特写", 3);
+  await setField(doc, '[data-if="line"]', "这单，我送的是命。", 3);
   eq(D.manual.state.project.shots[0].prompt, "雨夜街头，外卖箱特写", "画面提示词已写入");
   eq(D.manual.state.project.shots[0].line, "这单，我送的是命。", "台词已写入");
 
-  await click(doc, '[data-act="gen"][data-shot="' + shot.id + '"]', 16);
+  await click(doc, '[data-iact="gen"]', 16);
   const s1 = D.project.get(cur.id).shots[0];
   eq(s1.status, "done", "单镜生成后状态 done");
   eq(s1.imageUrl, "https://cdn.test/img/shot.png", "画面 URL 已回填");
   eq(s1.audioUrl, "https://cdn.test/tts/line.mp3", "有台词时生成画面顺带自动配音");
 
-  await click(doc, '[data-act="tts"][data-shot="' + shot.id + '"]', 12);
+  await click(doc, '[data-iact="tts"]', 12);
   eq(D.project.get(cur.id).shots[0].audioUrl, "https://cdn.test/tts/line.mp3", "手动补配音成功");
 
   await click(doc, "#dwCheck");
@@ -301,10 +305,10 @@ async function flowManualRealistic(env) {
   await D.manual.render(); await settle();
   has(q(doc, "#dwStatus").textContent, "", "状态为空");
   const shot = D.manual.state.project.shots[0];
-  await setField(doc, '[data-act="field"][data-field="prompt"]', "他站在天台边，风吹起衣角", 3);
-  await setField(doc, '[data-act="field"][data-field="line"]', "从今天起，我不再低头。", 3);
+  await setField(doc, '[data-if="prompt"]', "他站在天台边，风吹起衣角", 3);
+  await setField(doc, '[data-if="line"]', "从今天起，我不再低头。", 3);
 
-  await click(doc, '[data-act="gen"][data-shot="' + shot.id + '"]', 24);
+  await click(doc, '[data-iact="gen"]', 24);
   const s = D.project.get(p.id).shots[0];
   eq(s.status, "done", "视频单镜生成完成");
   eq(s.videoUrl, "https://cdn.test/vid/job.mp4", "视频 URL 已回填");
@@ -378,8 +382,11 @@ async function flowProjectLifecycle(env) {
   ok(/已从云端同步/.test(toastsText(state)), "从云端同步成功提示");
 
   const n = D.project.list().length;
-  await click(doc, "#dwDel", 6);
-  eq(D.project.list().length, n - 1, "删除工程生效");
+  const victim = D.project.list()[0];
+  await D.home.render(); await settle();
+  await click(doc, '[data-pcard-del="' + victim.id + '"]', 2);
+  await click(doc, '[data-pcard-del="' + victim.id + '"]', 6);
+  eq(D.project.list().length, n - 1, "项目中心删除工程生效");
 
   /* 工程下拉切换 */
   const list = D.project.list();
@@ -390,6 +397,31 @@ async function flowProjectLifecycle(env) {
     await settle(8);
     eq(D.manual.state.pid, list[1].id, "下拉切换工程生效");
   }
+}
+
+/* ============================ 链路六：项目中心 ============================ */
+async function flowHome(env) {
+  const { doc, D } = env;
+  console.log("\n链路六：项目中心（卡网格 / 搜索 / 题材模板 / 分流打开）");
+  await D.home.render(); await settle();
+  const list = D.project.list();
+  eq(doc.querySelectorAll("#dwHomeGrid .dw-pcard").length, list.length, "工程卡数量与列表一致");
+  ok(doc.querySelectorAll("#dwHomeTpl [data-tpl]").length >= 4, "题材模板网格已渲染");
+
+  await setInput(doc, "#dwHomeQ", "绝不可能匹配的标题", 3);
+  eq(doc.querySelectorAll("#dwHomeGrid .dw-pcard").length, 0, "搜索无结果时清空列表");
+  await setInput(doc, "#dwHomeQ", "", 3);
+  eq(doc.querySelectorAll("#dwHomeGrid .dw-pcard").length, list.length, "清空搜索后恢复");
+
+  const before = D.project.list().length;
+  await click(doc, '[data-tpl="tpl-revenge"]', 20);
+  eq(D.project.list().length, before + 1, "套用题材模板新建工程");
+  ok(D.manual.state.project && D.manual.state.project.templateId === "tpl-revenge", "模板工程已载入导演台");
+  ok(D.manual.state.project.shots.length >= 6, "模板分镜已一次性铺好");
+
+  await D.home.render(); await settle();
+  await click(doc, "#dwHomeNewAuto", 20);
+  ok(D.auto.state.project && D.auto.state.project.mode === "pipeline", "新建流水线工程并自动载入");
 }
 
 /* ============================ 链路四：半自动台 8 阶段 ============================ */
@@ -435,7 +467,7 @@ async function flowAuto(env) {
   ok(all.every((s) => s.imageUrl), "每镜都有画面");
   await click(doc, "#auGenNext");
   eq(D.auto.state.stage, "review", "进入关卡二逐镜检查");
-  eq(doc.querySelectorAll("#dwAuto .dw-shot").length, all.length, "逐镜检查列出全部分镜");
+  eq(doc.querySelectorAll("#auReviewGrid .dw-rail-item").length, all.length, "逐镜检查列出全部分镜");
 
   await click(doc, "#auRedrawFail");
   await click(doc, "#auApprove2");
@@ -499,7 +531,7 @@ async function flowEdge(env) {
   ok(/还没配置生成服务/.test(toastsText(state)), "未配置时给出设置引导");
 
   state.toasts.length = 0;
-  await click(doc, '[data-act="tts"][data-shot="' + D.manual.state.project.shots[0].id + '"]', 6);
+  await click(doc, '[data-iact="tts"]', 6);
   const line = D.manual.state.project.shots[0].line;
   if (!line) ok(/没有台词/.test(toastsText(state)), "无台词配音给出提示");
   else ok(true, "该镜有台词，跳过无台词分支");
@@ -527,6 +559,7 @@ async function main() {
     await flowManualComic(env);
     await flowManualRealistic(env);
     await flowProjectLifecycle(env);
+    await flowHome(env);
     await flowAuto(env);
     await flowEdge(env);
   } catch (e) {
