@@ -240,7 +240,7 @@
       provider: def.id,
       def,
       base: ((cur.base || "").trim() || def.base || "").replace(/\/+$/, ""),
-      key: cur.key || "",
+      key: cur.key || cur.secret || "",
       secret: cur.secret || "",
       appId: cur.appId || "",
       cluster: (cur.cluster || def.cluster || "").trim(),

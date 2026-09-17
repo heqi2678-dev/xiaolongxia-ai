@@ -109,6 +109,17 @@ test("语音适配器 volc 请求体与 base64 解析", async () => {
   assert.equal(sandbox.__calls[0].opts.headers.Authorization, "Bearer;tok");
 });
 
+test("语音适配器兼容设置页写入的 secret 字段", async () => {
+  const { D, sandbox } = createDrama();
+  setAdapter(D, "tts", { provider: "volc", appId: "app", secret: "tok", cluster: "volcano_tts" });
+  mockJson(sandbox, { data: "QUJD" });
+  const r = await D.adapters.tts.synth({ text: "你好", voice: "BV1", speed: 1, pitch: 1 });
+  assert.match(r.url, /^blob:/);
+  const body = JSON.parse(sandbox.__calls[0].opts.body);
+  assert.equal(body.app.token, "tok");
+  assert.equal(sandbox.__calls[0].opts.headers.Authorization, "Bearer;tok");
+});
+
 test("视频适配器 seedance 任务创建与轮询", async () => {
   const { D, sandbox } = createDrama();
   setAdapter(D, "video", { provider: "seedance", key: "k" });
