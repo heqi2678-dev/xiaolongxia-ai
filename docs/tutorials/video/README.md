@@ -31,14 +31,25 @@ fc-cache -f
 # 渲染卡片 + 生成字幕与旁白稿（输出到 out/）
 python3 render.py
 
-# 合成视频（默认 crf20/veryfast/30fps；可用环境变量覆盖）
+# 合成视频（默认 crf20/veryfast/30fps/带缓慢推近）
 python3 build_video.py
 
-# 出更小的分享版（crf26/medium/25fps）
-VCRF=26 VPRESET=medium VFPS=25 VSUFFIX=lite python3 build_video.py
+# 出小体积分享版（静态卡片、crf28、15fps、约 3MB，适合在线预览与下载）
+VCRF=28 VPRESET=medium VFPS=15 VZOOM=0 VTUNE=stillimage VSUFFIX=small python3 build_video.py
 ```
 
-可覆盖的环境变量：`VCRF`、`VPRESET`、`VFPS`、`VSUFFIX`（输出文件名与 clips 目录后缀）。
+可覆盖的环境变量：
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `VCRF` | `20` | x264 质量，越大越小越糊 |
+| `VPRESET` | `veryfast` | x264 preset |
+| `VFPS` | `30` | 帧率 |
+| `VZOOM` | `1.05` | 缓慢推近的最大缩放；设为 `0` 或 `1` 则关闭运镜，体积骤降 |
+| `VTUNE` | 空 | 设为 `stillimage` 可显著压缩静态画面 |
+| `VFADE` | `0.8` | 整片首尾淡入淡出的秒数 |
+| `VSUFFIX` | 空 | 输出文件名与 clips 目录的后缀 |
+
 
 ## 改内容
 

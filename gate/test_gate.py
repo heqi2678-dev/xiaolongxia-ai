@@ -504,6 +504,29 @@ class GateTests(unittest.TestCase):
         code, _, _ = self.req(opener, "/api/drama/out/evil.exe")
         self.assertEqual(code, 400)
 
+    def test_shop_serves_mp4_inline(self):
+        shop = Path(self.tmpdir.name) / "shop-video"
+        shop.mkdir(exist_ok=True)
+        payload = b"\x00\x00\x00\x18ftypmp42" + b"0" * 64
+        (shop / "tutorial-video.mp4").write_bytes(payload)
+        old = self.gate.SHOP_DIR
+        self.gate.SHOP_DIR = shop
+        try:
+            opener, _ = self.opener()
+            self.req(opener, "/api/login", method="POST", json_body={"username": "zhuren", "password": "owner-pass"})
+            code, body, hdrs = self.req(opener, "/tutorial-video.mp4")
+        finally:
+            self.gate.SHOP_DIR = old
+        self.assertEqual(code, 200)
+        self.assertEqual(hdrs.get("Content-Type"), "video/mp4")
+        self.assertEqual(body, payload)
+
+    def test_shop_video_requires_login(self):
+        opener, _ = self.opener()
+        code, body, _ = self.req(opener, "/tutorial-video.mp4")
+        self.assertEqual(code, 200)
+        self.assertIn(b"login", body.lower() + b"login")
+
 
 if __name__ == "__main__":
     unittest.main()

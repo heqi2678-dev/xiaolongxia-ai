@@ -99,6 +99,8 @@ STATIC_TYPES = {
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
     ".webp": "image/webp",
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
     ".woff2": "font/woff2",
     ".bin": "application/octet-stream",
     ".onnx": "application/octet-stream",

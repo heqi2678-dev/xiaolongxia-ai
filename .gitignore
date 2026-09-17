@@ -12,3 +12,6 @@ models/
 *.bak.*
 *.bak.*/
 src.bak.*/
+
+# 教程视频（体积大，源码用 docs/tutorials/video/ 重建）
+tutorial-video.mp4
