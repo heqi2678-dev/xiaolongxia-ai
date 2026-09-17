@@ -910,6 +910,117 @@ def drama_tts(api_key, resource, text, speaker, speed=1.0, fmt=None, sample_rate
     return bytes(out)
 
 
+VOLC_VISUAL_HOST = "visual.volcengineapi.com"
+VOLC_VISUAL_REGION = "cn-north-1"
+VOLC_VISUAL_SERVICE = "cv"
+VOLC_VISUAL_VERSION = "2022-08-31"
+
+
+def _volc_sha256(data):
+    if isinstance(data, str):
+        data = data.encode("utf-8")
+    return hashlib.sha256(data).hexdigest()
+
+
+def _volc_hmac(key, msg):
+    if isinstance(msg, str):
+        msg = msg.encode("utf-8")
+    return hmac.new(key, msg, hashlib.sha256).digest()
+
+
+def _volc_quote(value):
+    return urllib.parse.quote(str(value), safe="-_.~")
+
+
+def volc_sign(ak, sk, action, body_obj, region=None, service=None,
+              version=None, host=None, now=None):
+    """火山引擎签名 v4（visual.volcengineapi.com）。
+
+    返回 (url, headers, payload)，其中 headers 已含 Authorization。
+    """
+    ak = str(ak or "").strip()
+    sk = str(sk or "").strip()
+    if not ak or not sk:
+        raise ValueError("缺少火山 AccessKey ID / Secret AccessKey，请先到设置里填好")
+    action = str(action or "").strip()
+    if not action:
+        raise ValueError("缺少口型接口 Action")
+    host = str(host or VOLC_VISUAL_HOST).strip()
+    region = str(region or VOLC_VISUAL_REGION).strip()
+    service = str(service or VOLC_VISUAL_SERVICE).strip()
+    version = str(version or VOLC_VISUAL_VERSION).strip()
+    now = now or datetime.now(timezone.utc)
+    x_date = now.strftime("%Y%m%dT%H%M%SZ")
+    short_date = now.strftime("%Y%m%d")
+
+    payload = json.dumps(body_obj or {}, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    payload_hash = _volc_sha256(payload)
+
+    query = [("Action", action), ("Version", version)]
+    canonical_query = "&".join(
+        "%s=%s" % (_volc_quote(k), _volc_quote(v)) for k, v in sorted(query)
+    )
+    canonical_headers = (
+        "content-type:application/json\n"
+        "host:%s\n"
+        "x-content-sha256:%s\n"
+        "x-date:%s\n" % (host, payload_hash, x_date)
+    )
+    signed_headers = "content-type;host;x-content-sha256;x-date"
+    canonical_request = "\n".join([
+        "POST", "/", canonical_query, canonical_headers, signed_headers, payload_hash,
+    ])
+    credential_scope = "%s/%s/%s/request" % (short_date, region, service)
+    string_to_sign = "\n".join([
+        "HMAC-SHA256", x_date, credential_scope, _volc_sha256(canonical_request),
+    ])
+    k_date = _volc_hmac(sk.encode("utf-8"), short_date)
+    k_region = _volc_hmac(k_date, region)
+    k_service = _volc_hmac(k_region, service)
+    k_signing = _volc_hmac(k_service, "request")
+    signature = hmac.new(k_signing, string_to_sign.encode("utf-8"), hashlib.sha256).hexdigest()
+    authorization = (
+        "HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s"
+        % (ak, credential_scope, signed_headers, signature)
+    )
+    url = "https://%s/?%s" % (host, canonical_query)
+    headers = {
+        "Content-Type": "application/json",
+        "Host": host,
+        "X-Date": x_date,
+        "X-Content-Sha256": payload_hash,
+        "Authorization": authorization,
+    }
+    return url, headers, payload
+
+
+def drama_visual(ak, sk, action, body, region=None, service=None,
+                 version=None, timeout=60):
+    """调用火山智能视觉接口，返回解析后的 JSON。"""
+    body = body if isinstance(body, dict) else {}
+    url, headers, payload = volc_sign(
+        ak, sk, action, body, region=region, service=service, version=version
+    )
+    req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+    raw = ""
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            raw = res.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", "replace")
+    except urllib.error.URLError as exc:
+        raise RuntimeError("连不上火山智能视觉，请检查网络：" + str(exc.reason))
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        raise RuntimeError("火山智能视觉返回异常：" + raw[:160])
+    if isinstance(data, dict) and data.get("ResponseMetadata", {}).get("Error"):
+        err = data["ResponseMetadata"]["Error"]
+        msg = err.get("Message") or err.get("Code") or "调用失败"
+        raise RuntimeError("火山智能视觉报错：" + str(msg))
+    return data
+
+
 def drama_compose(owner, project):
     if not shutil.which(DRAMA_FFMPEG):
         raise RuntimeError("服务器未安装 ffmpeg，请改用浏览器合成")
@@ -1354,6 +1465,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/drama/tts":
             self._handle_drama_tts()
             return
+        if path == "/api/drama/visual":
+            self._handle_drama_visual()
+            return
         self._json(404, {"ok": False, "error": "没有这个接口"})
 
     def _handle_consume(self):
@@ -1605,6 +1719,35 @@ class Handler(BaseHTTPRequestHandler):
             self._json(502, {"ok": False, "error": "语音合成失败，请检查 Key 与网络"})
             return
         self._send(200, audio, "audio/mpeg", raw=True)
+
+    def _handle_drama_visual(self):
+        me = self._drama_me()
+        if not me:
+            return
+        obj = self._drama_body()
+        if not obj:
+            self._json(400, {"ok": False, "error": "请求读不懂"})
+            return
+        try:
+            data = drama_visual(
+                obj.get("key"),
+                obj.get("secret"),
+                obj.get("action"),
+                obj.get("body"),
+                obj.get("region"),
+                obj.get("service"),
+                obj.get("version"),
+            )
+        except ValueError as exc:
+            self._json(400, {"ok": False, "error": str(exc)})
+            return
+        except RuntimeError as exc:
+            self._json(502, {"ok": False, "error": str(exc)})
+            return
+        except Exception:
+            self._json(502, {"ok": False, "error": "火山智能视觉调用失败，请检查 Key 与网络"})
+            return
+        self._json(200, {"ok": True, "data": data})
 
     def _handle_drama_out(self, name):
         me = self._drama_me()

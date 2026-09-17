@@ -663,6 +663,78 @@ class GateTests(unittest.TestCase):
         self.assertEqual(code, 400)
         self.assertFalse(json.loads(body.decode("utf-8"))["ok"])
 
+    def test_volc_sign_matches_reference_vector(self):
+        from datetime import datetime, timezone
+        url, headers, payload = self.gate.volc_sign(
+            "AKTEST", "SKTEST", "CVSubmitTask",
+            {"req_key": "lipsync", "video_url": "http://x/v.mp4", "audio_url": "http://x/a.mp3"},
+            now=datetime(2024, 1, 2, 3, 4, 5, tzinfo=timezone.utc),
+        )
+        self.assertEqual(url, "https://visual.volcengineapi.com/?Action=CVSubmitTask&Version=2022-08-31")
+        self.assertEqual(headers["X-Date"], "20240102T030405Z")
+        self.assertEqual(
+            headers["X-Content-Sha256"],
+            "09d0f4bbd5d24fb1c2b405fa27e7413aa00b6947e6197b15b7aa330f3c044737",
+        )
+        self.assertEqual(
+            headers["Authorization"],
+            "HMAC-SHA256 Credential=AKTEST/20240102/cn-north-1/cv/request, "
+            "SignedHeaders=content-type;host;x-content-sha256;x-date, "
+            "Signature=1b61463bd9cd2e3a6fbae6f368faa581c78a8c27f1da8cff57d196c40bca5275",
+        )
+        self.assertEqual(
+            json.loads(payload.decode("utf-8")),
+            {"req_key": "lipsync", "video_url": "http://x/v.mp4", "audio_url": "http://x/a.mp3"},
+        )
+
+    def test_volc_sign_requires_credentials_and_action(self):
+        with self.assertRaises(ValueError):
+            self.gate.volc_sign("", "SK", "CVSubmitTask", {})
+        with self.assertRaises(ValueError):
+            self.gate.volc_sign("AK", "", "CVSubmitTask", {})
+        with self.assertRaises(ValueError):
+            self.gate.volc_sign("AK", "SK", "", {})
+
+    def test_drama_visual_posts_signed_body_and_returns_data(self):
+        captured = self._mock_urlopen(json.dumps({"Result": {"task_id": "t1"}, "ResponseMetadata": {}}))
+        data = self.gate.drama_visual("AK", "SK", "CVSubmitTask", {"req_key": "lipsync"})
+        self.assertEqual(data["Result"]["task_id"], "t1")
+        self.assertEqual(captured["url"], "https://visual.volcengineapi.com/?Action=CVSubmitTask&Version=2022-08-31")
+        self.assertEqual(captured["headers"]["x-date"][:8].isdigit(), True)
+        self.assertTrue(captured["headers"]["authorization"].startswith("HMAC-SHA256 Credential=AK/"))
+        self.assertEqual(captured["body"], {"req_key": "lipsync"})
+
+    def test_drama_visual_surfaces_upstream_error(self):
+        self._mock_urlopen(json.dumps({
+            "ResponseMetadata": {"Error": {"Code": "InvalidAccessKey", "Message": "signature mismatch"}},
+        }))
+        with self.assertRaises(RuntimeError) as ctx:
+            self.gate.drama_visual("AK", "SK", "CVSubmitTask", {})
+        self.assertIn("signature mismatch", str(ctx.exception))
+
+    def test_drama_visual_endpoint_returns_data(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        self._mock_urlopen(json.dumps({"Result": {"video_url": "http://x/out.mp4"}, "ResponseMetadata": {}}))
+        code, body, _ = self.req(opener, "/api/drama/visual", method="POST", json_body={
+            "key": "AK", "secret": "SK", "action": "CVSubmitTask", "body": {"req_key": "lipsync"},
+        })
+        self.assertEqual(code, 200)
+        obj = json.loads(body.decode("utf-8"))
+        self.assertTrue(obj["ok"])
+        self.assertEqual(obj["data"]["Result"]["video_url"], "http://x/out.mp4")
+
+    def test_drama_visual_endpoint_guards(self):
+        opener, _ = self.opener()
+        code, _, _ = self.req(opener, "/api/drama/visual", method="POST", json_body={"action": "CVSubmitTask"})
+        self.assertEqual(code, 401)
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        code, body, _ = self.req(opener, "/api/drama/visual", method="POST", json_body={})
+        self.assertEqual(code, 400)
+        code, body, _ = self.req(opener, "/api/drama/visual", method="POST", json_body={"action": "CVSubmitTask"})
+        self.assertEqual(code, 400)
+        self.assertIn("AccessKey", json.loads(body.decode("utf-8"))["error"])
+
 
 if __name__ == "__main__":
     unittest.main()
