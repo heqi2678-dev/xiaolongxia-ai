@@ -151,4 +151,20 @@ function setAdapter(D, kind, cfg) {
   D.setAdapterConfig(kind, cfg);
 }
 
-module.exports = { createDrama, mockJson, setAdapter, DRAMA_FILES };
+/* 让 httpText 的下一次/所有请求返回指定原始文本（用于 NDJSON 流式响应） */
+function mockText(sandbox, text, ok) {
+  sandbox.fetch = async (url, opts) => {
+    sandbox.__calls = sandbox.__calls || [];
+    sandbox.__calls.push({ url: String(url), opts: opts || {} });
+    const body = typeof text === "function" ? text(String(url), opts) : text;
+    return {
+      ok: ok === undefined ? true : ok,
+      status: ok === false ? 500 : 200,
+      text: async () => body,
+      json: async () => ({}),
+      blob: async () => new sandbox.Blob([], { type: "audio/mpeg" })
+    };
+  };
+}
+
+module.exports = { createDrama, mockJson, mockText, setAdapter, DRAMA_FILES };

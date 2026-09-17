@@ -18,6 +18,14 @@
     });
   }
 
+  function httpText(url, opts) {
+    return fetch(url, opts).then(async (r) => {
+      const text = await r.text();
+      if (!r.ok) throw D.err("HTTP_" + r.status, text.slice(0, 200) || ("HTTP " + r.status));
+      return text;
+    });
+  }
+
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
   function fileToDataUrl(file) {
@@ -40,10 +48,18 @@
   }
 
   function b64ToBlobUrl(b64, mime) {
-    const bin = atob(b64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return URL.createObjectURL(new Blob([bytes], { type: mime || "audio/mpeg" }));
+    const parts = Array.isArray(b64) ? b64 : [b64];
+    const bufs = parts.map((s) => {
+      const bin = atob(s);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    });
+    const total = bufs.reduce((n, b) => n + b.length, 0);
+    const all = new Uint8Array(total);
+    let off = 0;
+    bufs.forEach((b) => { all.set(b, off); off += b.length; });
+    return URL.createObjectURL(new Blob([all], { type: mime || "audio/mpeg" }));
   }
 
   function audioDuration(url) {
@@ -86,6 +102,6 @@
   }
 
   XLX.drama.adapterUtil = {
-    httpJson, sleep, fileToDataUrl, urlToDataUrl, b64ToBlobUrl, audioDuration, ratioSize, pick, taskPoll
+    httpJson, httpText, sleep, fileToDataUrl, urlToDataUrl, b64ToBlobUrl, audioDuration, ratioSize, pick, taskPoll
   };
 })();

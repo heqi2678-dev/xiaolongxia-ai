@@ -5,7 +5,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
-const { createDrama, mockJson, setAdapter } = require("./drama-harness.js");
+const { createDrama, mockJson, mockText, setAdapter } = require("./drama-harness.js");
 
 function dramaSrc(file) {
   return fs.readFileSync(path.resolve(__dirname, "..", "src", "drama", file), "utf8");
@@ -95,29 +95,58 @@ test("未配置生图服务时抛出 NO_KEY", async () => {
   );
 });
 
-test("语音适配器 volc 请求体与 base64 解析", async () => {
+test("语音适配器 volc 请求构造与 NDJSON 流式解析", async () => {
   const { D, sandbox } = createDrama();
-  setAdapter(D, "tts", { provider: "volc", appId: "app", key: "tok", cluster: "volcano_tts", voice: "BV1" });
-  mockJson(sandbox, { data: "QUJD" });
-  const r = await D.adapters.tts.synth({ text: "你好", voice: "BV1", speed: 1, pitch: 1 });
+  setAdapter(D, "tts", { provider: "volc", key: "tok", cluster: "seed-tts-2.0", voice: "zh_female_vv_uranus_bigtts" });
+  mockText(sandbox, '{"code":0,"message":"","data":"QUJD"}\n'
+    + '{"code":0,"message":"","data":null,"sentence":{"text":"你好"}}\n'
+    + '{"code":20000000,"message":"OK","data":null}\n');
+  const r = await D.adapters.tts.synth({ text: "你好", voice: "zh_female_vv_uranus_bigtts", speed: 1 });
   assert.match(r.url, /^blob:/);
-  const body = JSON.parse(sandbox.__calls[0].opts.body);
-  assert.equal(body.app.appid, "app");
-  assert.equal(body.app.token, "tok");
-  assert.equal(body.audio.voice_type, "BV1");
-  assert.equal(body.request.text, "你好");
-  assert.equal(sandbox.__calls[0].opts.headers.Authorization, "Bearer;tok");
+  const call = sandbox.__calls[0];
+  assert.match(call.url, /\/api\/v3\/tts\/unidirectional$/);
+  assert.equal(call.opts.headers["X-Api-Key"], "tok");
+  assert.equal(call.opts.headers["X-Api-Resource-Id"], "seed-tts-2.0");
+  assert.equal(call.opts.headers.Authorization, undefined);
+  const body = JSON.parse(call.opts.body);
+  assert.equal(body.app, undefined);
+  assert.equal(body.req_params.text, "你好");
+  assert.equal(body.req_params.speaker, "zh_female_vv_uranus_bigtts");
+  assert.equal(body.req_params.audio_params.format, "mp3");
+  assert.equal(body.req_params.audio_params.speech_rate, undefined);
 });
 
-test("语音适配器兼容设置页写入的 secret 字段", async () => {
+test("语音适配器 volc 兼容设置页 secret 字段并映射语速", async () => {
   const { D, sandbox } = createDrama();
-  setAdapter(D, "tts", { provider: "volc", appId: "app", secret: "tok", cluster: "volcano_tts" });
-  mockJson(sandbox, { data: "QUJD" });
-  const r = await D.adapters.tts.synth({ text: "你好", voice: "BV1", speed: 1, pitch: 1 });
+  setAdapter(D, "tts", { provider: "volc", secret: "tok", cluster: "seed-tts-2.0" });
+  mockText(sandbox, '{"code":0,"data":"QUJD"}\n{"code":20000000,"message":"OK"}\n');
+  const r = await D.adapters.tts.synth({ text: "你好", voice: "v", speed: 1.5 });
   assert.match(r.url, /^blob:/);
+  assert.equal(sandbox.__calls[0].opts.headers["X-Api-Key"], "tok");
   const body = JSON.parse(sandbox.__calls[0].opts.body);
-  assert.equal(body.app.token, "tok");
-  assert.equal(sandbox.__calls[0].opts.headers.Authorization, "Bearer;tok");
+  assert.equal(body.req_params.audio_params.speech_rate, 50);
+});
+
+test("语音适配器 volc 缺 Key 抛 NO_KEY，错误帧抛 BAD_RESP", async () => {
+  const { D, sandbox } = createDrama();
+  setAdapter(D, "tts", { provider: "volc", key: "" });
+  await assert.rejects(() => D.adapters.tts.synth({ text: "你好" }), (e) => e.code === "NO_KEY");
+
+  setAdapter(D, "tts", { provider: "volc", key: "tok" });
+  mockText(sandbox, '{"reqid":"","code":55000000,"message":"resource ID is mismatched with speaker related resource"}\n');
+  await assert.rejects(
+    () => D.adapters.tts.synth({ text: "你好", voice: "bad" }),
+    (e) => e.code === "BAD_RESP" && /mismatched/.test(e.message)
+  );
+});
+
+test("b64ToBlobUrl 支持多分片拼接", () => {
+  const { D, sandbox } = createDrama();
+  let captured = null;
+  sandbox.URL.createObjectURL = (blob) => { captured = blob; return "blob:test"; };
+  D.adapterUtil.b64ToBlobUrl(["QUJD", "REVG"], "audio/mpeg");
+  assert.equal(captured.type, "audio/mpeg");
+  assert.equal(String.fromCharCode.apply(null, captured.parts[0]), "ABCDEF");
 });
 
 test("视频适配器 seedance 任务创建与轮询", async () => {

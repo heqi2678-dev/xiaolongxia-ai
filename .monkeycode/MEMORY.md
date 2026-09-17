@@ -88,3 +88,15 @@ Entries discovered by the Agent during task execution should follow this format:
   - Seedance **2.x 系列开通需账户余额/代金券 ≥ 200 元**（硬门槛，绕不过）；**1.0 系列无此门槛**，可直接开通并享有免费额度，做链路验证用 1.0。
   - Seedance 1.0 pro-fast 实测：5 秒 720p 竖屏约 24 秒完成、消耗约 10.4 万 tokens，输出 704x1248 / 24fps；免费额度 200 万 tokens。
   - Ark API Key 只存本地文件（如 `/tmp/opencode/xlx/.ark`，权限 600），不进仓库、不在聊天回显。
+
+[Project Knowledge Summary]
+- Date: 2026-09-17
+- Context: Discovered by Agent while 接通火山语音新版 HTTP 单向流式合成（`/api/v3/tts/unidirectional`）
+- Category: Environment Configuration
+- Instructions:
+  - 新版控制台必须先在「开通管理」**开通「语音合成2.0」**才能调用，否则返回 `code 45000030 requested resource not granted`；开通走免费试用额度。旧版控制台给 App 勾的「接入能力」不授权给新版 API Key，且新版授权按项目隔离。
+  - 鉴权用 `X-Api-Key: <API Key>` + `X-Api-Resource-Id: seed-tts-2.0`，**不需要 App ID / Access Token**；用旧凭证会报 `code 3001` 或 `45000010`。
+  - `seed-tts-2.0` 只能配 `*_uranus_bigtts` / `*_jupiter_bigtts` 音色（即控制台「Vivi 2.0/云舟 2.0/小天 2.0」等），配 1.0 的 `*_conversation_wvae_bigtts` 会报 `code 55000000 resource ID is mismatched with speaker related resource`。
+  - 响应为 **HTTP Chunked 的 NDJSON**（每行一个 JSON）：音频分片在 `data`（base64，首片带 ID3、后续为裸 MP3 帧，逐片解码后拼接即为完整 MP3），`code 20000000` 为结束帧；**错误也以 HTTP 200 返回**，需按帧内 `code` 判断而非 HTTP 状态码。
+  - 接口支持浏览器跨域（`access-control-allow-origin: *`，且允许 `X-Api-Resource-Id` 头），前端可直连。
+  - 旧版 `/api/v1/tts`（`Bearer;<token>` + `app.appid/token/cluster`）已弃用，代码不要再走该协议。

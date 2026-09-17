@@ -188,9 +188,10 @@ XLX.settings = (function () {
       + '</div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
       + (isTts
-        ? '<input class="inp" id="ds-' + meta.id + '-appId" placeholder="App ID" style="flex:1;min-width:110px" value="' + XLX.util.esc(cfg.appId) + '">'
-          + '<input class="inp" id="ds-' + meta.id + '-secret" type="password" placeholder="Access Token" style="flex:2;min-width:130px" value="' + XLX.util.esc(cfg.secret || cfg.key) + '">'
-          + '<input class="inp" id="ds-' + meta.id + '-cluster" placeholder="cluster，如 volcano_tts" style="flex:1;min-width:110px" value="' + XLX.util.esc(cfg.cluster) + '">'
+        ? '<input class="inp" id="ds-' + meta.id + '-secret" type="password" placeholder="API Key" style="flex:2;min-width:150px" value="' + XLX.util.esc(cfg.secret || cfg.key) + '">'
+          + ((def && def.id === "volc")
+            ? '<input class="inp" id="ds-' + meta.id + '-cluster" placeholder="资源 ID，如 seed-tts-2.0" style="flex:2;min-width:160px" value="' + XLX.util.esc(cfg.cluster) + '">'
+            : '')
         : '<input class="inp" id="ds-' + meta.id + '-key" type="password" placeholder="API Key" style="flex:2;min-width:140px" value="' + XLX.util.esc(cfg.key) + '">'
           + '<input class="inp" id="ds-' + meta.id + '-model" placeholder="模型名（可选）" style="flex:1;min-width:110px" value="' + XLX.util.esc(cfg.model) + '">')
       + '</div>'

@@ -128,18 +128,21 @@
     {
       id: "volc",
       name: "火山引擎语音合成",
-      base: "https://openspeech.bytedance.com/api/v1/tts",
-      cluster: "volcano_tts",
+      base: "https://openspeech.bytedance.com/api/v3/tts/unidirectional",
+      cluster: "seed-tts-2.0",
       voices: [
-        { id: "zh_male_M392_conversation_wvae_bigtts", name: "男声·对话" },
-        { id: "zh_female_M40_conversation_wvae_bigtts", name: "女声·对话" },
-        { id: "zh_male_ahu_conversation_wvae_bigtts", name: "男声·阿虎" },
-        { id: "zh_female_wanwanxiaohe_moon_bigtts", name: "女声·湾湾小何" },
-        { id: "BV700_streaming", name: "通用·女声" },
-        { id: "BV002_streaming", name: "通用·男声" }
+        { id: "zh_female_vv_uranus_bigtts", name: "女声·Vivi 2.0" },
+        { id: "zh_male_m191_uranus_bigtts", name: "男声·云舟 2.0" },
+        { id: "zh_female_xiaohe_uranus_bigtts", name: "女声·小何 2.0" },
+        { id: "zh_male_taocheng_uranus_bigtts", name: "男声·小天 2.0" },
+        { id: "zh_female_tianmeitaozi_uranus_bigtts", name: "女声·甜美桃子 2.0" },
+        { id: "zh_female_cancan_uranus_bigtts", name: "女声·知性灿灿 2.0" },
+        { id: "zh_male_sunwukong_uranus_bigtts", name: "男声·猴哥 2.0" },
+        { id: "zh_female_peiqi_uranus_bigtts", name: "女声·佩奇猪 2.0" },
+        { id: "zh_male_dayi_uranus_bigtts", name: "男声·大壹 2.0" }
       ],
-      keyHint: "火山语音 App ID + Access Token",
-      keyLink: "https://console.volcengine.com/speech/app",
+      keyHint: "火山语音 API Key（新版控制台，需先开通「语音合成2.0」）",
+      keyLink: "https://console.volcengine.com/speech/new/setting/apikeys",
       color: "#3370ff"
     },
     {
