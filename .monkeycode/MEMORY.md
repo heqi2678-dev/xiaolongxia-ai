@@ -114,3 +114,13 @@ Entries discovered by the Agent during task execution should follow this format:
   - 错误码语义：`50200` 参数/req_key 不支持、`50215` 输入无效（多为音频超 60 秒）、`50400` 未开通/无权限、`50429` QPS 超限、`50430` 并发为 0 或已满（模型并发仅 1，撞上属常态，需退避重试）、`50220` 素材 URL 不可下载、`50500` 上游内部错误。响应成功码为 `10000`。
   - `CVSubmitTask` 返回 `data.task_id`；`CVGetResult` 返回 `data.status`（`not_found`/`processing`/`done`/`failed`）、成片 `data.video_url`（**仅 1 小时有效**）、失败原因 `data.resp_data`。
   - 本地素材必须先经网关 `POST /dian/api/drama/asset` 上传换公网地址（上游只收 http(s)，`data:` 会被拒）。
+
+[Project Knowledge Summary]
+- Date: 2026-09-21
+- Context: Discovered by Agent while 用真实方舟 Key 验证整段模式（发现模型未开通）
+- Category: Troubleshooting & Debugging
+- Instructions:
+  - **判断方舟模型是否已开通**：`POST /api/v3/contents/generations/tasks`，body 用 `{"model":"<id>","content":[]}`。返回 `404 ModelNotOpen` 表示未开通；返回 `400 InvalidParameter (content field cannot be empty)` 表示已开通。该方法利用「先校验开通、后校验参数」的顺序，且因参数非法不会创建计费任务。
+  - 账号 `2131262660` 当前仅开通 `doubao-seedance-1-0-pro-250528` / `doubao-seedance-1-0-pro-fast-251015`；`doubao-seedance-2-5-260628` 与全部 2.0 变体均 `ModelNotOpen`（与 2.x 需余额/代金券 ≥ 200 元的门槛一致）。
+  - Seedance 1.0 pro-fast 输入 9:16 时**不遵守 720p**，实际输出 704x1248 / 24fps；段时长上限 10 秒（2.x 才是 4~30 秒），链路验证时需把 `takeTarget` 降到 ≤10。
+  - 整段模式的局段重绘依赖 2.5 的视频编辑能力，1.0 不具备，验证时跳过该项。
