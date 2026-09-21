@@ -113,7 +113,7 @@
           '<button class="btn" id="dwExport">导出素材包（剪映二次剪辑）</button>' +
           '<button class="btn" id="dwCheck">合规检查</button>' +
         "</div>" +
-        '<div class="dw-hint" style="margin-top:8px">浏览器合成实时录制，约等于成片时长；服务端合成更快但要求素材是公网地址。</div>' +
+        '<div class="dw-hint" style="margin-top:8px">浏览器合成实时录制，约等于成片时长，运镜、BGM、字幕样式都在这条生效；服务端合成更快但要求素材是公网地址，只做快速拼接，不含运镜、BGM 与字幕样式。</div>' +
         '<div id="dwComposeOut" style="margin-top:10px"></div>' +
       "</div>" +
       '<div id="dwStatus"></div>' +
@@ -161,7 +161,7 @@
         "</div>" +
       "</div>" +
       "</div>" +
-      '<div class="dw-hint" style="margin-top:8px">BGM 在合成时循环垫底；字幕按每镜台词烧录，样式同时用于浏览器与服务端合成。精修（转场、特效、多轨）请在导出素材包后用剪映处理。</div>';
+      '<div class="dw-hint" style="margin-top:8px">BGM 在合成时循环垫底；字幕按每镜台词烧录并按上面的颜色描边。两者都只在浏览器合成时生效（运镜同理），服务端合成只做快速拼接。精修（转场、特效、多轨）请在导出素材包后用剪映处理。</div>';
   }
 
   function paintAll() {
