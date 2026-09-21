@@ -122,5 +122,7 @@ Entries discovered by the Agent during task execution should follow this format:
 - Instructions:
   - **判断方舟模型是否已开通**：`POST /api/v3/contents/generations/tasks`，body 用 `{"model":"<id>","content":[]}`。返回 `404 ModelNotOpen` 表示未开通；返回 `400 InvalidParameter (content field cannot be empty)` 表示已开通。该方法利用「先校验开通、后校验参数」的顺序，且因参数非法不会创建计费任务。
   - 账号 `2131262660` 当前仅开通 `doubao-seedance-1-0-pro-250528` / `doubao-seedance-1-0-pro-fast-251015`；`doubao-seedance-2-5-260628` 与全部 2.0 变体均 `ModelNotOpen`（与 2.x 需余额/代金券 ≥ 200 元的门槛一致）。
-  - Seedance 1.0 pro-fast 输入 9:16 时**不遵守 720p**，实际输出 704x1248 / 24fps；段时长上限 10 秒（2.x 才是 4~30 秒），链路验证时需把 `takeTarget` 降到 ≤10。
+  - Seedance 1.0 pro-fast 输入 9:16 时**不遵守 720p**，实际输出 704x1248 / 24fps；`duration` 只接受 5 / 10（传 15 报 `the specified duration is not supported`），链路验证时需把 `takeTarget` 降到 ≤10。
+  - Seedance 1.0 **不支持参考生视频（r2v / reference_image）**，传参考图报 `task_type r2v does not support model ...`；当前实现遇到 1.0 时自动降级为首帧驱动（i2v），并把降级原因写到段/镜的 `notice`。
   - 整段模式的局段重绘依赖 2.5 的视频编辑能力，1.0 不具备，验证时跳过该项。
+  - 账号已开通的文生图模型：`doubao-seedream-4-5-251128` / `doubao-seedream-5-0-260128` / `doubao-seedream-4-0-250828`，验证 1.0 视频链路时可用其生成定妆图。
