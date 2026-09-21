@@ -110,6 +110,20 @@
 .dw-modelbar-dot.ok{background:var(--green)}
 .dw-modelbar-dot.bad{background:var(--yellow)}
 
+/* ===== 整段模式：镜头段分组 ===== */
+.dw-take{border:1px solid var(--border);border-radius:10px;padding:6px;background:var(--bg)}
+.dw-take.on{border-color:var(--accent)}
+.dw-take.done{border-color:#2b5a3a}
+.dw-take-head{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);padding:2px 2px 6px}
+.dw-take-head b{color:var(--accent2)}
+.dw-take-shots{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+.dw-take-shots .dw-rail-item{flex:0 0 72px}
+.dw-take-shots .dw-rail-item img,.dw-take-shots .dw-rail-item video{aspect-ratio:9/16}
+.dw-take-marks{display:flex;width:100%;gap:2px;margin:2px 0 4px}
+.dw-take-mark{box-sizing:border-box;border:1px dashed var(--accent2);border-radius:6px;font-size:10px;color:var(--accent2);text-align:center;overflow:hidden;white-space:nowrap;cursor:pointer;padding:1px 0}
+.dw-take-list{display:flex;flex-direction:column;gap:8px}
+.dw-take-list .dw-take>button{margin-top:6px}
+
 @media (max-width:900px){
   .dw-console{grid-template-columns:1fr}
   .dw-rail{flex-direction:row;max-height:none;overflow-x:auto;overflow-y:hidden}

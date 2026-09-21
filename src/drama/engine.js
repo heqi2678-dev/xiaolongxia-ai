@@ -41,6 +41,7 @@
 
   async function generateShot(project, sid, opts) {
     opts = opts || {};
+    if (project.shotMode === "take") throw D.err("MODE_SHOT_ONLY", "整段模式下请按镜头段生成，或先切回逐镜模式");
     const shot = findShot(project, sid);
     if (!shot) throw D.err("NO_SHOT", "找不到这个分镜");
     const ctrl = new AbortController();
@@ -61,6 +62,8 @@
           model: project.videoModel
         }, opts.onProgress, ctrl.signal);
         shot.videoUrl = await D.project.cacheRemote(r.url, { role: "videoUrl" });
+        shot.srcStart = null;
+        shot.srcEnd = null;
         shot.imageUrl = shot.imageUrl || shot.firstFrame || "";
         if (shot.line) {
           await synthShot(project, shot);
@@ -109,6 +112,174 @@
         }
         done++;
         if (opts.onEach) opts.onEach(done, sids.length, sid);
+      }
+    }
+    const workers = [];
+    for (let i = 0; i < limit; i++) workers.push(worker());
+    await Promise.all(workers);
+    return { done, errors };
+  }
+
+  /* ============ 整段模式：镜头段级生成 ============ */
+  function findTake(project, takeId) {
+    return ((project && project.takes) || []).find(t => t.id === takeId);
+  }
+
+  function takeResolution(project) {
+    return project.output.resolution === "1080p" ? "1080p" : "720p";
+  }
+
+  function setTakeShots(project, take, status, error) {
+    (take.shotIds || []).forEach(sid => {
+      const s = findShot(project, sid);
+      if (s) D.project.setStatus(s, status, error);
+    });
+  }
+
+  /* 段素材落到段内每个分镜：共享同一视频，用 srcStart/srcEnd 标出各镜窗口 */
+  function bindTakeWindow(project, take) {
+    const segs = D.takes.plan(project, take.shotIds);
+    take.plan = segs;
+    take.duration = segs.length ? segs[segs.length - 1].end : 0;
+    segs.forEach(seg => {
+      const s = findShot(project, seg.sid);
+      if (!s) return;
+      s.videoUrl = take.videoUrl;
+      s.srcStart = seg.start;
+      s.srcEnd = seg.end;
+      s.imageUrl = s.imageUrl || s.firstFrame || "";
+    });
+    return take;
+  }
+
+  function takeError(project, take, e) {
+    if (e && e.code === "ABORTED") {
+      take.status = "pending";
+      take.error = "";
+      setTakeShots(project, take, "pending");
+    } else {
+      take.status = "failed";
+      take.error = (e && e.message) || "生成失败";
+      setTakeShots(project, take, "failed", take.error);
+    }
+    take.updatedAt = Date.now();
+  }
+
+  async function generateTake(project, takeId, opts) {
+    opts = opts || {};
+    const take = findTake(project, takeId);
+    if (!take) throw D.err("NO_TAKE", "找不到这个镜头段");
+    if (!(take.duration > 0)) throw D.err("NO_DURATION", "这个镜头段还没有可用时长");
+    if (take.duration > D.takes.MAX_SECONDS) throw D.err("BAD_PARAM", "单个镜头段不得超过 " + D.takes.MAX_SECONDS + " 秒");
+
+    const key = "take:" + take.id;
+    const ctrl = new AbortController();
+    jobs[key] = ctrl;
+    take.status = "generating";
+    take.error = "";
+    setTakeShots(project, take, "generating");
+    await save(project);
+    try {
+      const r = await D.adapters.video.generate({
+        prompt: D.takes.prompt(project, take),
+        refImages: D.takes.refImages(project, take, 9),
+        refGroups: D.takes.refGroups(project, take),
+        ratio: project.output.ratio,
+        duration: take.duration,
+        resolution: takeResolution(project),
+        model: project.videoModel
+      }, opts.onProgress, ctrl.signal);
+      take.videoUrl = await D.project.cacheRemote(r.url, { role: "takeVideo" });
+      take.status = "done";
+      take.error = "";
+      take.dirty = false;
+      take.fallback = false;
+      take.updatedAt = Date.now();
+      bindTakeWindow(project, take);
+      setTakeShots(project, take, "done");
+      (take.shotIds || []).forEach(sid => {
+        const s = findShot(project, sid);
+        if (s) s.stale = false;
+      });
+      await save(project);
+      return take;
+    } catch (e) {
+      takeError(project, take, e);
+      await save(project);
+      throw e;
+    } finally {
+      delete jobs[key];
+    }
+  }
+
+  /* 局段重绘：以段素材为参考视频，按修改指令重出整段 */
+  async function editTake(project, takeId, instruction, opts) {
+    opts = opts || {};
+    const take = findTake(project, takeId);
+    if (!take) throw D.err("NO_TAKE", "找不到这个镜头段");
+    if (!take.videoUrl) throw D.err("NO_VIDEO", "这个镜头段还没有素材，无法局段重绘");
+    if (!instruction || !instruction.trim()) throw D.err("BAD_PARAM", "请先填写重绘要求");
+
+    const key = "take:" + take.id;
+    const ctrl = new AbortController();
+    jobs[key] = ctrl;
+    take.status = "generating";
+    take.error = "";
+    setTakeShots(project, take, "generating");
+    await save(project);
+    try {
+      const base = D.takes.prompt(project, take);
+      const r = await D.adapters.video.edit({
+        prompt: base + "。修改要求：" + instruction.trim(),
+        referenceVideo: await D.project.toPublicUrl(take.videoUrl),
+        refDuration: take.duration,
+        resolution: takeResolution(project),
+        model: project.videoModel
+      }, opts.onProgress, ctrl.signal);
+      take.videoUrl = await D.project.cacheRemote(r.url, { role: "takeVideo" });
+      take.status = "done";
+      take.error = "";
+      take.dirty = false;
+      take.updatedAt = Date.now();
+      bindTakeWindow(project, take);
+      setTakeShots(project, take, "done");
+      (take.shotIds || []).forEach(sid => {
+        const s = findShot(project, sid);
+        if (s) s.stale = false;
+      });
+      await save(project);
+      return take;
+    } catch (e) {
+      takeError(project, take, e);
+      await save(project);
+      throw e;
+    } finally {
+      delete jobs[key];
+    }
+  }
+
+  function abortTake(takeId) {
+    const key = "take:" + takeId;
+    if (jobs[key]) { jobs[key].abort(); delete jobs[key]; }
+  }
+
+  async function generateTakes(project, takeIds, opts) {
+    opts = opts || {};
+    const queue = (takeIds || []).slice();
+    const limit = Math.max(1, Math.min(opts.concurrency || 2, 4));
+    const errors = [];
+    let done = 0;
+    async function worker() {
+      while (queue.length) {
+        if (opts.signal && opts.signal.aborted) return;
+        const id = queue.shift();
+        try {
+          await generateTake(project, id, { onProgress: opts.onProgress });
+        } catch (e) {
+          errors.push({ takeId: id, error: e && e.message });
+        }
+        done++;
+        if (opts.onEach) opts.onEach(done, takeIds.length, id);
       }
     }
     const workers = [];
@@ -256,8 +427,9 @@
   }
 
   D.engine = {
-    generateShot, generateMany, synthShot, synthMany, lipsyncShot,
-    abort, abortAll, isRealistic,
+    generateShot, generateMany, generateTake, generateTakes, editTake, abortTake,
+    synthShot, synthMany, lipsyncShot,
+    abort, abortAll, isRealistic, bindTakeWindow,
     planScript, applyPlan, extractJson, localPlan
   };
 })();

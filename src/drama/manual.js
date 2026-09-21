@@ -60,6 +60,14 @@
   function segOf() { return D.timeline.shotAt(state.project, state.time); }
   function realistic() { return D.engine.isRealistic(state.project); }
 
+  /* 整段模式下，段素材里本镜的起始时间，用于把全局时间换算成视频内时间 */
+  function takeBase(shot) {
+    const p = state.project;
+    if (!p || p.shotMode !== "take" || !shot) return 0;
+    const s = D.takes.segmentOf(p, shot.id);
+    return s ? s.start : 0;
+  }
+
   /* ============ 渲染骨架 ============ */
   async function render() {
     D.ui.ensureCss();
@@ -113,8 +121,10 @@
       '<div><label class="label" style="margin-top:0">剧种</label><select class="inp" id="dwGenre">' + D.ui.opts(D.GENRES, p.genre) + "</select></div>" +
       '<div><label class="label" style="margin-top:0">画风</label><select class="inp" id="dwStyle">' + D.ui.opts(D.STYLES, p.style) + "</select></div>" +
       '<div><label class="label" style="margin-top:0">画幅</label><select class="inp" id="dwRatio">' + D.ui.opts(D.RATIOS, p.output.ratio) + "</select></div>" +
+      (realistic() ? '<div><label class="label" style="margin-top:0">生成模式</label><select class="inp" id="dwShotMode">' + D.ui.opts([{ id: "shot", name: "逐镜生成" }, { id: "take", name: "整段生成" }], p.shotMode) + "</select></div>" : "") +
+      (realistic() && p.shotMode === "take" ? '<div><label class="label" style="margin-top:0">每段目标时长</label><input class="inp" id="dwTakeTarget" type="number" min="4" max="30" value="' + p.takeTarget + '"></div>' : "") +
       "</div>" +
-      '<div class="dw-hint" style="margin-top:8px">' + (p.genre === "realistic" ? "仿真人剧：逐镜生成视频 + 口型同步，成本较高。" : "漫剧：逐镜生图 + 微动效 + 配音字幕，成本低产能高。") + "</div>" +
+      '<div class="dw-hint" style="margin-top:8px">' + (p.genre === "realistic" ? (p.shotMode === "take" ? "整段生成：把若干连续分镜合成一次请求，一镜到底更连贯，单段上限 " + D.takes.MAX_SECONDS + " 秒。" : "仿真人剧：逐镜生成视频 + 口型同步，成本较高。") : "漫剧：逐镜生图 + 微动效 + 配音字幕，成本低产能高。") + "</div>" +
       '<label class="label">一句话故事</label><input class="inp" id="dwLogline" value="' + D.ui.esc(p.script.logline) + '">' +
       '<label class="label">剧情大纲</label><textarea class="inp" id="dwOutline" style="min-height:70px">' + D.ui.esc(p.script.outline) + "</textarea>";
   }
@@ -131,11 +141,29 @@
     const el = document.getElementById("dwRail");
     if (!el) return;
     const p = state.project;
-    el.innerHTML = (p.shots || []).map(s => D.ui.railItem(s, state.cur)).join("") +
-      '<button class="btn small" data-railadd="1" style="margin-top:2px">＋ 加一镜</button>';
+    if (p.shotMode === "take" && realistic()) {
+      el.innerHTML = (p.takes || []).map(takeGroup).join("") +
+        '<button class="btn small" data-railadd="1" style="margin-top:2px">＋ 加一镜</button>';
+      el.querySelectorAll("[data-takegen]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); doGenTake(b.dataset.takegen); }; });
+    } else {
+      el.innerHTML = (p.shots || []).map(s => D.ui.railItem(s, state.cur)).join("") +
+        '<button class="btn small" data-railadd="1" style="margin-top:2px">＋ 加一镜</button>';
+    }
     el.querySelectorAll("[data-rail]").forEach(x => { x.onclick = () => selectShot(x.dataset.rail); });
     const add = el.querySelector("[data-railadd]");
-    if (add) add.onclick = async () => { const s = D.project.addShot(p); state.cur = s.id; await save(); paintAll(); };
+    if (add) add.onclick = async () => { const s = D.project.addShot(p); await save(); D.takes.sync(p); state.cur = s.id; await save(); paintAll(); };
+  }
+
+  function takeGroup(t) {
+    const over = Number(t.duration) > D.takes.MAX_SECONDS;
+    const head = "段 " + t.seq + " · " + t.duration + " 秒" + (over ? " · 超出上限" : "") + (t.dirty ? " · 需重绘" : "");
+    return '<div class="dw-take ' + (t.status || "pending") + (D.takes.takeOf(state.project, state.cur) === t ? " on" : "") + '">' +
+      '<div class="dw-take-head"><b>' + D.ui.esc(head) + "</b>" + D.ui.statusBadge(t) + "</div>" +
+      '<div class="dw-take-shots">' + (t.shotIds || []).map(shotById).filter(Boolean).map(s => D.ui.railItem(s, state.cur)).join("") + "</div>" +
+      (over
+        ? '<div class="dw-hint" style="color:var(--warn)">超过单段上限 ' + D.takes.MAX_SECONDS + " 秒，请拆分为多镜或缩短时长</div>"
+        : '<button class="btn small primary" data-takegen="' + t.id + '">' + (t.videoUrl ? "整段重绘" : "生成本段") + "</button>") +
+      "</div>";
   }
 
   /* ============ 中：预览与播放 ============ */
@@ -174,7 +202,7 @@
 
     const vEl = document.getElementById("dwStageVideo");
     if (vEl) {
-      const off = Math.max(0, state.time - (seg ? seg.start : 0));
+      const off = Math.max(0, state.time - (seg ? seg.start : 0)) + takeBase(shot);
       if (off > 0.05) vEl.addEventListener("loadedmetadata", () => { try { vEl.currentTime = off; } catch (e) {} });
       vEl.onended = () => { if (state.playing) nextShot(true); };
     }
@@ -228,7 +256,7 @@
     }
     if (!light) {
       const v = stageVideo();
-      if (v && seg) { try { v.currentTime = Math.max(0, state.time - seg.start); } catch (e) {} }
+      if (v && seg) { try { v.currentTime = Math.max(0, state.time - seg.start) + takeBase(curShot()); } catch (e) {} }
       seekTrack();
       paintTimeline();
     } else {
@@ -319,7 +347,8 @@
     lastTs = ts;
     const v = stageVideo();
     if (v && !isNaN(v.duration) && v.duration > 0) {
-      state.time = (seg ? seg.start : 0) + Math.min(v.currentTime || 0, seg ? seg.duration : v.duration);
+      const local = Math.max(0, (v.currentTime || 0) - takeBase(curShot()));
+      state.time = (seg ? seg.start : 0) + Math.min(local, seg ? seg.duration : v.duration);
     } else {
       state.time += dt;
     }
@@ -342,19 +371,24 @@
     const shot = curShot();
     if (!shot) { el.innerHTML = '<div class="dw-card"><div class="dw-empty">还没有分镜</div></div>'; return; }
     const rl = realistic();
+    const take = (rl && p.shotMode === "take") ? D.takes.takeOf(p, shot.id) : null;
+    const durList = take ? D.takes.durationList(shot.duration) : D.DURATIONS;
     el.innerHTML =
-      '<div class="dw-card"><h3>第 ' + shot.seq + ' 镜 <span data-status="' + shot.id + '">' + D.ui.statusBadge(shot) + "</span></h3>" +
+      '<div class="dw-card"><h3>第 ' + shot.seq + ' 镜 ' + (take ? '<span class="dw-hint">段 ' + take.seq + "</span> " : "") + '<span data-status="' + shot.id + '">' + D.ui.statusBadge(take || shot) + "</span></h3>" +
         '<label class="label" style="margin-top:0">分镜名</label><input class="inp" data-if="name" value="' + D.ui.esc(shot.name || "") + '">' +
         '<label class="label">画面提示词</label><textarea class="inp" style="min-height:66px;font-size:12px" data-if="prompt">' + D.ui.esc(shot.prompt) + "</textarea>" +
         '<label class="label">台词（留空则无配音）</label><textarea class="inp" style="min-height:50px;font-size:12px" data-if="line">' + D.ui.esc(shot.line) + "</textarea>" +
         '<div class="dw-grid" style="margin-top:8px">' +
           '<div><label class="label" style="margin-top:0">运镜</label><select class="inp" data-if="motion">' + D.ui.opts(D.MOTIONS, shot.motion) + "</select></div>" +
-          '<div><label class="label" style="margin-top:0">时长</label><select class="inp" data-if="duration">' + D.ui.opts(D.DURATIONS.map(d => ({ id: d, name: d + " 秒" })), shot.duration) + "</select></div>" +
+          '<div><label class="label" style="margin-top:0">时长</label><select class="inp" data-if="duration">' + D.ui.opts(durList.map(d => ({ id: d, name: d + " 秒" })), shot.duration) + "</select></div>" +
         "</div>" +
+        (take ? '<div class="dw-hint">本段共 ' + take.shotIds.length + " 镜，合计 " + take.duration + " 秒" + (take.dirty ? "，已改动需重绘" : "") + "</div>" : "") +
         roleChips(p, shot) +
+        (take ? '<label class="label">局段重绘要求</label><input class="inp" data-takeedit placeholder="例如：把外套换成红色，其余保持不变">' : "") +
         '<div class="dw-shot-actions">' +
-          '<button class="btn small primary" data-iact="gen">' + (rl ? "生成视频" : "生成画面") + "</button>" +
-          (rl ? '<button class="btn small" data-iact="lipsync">只做口型</button>' : "") +
+          '<button class="btn small primary" data-iact="gen">' + (take ? "生成本段" : rl ? "生成视频" : "生成画面") + "</button>" +
+          (take ? '<button class="btn small" data-iact="takeedit">局段重绘</button>' : "") +
+          (rl && !take ? '<button class="btn small" data-iact="lipsync">只做口型</button>' : "") +
           '<button class="btn small" data-iact="tts">配音</button>' +
           (shot.audioUrl ? '<button class="btn small" data-iact="audition">试听</button>' : "") +
           '<button class="btn small" data-iact="upload">换封面图</button>' +
@@ -372,7 +406,7 @@
       "</div>" +
       '<div class="dw-card"><h3>批量</h3>' +
         '<div class="dw-bar">' +
-          '<button class="btn small primary" id="dwGenMissing">生成所有未完成镜</button>' +
+          '<button class="btn small primary" id="dwGenMissing">' + (take ? "生成所有未完成段" : "生成所有未完成镜") + "</button>" +
           '<button class="btn small" id="dwTtsAll">补全部配音</button>' +
           '<button class="btn small ghost danger" id="dwStopAll">全部停止</button>' +
         "</div>" +
@@ -389,11 +423,15 @@
 
   function bindInspector(el) {
     const shot = curShot();
+    const takeMode = state.project.shotMode === "take" && realistic();
+    const take = takeMode ? D.takes.takeOf(state.project, shot.id) : null;
     el.querySelectorAll("[data-if]").forEach(inp => {
       inp.onchange = async () => {
         const f = inp.dataset.if;
         shot[f] = f === "duration" ? Number(inp.value) : inp.value;
+        if (takeMode && (f === "prompt" || f === "duration")) D.takes.markDirty(state.project, shot.id);
         await save();
+        if (takeMode && f === "duration") { D.takes.sync(state.project); await save(); paintAll(); return; }
         if (f === "name") paintRail();
         if (f === "duration") { paintRail(); paintTimeline(); }
       };
@@ -405,11 +443,16 @@
         const i = shot.roleIds.indexOf(cid);
         if (i >= 0) shot.roleIds.splice(i, 1); else shot.roleIds.push(cid);
         c.classList.toggle("on");
+        if (takeMode) D.takes.markDirty(state.project, shot.id);
         await save();
       };
     });
     const act = (name, fn) => { const b = el.querySelector('[data-iact="' + name + '"]'); if (b) b.onclick = fn; };
-    act("gen", () => doGen(shot.id));
+    act("gen", () => (take ? doGenTake(take.id) : doGen(shot.id)));
+    act("takeedit", () => {
+      const inp = el.querySelector("[data-takeedit]");
+      doTakeEdit(take ? take.id : "", inp ? inp.value : "");
+    });
     act("tts", () => doTts(shot.id));
     act("audition", () => doAudition(shot.id));
     act("lipsync", () => doLipsync(shot.id));
@@ -478,6 +521,48 @@
       D.ui.progress(sid, "");
       paintAll();
       U.toast((e && e.message) || "生成失败", "err");
+    }
+  };
+
+  const doGenTake = async (tid) => {
+    const p = state.project;
+    const take = (p.takes || []).find(x => x.id === tid);
+    const firstSid = take && take.shotIds[0];
+    try {
+      D.ui.progress(firstSid, "正在提交整段生成任务…");
+      const done = await D.engine.generateTake(p, tid, {
+        onProgress: (st) => D.ui.progress(firstSid, st && st.status === "done" ? "完成" : "整段生成中…")
+      });
+      await save();
+      D.ui.progress(firstSid, "");
+      paintAll();
+      U.toast("第 " + done.seq + " 段生成完成", "ok");
+    } catch (e) {
+      D.ui.progress(firstSid, "");
+      paintAll();
+      U.toast((e && e.message) || "整段生成失败", "err");
+    }
+  };
+
+  const doTakeEdit = async (tid, instruction) => {
+    const p = state.project;
+    const take = (p.takes || []).find(x => x.id === tid);
+    if (!take) return;
+    const firstSid = take.shotIds[0];
+    if (!instruction || !instruction.trim()) { U.toast("请先填写局段重绘要求", "warn"); return; }
+    try {
+      D.ui.progress(firstSid, "正在提交局段重绘任务…");
+      await D.engine.editTake(p, tid, instruction, {
+        onProgress: (st) => D.ui.progress(firstSid, st && st.status === "done" ? "完成" : "局段重绘中…")
+      });
+      await save();
+      D.ui.progress(firstSid, "");
+      paintAll();
+      U.toast("第 " + take.seq + " 段已重绘", "ok");
+    } catch (e) {
+      D.ui.progress(firstSid, "");
+      paintAll();
+      U.toast((e && e.message) || "局段重绘失败", "err");
     }
   };
 
@@ -595,6 +680,7 @@
 
   async function genMissing() {
     const p = state.project;
+    if (p.shotMode === "take" && realistic()) return genMissingTakes();
     const ids = (p.shots || []).filter(needsGen).map(s => s.id);
     if (!ids.length) { U.toast("所有分镜都已完成", "ok"); return; }
     if (!D.isConfigured(realistic() ? "video" : "image")) {
@@ -613,6 +699,31 @@
       await save();
       paintAll();
       setStatus(r.errors.length ? "完成，失败 " + r.errors.length + " 镜，可单镜重试。" : "全部生成完成。", r.errors.length ? "err" : "ok");
+    } finally {
+      state.busy = false;
+    }
+  }
+
+  async function genMissingTakes() {
+    const p = state.project;
+    const ids = (p.takes || []).filter(t => t.status !== "done" || t.dirty || !t.videoUrl).map(t => t.id);
+    if (!ids.length) { U.toast("所有镜头段都已完成", "ok"); return; }
+    if (!D.isConfigured("video")) {
+      U.toast("还没配置视频生成服务，请到「设置 → 短剧服务」填写", "err");
+      return;
+    }
+    if (state.busy) { U.toast("正在生成，请等待当前任务结束", "warn"); return; }
+    state.busy = true;
+    setStatus("正在生成 " + ids.length + " 个镜头段，请保持页面打开…", "");
+    try {
+      const r = await D.engine.generateTakes(p, ids, {
+        concurrency: 2,
+        onEach: (done, total) => setStatus("生成进度 " + done + "/" + total + "…", ""),
+        onProgress: () => {}
+      });
+      await save();
+      paintAll();
+      setStatus(r.errors.length ? "完成，失败 " + r.errors.length + " 段，可单段重试。" : "全部生成完成。", r.errors.length ? "err" : "ok");
     } finally {
       state.busy = false;
     }
@@ -791,6 +902,20 @@
     v.querySelector("#dwGenre").onchange = async (e) => { state.project.genre = e.target.value; state.project.engine = e.target.value === "realistic" ? "video" : "image"; await save(); render(); };
     v.querySelector("#dwStyle").onchange = async (e) => { state.project.style = e.target.value; await save(); };
     v.querySelector("#dwRatio").onchange = async (e) => { state.project.output.ratio = e.target.value; await save(); };
+    const modeEl = v.querySelector("#dwShotMode");
+    if (modeEl) modeEl.onchange = async (e) => {
+      state.project.shotMode = e.target.value === "take" ? "take" : "shot";
+      await save();
+      render();
+    };
+    const targetEl = v.querySelector("#dwTakeTarget");
+    if (targetEl) targetEl.onchange = async (e) => {
+      const n = Number(e.target.value);
+      state.project.takeTarget = Math.max(D.takes.MIN_SECONDS, Math.min(D.takes.MAX_SECONDS, n > 0 ? n : D.takes.TARGET_SECONDS));
+      D.takes.sync(state.project);
+      await save();
+      render();
+    };
     v.querySelector("#dwLogline").onchange = async (e) => { state.project.script.logline = e.target.value; await save(); };
     v.querySelector("#dwOutline").onchange = async (e) => { state.project.script.outline = e.target.value; await save(); };
 

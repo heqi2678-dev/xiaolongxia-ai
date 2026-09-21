@@ -9,6 +9,32 @@
     return ((project && project.shots) || []).reduce((sum, s) => sum + dur(s), 0);
   }
 
+  /* 镜头段区间：优先取工程已同步的 takes，按分镜时间轴换算段起止 */
+  function takes(project, opts) {
+    opts = opts || {};
+    const segs = layout(project);
+    if (!segs.length) return [];
+    const byId = {};
+    segs.forEach(s => { byId[s.sid] = s; });
+    let src = (project && Array.isArray(project.takes)) ? project.takes : [];
+    if (!src.length && D.takes && D.takes.group) {
+      src = D.takes.group(project, opts).map((g, i) => ({ id: "t" + (i + 1), seq: i + 1, shotIds: g.shotIds }));
+    }
+    return src.map((t, i) => {
+      const ids = (t.shotIds || []).slice();
+      let start = null;
+      let end = null;
+      ids.forEach(id => {
+        const s = byId[id];
+        if (!s) return;
+        if (start === null || s.start < start) start = s.start;
+        if (end === null || s.end > end) end = s.end;
+      });
+      if (start === null) { start = 0; end = 0; }
+      return { takeId: t.id || ("t" + (i + 1)), seq: t.seq || i + 1, start, end, shotIds: ids };
+    });
+  }
+
   /* 每镜在时间轴上的区间，start/end 单位秒，连续无缝 */
   function layout(project) {
     let t = 0;
@@ -73,8 +99,21 @@
       }).join("") +
       "</div>";
 
+    const takesRow = () => {
+      const ts = takes(project);
+      if (!ts.length) return "";
+      const tot = total(project) || 1;
+      return '<div class="dw-take-marks">' + ts.map(t => {
+        const w = ((t.end - t.start) / tot) * 100;
+        return '<div class="dw-take-mark" data-take="' + D.ui.esc(t.takeId) + '" data-start="' + t.start +
+          '" data-end="' + t.end + '" data-sid="' + D.ui.esc(t.shotIds[0] || "") +
+          '" style="width:' + w.toFixed(3) + '%" title="段' + t.seq + '"><span>段 ' + t.seq + "</span></div>";
+      }).join("") + "</div>";
+    };
+
     return '<div class="dw-timeline" data-total="' + total(project) + '">' +
       '<div class="dw-timeline-hud"><span>总时长 ' + fmt(total(project)) + "</span><span>共 " + segs.length + " 镜</span></div>" +
+      takesRow() +
       row("video", "画面", () => true) +
       row("audio", "配音", (s) => s.hasAudio) +
       row("subtitle", "字幕", (s) => s.hasSubtitle) +
@@ -84,6 +123,15 @@
   /* 点击某轨片段：定位到该镜并按横向比例 seek */
   function bind(root, project, o) {
     o = o || {};
+    root.querySelectorAll(".dw-take-mark").forEach(el => {
+      el.onclick = (e) => {
+        if (o.onTake) { o.onTake(el.dataset.take); return; }
+        const sid = el.dataset.sid;
+        const start = Number(el.dataset.start) || 0;
+        if (o.onSeek) o.onSeek(sid, start);
+        if (o.onSelect) o.onSelect(sid);
+      };
+    });
     root.querySelectorAll(".dw-clip").forEach(el => {
       el.onclick = (e) => {
         const sid = el.dataset.sid;
@@ -97,5 +145,5 @@
     });
   }
 
-  D.timeline = { total, layout, shotAt, frameStep, fmt, render, bind };
+  D.timeline = { total, layout, takes, shotAt, frameStep, fmt, render, bind };
 })();

@@ -246,7 +246,7 @@
   D.character = {
     styleDef, stylePrompt, motionPrompt,
     rolesForShot, buildImagePrompt, buildVideoPrompt, refImagesForShot,
-    refGroupsForShot, refNote, DETAIL_FIELDS, details, detailText, displayAppearance,
+    refGroupsForShot, flattenRefs, refNote, DETAIL_FIELDS, details, detailText, displayAppearance,
     affectedShots, markAffected, check, sheetPrompt, generateSheet,
     libAll, libGet, libSave, libRemove, libFromProject, libToProject
   };

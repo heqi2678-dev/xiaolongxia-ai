@@ -1064,6 +1064,16 @@ def drama_compose(owner, project):
     try:
         for i, sh in enumerate(shots):
             dur = max(1.0, float(sh.get("duration") or 3))
+            window = None
+            try:
+                if sh.get("srcStart") is not None and sh.get("srcEnd") is not None:
+                    s0 = float(sh.get("srcStart"))
+                    s1 = float(sh.get("srcEnd"))
+                    if s1 > s0 and s0 >= 0:
+                        window = (s0, s1 - s0)
+                        dur = max(1.0, float(window[1]))
+            except (TypeError, ValueError):
+                window = None
             src = sh.get("lipsyncUrl") or sh.get("videoUrl") or sh.get("imageUrl")
             if not src:
                 raise ValueError("第 %d 镜没有可用画面" % (i + 1))
@@ -1082,7 +1092,10 @@ def drama_compose(owner, project):
                     has_audio = False
             clip = work / ("c%02d.mp4" % i)
             if media.suffix.lower() in (".mp4", ".mov", ".webm"):
-                base = [DRAMA_FFMPEG, "-y", "-i", str(media)]
+                base = [DRAMA_FFMPEG, "-y"]
+                if window:
+                    base += ["-ss", "%.3f" % window[0]]
+                base += ["-i", str(media)]
             else:
                 base = [DRAMA_FFMPEG, "-y", "-loop", "1", "-t", "%.2f" % dur, "-i", str(media)]
             if has_audio:

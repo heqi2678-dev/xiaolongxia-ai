@@ -146,6 +146,8 @@
       for (const f of ASSET_FIELDS) if (s[f]) s[f] = await toRef(s[f], { role: f });
       if (s.firstFrame) s.firstFrame = await toRef(s.firstFrame, { role: "firstFrame" });
     }
+    p.takes = p.takes || [];
+    for (const t of p.takes) if (t.videoUrl) t.videoUrl = await toRef(t.videoUrl, { role: "takeVideo" });
     if (p.bgm) p.bgm = await toRef(p.bgm, { role: "bgm" });
     return p;
   }
@@ -160,6 +162,8 @@
       for (const f of ASSET_FIELDS) if (s[f]) s[f] = await hydrateRef(s[f]);
       if (s.firstFrame) s.firstFrame = await hydrateRef(s.firstFrame);
     }
+    p.takes = p.takes || [];
+    for (const t of p.takes) if (t.videoUrl) t.videoUrl = await hydrateRef(t.videoUrl);
     if (p.bgm) p.bgm = await hydrateRef(p.bgm);
     return p;
   }
@@ -200,6 +204,9 @@
       compliance: { aigcMarked: true, consentIds: [] },
       source: opts.source || "manual",
       mode: opts.mode || (opts.source === "auto" ? "pipeline" : "manual"),
+      shotMode: opts.shotMode === "take" ? "take" : "shot",
+      takeTarget: 15,
+      takes: [],
       templateId: opts.templateId || "",
       thumb: "",
       createdAt: Date.now(),
@@ -319,6 +326,9 @@
     p.mode = p.mode || (p.source === "auto" ? "pipeline" : "manual");
     if (typeof p.templateId !== "string") p.templateId = "";
     if (typeof p.thumb !== "string") p.thumb = "";
+    if (p.shotMode !== "take") p.shotMode = "shot";
+    const takeTarget = Number(p.takeTarget);
+    p.takeTarget = (takeTarget >= 4 && takeTarget <= 30) ? takeTarget : 15;
     if (typeof p.bgm !== "string") p.bgm = p.bgm || "";
     if (typeof p.imageModel !== "string") p.imageModel = p.imageModel || "";
     if (typeof p.videoModel !== "string") p.videoModel = p.videoModel || "";
@@ -360,6 +370,9 @@
     });
     if (!p.shots.length) p.shots = [newShot(1)];
     renumber(p);
+
+    if (!Array.isArray(p.takes)) p.takes = [];
+    D.takes.sync(p);
 
     if (typeof p.createdAt !== "number") p.createdAt = Date.now();
     if (typeof p.updatedAt !== "number") p.updatedAt = p.createdAt;

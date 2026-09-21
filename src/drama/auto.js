@@ -12,6 +12,7 @@
   function view() { return document.getElementById("dwAuto"); }
   function stage() { return state.stage; }
   function real() { return state.project ? D.engine.isRealistic(state.project) : false; }
+  function takeMode() { const p = state.project; return !!p && real() && p.shotMode === "take"; }
   function curShot() {
     const p = state.project;
     if (!p) return null;
@@ -54,7 +55,13 @@
   function inferStage(p) {
     const shots = p.shots || [];
     if (!shots.length || !shots.some(s => s.prompt)) return "input";
-    if (!shots.every(s => s.status === "done")) return shots.some(s => s.status === "done") ? "gen" : "plan";
+    if (p.shotMode === "take" && D.engine.isRealistic(p)) {
+      const takes = p.takes || [];
+      if (!takes.length) return "plan";
+      if (!takes.every(t => t.status === "done" && !t.dirty)) return takes.some(t => t.status === "done") ? "gen" : "plan";
+    } else if (!shots.every(s => s.status === "done")) {
+      return shots.some(s => s.status === "done") ? "gen" : "plan";
+    }
     if (!shots.every(s => !s.line || s.audioUrl)) return "voice";
     return "final";
   }
@@ -107,6 +114,20 @@
     container.querySelectorAll("[data-rail]").forEach(el => {
       el.onclick = () => { state.cur = el.dataset.rail; if (after) after(); else render(); };
     });
+  }
+
+  /* 整段模式：镜头段网格 */
+  function takeGrid(container, p, after) {
+    if (!container) return;
+    container.innerHTML = (p.takes || []).map(t =>
+      '<div class="dw-take"><div class="dw-take-head"><b>段 ' + t.seq + " · " + t.duration + " 秒</b>" + D.ui.statusBadge(t) + "</div>" +
+      '<div class="dw-take-shots">' + (t.shotIds || []).map(sid => (p.shots || []).find(s => s.id === sid)).filter(Boolean).map(s => D.ui.railItem(s, state.cur)).join("") + "</div>" +
+      '<button class="btn small" data-takegen="' + t.id + '">' + (t.videoUrl ? "整段重绘" : "生成本段") + "</button></div>"
+    ).join("");
+    container.querySelectorAll("[data-rail]").forEach(el => {
+      el.onclick = () => { state.cur = el.dataset.rail; if (after) after(); else render(); };
+    });
+    container.querySelectorAll("[data-takegen]").forEach(b => { b.onclick = () => redrawTake(b.dataset.takegen); });
   }
 
   /* ============ 阶段一：输入 ============ */
@@ -291,14 +312,15 @@
       '<div class="dw-bar">' +
         D.ui.modelBar(D.engine.isRealistic(p) ? "video" : "image") +
       "</div>" +
-      '<div class="dw-hint" style="margin:8px 0">正在逐镜生成，请保持页面打开。失败的单镜可在下一关重绘。</div>' +
+      '<div class="dw-hint" style="margin:8px 0">' + (takeMode() ? "整段模式：按镜头段生成，一段一次请求，请保持页面打开。" : "正在逐镜生成，请保持页面打开。失败的单镜可在下一关重绘。") + "</div>" +
       '<div class="dw-bar"><button class="btn primary" id="auGenRun">开始生成</button>' +
       '<button class="btn ghost danger" id="auGenStop">停止</button>' +
       '<button class="btn" id="auGenNext">跳过，去检查</button></div>' +
-      '<div class="dw-shotgrid" id="auGenGrid" style="margin-top:12px"></div>' +
+      '<div class="' + (takeMode() ? "dw-take-list" : "dw-shotgrid") + '" id="auGenGrid" style="margin-top:12px"></div>' +
       '<div class="dw-shotgrid" id="auGenProg" style="margin-top:8px"></div>' +
     "</div>";
-    shotGrid(document.getElementById("auGenGrid"), p, render);
+    if (takeMode()) takeGrid(document.getElementById("auGenGrid"), p, render);
+    else shotGrid(document.getElementById("auGenGrid"), p, render);
     document.getElementById("auGenProg").innerHTML = (p.shots || []).map(s =>
       '<div><div class="dw-hint" style="text-align:center">第 ' + s.seq + ' 镜</div><div data-status="' + s.id + '">' + D.ui.statusBadge(s) + '</div><div class="dw-progress" data-prog="' + s.id + '"></div></div>'
     ).join("");
@@ -314,6 +336,25 @@
     const kind = D.engine.isRealistic(p) ? "video" : "image";
     if (!D.isConfigured(kind)) { msg("还没配置" + (kind === "video" ? "视频" : "生图") + "服务，请到「设置 → 短剧服务」填写", "err"); return; }
     if (state.busy) { msg("正在生成，请等待当前任务结束…", ""); return; }
+    if (takeMode()) {
+      const tids = (p.takes || []).filter(t => t.status !== "done" || t.dirty || !t.videoUrl).map(t => t.id);
+      if (!tids.length) { msg("所有镜头段都已完成。", "ok"); return; }
+      state.busy = true;
+      msg("开始批量生成 " + tids.length + " 段…", "");
+      try {
+        const r = await D.engine.generateTakes(p, tids, {
+          concurrency: 2,
+          onEach: (done, total) => msg("生成进度 " + done + "/" + total + "…", ""),
+          onProgress: () => {}
+        });
+        await D.project.save(p);
+        takeGrid(document.getElementById("auGenGrid"), p, render);
+        msg(r.errors.length ? "完成，" + r.errors.length + " 段失败，下一关可重绘。" : "全部生成完成，去逐镜检查。", r.errors.length ? "warn" : "ok");
+      } finally {
+        state.busy = false;
+      }
+      return;
+    }
     state.busy = true;
     const ids = (p.shots || []).map(s => s.id);
     msg("开始批量生成 " + ids.length + " 镜…", "");
@@ -360,9 +401,15 @@
     refresh();
     const v = view();
     v.querySelector("#auRedrawFail").onclick = async () => {
-      const ids = p.shots.filter(s => s.status === "failed").map(s => s.id);
-      if (!ids.length) { U.toast("没有失败的分镜", "ok"); return; }
-      await D.engine.generateMany(p, ids, { concurrency: 2, onEach: () => {} });
+      if (takeMode()) {
+        const tids = (p.takes || []).filter(t => t.status === "failed" || t.dirty).map(t => t.id);
+        if (!tids.length) { U.toast("没有失败的镜头段", "ok"); return; }
+        await D.engine.generateTakes(p, tids, { concurrency: 2, onEach: () => {} });
+      } else {
+        const ids = p.shots.filter(s => s.status === "failed").map(s => s.id);
+        if (!ids.length) { U.toast("没有失败的分镜", "ok"); return; }
+        await D.engine.generateMany(p, ids, { concurrency: 2, onEach: () => {} });
+      }
       refresh();
     };
     v.querySelector("#auApprove2").onclick = () => { state.stage = "voice"; render(); };
@@ -370,6 +417,10 @@
 
   async function redraw(sid) {
     const p = state.project;
+    if (takeMode()) {
+      const t = D.takes.takeOf(p, sid);
+      if (t) return redrawTake(t.id);
+    }
     try {
       D.ui.progress(sid, "重绘中…");
       const shot = await D.engine.generateShot(p, sid, { onProgress: () => D.ui.progress(sid, "生成中…") });
@@ -378,6 +429,20 @@
       D.ui.progress(sid, "");
       render();
     } catch (e) { D.ui.progress(sid, ""); U.toast((e && e.message) || "重绘失败", "err"); }
+  }
+  async function redrawTake(tid) {
+    const p = state.project;
+    const t = (p.takes || []).find(x => x.id === tid);
+    if (!t) return;
+    const firstSid = (t.shotIds || [])[0];
+    try {
+      D.ui.progress(firstSid, "生成中…");
+      await D.engine.generateTake(p, tid, { onProgress: () => D.ui.progress(firstSid, "生成中…") });
+      await D.project.save(p);
+      (t.shotIds || []).forEach(sid => { const s = (p.shots || []).find(x => x.id === sid); if (s) D.ui.refreshShot(p, s); });
+      D.ui.progress(firstSid, "");
+      render();
+    } catch (e) { D.ui.progress(firstSid, ""); U.toast((e && e.message) || "整段生成失败", "err"); }
   }
   async function redrawTts(sid) {
     const p = state.project; const shot = p.shots.find(s => s.id === sid);

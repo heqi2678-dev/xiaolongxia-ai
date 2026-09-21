@@ -109,6 +109,36 @@
 
   function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+  /* 整段模式：把段素材解引为分镜的 videoUrl，并写入段内起止时间 */
+  function takeModeShots(project) {
+    return !!(project && project.shotMode === "take" && (project.takes || []).length);
+  }
+
+  function missingTakes(project) {
+    if (!takeModeShots(project)) return [];
+    return (project.takes || []).filter(t => !t.videoUrl).map(t => t.seq);
+  }
+
+  function ensureTakes(project) {
+    const miss = missingTakes(project);
+    if (miss.length) throw D.err("TAKE_MISSING", "以下镜头段还没生成，请先补齐：段 " + miss.join("、段 "));
+  }
+
+  function resolveShots(project) {
+    if (!takeModeShots(project)) return (project.shots || []).slice();
+    return (project.shots || []).map(s => {
+      const out = Object.assign({}, s);
+      const t = D.takes.takeOf(project, s.id);
+      const seg = D.takes.segmentOf(project, s.id);
+      if (t && t.videoUrl && seg) {
+        out.videoUrl = t.videoUrl;
+        out.srcStart = seg.start;
+        out.srcEnd = seg.end;
+      }
+      return out;
+    });
+  }
+
   /* 浏览器合成主流程：返回 WebM Blob */
   async function client(project, opts) {
     opts = opts || {};
@@ -117,6 +147,7 @@
     if (!v.ok) throw D.err("NOT_READY", "还不能合成，缺：" + v.missing.map(m => "第" + m.seq + "镜" + m.reason).join("、"));
     const c = D.compliance.verify(project);
     if (!c.ok) throw D.err("COMPLIANCE", c.blockers.join("；"));
+    ensureTakes(project);
 
     const { w, h } = canvasSize(project.output.ratio);
     const canvas = document.createElement("canvas");
@@ -130,7 +161,8 @@
     const dest = ac.createMediaStreamDestination();
 
     const items = [];
-    for (const shot of project.shots) {
+    const shots = resolveShots(project);
+    for (const shot of shots) {
       const videoUrl = await D.project.assets.hydrateRef(shot.videoUrl);
       const imageUrl = await D.project.assets.hydrateRef(shot.imageUrl);
       const audioUrl = await D.project.assets.hydrateRef(shot.audioUrl);
@@ -151,8 +183,11 @@
           node.connect(ac.destination);
         } catch (e) { /* 已连接过则忽略 */ }
       }
-      const dur = Math.max(1, Number(shot.duration) || (audio && isFinite(audio.duration) ? audio.duration : 3) || 3);
-      items.push({ shot, media, audio, hasVideo: !!videoUrl, dur });
+      const s0 = Number(shot.srcStart);
+      const s1 = Number(shot.srcEnd);
+      const hasWin = isFinite(s0) && isFinite(s1) && s1 > s0;
+      const dur = hasWin ? (s1 - s0) : Math.max(1, Number(shot.duration) || (audio && isFinite(audio.duration) ? audio.duration : 3) || 3);
+      items.push({ shot, media, audio, hasVideo: !!videoUrl, dur, from: hasWin ? s0 : 0 });
     }
 
     const combined = new MediaStream([].concat(stream.getVideoTracks(), dest.stream.getAudioTracks()));
@@ -169,7 +204,7 @@
     let elapsed = 0;
     for (const it of items) {
       const start = performance.now();
-      if (it.media && it.media.play && it.hasVideo) { try { it.media.currentTime = 0; await it.media.play(); } catch (e) {} }
+      if (it.media && it.media.play && it.hasVideo) { try { it.media.currentTime = it.from || 0; await it.media.play(); } catch (e) {} }
       if (it.audio) { try { it.audio.currentTime = 0; await it.audio.play(); } catch (e) {} }
       await new Promise(resolve => {
         function frame() {
@@ -202,10 +237,12 @@
     if (!v.ok) throw D.err("NOT_READY", "还不能合成，缺：" + v.missing.map(m => "第" + m.seq + "镜" + m.reason).join("、"));
     const comp = D.compliance.verify(project);
     if (!comp.ok) throw D.err("COMPLIANCE", comp.blockers.join("；"));
+    ensureTakes(project);
     const body = sanitize(project);
     if (!D.project.toPublicUrl) throw D.err("LOCAL_ASSET", "当前版本不支持上传本地素材，请改用浏览器合成");
-    body.shots = await Promise.all(body.shots.map(async (s) => {
+    body.shots = await Promise.all(resolveShots(project).map(async (s) => {
       const out = Object.assign({}, s);
+      delete out.stale;
       for (const f of ["imageUrl", "videoUrl", "audioUrl", "lipsyncUrl", "firstFrame"]) {
         if (out[f]) out[f] = await D.project.toPublicUrl(out[f]);
       }
@@ -279,6 +316,7 @@
     opts = opts || {};
     const comp = D.compliance.verify(project);
     if (!comp.ok) throw D.err("COMPLIANCE", comp.blockers.join("；"));
+    ensureTakes(project);
     const files = [];
     for (const shot of project.shots) {
       const tag = String(shot.seq).padStart(2, "0");
@@ -293,6 +331,21 @@
         const b = await fetchBlob(shot.audioUrl);
         if (b) files.push({ name: "配音/" + tag + ".mp3", content: b });
       }
+    }
+    if (takeModeShots(project)) {
+      const list = [];
+      for (const t of project.takes) {
+        const tag = String(t.seq).padStart(2, "0");
+        if (t.videoUrl) {
+          const b = await fetchBlob(t.videoUrl);
+          if (b) files.push({ name: "takes/take-" + tag + ".mp4", content: b });
+        }
+        list.push({
+          seq: t.seq, duration: t.duration, shotIds: t.shotIds || [],
+          plan: t.plan || [], dirty: !!t.dirty, fallback: !!t.fallback
+        });
+      }
+      files.push({ name: "takes/takes.json", content: "\ufeff" + JSON.stringify({ target: project.takeTarget, takes: list }, null, 2) });
     }
     files.push({ name: "字幕.srt", content: srt(project) });
     files.push({ name: "分镜表.csv", content: "\ufeff" + csv(project) });
@@ -326,5 +379,5 @@
     ].join("\n");
   }
 
-  D.compose = { client, server, srt, csv, exportPack, canvasSize, drawCover, drawSubtitle };
+  D.compose = { client, server, srt, csv, exportPack, canvasSize, drawCover, drawSubtitle, takeModeShots, missingTakes, ensureTakes, resolveShots };
 })();

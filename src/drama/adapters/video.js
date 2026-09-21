@@ -12,6 +12,28 @@
     return parts.join(" ");
   }
 
+  /* 提交前校验参数组合：视频编辑必须 adaptive / -1，首尾帧必须 adaptive，单次不超过 30 秒 */
+  function assertTaskParams(opts, model) {
+    opts = opts || {};
+    const m = String(model || opts.model || "");
+    const next2 = /seedance-2/.test(m);
+    const refVideo = opts.referenceVideo;
+    const frames = opts.firstFrame || opts.lastFrame;
+    if (refVideo) {
+      if (!opts.prompt) throw D.err("BAD_PARAM", "视频编辑必须提供编辑意图提示词");
+      if (opts.ratio !== "adaptive") throw D.err("BAD_PARAM", "视频编辑任务 ratio 必须为 adaptive");
+      if (Number(opts.duration) !== -1) throw D.err("BAD_PARAM", "视频编辑任务 duration 必须为 -1");
+      const rd = Number(opts.refDuration);
+      if (rd && (rd < 4 || rd > 30)) throw D.err("BAD_PARAM", "参考视频时长需在 4 至 30 秒之间");
+      if (opts.lastFrame) throw D.err("BAD_PARAM", "视频编辑任务不能同时使用尾帧");
+    } else if (frames && next2) {
+      if (opts.ratio !== "adaptive") throw D.err("BAD_PARAM", "Seedance 2.x 首尾帧任务 ratio 必须为 adaptive");
+    }
+    const d = Number(opts.duration);
+    if (d > 30) throw D.err("BAD_PARAM", "单次生成时长不得超过 30 秒");
+    return opts;
+  }
+
   const video = {
     async create(opts) {
       const c = D.getAdapterConfig("video");
@@ -20,6 +42,22 @@
       if (c.provider === "custom-video" && c.def.protocol === "sync") return customSync(c, opts);
       return taskCreate(c, opts);
     },
+
+    /* 局段重绘：以段素材为参考视频走视频编辑任务，产出仍为整段有声视频 */
+    async edit(opts, onProgress, signal) {
+      const c = D.getAdapterConfig("video");
+      if (c.provider === "kling") throw D.err("BAD_PARAM", "当前视频服务不支持视频编辑");
+      if (!opts || !opts.referenceVideo) throw D.err("BAD_PARAM", "视频编辑需要参考视频");
+      const merged = Object.assign({}, opts, {
+        mode: "edit",
+        ratio: "adaptive",
+        duration: -1,
+        referenceImages: []
+      });
+      return video.generate(merged, onProgress, signal);
+    },
+
+    assertTaskParams,
 
     async poll(jobId) {
       const c = D.getAdapterConfig("video");
@@ -46,14 +84,22 @@
   };
 
   async function taskCreate(c, opts) {
+    const model = opts.model || c.model;
+    assertTaskParams(opts, model);
     const content = [{ type: "text", text: seedanceText(opts) }];
-    if (opts.firstFrame) content.push({ type: "image_url", image_url: { url: opts.firstFrame } });
-    if (opts.lastFrame) content.push({ type: "image_url", image_url: { url: opts.lastFrame }, role: "last_frame" });
+    if (opts.referenceVideo) {
+      content.push({ type: "video_url", video_url: { url: opts.referenceVideo }, role: "reference_video" });
+      if (opts.referenceAudio) content.push({ type: "audio_url", audio_url: { url: opts.referenceAudio }, role: "reference_audio" });
+    } else {
+      if (opts.firstFrame) content.push({ type: "image_url", image_url: { url: opts.firstFrame } });
+      if (opts.lastFrame) content.push({ type: "image_url", image_url: { url: opts.lastFrame }, role: "last_frame" });
+    }
     /* 角色参考图作为 reference_image 一起送，保证多角色同框时人物一致；首帧已用的图不重复送 */
     const seen = {};
     if (opts.firstFrame) seen[opts.firstFrame] = true;
     if (opts.lastFrame) seen[opts.lastFrame] = true;
-    (opts.refImages || []).forEach(u => {
+    if (opts.referenceVideo) seen[opts.referenceVideo] = true;
+    (opts.referenceImages || opts.refImages || []).forEach(u => {
       if (!u || seen[u]) return;
       seen[u] = true;
       content.push({ type: "image_url", image_url: { url: u }, role: "reference_image" });
@@ -63,7 +109,7 @@
     const j = await U.httpJson(c.base + "/api/v3/contents/generations/tasks", {
       method: "POST",
       headers,
-      body: JSON.stringify({ model: opts.model || c.model, content })
+      body: JSON.stringify({ model, content })
     });
     const id = j && (j.id || j.task_id);
     if (!id) throw D.err("BAD_RESP", "视频任务创建失败：" + JSON.stringify(j).slice(0, 160));
@@ -92,6 +138,7 @@
   }
 
   async function customSync(c, opts) {
+    if (opts.referenceVideo) throw D.err("BAD_PARAM", "当前视频服务不支持视频编辑");
     const headers = { "Content-Type": "application/json" };
     if (c.key) headers["Authorization"] = "Bearer " + c.key;
     const j = await U.httpJson(c.base + "/api/video", {
