@@ -75,15 +75,28 @@
 
   function topBar() {
     const p = state.project;
+    const list = D.project.list();
+    const sel = list.length
+      ? '<select class="inp" id="auProjSel" style="width:auto;min-width:160px">' +
+          (p ? "" : '<option value="" selected>— 选择工程 —</option>') +
+          list.map(x => '<option value="' + x.id + '"' + (p && x.id === p.id ? " selected" : "") + ">" + D.ui.esc(x.title) + "</option>").join("") +
+        "</select>"
+      : "";
     return '<div class="dw-bar">' +
+      (sel || (p ? '<span class="dw-hint">工程：' + D.ui.esc(p.title) + "</span>" : "")) +
       '<button class="btn small" id="auHome">项目中心</button>' +
-      (p ? '<span class="dw-hint">工程：' + D.ui.esc(p.title) + "</span>" : "") +
       '<button class="btn small ghost" id="auGuide">看教程</button>' +
     "</div>";
   }
 
   function bindTop() {
     const v = view();
+    const sel = v.querySelector("#auProjSel");
+    if (sel) sel.onchange = async (e) => {
+      if (!e.target.value) return;
+      try { await open(e.target.value); }
+      catch (err) { U.toast((err && err.message) || "打开工程失败", "err"); }
+    };
     v.querySelector("#auHome").onclick = () => { if (XLX.app) XLX.app.go("dramaHome"); };
     v.querySelector("#auGuide").onclick = () => { if (D.guide) D.guide.open("auto"); };
   }

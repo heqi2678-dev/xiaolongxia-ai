@@ -448,6 +448,22 @@ async function flowAuto(env) {
   D.auto.state.stage = "input";
   D.auto.state.project = null;
   await D.auto.render(); await settle();
+
+  /* 顶部工程下拉：不经过项目中心也能直接切换工程 */
+  const auSel = q(doc, "#auProjSel");
+  ok(!!auSel, "流水线顶部渲染出工程下拉");
+  eq(auSel.options.length, D.project.list().length + 1, "下拉 = 占位项 + 全部工程");
+  eq(auSel.value, "", "未打开工程时选中占位项");
+  ok(auSel.options[0].textContent.includes("选择工程"), "占位项文案为「选择工程」");
+  const target = D.project.list().find((x) => x.mode !== "pipeline") || D.project.list()[0];
+  await setField(doc, "#auProjSel", target.id, 20);
+  ok(D.auto.state.project && D.auto.state.project.id === target.id, "下拉切换后载入对应工程");
+  eq(q(doc, "#auProjSel").value, target.id, "下拉选中项跟随当前工程");
+  ok(!q(doc, "#auProjSel").options[0].textContent.includes("选择工程"), "载入工程后占位项消失");
+  D.auto.state.stage = "input";
+  D.auto.state.project = null;
+  await D.auto.render(); await settle();
+
   ok(!!q(doc, "#auTopic"), "输入阶段渲染出题材框");
   ok(q(doc, "#dwAuto").innerHTML.includes("输入题材"), "步骤条在「输入题材」");
 
