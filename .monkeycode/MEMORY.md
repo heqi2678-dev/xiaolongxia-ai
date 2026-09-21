@@ -139,3 +139,11 @@ Entries discovered by the Agent during task execution should follow this format:
   - **只验证"视频"链路时必须让 `shot.line` 留空**：`engine.generateShot` 在视频成功后串行调用 `synthShot`/`lipsyncShot`，TTS 未配 Key 会抛错，`catch` 把整镜标成 `failed`（视频其实已生成、URL 已在 `shot.videoUrl`），上报文案为「火山语音需要 API Key，请到「设置 → 短剧服务」填写」。
   - 沙箱/服务器上**没有**火山语音 API Key 与视觉智能 AccessKey（只有 `/tmp/ark.key`），因此配音 + 口型的真实链路仍需用户提供这两个凭据；台词→`字幕.srt` 的部分可离线验证。
   - 火山方舟**生成产物**（TOS 域名 `ark-content-generation-*.tos-*.volces.com`）的 GET **不带 CORS 头**，浏览器 `fetch` 会被 CORS 拦截，`project.cacheRemote()` 因此走 `catch` 分支回退为远端 URL（`<video>` 播放不受影响，但本地缓存与 24h 后过期问题依然存在）。这与"方舟 API 支持 CORS"是两回事，勿混。
+
+[Project Knowledge Summary]
+- Date: 2026-09-21
+- Context: Discovered by Agent while 校验线上部署是否已生效
+- Category: Operations & Deployment
+- Instructions:
+  - 短剧工作台线上地址是 `http://47.108.14.206/dian/`：nginx `^~ /dian/` → `127.0.0.1:9140`（`gate/server.py`，`SHOP_DIR=/home/admin/work/xiaolongxia-ai`），`_shop_file()` 每次请求都 `read_bytes()` 读盘，**改前端静态文件（`index.html`、`src/**`）无需重启服务**。
+  - 根路径 `/` → `127.0.0.1:9130` 的 `tonglong-ui`（另一个 app，目录 `/home/admin/work/tonglong-ui`，与本项目无关），需要登录：`curl /` 返回 401，`curl /dian/` 返回「铜龙电商 · 请进店」登录页。因此**未登录时无法用 curl 校验前端静态产物**（`/dian/src/...` 取不到），只能确认 `SHOP_DIR` 磁盘文件已更新。
