@@ -98,7 +98,9 @@
     return (shotIds || []).join("|");
   }
 
-  /* 重建段集合：按 shotIds 签名保留既有段素材与状态，重算段时长与段计划 */
+  /* 重建段集合：按 shotIds 签名复用既有段对象，原地更新段时长与段计划。
+   * 必须保持对象身份：save() 会经 migrate() 调用本函数，若每次新建对象，
+   * 生成流程持有的 take 引用会失效，导致 videoUrl/status 写进游离对象。 */
   function sync(project) {
     if (!project) return project;
     project.shots = project.shots || [];
@@ -111,22 +113,34 @@
       for (const t of old) {
         if (t && !used[t.id] && signature(t.shotIds) === sig) { keep = t; used[t.id] = true; break; }
       }
-      const base = keep || {};
       const segs = plan(project, g.shotIds);
-      const changed = JSON.stringify(base.plan || []) !== JSON.stringify(segs) && !!base.videoUrl;
-      return {
-        id: base.id || D.project.id("t"),
-        seq: i + 1,
-        shotIds: g.shotIds.slice(),
-        duration: g.duration,
-        plan: segs,
-        videoUrl: base.videoUrl || "",
-        status: base.status || "pending",
-        error: base.error || "",
-        fallback: !!base.fallback,
-        dirty: changed || !!base.dirty,
-        updatedAt: base.updatedAt || Date.now()
-      };
+      if (!keep) {
+        return {
+          id: D.project.id("t"),
+          seq: i + 1,
+          shotIds: g.shotIds.slice(),
+          duration: g.duration,
+          plan: segs,
+          videoUrl: "",
+          status: "pending",
+          error: "",
+          fallback: false,
+          dirty: false,
+          updatedAt: Date.now()
+        };
+      }
+      const changed = JSON.stringify(keep.plan || []) !== JSON.stringify(segs) && !!keep.videoUrl;
+      keep.seq = i + 1;
+      keep.shotIds = g.shotIds.slice();
+      keep.duration = g.duration;
+      keep.plan = segs;
+      keep.videoUrl = keep.videoUrl || "";
+      keep.status = keep.status || "pending";
+      keep.error = keep.error || "";
+      keep.fallback = !!keep.fallback;
+      keep.dirty = changed || !!keep.dirty;
+      keep.updatedAt = keep.updatedAt || Date.now();
+      return keep;
     });
     return project;
   }

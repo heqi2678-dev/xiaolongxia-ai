@@ -909,3 +909,93 @@ test("timeline.render：三轨带时长与当前镜高亮", () => {
   assert.match(html, /dw-clip on[^"]*"[^>]*data-sid="b"/, "当前镜高亮");
   assert.match(html, /共 2 镜/);
 });
+
+test("takes.sync：复用既有段对象，保持对象身份稳定", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({ title: "t", genre: "comic", engine: "video", shotMode: "take" });
+  p.engine = "video";
+  p.takeTarget = 10;
+  p.shots = [1, 2].map(i => {
+    const s = D.project.newShot(i);
+    s.duration = 5;
+    return s;
+  });
+  D.project.renumber(p);
+  D.takes.sync(p);
+  const first = p.takes[0];
+  first.videoUrl = "u.mp4";
+  first.status = "done";
+  D.takes.sync(p);
+  assert.equal(p.takes[0], first, "sync 不应替换既有段对象");
+  assert.equal(p.takes[0].videoUrl, "u.mp4", "sync 应保留段素材");
+  assert.equal(p.takes[0].status, "done");
+});
+
+test("takes.sync：新增分镜后旧段素材不丢失", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({ title: "t", genre: "comic", engine: "video", shotMode: "take" });
+  p.engine = "video";
+  p.takeTarget = 10;
+  p.shots = [1, 2].map(i => {
+    const s = D.project.newShot(i);
+    s.duration = 5;
+    return s;
+  });
+  D.project.renumber(p);
+  D.takes.sync(p);
+  p.takes[0].videoUrl = "old.mp4";
+  p.takes[0].status = "done";
+  const s3 = D.project.addShot(p, 3);
+  s3.duration = 5;
+  D.takes.sync(p);
+  assert.equal(p.takes[0].videoUrl, "old.mp4", "同签名段应保留素材");
+  assert.equal(p.takes[1].videoUrl, "");
+});
+
+test("整段生成后段状态回填到工程且可直接导出", async () => {
+  const { D } = createDrama();
+  D.project.cacheRemote = async (url) => url;
+  D.adapters.video.generate = async () => ({ url: "https://example.com/take.mp4" });
+  const p = D.project.blank({ title: "t", genre: "comic", engine: "video", shotMode: "take" });
+  p.engine = "video";
+  p.takeTarget = 10;
+  p.shots = [1, 2].map(i => {
+    const s = D.project.newShot(i);
+    s.duration = 5;
+    return s;
+  });
+  D.project.renumber(p);
+  D.takes.sync(p);
+  const takeId = p.takes[0].id;
+  await D.engine.generateTake(p, takeId, {});
+  const live = p.takes.find(t => t.id === takeId);
+  assert.equal(live.videoUrl, "https://example.com/take.mp4", "生成结果应写回工程内的段");
+  assert.equal(live.status, "done");
+  assert.equal(live.dirty, false);
+  assert.deepEqual(D.compose.missingTakes(p), []);
+  p.shots.forEach(s => {
+    assert.equal(s.videoUrl, "https://example.com/take.mp4");
+    assert.equal(typeof s.srcStart, "number");
+    assert.equal(typeof s.srcEnd, "number");
+  });
+});
+
+test("整段生成后保存草稿仍保留段素材", async () => {
+  const { D } = createDrama();
+  D.project.cacheRemote = async (url) => url;
+  D.adapters.video.generate = async () => ({ url: "https://example.com/take.mp4" });
+  const p = D.project.blank({ title: "t", genre: "comic", engine: "video", shotMode: "take" });
+  p.engine = "video";
+  p.takeTarget = 10;
+  p.shots = [1, 2].map(i => {
+    const s = D.project.newShot(i);
+    s.duration = 5;
+    return s;
+  });
+  D.project.renumber(p);
+  D.takes.sync(p);
+  await D.engine.generateTake(p, p.takes[0].id, {});
+  await D.project.save(p);
+  assert.equal(p.takes[0].videoUrl, "https://example.com/take.mp4");
+  assert.equal(p.takes[0].status, "done");
+});
