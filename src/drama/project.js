@@ -178,8 +178,34 @@
       id: id("s"), seq: seq || 1, name: "分镜 " + (seq || 1),
       prompt: "", line: "", roleIds: [], duration: 5, motion: "zoom-in",
       imageUrl: "", videoUrl: "", audioUrl: "", lipsyncUrl: "",
-      firstFrame: "", status: "pending", error: "", audioDuration: 0
+      firstFrame: "", status: "pending", error: "", audioDuration: 0,
+      trimIn: 0, trimOut: 0
     };
+  }
+
+  /* ============ 段内裁剪 ============
+   * trimIn / trimOut 是该镜画面内部的起止秒数（0 表示不裁剪）。
+   * 画面时长由模型生成决定，裁剪只改"用哪一段"，不重跑模型。 */
+  const TRIM_MIN = 0.5;
+
+  function trimOf(s) {
+    const d = Number(s && s.duration) > 0 ? Number(s.duration) : 0;
+    let a = Number(s && s.trimIn);
+    let b = Number(s && s.trimOut);
+    if (!isFinite(a) || a < 0) a = 0;
+    if (!isFinite(b) || b <= 0) b = 0;
+    if (b <= 0) return { in: 0, out: 0, on: false };
+    if (b > d) b = d;
+    if (b - a < TRIM_MIN) a = Math.max(0, b - TRIM_MIN);
+    const on = (b - a) >= TRIM_MIN && (b - a) < d - 1e-6;
+    return on ? { in: a, out: b, on: true } : { in: 0, out: 0, on: false };
+  }
+
+  /* 该镜在时间轴/成片里的实际时长 */
+  function effDuration(s) {
+    const d = Number(s && s.duration) > 0 ? Number(s.duration) : 0;
+    const t = trimOf(s);
+    return t.on ? (t.out - t.in) : d;
   }
 
   function newCharacter(name) {
@@ -363,6 +389,11 @@
       if (!Array.isArray(s.roleIds)) s.roleIds = [];
       if (typeof s.duration !== "number" || !(s.duration > 0)) s.duration = 5;
       if (typeof s.motion !== "string") s.motion = "zoom-in";
+      if (typeof s.trimIn !== "number" || !isFinite(s.trimIn) || s.trimIn < 0) s.trimIn = 0;
+      if (typeof s.trimOut !== "number" || !isFinite(s.trimOut) || s.trimOut < 0) s.trimOut = 0;
+      const t = trimOf(s);
+      s.trimIn = t.on ? t.in : 0;
+      s.trimOut = t.on ? t.out : 0;
       URL_FIELDS.forEach(f => { if (typeof s[f] !== "string") s[f] = ""; });
       if (typeof s.status !== "string") s.status = "pending";
       if (typeof s.error !== "string") s.error = "";
@@ -444,6 +475,7 @@
     addShot, removeShot, moveShot, renumber,
     addCharacter, removeCharacter, characterName,
     validate, setStatus, migrate, cover, duplicate,
+    trimOf, effDuration, TRIM_MIN,
     persistAssets, hydrateAssets, toPublicUrl, cacheRemote, readBlob,
     assets: { put: idbPut, get: idbGet, toRef, hydrateRef },
     remote

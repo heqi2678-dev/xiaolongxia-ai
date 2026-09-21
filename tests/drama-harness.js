@@ -56,10 +56,16 @@ function makeIndexedDB() {
 
 function makeEl() {
   const node = {
-    style: {}, dataset: {}, classList: { add: noop, remove: noop, toggle: noop, contains: () => false },
-    appendChild: noop, remove: noop, focus: noop, setAttribute: noop, addEventListener: noop,
+    style: {}, dataset: {}, parentNode: null, childNodes: [],
+    classList: { add: noop, remove: noop, toggle: noop, contains: () => false },
+    appendChild(child) { this.childNodes.push(child); if (child) child.parentNode = this; return child; },
+    insertBefore(child) { this.childNodes.push(child); if (child) child.parentNode = this; return child; },
+    removeChild(child) { if (child) child.parentNode = null; return child; },
+    remove: noop, focus: noop, setAttribute: noop, getAttribute: () => null, addEventListener: noop,
     querySelector: () => makeEl(), querySelectorAll: () => [], closest: () => null,
-    insertAdjacentHTML: noop, getContext: () => ({}), innerHTML: "", textContent: "", value: ""
+    insertAdjacentHTML: noop, getContext: () => ({}), innerHTML: "", textContent: "", value: "",
+    readyState: 0, duration: 0, currentTime: 0, poster: "",
+    play: () => Promise.resolve(), pause: noop
   };
   return node;
 }

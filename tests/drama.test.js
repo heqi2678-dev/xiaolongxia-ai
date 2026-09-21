@@ -1048,3 +1048,84 @@ test("整段生成后保存草稿仍保留段素材", async () => {
   assert.equal(p.takes[0].videoUrl, "https://example.com/take.mp4");
   assert.equal(p.takes[0].status, "done");
 });
+
+test("段内裁剪：trimOf 归一化边界，effDuration 反映裁剪后时长", () => {
+  const { D } = createDrama();
+  const s = D.project.newShot(1);
+  s.duration = 6;
+  assert.deepEqual(D.project.trimOf(s), { in: 0, out: 0, on: false }, "默认不裁剪");
+  assert.equal(D.project.effDuration(s), 6);
+
+  s.trimIn = 1;
+  s.trimOut = 4;
+  assert.deepEqual(D.project.trimOf(s), { in: 1, out: 4, on: true });
+  assert.equal(D.project.effDuration(s), 3);
+
+  s.trimIn = 2;
+  s.trimOut = 2.2;
+  const c = D.project.trimOf(s);
+  assert.equal(c.on, true, "窗口不足下限时向后撑到最小窗");
+  assert.ok(Math.abs((c.out - c.in) - D.project.TRIM_MIN) < 1e-9);
+
+  s.trimIn = -3;
+  s.trimOut = 99;
+  const t = D.project.trimOf(s);
+  assert.equal(t.on, false, "覆盖整段且负起点夹 0 后视为不裁剪");
+  assert.equal(D.project.effDuration(s), 6);
+});
+
+test("timeline：裁剪后段长与总时长按有效时长计算", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  p.shots = [
+    { id: "a", seq: 1, duration: 6, status: "done", trimIn: 1, trimOut: 4 },
+    { id: "b", seq: 2, duration: 4, status: "done" }
+  ];
+  assert.equal(D.timeline.total(p), 7);
+  const segs = D.timeline.layout(p);
+  assert.deepEqual(segs.map(s => [s.sid, s.start, s.end]), [["a", 0, 3], ["b", 3, 7]]);
+  assert.equal(segs[0].trimmed, true);
+  assert.equal(segs[0].footage, 6);
+
+  const html = D.timeline.render(p, { currentShotId: "a" });
+  assert.match(html, /dw-clip on[^"]*trimmed/, "裁剪片段带 trimmed 标记");
+});
+
+test("合成：resolveShots 把裁剪换算成片段源窗口", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  p.shots = [
+    { id: "a", seq: 1, duration: 6, status: "done", videoUrl: "a.mp4", trimIn: 1, trimOut: 4 },
+    { id: "b", seq: 2, duration: 4, status: "done", videoUrl: "b.mp4" }
+  ];
+  const out = D.compose.resolveShots(p);
+  assert.equal(out[0].srcStart, 1);
+  assert.equal(out[0].srcEnd, 4);
+  assert.equal(out[1].srcStart, undefined, "未裁剪不写源窗口");
+});
+
+test("合成：srt 按裁剪后时长推进时间轴", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  p.shots = [
+    { id: "a", seq: 1, duration: 6, status: "done", line: "第一句", trimIn: 1, trimOut: 3 },
+    { id: "b", seq: 2, duration: 4, status: "done", line: "第二句" }
+  ];
+  const srt = D.compose.srt(p);
+  assert.match(srt, /00:00:00,000 --> 00:00:02,000/, "首镜按裁剪后 2 秒");
+  assert.match(srt, /00:00:02,000 --> 00:00:06,000/, "次镜顺延到 2s 起");
+});
+
+test("配乐与字幕：默认开启字幕且可在工程里改样式与 BGM", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  assert.equal(p.subtitle.enabled, true);
+  assert.equal(p.subtitle.color, "#ffffff");
+  assert.equal(p.bgm, "");
+  p.subtitle.enabled = false;
+  p.subtitle.color = "#ffcc00";
+  p.bgm = "asset:bgm1";
+  D.project.migrate(p);
+  assert.equal(p.subtitle.color, "#ffcc00", "migrate 保留字幕样式");
+  assert.equal(p.bgm, "asset:bgm1", "migrate 保留 BGM 引用");
+});

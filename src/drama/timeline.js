@@ -3,7 +3,7 @@
 (function () {
   const D = XLX.drama;
 
-  function dur(s) { const n = Number(s && s.duration); return n > 0 ? n : 0; }
+  function dur(s) { return D.project.effDuration(s); }
 
   function total(project) {
     return ((project && project.shots) || []).reduce((sum, s) => sum + dur(s), 0);
@@ -40,6 +40,7 @@
     let t = 0;
     return ((project && project.shots) || []).map(s => {
       const d = dur(s);
+      const tr = D.project.trimOf(s);
       const seg = {
         sid: s.id,
         seq: s.seq,
@@ -47,6 +48,8 @@
         start: t,
         end: t + d,
         duration: d,
+        footage: Number(s.duration) > 0 ? Number(s.duration) : d,
+        trimmed: !!tr.on,
         hasAudio: !!s.audioUrl,
         hasSubtitle: !!(s.line && String(s.line).trim()),
         status: s.status || "pending"
@@ -93,8 +96,10 @@
         const w = ((seg.end - seg.start) / tot) * 100;
         const has = pick(seg);
         return '<div class="dw-clip' + (seg.sid === cur ? " on" : "") + (has ? "" : " empty") +
+          (seg.trimmed ? " trimmed" : "") +
           ' dw-st-' + D.ui.esc(seg.status) + '" data-sid="' + D.ui.esc(seg.sid) + '" data-start="' + seg.start +
-          '" data-end="' + seg.end + '" style="width:' + w.toFixed(3) + '%" title="第' + seg.seq + "镜 " + D.ui.esc(seg.name) + '">' +
+          '" data-end="' + seg.end + '" style="width:' + w.toFixed(3) + '%" title="第' + seg.seq + "镜 " + D.ui.esc(seg.name) +
+          (seg.trimmed ? "（裁剪后 " + seg.duration.toFixed(1) + "s / 原片 " + seg.footage.toFixed(1) + "s）" : "") + '">' +
           "<span>" + seg.seq + "</span></div>";
       }).join("") +
       "</div>";

@@ -74,10 +74,20 @@
     ctx.drawImage(media, dx - (dw - w) / 2, dy - (dh - h) / 2, dw, dh);
   }
 
-  function drawSubtitle(ctx, shot, w, h) {
+  function hexRgba(hex, alpha) {
+    const m = /^#([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+    if (!m) return "";
+    const n = parseInt(m[1], 16);
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + alpha + ")";
+  }
+
+  function drawSubtitle(ctx, shot, w, h, sub) {
     const text = (shot.line || "").trim();
     if (!text) return;
+    const st = sub || {};
     const fs = Math.round(w * 0.038);
+    const fill = /^#[0-9a-f]{6}$/i.test(String(st.color || "").trim()) ? st.color : "#ffffff";
+    const stroke = hexRgba(st.stroke, 0.85) || "rgba(0,0,0,0.85)";
     ctx.save();
     ctx.font = "700 " + fs + "px system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif";
     ctx.textAlign = "center";
@@ -88,9 +98,9 @@
     let y = h - h * 0.09 - (lines.length - 1) * lh;
     lines.forEach(line => {
       ctx.lineWidth = Math.max(4, fs * 0.16);
-      ctx.strokeStyle = "rgba(0,0,0,0.85)";
+      ctx.strokeStyle = stroke;
       ctx.strokeText(line, w / 2, y);
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = fill;
       ctx.fillText(line, w / 2, y);
       y += lh;
     });
@@ -103,7 +113,7 @@
     if (media) {
       try { drawCover(ctx, media, w, h, motion, t); } catch (e) {}
     }
-    if (project.subtitle && project.subtitle.enabled !== false) drawSubtitle(ctx, shot, w, h);
+    if (project.subtitle && project.subtitle.enabled !== false) drawSubtitle(ctx, shot, w, h, project.subtitle);
     D.compliance.drawBadge(ctx, w, h);
   }
 
@@ -125,15 +135,24 @@
   }
 
   function resolveShots(project) {
-    if (!takeModeShots(project)) return (project.shots || []).slice();
+    const taken = takeModeShots(project);
     return (project.shots || []).map(s => {
       const out = Object.assign({}, s);
-      const t = D.takes.takeOf(project, s.id);
-      const seg = D.takes.segmentOf(project, s.id);
-      if (t && t.videoUrl && seg) {
-        out.videoUrl = t.videoUrl;
-        out.srcStart = seg.start;
-        out.srcEnd = seg.end;
+      const d = Number(s.duration) > 0 ? Number(s.duration) : 0;
+      const tr = D.project.trimOf(s);
+      const a = tr.on ? tr.in : 0;
+      const b = tr.on ? tr.out : d;
+      if (taken) {
+        const t = D.takes.takeOf(project, s.id);
+        const seg = D.takes.segmentOf(project, s.id);
+        if (t && t.videoUrl && seg) {
+          out.videoUrl = t.videoUrl;
+          out.srcStart = seg.start + a;
+          out.srcEnd = seg.start + b;
+        }
+      } else if (tr.on) {
+        out.srcStart = a;
+        out.srcEnd = b;
       }
       return out;
     });
@@ -159,6 +178,21 @@
     const AC = window.AudioContext || window.webkitAudioContext;
     const ac = new AC();
     const dest = ac.createMediaStreamDestination();
+
+    let bgmEl = null;
+    if (project.bgm) {
+      const bgmUrl = await D.project.assets.hydrateRef(project.bgm);
+      if (bgmUrl) {
+        bgmEl = new Audio(bgmUrl);
+        bgmEl.crossOrigin = "anonymous";
+        bgmEl.loop = true;
+        bgmEl.volume = 0.25;
+        try {
+          const node = ac.createMediaElementSource(bgmEl);
+          node.connect(dest);
+        } catch (e) { bgmEl = null; }
+      }
+    }
 
     const items = [];
     const shots = resolveShots(project);
@@ -199,6 +233,7 @@
     rec.start(200);
 
     if (ac.state === "suspended") { try { await ac.resume(); } catch (e) {} }
+    if (bgmEl) { try { bgmEl.currentTime = 0; await bgmEl.play(); } catch (e) {} }
 
     const total = items.reduce((s, it) => s + it.dur, 0);
     let elapsed = 0;
@@ -224,6 +259,7 @@
 
     redraw(ctx, w, h, items[items.length - 1] ? items[items.length - 1].shot : { line: "" }, null, "static", 1, project);
     await wait(400);
+    if (bgmEl) { try { bgmEl.pause(); } catch (e) {} }
     rec.stop();
     await stopped;
     try { ac.close(); } catch (e) {}
@@ -283,7 +319,7 @@
       return String(hh).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0") + "," + String(ms).padStart(3, "0");
     };
     project.shots.forEach((shot, i) => {
-      const dur = Math.max(1, Number(shot.duration) || 3);
+      const dur = Math.max(0.2, D.project.effDuration(shot) || 3);
       if (shot.line && shot.line.trim()) {
         out += (i + 1) + "\n" + fmt(t) + " --> " + fmt(t + dur) + "\n" + shot.line.trim() + "\n\n";
       }
