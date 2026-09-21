@@ -165,6 +165,20 @@ test("视频适配器 seedance 任务创建与轮询", async () => {
   assert.equal(st.url, "https://cdn/v.mp4");
 });
 
+test("视频适配器把角色参考图作为 reference_image 送入，首帧图不重复", async () => {
+  const { D, sandbox } = createDrama();
+  setAdapter(D, "video", { provider: "seedance", key: "k" });
+  mockJson(sandbox, { id: "task-ref" });
+  await D.adapters.video.create({
+    prompt: "两人对峙", ratio: "9:16", duration: 5, resolution: "720p",
+    firstFrame: "a1", refImages: ["a1", "b1", "a2"]
+  });
+  const content = JSON.parse(sandbox.__calls[0].opts.body).content;
+  const refs = content.filter(x => x.role === "reference_image").map(x => x.image_url.url);
+  assert.deepEqual(refs, ["b1", "a2"], "首帧已用的 a1 不重复送");
+  assert.equal(content.filter(x => x.type === "image_url" && !x.role).length, 1);
+});
+
 test("自定义口型适配器创建与轮询状态映射", async () => {
   const { D, sandbox } = createDrama();
   setAdapter(D, "lipsync", { provider: "custom-lipsync", base: "https://ls.example.com", key: "k" });
@@ -607,6 +621,95 @@ test("角色库：真人角色导入后需补肖像授权才能过合规", async
   const r = D.compliance.recordConsent("真人甲", "本人授权");
   p.compliance.consentIds = [r.id];
   assert.equal(D.compliance.verify(p).ok, true);
+});
+
+/* ============ 角色一致性增强：外观细分 / 分组参考图 / 定妆图 ============ */
+
+test("外观细分字段按固定顺序进入提示词，空字段不出现", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  const c = D.project.addCharacter(p, "小美");
+  c.details = { outfit: "黑色高领毛衣", age: "27 岁", accessory: "银色腕表" };
+  assert.equal(D.character.check(c), "", "有细分外观即可通过完整性检查");
+  const shot = p.shots[0];
+  shot.roleIds = [c.id];
+  const prompt = D.character.buildImagePrompt(p, shot);
+  assert.match(prompt, /年龄：27 岁/);
+  assert.match(prompt, /服装：黑色高领毛衣/);
+  assert.match(prompt, /配饰：银色腕表/);
+  assert.ok(prompt.indexOf("年龄") < prompt.indexOf("服装"), "细分字段按固定顺序拼接");
+  assert.ok(prompt.indexOf("服装") < prompt.indexOf("配饰"));
+  assert.ok(!/瞳色/.test(prompt), "留空字段不进提示词");
+});
+
+test("多角色同框参考图按角色轮询摊平，不让单角色占满名额", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  const a = D.project.addCharacter(p, "A");
+  const b = D.project.addCharacter(p, "B");
+  a.refImages = ["a1", "a2", "a3"];
+  b.refImages = ["b1", "b2"];
+  const shot = p.shots[0];
+  shot.roleIds = [a.id, b.id];
+  assert.deepEqual(D.character.refImagesForShot(p, shot), ["a1", "b1", "a2"]);
+  const groups = D.character.refGroupsForShot(p, shot);
+  assert.deepEqual(groups.map(g => g.cid), [a.id, b.id]);
+  assert.deepEqual(groups[0].urls, ["a1", "a2", "a3"]);
+  const note = D.character.refNote(p, shot);
+  assert.match(note, /A（参考图 1）/);
+  assert.match(note, /B（参考图 2）/);
+});
+
+test("角色定妆图：按 3:4 生成、写入参考图并标记相关分镜需重绘", async () => {
+  const { D, sandbox } = createDrama();
+  setAdapter(D, "image", { provider: "seedream", key: "k" });
+  const p = D.project.blank({});
+  const c = D.project.addCharacter(p, "小美");
+  c.appearance = "长发红裙";
+  const shot = p.shots[0];
+  shot.roleIds = [c.id];
+  shot.status = "done";
+  shot.imageUrl = "asset:old";
+  mockJson(sandbox, { data: [{ url: "https://cdn/sheet.png" }] });
+  const r = await D.character.generateSheet(p, c.id);
+  assert.ok(r.ref, "应返回落仓后的参考图引用");
+  assert.equal(r.affected, 1);
+  assert.equal(c.refImages.length, 1);
+  assert.equal(shot.stale, true, "换了参考图，相关分镜应标记需重绘");
+  const body = JSON.parse(sandbox.__calls[0].opts.body);
+  assert.match(body.prompt, /角色定妆图/);
+  assert.match(body.prompt, /长发红裙/);
+  assert.equal(body.size, "1728x2304", "定妆图采用 3:4");
+});
+
+test("角色定妆图：没写外观时拒绝生成", async () => {
+  const { D } = createDrama();
+  setAdapter(D, "image", { provider: "seedream", key: "k" });
+  const p = D.project.blank({});
+  const c = D.project.addCharacter(p, "小美");
+  await assert.rejects(() => D.character.generateSheet(p, c.id), (e) => e.code === "CHAR_INCOMPLETE");
+});
+
+test("角色库：细分外观随卡存取并被导入", async () => {
+  const { D } = createDrama();
+  const rec = D.character.libSave({ name: "小美", appearance: "清冷", details: { hair: "黑色短发", eyes: "深棕" } });
+  assert.equal(rec.details.hair, "黑色短发");
+  const p = D.project.blank({});
+  const c = await D.character.libToProject(p, rec);
+  assert.equal(c.details.hair, "黑色短发");
+  assert.equal(c.details.eyes, "深棕");
+});
+
+test("外观细分组件：输出带 data-cd 的输入框并回填", () => {
+  const { D } = createDrama();
+  const c = D.project.newCharacter("小美");
+  c.details = { outfit: "黑色高领毛衣" };
+  const html = D.ui.charDetails(c);
+  assert.match(html, /data-cd="age"/);
+  assert.match(html, /data-cd="outfit"/);
+  assert.match(html, /data-cid="/);
+  assert.match(html, /value="黑色高领毛衣"/);
+  assert.match(html, /年龄/);
 });
 
 /* ============ 共用合规/角色库组件 ============ */

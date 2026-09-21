@@ -179,7 +179,7 @@
   }
 
   function newCharacter(name) {
-    return { id: id("c"), name: name || "新角色", identity: "", appearance: "", refImages: [] };
+    return { id: id("c"), name: name || "新角色", identity: "", appearance: "", details: {}, refImages: [] };
   }
 
   function blank(opts) {

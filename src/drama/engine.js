@@ -53,6 +53,8 @@
         const r = await D.adapters.video.generate({
           prompt: D.character.buildVideoPrompt(project, shot),
           firstFrame: shot.firstFrame || refs[0] || "",
+          refImages: refs,
+          refGroups: D.character.refGroupsForShot(project, shot),
           ratio: project.output.ratio,
           duration: shot.duration || 5,
           resolution: project.output.resolution === "1080p" ? "1080p" : "720p",
@@ -70,6 +72,7 @@
           prompt: D.character.buildImagePrompt(project, shot),
           ratio: project.output.ratio,
           refImages: refs,
+          refGroups: D.character.refGroupsForShot(project, shot),
           model: project.imageModel
         });
         shot.imageUrl = await D.project.cacheRemote(r.url, { role: "imageUrl" });

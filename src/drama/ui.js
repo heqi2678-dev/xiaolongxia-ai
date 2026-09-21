@@ -414,6 +414,25 @@
     }
   }
 
+  /* ============ 角色外观细分（共用组件） ============ */
+  /* 固定顺序的可选子字段，留空不参与提示词；文字变化会被版本化引用，降低人物跑偏。 */
+  const CHAR_DETAILS = [
+    { key: "age", label: "年龄", ph: "27 岁" },
+    { key: "hair", label: "发型发色", ph: "黑色短发，利落" },
+    { key: "eyes", label: "瞳色", ph: "深棕" },
+    { key: "outfit", label: "服装", ph: "黑色高领毛衣" },
+    { key: "accessory", label: "配饰", ph: "银色腕表" }
+  ];
+
+  function charDetails(c) {
+    const d = (c && c.details) || {};
+    return '<div class="dw-grid">' + CHAR_DETAILS.map(f =>
+      '<div><label class="label">' + esc(f.label) + "</label>" +
+      '<input class="inp" data-cd="' + esc(f.key) + '" data-cid="' + esc(c.id) + '" value="' + esc(d[f.key] || "") + '" placeholder="' + esc(f.ph) + '">' +
+      "</div>"
+    ).join("") + "</div>";
+  }
+
   /* ===== 专业创作台共用部件 ===== */
 
   function emptyBox(text, act) {
@@ -481,5 +500,5 @@
       "</div>";
   }
 
-  D.ui = { ensureCss, esc, opts, statusBadge, shotCard, renderShots, refreshShot, progress, bindShots, shotIds, complianceCard, bindCompliance, libPanel, bindLib, emptyBox, skeleton, thumb, railItem, modelBar, projectCard };
+  D.ui = { ensureCss, esc, opts, statusBadge, shotCard, renderShots, refreshShot, progress, bindShots, shotIds, complianceCard, bindCompliance, libPanel, bindLib, charDetails, emptyBox, skeleton, thumb, railItem, modelBar, projectCard };
 })();

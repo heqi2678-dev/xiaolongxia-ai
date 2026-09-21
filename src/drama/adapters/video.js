@@ -49,6 +49,15 @@
     const content = [{ type: "text", text: seedanceText(opts) }];
     if (opts.firstFrame) content.push({ type: "image_url", image_url: { url: opts.firstFrame } });
     if (opts.lastFrame) content.push({ type: "image_url", image_url: { url: opts.lastFrame }, role: "last_frame" });
+    /* 角色参考图作为 reference_image 一起送，保证多角色同框时人物一致；首帧已用的图不重复送 */
+    const seen = {};
+    if (opts.firstFrame) seen[opts.firstFrame] = true;
+    if (opts.lastFrame) seen[opts.lastFrame] = true;
+    (opts.refImages || []).forEach(u => {
+      if (!u || seen[u]) return;
+      seen[u] = true;
+      content.push({ type: "image_url", image_url: { url: u }, role: "reference_image" });
+    });
     const headers = { "Content-Type": "application/json" };
     if (c.key) headers["Authorization"] = "Bearer " + c.key;
     const j = await U.httpJson(c.base + "/api/v3/contents/generations/tasks", {

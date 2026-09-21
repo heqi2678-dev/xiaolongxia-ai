@@ -208,8 +208,10 @@
           '<div><label class="label" style="margin-top:0">身份</label><input class="inp" data-cf="identity" data-cid="' + c.id + '" value="' + D.ui.esc(c.identity) + '"></div>' +
         "</div>" +
         '<label class="label">外观</label><textarea class="inp" style="min-height:46px;font-size:12px" data-cf="appearance" data-cid="' + c.id + '">' + D.ui.esc(c.appearance) + "</textarea>" +
+        D.ui.charDetails(c) +
         '<div class="dw-char-refs">' + (c.refImages || []).map(u => '<img class="dw-char-ref" src="' + D.ui.esc(u) + '">').join("") +
         '<button class="btn small" data-act="charref" data-cid="' + c.id + '">＋ 参考图</button>' +
+        '<button class="btn small" data-act="charsheet" data-cid="' + c.id + '">生成定妆图</button>' +
         '<label class="dw-chip' + (c.locked ? " on" : "") + '" data-act="lock" data-cid="' + c.id + '">' + (c.locked ? "已锁定" : "点此锁定") + "</label></div>" +
         "</div>" +
         '<div><button class="btn small" data-act="charsave" data-cid="' + c.id + '">存入角色库</button></div>' +
@@ -230,12 +232,17 @@
       const c = p.characters.find(x => x.id === el.dataset.cid); if (!c) return;
       c[el.dataset.cf] = el.value; await D.project.save(p);
     });
+    v.querySelectorAll("[data-cd]").forEach(el => el.onchange = async () => {
+      const c = p.characters.find(x => x.id === el.dataset.cid); if (!c) return;
+      c.details = c.details || {}; c.details[el.dataset.cd] = el.value; await D.project.save(p);
+    });
     v.querySelectorAll("[data-act='lock']").forEach(b => b.onclick = async () => {
       const c = p.characters.find(x => x.id === b.dataset.cid); if (!c) return;
       c.locked = !c.locked; await D.project.save(p); render();
     });
     v.querySelectorAll("[data-act='addchar']").forEach(b => b.onclick = async () => { D.project.addCharacter(p); await D.project.save(p); render(); });
     v.querySelectorAll("[data-act='charref']").forEach(b => b.onclick = () => pickRef(b.dataset.cid));
+    v.querySelectorAll("[data-act='charsheet']").forEach(b => b.onclick = () => genSheet(b.dataset.cid));
     D.ui.bindLib(v, p, { prefix: "au", onChange: async () => { await D.project.save(p); render(); } });
     v.querySelector("#auBackPlan").onclick = () => { state.stage = "plan"; render(); };
     v.querySelector("#auLockAll").onclick = async () => { p.characters.forEach(c => c.locked = true); await D.project.save(p); render(); };
@@ -258,6 +265,23 @@
       render();
     };
     input.click();
+  }
+
+  async function genSheet(cid) {
+    const p = state.project;
+    if (state.busy) { msg("正在生成，请等待当前任务结束…", "warn"); return; }
+    state.busy = true;
+    msg("正在生成角色定妆图…", "");
+    try {
+      const r = await D.character.generateSheet(p, cid);
+      await D.project.save(p);
+      render();
+      msg(r.affected ? "定妆图已加入参考图，" + r.affected + " 个相关分镜已标记「需重绘」。" : "定妆图已生成，已加入参考图。", "ok");
+    } catch (e) {
+      msg((e && e.message) || "定妆图生成失败", "err");
+    } finally {
+      state.busy = false;
+    }
   }
 
   /* ============ 批量生成（共用网格） ============ */

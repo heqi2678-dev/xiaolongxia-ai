@@ -565,6 +565,29 @@
     input.click();
   }
 
+  async function genSheet(cid) {
+    const p = state.project;
+    if (state.busy) { U.toast("正在生成，请等待当前任务结束", "warn"); return; }
+    state.busy = true;
+    setStatus("正在生成角色定妆图…", "");
+    try {
+      const r = await D.character.generateSheet(p, cid);
+      await save();
+      render();
+      if (r.affected) {
+        setStatus("定妆图已加入参考图，" + r.affected + " 个相关分镜已标记「需重绘」。", "ok");
+        U.toast("定妆图已生成，相关分镜请重绘", "ok");
+      } else {
+        setStatus("定妆图已生成，已加入参考图。", "ok");
+        U.toast("定妆图已生成", "ok");
+      }
+    } catch (e) {
+      setStatus((e && e.message) || "定妆图生成失败", "err");
+    } finally {
+      state.busy = false;
+    }
+  }
+
   function needsGen(s) {
     if (realistic()) return !s.videoUrl || s.status !== "done";
     return !s.imageUrl || s.status !== "done";
@@ -687,10 +710,12 @@
               '<div><label class="label" style="margin-top:0">名字</label><input class="inp" data-cf="name" data-cid="' + c.id + '" value="' + D.ui.esc(c.name) + '"></div>' +
               '<div><label class="label" style="margin-top:0">身份</label><input class="inp" data-cf="identity" data-cid="' + c.id + '" value="' + D.ui.esc(c.identity) + '"></div>' +
             "</div>" +
-            '<label class="label">外观（发型、服装、气质）</label><textarea class="inp" style="min-height:46px;font-size:12px" data-cf="appearance" data-cid="' + c.id + '">' + D.ui.esc(c.appearance) + "</textarea>" +
+            '<label class="label">外观总述（发型、服装、气质）</label><textarea class="inp" style="min-height:46px;font-size:12px" data-cf="appearance" data-cid="' + c.id + '">' + D.ui.esc(c.appearance) + "</textarea>" +
+            D.ui.charDetails(c) +
             '<div class="dw-char-refs">' +
               (c.refImages || []).map(u => '<img class="dw-char-ref" src="' + D.ui.esc(u) + '" alt="">').join("") +
               '<button class="btn small" data-act="charref" data-cid="' + c.id + '">＋ 参考图</button>' +
+              '<button class="btn small" data-act="charsheet" data-cid="' + c.id + '">生成定妆图</button>' +
             "</div>" +
           "</div>" +
           '<div>' +
@@ -777,9 +802,19 @@
         await save();
       };
     });
+    v.querySelectorAll("[data-cd]").forEach(el => {
+      el.onchange = async () => {
+        const c = (state.project.characters || []).find(x => x.id === el.dataset.cid);
+        if (!c) return;
+        c.details = c.details || {};
+        c.details[el.dataset.cd] = el.value;
+        await save();
+      };
+    });
     v.querySelectorAll('[data-act="addchar"]').forEach(b => b.onclick = async () => { D.project.addCharacter(state.project); await save(); render(); });
     v.querySelectorAll('[data-act="delchar"]').forEach(b => b.onclick = async () => { D.project.removeCharacter(state.project, b.dataset.cid); await save(); render(); });
     v.querySelectorAll('[data-act="charref"]').forEach(b => b.onclick = () => pickCharRef(b.dataset.cid));
+    v.querySelectorAll('[data-act="charsheet"]').forEach(b => b.onclick = () => genSheet(b.dataset.cid));
     D.ui.bindLib(v, state.project, { prefix: "dw", onChange: async () => { await save(); render(); } });
 
     D.ui.bindCompliance(v, state.project, {
