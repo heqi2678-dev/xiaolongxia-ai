@@ -61,20 +61,21 @@ Entries discovered by the Agent during task execution should follow this format:
 - Context: Discovered by Agent while implementing and verifying the AI 短剧工作台 (src/drama/)
 - Category: Testing Methods
 - Instructions:
-  - 前端（短剧工作台）测试：`node --test tests/drama.test.js`，测试台 `tests/drama-harness.js` 用最小 DOM/fetch 桩在 Node 里加载 `src/drama/*.js`，不触网。
+  - 前端（短剧工作台）测试：`node --test tests/drama.test.js`（Node v22 不接受目录参数 `node --test tests/`，须显式指定测试文件），测试台 `tests/drama-harness.js` 用最小 DOM/fetch 桩在 Node 里加载 `src/drama/*.js`，不触网。
   - 后端（店门）测试：`cd gate && python3 -m unittest test_gate`。
   - 前端脚本单文件语法校验：`node --check <file>`。
-  - 真 DOM 端到端实测：`NODE_PATH=/usr/local/lib/node_modules node tests/drama-e2e.js`，用 jsdom 提供真实 DOM/事件/localStorage，加载 `src/drama/*.js` 后按用户操作点按钮、填表单，全部网络打桩；依赖全局安装的 `jsdom`（本机已装，`/usr/local/lib/node_modules`）。
+  - 真 DOM 端到端实测：`NODE_PATH="$(npm root -g)" node tests/drama-e2e.js`（本机 `npm root -g` 为 `/usr/lib/node_modules`），用 jsdom 提供真实 DOM/事件/localStorage，加载 `src/drama/*.js` 后按用户操作点按钮、填表单，全部网络打桩；依赖全局安装的 `jsdom`（`npm install -g jsdom`）。
   - jsdom 不做排版，测不出 overflow 裁切/滚动类布局缺陷；这类问题必须用真实浏览器布局审计：`AUDIT_USER=zhuren AUDIT_PASS=<口令> python3 tests/layout_audit.py http://127.0.0.1:9140`（依赖 chromium/chromium-driver/selenium，缺任一则打印 SKIP 退出 0）。脚本用 CDP `Emulation.setDeviceMetricsOverride` 做真实移动视口，逐视图检测「视图根 overflow:hidden 却内容溢出」与「元素被不可滚动的 hidden/clip 祖先裁剪」。检测器本身可用 `--self-test` 验证：注入 `.dw-wrap{overflow:hidden;height:220px}` 必须被检出，移除后必须恢复无告警。
   - 提交前建议同时跑：drama 前端测试 + drama 端到端 + 店门后端测试 + 对 `src/drama/*` 全部 `node --check` + 真实浏览器布局审计（服务在跑时）。
 
 [Project Knowledge Summary]
-- Date: 2026-09-16
+- Date: 2026-09-16（2026-09-21 修订）
 - Context: Discovered by Agent while 向 GitHub 推送本仓库
 - Category: Environment Configuration
 - Instructions:
   - 仓库远端为 `git@github.com:heqi2678-dev/xiaolongxia-ai.git`，本仓库历史直接在 `main` 上提交。
-   - 本开发环境推送 GitHub 使用专用密钥 `/root/.ssh/id_drama`，并通过 `/root/.ssh/config` 将 `github.com` 指向 `ssh.github.com:443`（22 端口不通时走 443）。
+  - 推送 GitHub 可用仓库部署密钥 `/home/admin/.ssh/id_ed25519_xiaolongxia`（`github.com` 的 Host 配置写在 `/home/admin/.ssh/config`）。以 root 身份提交时 root 没有 GitHub 密钥与 ssh config，直接 `git push` 会 `Permission denied (publickey)`，需显式指定密钥：`GIT_SSH_COMMAND="ssh -i /home/admin/.ssh/id_ed25519_xiaolongxia -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" git push origin main`。
+  - `/root/.ssh/id_drama` 与 `/root/.ssh/config` 在 2026-09-21 已不存在，旧记录作废。
 
 [Project Knowledge Summary]
 - Date: 2026-09-17
