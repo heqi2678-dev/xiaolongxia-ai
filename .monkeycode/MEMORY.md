@@ -126,3 +126,16 @@ Entries discovered by the Agent during task execution should follow this format:
   - Seedance 1.0 **不支持参考生视频（r2v / reference_image）**，传参考图报 `task_type r2v does not support model ...`；当前实现遇到 1.0 时自动降级为首帧驱动（i2v），并把降级原因写到段/镜的 `notice`。
   - 整段模式的局段重绘依赖 2.5 的视频编辑能力，1.0 不具备，验证时跳过该项。
   - 账号已开通的文生图模型：`doubao-seedream-4-5-251128` / `doubao-seedream-5-0-260128` / `doubao-seedream-4-0-250828`，验证 1.0 视频链路时可用其生成定妆图。
+
+[Project Knowledge Summary]
+- Date: 2026-09-21
+- Context: Discovered by Agent while 用 headless 浏览器实操前端工作台（验证逐镜模式 / 台词字幕 / UI 可用性）
+- Category: Testing Methods
+- Instructions:
+  - **在本机（Debian 沙箱）跑浏览器 UI 实操**：`apt-get install -y -qq chromium fonts-noto-cjk`（bookworm 源，约 100MB 依赖，需数分钟），再 `npm install -g puppeteer-core`，用 `require($(npm root -g) + "/puppeteer-core")` 加载，`executablePath: "/usr/bin/chromium"`，args 加 `--no-sandbox --disable-dev-shm-usage --disable-gpu`。
+  - 前端是纯静态站（`index.html` + `src/**`），沙箱内可直接起一个"静态 + `/dian` 反向代理到 9140"的小 http 服务来跑（代理到本地网关仅为占位，视频生成是从浏览器直连火山方舟，不依赖网关）。
+  - **`XLX` 是顶层 `const`，不是 `window` 属性**：`typeof window.XLX === "undefined"`，但 `page.evaluate(() => XLX.xxx)` 与 `waitForFunction("typeof XLX !== 'undefined' && ...")` 都能正常取到。UI 自动化断言/等待一律用裸 `XLX`，别写成 `window.XLX`。
+  - UI 关键选择器：导航 `.nav-item[data-view="settings"|"dramaHome"]`；设置卡片 `#ds-<kind>-provider/key/model` + 保存 `#dramaSave`；新建工程 `#dwHomeNewManual`（`blank()` 自带 1 镜）；剧种 `#dwGenre`、生成模式 `#dwShotMode`（选 realistic 后才出现）；加镜 `[data-railadd="1"]`；属性面板字段 `[data-if="prompt|line|duration|motion"]`（**绑定的是 `onchange`**，赋值后需 `dispatchEvent(new Event("change"))`）；生成按钮 `[data-iact="gen"]`；状态 `[data-status="<shotId>"]`。当前分镜 id 取 `XLX.drama.manual.state.cur`（新建后自动选中新镜，不是 `shots[0]`）。
+  - **只验证"视频"链路时必须让 `shot.line` 留空**：`engine.generateShot` 在视频成功后串行调用 `synthShot`/`lipsyncShot`，TTS 未配 Key 会抛错，`catch` 把整镜标成 `failed`（视频其实已生成、URL 已在 `shot.videoUrl`），上报文案为「火山语音需要 API Key，请到「设置 → 短剧服务」填写」。
+  - 沙箱/服务器上**没有**火山语音 API Key 与视觉智能 AccessKey（只有 `/tmp/ark.key`），因此配音 + 口型的真实链路仍需用户提供这两个凭据；台词→`字幕.srt` 的部分可离线验证。
+  - 火山方舟**生成产物**（TOS 域名 `ark-content-generation-*.tos-*.volces.com`）的 GET **不带 CORS 头**，浏览器 `fetch` 会被 CORS 拦截，`project.cacheRemote()` 因此走 `catch` 分支回退为远端 URL（`<video>` 播放不受影响，但本地缓存与 24h 后过期问题依然存在）。这与"方舟 API 支持 CORS"是两回事，勿混。
