@@ -62,6 +62,7 @@
           model: project.videoModel
         }, opts.onProgress, ctrl.signal);
         shot.videoUrl = await D.project.cacheRemote(r.url, { role: "videoUrl" });
+        shot.notice = r && r.degraded ? degradeNotice(r.degraded) : "";
         shot.srcStart = null;
         shot.srcEnd = null;
         shot.imageUrl = shot.imageUrl || shot.firstFrame || "";
@@ -192,6 +193,7 @@
       take.videoUrl = await D.project.cacheRemote(r.url, { role: "takeVideo" });
       take.status = "done";
       take.error = "";
+      take.notice = r && r.degraded ? degradeNotice(r.degraded) : "";
       take.dirty = false;
       take.fallback = false;
       take.updatedAt = Date.now();
@@ -239,6 +241,7 @@
       take.videoUrl = await D.project.cacheRemote(r.url, { role: "takeVideo" });
       take.status = "done";
       take.error = "";
+      take.notice = r && r.degraded ? degradeNotice(r.degraded) : "";
       take.dirty = false;
       take.updatedAt = Date.now();
       bindTakeWindow(project, take);
@@ -256,6 +259,16 @@
     } finally {
       delete jobs[key];
     }
+  }
+
+  function degradeNotice(info) {
+    if (!info) return "";
+    if (info.reason === "R2V_UNSUPPORTED") {
+      return info.asFirstFrame
+        ? "当前模型不支持角色参考图，已改用首张参考图作为首帧驱动"
+        : "当前模型不支持角色参考图，本次已退化为文生视频";
+    }
+    return "当前模型不支持该能力，已自动降级生成";
   }
 
   function abortTake(takeId) {

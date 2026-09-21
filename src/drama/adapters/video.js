@@ -70,12 +70,12 @@
 
     async generate(opts, onProgress, signal) {
       const created = await video.create(opts);
-      if (created.syncUrl) return { url: created.syncUrl, provider: created.provider };
+      if (created.syncUrl) return { url: created.syncUrl, provider: created.provider, degraded: created.degraded || null };
       for (let i = 0; i < 240; i++) {
         if (signal && signal.aborted) throw D.err("ABORTED", "已取消");
         const st = await video.poll(created.jobId);
         if (onProgress) onProgress(st);
-        if (st.status === "done") return { url: st.url, provider: created.provider };
+        if (st.status === "done") return { url: st.url, provider: created.provider, degraded: created.degraded || null };
         if (st.status === "failed") throw D.err("TASK_FAILED", st.error || "视频生成失败");
         await U.sleep(3000);
       }
@@ -83,27 +83,43 @@
     }
   };
 
+  /* 只有 Seedance 2.x 支持参考生视频（r2v / reference_image）；1.0 仅支持文生视频与首帧驱动 */
+  function supportsRefVideo(model) {
+    return /seedance-2/.test(String(model || ""));
+  }
+
   async function taskCreate(c, opts) {
     const model = opts.model || c.model;
     assertTaskParams(opts, model);
+    const allowRef = supportsRefVideo(model);
+    const refs = (opts.referenceImages || opts.refImages || []).filter(Boolean);
+    const dropped = [];
+    let firstFrame = opts.firstFrame || "";
+    if (!opts.referenceVideo && !allowRef && refs.length) {
+      /* 不支持 r2v 的模型：退化为首帧驱动（i2v），用首张参考图保住角色一致性，其余丢弃并提示降级 */
+      if (!firstFrame) firstFrame = refs[0];
+      refs.forEach(u => { if (u !== firstFrame) dropped.push(u); });
+    }
     const content = [{ type: "text", text: seedanceText(opts) }];
     if (opts.referenceVideo) {
       content.push({ type: "video_url", video_url: { url: opts.referenceVideo }, role: "reference_video" });
       if (opts.referenceAudio) content.push({ type: "audio_url", audio_url: { url: opts.referenceAudio }, role: "reference_audio" });
     } else {
-      if (opts.firstFrame) content.push({ type: "image_url", image_url: { url: opts.firstFrame } });
+      if (firstFrame) content.push({ type: "image_url", image_url: { url: firstFrame } });
       if (opts.lastFrame) content.push({ type: "image_url", image_url: { url: opts.lastFrame }, role: "last_frame" });
     }
     /* 角色参考图作为 reference_image 一起送，保证多角色同框时人物一致；首帧已用的图不重复送 */
     const seen = {};
-    if (opts.firstFrame) seen[opts.firstFrame] = true;
+    if (firstFrame) seen[firstFrame] = true;
     if (opts.lastFrame) seen[opts.lastFrame] = true;
     if (opts.referenceVideo) seen[opts.referenceVideo] = true;
-    (opts.referenceImages || opts.refImages || []).forEach(u => {
-      if (!u || seen[u]) return;
-      seen[u] = true;
-      content.push({ type: "image_url", image_url: { url: u }, role: "reference_image" });
-    });
+    if (allowRef) {
+      refs.forEach(u => {
+        if (seen[u]) return;
+        seen[u] = true;
+        content.push({ type: "image_url", image_url: { url: u }, role: "reference_image" });
+      });
+    }
     const headers = { "Content-Type": "application/json" };
     if (c.key) headers["Authorization"] = "Bearer " + c.key;
     const j = await U.httpJson(c.base + "/api/v3/contents/generations/tasks", {
@@ -113,7 +129,13 @@
     });
     const id = j && (j.id || j.task_id);
     if (!id) throw D.err("BAD_RESP", "视频任务创建失败：" + JSON.stringify(j).slice(0, 160));
-    return { jobId: id, provider: c.provider };
+    return {
+      jobId: id,
+      provider: c.provider,
+      degraded: (!allowRef && refs.length)
+        ? { reason: "R2V_UNSUPPORTED", model, dropped: dropped.length, asFirstFrame: !!firstFrame && refs.indexOf(firstFrame) >= 0 }
+        : null
+    };
   }
 
   async function klingCreate(c, opts) {

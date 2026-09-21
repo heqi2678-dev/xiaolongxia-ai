@@ -163,6 +163,8 @@
       (over
         ? '<div class="dw-hint" style="color:var(--warn)">超过单段上限 ' + D.takes.MAX_SECONDS + " 秒，请拆分为多镜或缩短时长</div>"
         : '<button class="btn small primary" data-takegen="' + t.id + '">' + (t.videoUrl ? "整段重绘" : "生成本段") + "</button>") +
+      (t.status === "failed" ? '<div class="dw-hint" style="color:var(--red)">' + D.ui.esc(t.error || "生成失败") + "</div>" : "") +
+      (t.status === "done" && t.notice ? '<div class="dw-hint" style="color:var(--warn)">' + D.ui.esc(t.notice) + "</div>" : "") +
       "</div>";
   }
 

@@ -167,16 +167,65 @@ test("视频适配器 seedance 任务创建与轮询", async () => {
 
 test("视频适配器把角色参考图作为 reference_image 送入，首帧图不重复", async () => {
   const { D, sandbox } = createDrama();
-  setAdapter(D, "video", { provider: "seedance", key: "k" });
+  setAdapter(D, "video", { provider: "seedance", key: "k", model: "doubao-seedance-2-0-260128" });
   mockJson(sandbox, { id: "task-ref" });
   await D.adapters.video.create({
-    prompt: "两人对峙", ratio: "9:16", duration: 5, resolution: "720p",
+    prompt: "两人对峙", ratio: "adaptive", duration: 5, resolution: "720p",
     firstFrame: "a1", refImages: ["a1", "b1", "a2"]
   });
   const content = JSON.parse(sandbox.__calls[0].opts.body).content;
   const refs = content.filter(x => x.role === "reference_image").map(x => x.image_url.url);
   assert.deepEqual(refs, ["b1", "a2"], "首帧已用的 a1 不重复送");
   assert.equal(content.filter(x => x.type === "image_url" && !x.role).length, 1);
+});
+
+test("1.0 模型不支持 r2v：参考图降级为首帧，不送 reference_image", async () => {
+  const { D, sandbox } = createDrama();
+  setAdapter(D, "video", { provider: "seedance", key: "k" });
+  mockJson(sandbox, { id: "task-degrade" });
+  const created = await D.adapters.video.create({
+    prompt: "咖啡馆", ratio: "9:16", duration: 10, resolution: "720p",
+    refImages: ["r1", "r2", "r3"]
+  });
+  const content = JSON.parse(sandbox.__calls[0].opts.body).content;
+  assert.equal(content.filter(x => x.role === "reference_image").length, 0, "1.0 不得送 reference_image");
+  const frames = content.filter(x => x.type === "image_url" && !x.role);
+  assert.equal(frames.length, 1);
+  assert.equal(frames[0].image_url.url, "r1", "首张参考图改用首帧驱动");
+  assert.equal(created.degraded.reason, "R2V_UNSUPPORTED");
+  assert.equal(created.degraded.dropped, 2);
+  assert.equal(created.degraded.asFirstFrame, true);
+});
+
+test("2.x 模型正常支持 r2v，无降级标记", async () => {
+  const { D, sandbox } = createDrama();
+  setAdapter(D, "video", { provider: "seedance", key: "k", model: "doubao-seedance-2-5-260628" });
+  mockJson(sandbox, { id: "task-2x" });
+  const created = await D.adapters.video.create({
+    prompt: "咖啡馆", ratio: "9:16", duration: 15, resolution: "720p", refImages: ["r1"]
+  });
+  const content = JSON.parse(sandbox.__calls[0].opts.body).content;
+  assert.equal(content.filter(x => x.role === "reference_image").length, 1);
+  assert.equal(created.degraded, null);
+});
+
+test("整段生成遇 1.0 降级时把提示写到段上", async () => {
+  const { D } = createDrama();
+  D.project.cacheRemote = async (url) => url;
+  D.adapters.video.generate = async () => ({ url: "https://example.com/t.mp4", degraded: { reason: "R2V_UNSUPPORTED", dropped: 2, asFirstFrame: true } });
+  const p = D.project.blank({ title: "t", genre: "comic", engine: "video", shotMode: "take" });
+  p.engine = "video";
+  p.takeTarget = 10;
+  p.shots = [1, 2].map(i => {
+    const s = D.project.newShot(i);
+    s.duration = 5;
+    return s;
+  });
+  D.project.renumber(p);
+  D.takes.sync(p);
+  await D.engine.generateTake(p, p.takes[0].id, {});
+  assert.match(p.takes[0].notice, /不支持角色参考图/);
+  assert.match(p.takes[0].notice, /首帧/);
 });
 
 test("自定义口型适配器创建与轮询状态映射", async () => {
