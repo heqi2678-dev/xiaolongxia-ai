@@ -9,14 +9,17 @@
   const MIN_K = 0.35;
   const MAX_K = 2.2;
 
+  const REDRAW_HIRES = ["redraw", "hires"];
   const NODE_TYPES = {
-    script: { label: "脚本", accent: "#f5a524", out: "text", in: [], multi: false, hint: "粘贴剧本，解析分镜自动铺图" },
-    text:   { label: "文本", accent: "#7c8598", out: "text", in: [], multi: false, hint: "写提示词或台词" },
-    image:  { label: "图片", accent: "#5b8def", out: "image", in: ["text", "image"], multi: false, hint: "文生图 / 图生图" },
-    video:  { label: "视频", accent: "#2fbf71", out: "video", in: ["image", "text", "audio"], multi: true, hint: "首帧 + 提示词生视频" },
-    audio:  { label: "音频", accent: "#c06be0", out: "audio", in: ["text"], multi: false, hint: "文本转语音" }
+    script: { label: "脚本", accent: "#f5a524", out: "text", in: [], multi: false, actions: [], hint: "粘贴剧本，解析分镜自动铺图" },
+    text:   { label: "文本", accent: "#7c8598", out: "text", in: [], multi: false, actions: [], hint: "写提示词或台词" },
+    image:  { label: "图片", accent: "#5b8def", out: "image", in: ["text", "image"], multi: false, actions: REDRAW_HIRES.slice(), hint: "文生图 / 图生图" },
+    video:  { label: "视频", accent: "#2fbf71", out: "video", in: ["image", "text", "audio"], multi: true, actions: REDRAW_HIRES.slice(), hint: "首帧 + 提示词生视频" },
+    audio:  { label: "音频", accent: "#c06be0", out: "audio", in: ["text"], multi: false, actions: REDRAW_HIRES.slice(), hint: "文本转语音" },
+    lipsync:{ label: "口型", accent: "#e0713a", out: "video", in: ["video", "audio"], multi: true, actions: REDRAW_HIRES.slice(), hint: "视频人像 + 音频对口型" },
+    asset:  { label: "资产", accent: "#4bb3bd", out: "image", in: [], multi: false, actions: [], hint: "引用造型 / 场景等资产作为参考" }
   };
-  const TYPE_ORDER = ["script", "text", "image", "video", "audio"];
+  const TYPE_ORDER = ["script", "text", "image", "video", "audio", "lipsync", "asset"];
   const OUT_NAME = { text: "文本", image: "图片", video: "视频", audio: "音频" };
   const RATIOS = ["9:16", "16:9", "1:1", "3:4", "4:3"];
   const STATUS_TEXT = { idle: "待生成", running: "生成中", done: "已完成", failed: "失败" };
@@ -390,9 +393,10 @@
     opts = opts || {};
     const n = nodeById(p, nid);
     if (!n) throw D.err("NO_NODE", "找不到节点");
-    if (n.type === "text" || n.type === "script") return n;
+    if (n.type === "text" || n.type === "script" || n.type === "asset") return n;
     if (n.status === "running") return n;
     const onStep = opts.onStep || function () {};
+    const hires = opts.action === "hires";
     n.status = "running";
     n.error = "";
     try {
@@ -400,12 +404,13 @@
         if (!D.isConfigured("image")) throw D.err("NO_KEY", "尚未配置生图服务，请到「设置 → 短剧服务」填写");
         const prompt = buildPrompt(p, nid);
         if (!prompt) throw D.err("NO_PROMPT", "图片节点还没有提示词");
-        onStep("生图");
+        onStep(hires ? "高清重绘" : "生图");
         const r = await D.adapters.image.generate({
           prompt,
           ratio: n.data.ratio || (p.output && p.output.ratio) || "9:16",
           refImages: refImagesFrom(p, nid, 1),
-          model: p.imageModel
+          model: p.imageModel,
+          hires
         });
         n.out = await cacheUrl(r.url, "imageUrl");
       } else if (n.type === "video") {
@@ -413,14 +418,14 @@
         const prompt = buildPrompt(p, nid);
         const firstFrame = firstFrameFrom(p, nid);
         if (!prompt && !firstFrame) throw D.err("NO_PROMPT", "视频节点需要提示词或上游首帧");
-        onStep("生视频");
+        onStep(hires ? "高清重绘" : "生视频");
         const r = await D.adapters.video.generate({
           prompt,
           firstFrame,
           refImages: refImagesFrom(p, nid, 3),
           ratio: n.data.ratio || (p.output && p.output.ratio) || "9:16",
           duration: num(n.data.duration, 5) || 5,
-          resolution: (p.output && p.output.resolution) === "1080p" ? "1080p" : "720p",
+          resolution: hires ? "1080p" : ((p.output && p.output.resolution) === "1080p" ? "1080p" : "720p"),
           model: p.videoModel
         }, opts.onProgress, opts.signal);
         n.out = await cacheUrl(r.url, "videoUrl");
@@ -432,6 +437,15 @@
         const r = await D.adapters.tts.synth({ text, voice: n.data.voice || "", speed: num(n.data.speed, 1) || 1 });
         n.out = await cacheUrl(r.url, "audioUrl");
         n.data.duration = (r && r.duration) || 0;
+      } else if (n.type === "lipsync") {
+        if (!D.isConfigured("lipsync")) throw D.err("NO_KEY", "尚未配置口型服务，请到「设置 → 短剧服务」填写");
+        const vid = incoming(p, nid, "video")[0];
+        const aud = incoming(p, nid, "audio")[0];
+        if (!vid || !vid.out) throw D.err("NO_INPUT", "口型节点需要上游视频人像");
+        if (!aud || !aud.out) throw D.err("NO_INPUT", "口型节点需要上游人声");
+        onStep("对口型");
+        const r = await D.adapters.lipsync.generate({ videoUrl: vid.out, audioUrl: aud.out, imageUrl: "" }, opts.onProgress, opts.signal);
+        n.out = await cacheUrl(r.url, "videoUrl");
       }
       n.status = "done";
       return n;
@@ -440,6 +454,15 @@
       n.error = (e && e.message) || "生成失败";
       throw e;
     }
+  }
+
+  /* 节点动作：redraw 重新生成，hires 走高清链路。失败时 runNode 回写 failed/error，保留既有素材。 */
+  async function actionNode(p, nid, action) {
+    const n = nodeById(p, nid);
+    if (!n) throw D.err("NO_NODE", "找不到节点");
+    const t = typeOf(n.type);
+    if (!t || t.actions.indexOf(action) < 0) throw D.err("BAD_ACTION", "该节点不支持该动作");
+    return runNode(p, nid, { action });
   }
 
   /* ============ 渲染 ============ */
@@ -541,14 +564,26 @@
       h += preview(n);
       return h;
     }
+    if (n.type === "lipsync") {
+      h += '<div class="cv-ph">上游：视频人像 + 人声，生成对口型视频</div>';
+      h += '<div class="cv-row"><button class="btn small primary" data-act="run" data-nid="' + n.id + '"' + (n.status === "running" ? " disabled" : "") + ">" + (n.status === "running" ? "生成中" : "生成") + "</button></div>";
+      h += preview(n);
+      return h;
+    }
+    if (n.type === "asset") {
+      h += '<input class="inp" data-f="ref" data-nid="' + n.id + '" placeholder="资产地址" value="' + esc(n.data.ref || "") + '">';
+      h += '<div class="cv-row"><button class="btn small" data-act="bind" data-nid="' + n.id + '">引用资产</button></div>';
+      h += preview(n);
+      return h;
+    }
     return h;
   }
 
   function preview(n) {
     let h = '<div class="cv-out">';
     if (!n.out) h += '<span class="cv-ph">' + (n.status === "running" ? "生成中…" : "尚未生成") + "</span>";
-    else if (n.type === "image") h += '<img src="' + esc(n.out) + '" alt="">';
-    else if (n.type === "video") h += '<video src="' + esc(n.out) + '" controls></video>';
+    else if (n.type === "image" || n.type === "asset") h += '<img src="' + esc(n.out) + '" alt="">';
+    else if (n.type === "video" || n.type === "lipsync") h += '<video src="' + esc(n.out) + '" controls></video>';
     else if (n.type === "audio") h += '<audio src="' + esc(n.out) + '" controls></audio>';
     h += "</div>";
     if (n.error) h += '<div class="cv-err">' + esc(n.error) + "</div>";
@@ -780,6 +815,7 @@
       if (act === "del") b.onclick = e => { e.stopPropagation(); removeNode(ctx.p, nid); refresh(ctx, true); };
       else if (act === "explode") b.onclick = e => { e.stopPropagation(); doExplode(ctx, nid); };
       else if (act === "run") b.onclick = e => { e.stopPropagation(); doRun(ctx, nid); };
+      else if (act === "bind") b.onclick = e => { e.stopPropagation(); doBind(ctx, nid); };
     });
 
     ctx.nodesEl.querySelectorAll("[data-f]").forEach(el => {
@@ -826,6 +862,17 @@
     } catch (e) {
       toast((e && e.message) || "生成失败", "err");
     }
+    refresh(ctx, true);
+  }
+
+  function doBind(ctx, nid) {
+    const n = nodeById(ctx.p, nid);
+    if (!n) return;
+    const ref = String(n.data.ref || "").trim();
+    if (!ref) { toast("请先填写资产地址", "warn"); return; }
+    n.out = ref;
+    n.status = "done";
+    n.error = "";
     refresh(ctx, true);
   }
 
@@ -982,6 +1029,6 @@
     addCanvas, removeCanvas, renameCanvas, setActiveCanvas,
     accepts, addEdge, disconnect, upstream, downstream, incoming, topoOrder,
     buildPrompt, firstFrameFrom, refImagesFrom, splitScript, explodeScript, autoLayout,
-    serialize, parse, runNode, mount
+    serialize, parse, runNode, actionNode, mount
   };
 })();

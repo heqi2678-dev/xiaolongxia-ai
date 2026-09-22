@@ -107,7 +107,7 @@ graph TD
 
 | type | label | in | out | multi |
 |---|---|---|---|---|
-| lipsync | 口型 | `["video","audio"]` | `video` | false |
+| lipsync | 口型 | `["video","audio"]` | `video` | true |
 | asset | 资产 | `[]` | `image` | false |
 
 节点动作：`NODE_TYPES[t].actions` 声明该类型可用动作，至少含 `redraw`（重绘）与 `hires`（高清）；工作台按动作渲染「尝试」区。

@@ -13,14 +13,21 @@ function ready() {
   return { D, sandbox, p };
 }
 
-test("节点画布：五类节点与端口方向", () => {
+test("节点画布：七类节点与端口方向", () => {
   const { D } = createDrama();
-  assert.deepEqual(D.canvas.TYPE_ORDER, ["script", "text", "image", "video", "audio"]);
-  assert.deepEqual(Object.keys(D.canvas.NODE_TYPES).sort(), ["audio", "image", "script", "text", "video"]);
+  assert.deepEqual(D.canvas.TYPE_ORDER, ["script", "text", "image", "video", "audio", "lipsync", "asset"]);
+  assert.deepEqual(Object.keys(D.canvas.NODE_TYPES).sort(), ["asset", "audio", "image", "lipsync", "script", "text", "video"]);
   assert.equal(D.canvas.NODE_TYPES.script.out, "text");
   assert.equal(D.canvas.NODE_TYPES.image.out, "image");
   assert.equal(D.canvas.NODE_TYPES.video.out, "video");
   assert.deepEqual(D.canvas.NODE_TYPES.audio.in, ["text"]);
+  assert.deepEqual(D.canvas.NODE_TYPES.lipsync.in, ["video", "audio"]);
+  assert.equal(D.canvas.NODE_TYPES.lipsync.out, "video");
+  assert.deepEqual(D.canvas.NODE_TYPES.asset.in, []);
+  assert.equal(D.canvas.NODE_TYPES.asset.out, "image");
+  assert.deepEqual(D.canvas.NODE_TYPES.image.actions, ["redraw", "hires"]);
+  assert.deepEqual(D.canvas.NODE_TYPES.audio.actions, ["redraw", "hires"]);
+  assert.deepEqual(D.canvas.NODE_TYPES.text.actions, []);
 });
 
 test("工程默认带多画布，迁移补全", () => {

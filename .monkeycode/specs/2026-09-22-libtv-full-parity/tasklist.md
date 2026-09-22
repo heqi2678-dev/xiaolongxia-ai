@@ -30,23 +30,26 @@
   - 运行 `node --test tests/*.test.js`，确保所有测试通过,如有疑问请询问用户
   - 结果：单测 126/126 通过；`tests/adapters-http.test.js` 需 `NODE_PATH="$(npm root -g)"`，按约定命令运行 12/12 通过
 
-- [ ] 3. 画布节点类型与节点动作扩展
+- [x] 3. 画布节点类型与节点动作扩展
    - 在 `NODE_TYPES` 增加节点类型与动作声明
    - 对应需求 8.4、需求 8.5、需求 10
 
-  - [ ] 3.1 在 `src/drama/canvas.js` 追加节点类型
+  - [x] 3.1 在 `src/drama/canvas.js` 追加节点类型
      - 新增 `lipsync`（口型，in `["video","audio"]`，out `video`）与 `asset`（资产，out `image`）
      - 为各类型补 `actions` 声明，至少含 `redraw` 与 `hires`
      - 参考设计「Components and Interfaces · 4. canvas.js」节点类型表
 
-  - [ ] 3.2 接线节点动作执行
+  - [x] 3.2 接线节点动作执行
      - `redraw` 复用既有图片/视频生成链路，`hires` 走高清处理链路
      - 失败时写回 `node.status="failed"` 与 `node.error`，不清空既有素材
      - 参考需求 10.3、设计「Error Handling」
+     - 落地：`NODE_TYPES[t].actions` + `actionNode(p,nid,action)`；`hires` 经 `adapters.js` 的 `hiresRatio/hiresSize` 放大尺寸（上限 4096），视频强制 1080p；新增 `lipsync` 生成分支与 `asset` 节点（`bind` 引用资产）
+     - 偏差：设计表 `lipsync.multi` 由 false 改为 true（口型需同时接视频与人声两个入边），已同步 design.md
 
   - [ ]* 3.3 扩展画布单元测试
      - 在 `tests/canvas.test.js` 覆盖新节点类型连线规则与动作声明
      - 校验设计属性 4（连线合法）
+     - 说明：本轮按用户要求只执行开发任务；`tests/canvas.test.js` 已同步七类节点与动作声明断言并通过
 
 - [ ] 4. LibTV 外壳与路由
    - 重建左侧导航、顶部状态条与视图路由

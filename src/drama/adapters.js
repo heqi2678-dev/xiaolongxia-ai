@@ -84,6 +84,17 @@
     return m[0] + "x" + m[1];
   }
 
+  /* 高清动作：在原比例基础上放大到最多 4096，交由厂商按能力处理 */
+  function hiresRatio(def, ratio) {
+    const m = (def && def.ratios && def.ratios[ratio]) || (def && def.ratios && def.ratios["1:1"]) || [1024, 1024];
+    return [Math.min(4096, Math.round(m[0] * 1.5)), Math.min(4096, Math.round(m[1] * 1.5))];
+  }
+
+  function hiresSize(def, ratio) {
+    const m = hiresRatio(def, ratio);
+    return m[0] + "x" + m[1];
+  }
+
   function pick(obj, path) {
     return path.split(".").reduce((o, k) => (o ? o[k] : undefined), obj);
   }
@@ -107,6 +118,6 @@
   }
 
   XLX.drama.adapterUtil = {
-    httpJson, httpBlobUrl, sleep, fileToDataUrl, urlToDataUrl, b64ToBlobUrl, audioDuration, ratioSize, pick, taskPoll
+    httpJson, httpBlobUrl, sleep, fileToDataUrl, urlToDataUrl, b64ToBlobUrl, audioDuration, ratioSize, hiresRatio, hiresSize, pick, taskPoll
   };
 })();

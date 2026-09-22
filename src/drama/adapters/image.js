@@ -17,7 +17,7 @@
   };
 
   function pollinations(c, opts) {
-    const size = c.def.ratios[opts.ratio] || c.def.ratios["1:1"];
+    const size = opts.hires ? U.hiresRatio(c.def, opts.ratio) : (c.def.ratios[opts.ratio] || c.def.ratios["1:1"]);
     const seed = Math.floor(Math.random() * 1e9);
     const url = c.base + "/prompt/" + encodeURIComponent(opts.prompt) +
       "?width=" + size[0] + "&height=" + size[1] + "&seed=" + seed + "&nologo=true";
@@ -28,7 +28,7 @@
     const body = {
       model: c.model,
       prompt: opts.prompt,
-      size: U.ratioSize(c.def, opts.ratio),
+      size: opts.hires ? U.hiresSize(c.def, opts.ratio) : U.ratioSize(c.def, opts.ratio),
       response_format: "url",
       watermark: false
     };
@@ -42,7 +42,7 @@
   }
 
   async function wanx(c, opts, ref) {
-    const size = c.def.ratios[opts.ratio] || [1024, 1024];
+    const size = (opts.hires ? U.hiresRatio(c.def, opts.ratio) : c.def.ratios[opts.ratio]) || [1024, 1024];
     const input = { prompt: opts.prompt };
     if (ref.length) input.ref_images = ref.slice(0, 3);
     const j = await U.httpJson(c.base + "/api/v1/services/aigc/text2image/image-synthesis", {
@@ -78,7 +78,7 @@
     const body = {
       model: c.model,
       prompt: opts.prompt,
-      size: U.ratioSize(c.def, opts.ratio),
+      size: opts.hires ? U.hiresSize(c.def, opts.ratio) : U.ratioSize(c.def, opts.ratio),
       response_format: "url",
       n: 1
     };
