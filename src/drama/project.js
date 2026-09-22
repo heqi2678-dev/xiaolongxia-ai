@@ -136,6 +136,30 @@
 
   const ASSET_FIELDS = ["imageUrl", "videoUrl", "audioUrl", "lipsyncUrl"];
 
+  /* 3D-BOX 的成图/成片同样落资源仓：网格/角度是列表，运镜/灯光/编辑是单值 */
+  const BOX3D_LISTS = ["grid", "angle"];
+  const BOX3D_ONE = ["move", "light", "edit"];
+
+  async function persistBox3d(s) {
+    const b = s && s.box3d;
+    if (!b) return;
+    for (const key of BOX3D_LISTS) {
+      if (!Array.isArray(b[key])) continue;
+      for (const c of b[key]) if (c && c.url) c.url = await toRef(c.url, { role: "box3d" });
+    }
+    for (const key of BOX3D_ONE) if (b[key] && b[key].url) b[key].url = await toRef(b[key].url, { role: "box3d" });
+  }
+
+  async function hydrateBox3d(s) {
+    const b = s && s.box3d;
+    if (!b) return;
+    for (const key of BOX3D_LISTS) {
+      if (!Array.isArray(b[key])) continue;
+      for (const c of b[key]) if (c && c.url) c.url = await hydrateRef(c.url);
+    }
+    for (const key of BOX3D_ONE) if (b[key] && b[key].url) b[key].url = await hydrateRef(b[key].url);
+  }
+
   async function persistAssets(p) {
     p.characters = p.characters || [];
     for (const c of p.characters) {
@@ -149,6 +173,7 @@
       for (const f of ASSET_FIELDS) if (s[f]) s[f] = await toRef(s[f], { role: f });
       if (s.firstFrame) s.firstFrame = await toRef(s.firstFrame, { role: "firstFrame" });
       if (Array.isArray(s.extraRefs)) s.extraRefs = await Promise.all(s.extraRefs.map(u => toRef(u, { role: "ref" })));
+      await persistBox3d(s);
     }
     p.takes = p.takes || [];
     for (const t of p.takes) if (t.videoUrl) t.videoUrl = await toRef(t.videoUrl, { role: "takeVideo" });
@@ -169,6 +194,7 @@
       for (const f of ASSET_FIELDS) if (s[f]) s[f] = await hydrateRef(s[f]);
       if (s.firstFrame) s.firstFrame = await hydrateRef(s.firstFrame);
       if (Array.isArray(s.extraRefs)) s.extraRefs = (await Promise.all(s.extraRefs.map(u => hydrateRef(u)))).filter(Boolean);
+      await hydrateBox3d(s);
     }
     p.takes = p.takes || [];
     for (const t of p.takes) if (t.videoUrl) t.videoUrl = await hydrateRef(t.videoUrl);
@@ -187,7 +213,19 @@
       prompt: "", line: "", roleIds: [], extraRefs: [], duration: 5, motion: "zoom-in",
       imageUrl: "", videoUrl: "", audioUrl: "", lipsyncUrl: "",
       firstFrame: "", status: "pending", error: "", audioDuration: 0,
-      trimIn: 0, trimOut: 0
+      trimIn: 0, trimOut: 0,
+      box3d: emptyBox3d()
+    };
+  }
+
+  /* 3D-BOX 导演工具记录：机位/灯光/角度共用一个取景结果结构 */
+  function emptyBox3d() {
+    return {
+      grid: [], angle: [],
+      move: { id: "", name: "", url: "" },
+      light: { id: "", name: "", url: "" },
+      edit: { instruction: "", url: "" },
+      updatedAt: 0
     };
   }
 
@@ -426,6 +464,8 @@
       if (typeof s.status !== "string") s.status = "pending";
       if (typeof s.error !== "string") s.error = "";
       if (typeof s.audioDuration !== "number") s.audioDuration = 0;
+      if (!s.box3d || typeof s.box3d !== "object") s.box3d = emptyBox3d();
+      if (D.box3d && D.box3d.ensure) D.box3d.ensure(s);
     });
     if (!p.shots.length) p.shots = [newShot(1)];
     renumber(p);

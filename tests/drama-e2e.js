@@ -13,7 +13,7 @@ const DRAMA_FILES = [
   "takes.js",
   "engine.js", "compliance.js", "compose.js", "ui.js",
   "templates.js", "models.js", "timeline.js", "home.js", "guide.js",
-  "manual.js", "auto.js", "makeup.js", "canvas.js"
+  "manual.js", "auto.js", "makeup.js", "canvas.js", "box3d.js"
 ];
 
 let pass = 0;
@@ -581,6 +581,64 @@ async function flowEdge(env) {
   ok(Object.keys(D.guide.tutorials).length === 4, "教程共 4 篇，实际 " + Object.keys(D.guide.tutorials).length);
 }
 
+/* ============================ 链路七：3D-BOX 导演工具 ============================ */
+async function flowBox3d(env) {
+  const { doc, D, state } = env;
+  console.log("\n链路七：3D-BOX（统一取景接口 + 多机位/灯光/运镜/精准编辑）");
+  D.setAdapterConfig("image", { provider: "custom-image", base: "https://img.test", key: "k" });
+  D.setAdapterConfig("video", { provider: "seedance", base: "https://ark.test", key: "k", model: "seedance-2.5" });
+
+  await click(doc, "#dwNew");
+  await D.manual.render(); await settle();
+  await setField(doc, '[data-if="prompt"]', "赛场逆光，少年举拳", 3);
+
+  await click(doc, "#dwMode3D", 6);
+  ok(!!q(doc, "#dwBoxPanel .bx-wrap"), "3D-BOX 面板已渲染");
+  eq(doc.querySelectorAll("#dwBoxPanel [data-bx-tab]").length, 5, "五个导演工具 tab");
+  has(q(doc, "#dwBoxPanel").innerHTML, "多机位 9 宫格", "默认展示 9 宫格工具");
+
+  await click(doc, '#dwBoxPanel [data-bx-run="grid"]', 40);
+  await wait(200);
+  const p1 = D.manual.state.project;
+  eq(p1.shots[0].box3d.grid.length, 9, "9 宫格已落库");
+  ok(p1.shots[0].box3d.grid.every(c => /^asset:/.test(c.url)), "9 格全部转存本地");
+  ok(!!q(doc, "#dwBoxPanel .bx-grid .bx-cell img"), "网格渲染出图片");
+
+  await click(doc, '#dwBoxPanel [data-bx-tab="light"]', 4);
+  await setField(doc, "#bxLightSel", "neon", 3);
+  await click(doc, '#dwBoxPanel [data-bx-run="light"]', 30);
+  await wait(200);
+  const p2 = D.manual.state.project;
+  eq(p2.shots[0].box3d.light.id, "neon", "灯光方案已记录");
+  ok(/^asset:/.test(p2.shots[0].box3d.light.url), "灯光画面已落库");
+
+  await click(doc, '#dwBoxPanel [data-bx-tab="move"]', 4);
+  await setField(doc, "#bxMoveSel", "orbit", 3);
+  await click(doc, '#dwBoxPanel [data-bx-run="move"]', 30);
+  await wait(200);
+  const p3 = D.manual.state.project;
+  eq(p3.shots[0].box3d.move.id, "orbit", "运镜方案已记录");
+  ok(/^asset:r/.test(p3.shots[0].box3d.move.url), "运镜视频已落库");
+
+  await click(doc, '#dwBoxPanel [data-bx-tab="edit"]', 4);
+  await setInput(doc, "#bxEditText", "把外套换成红色", 3);
+  state.toasts.length = 0;
+  D.manual.state.project.shots[0].box3d.move.url = "";
+  D.manual.state.project.shots[0].videoUrl = "";
+  await click(doc, '#dwBoxPanel [data-bx-run="edit"]', 8);
+  ok(/视频素材/.test(toastsText(state)), "无素材时精准编辑给出提示");
+
+  D.manual.state.project.shots[0].videoUrl = "https://cdn.test/vid/base.mp4";
+  await D.project.save(D.manual.state.project);
+  await click(doc, '#dwBoxPanel [data-bx-run="edit"]', 30);
+  await wait(200);
+  const p4 = D.project.get(D.manual.state.project.id).shots[0];
+  ok(/^asset:r/.test(p4.box3d.edit.url), "精准编辑结果已落库");
+
+  await click(doc, "#dwModeBoard", 4);
+  ok(q(doc, "#dwConsole").style.display !== "none", "切回故事板显示三区");
+}
+
 /* ============================ 主流程 ============================ */
 async function main() {
   const env = boot();
@@ -590,6 +648,7 @@ async function main() {
     await flowManualRealistic(env);
     await flowProjectLifecycle(env);
     await flowHome(env);
+    await flowBox3d(env);
     await flowAuto(env);
     await flowEdge(env);
   } catch (e) {

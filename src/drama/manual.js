@@ -5,7 +5,7 @@
   const U = XLX.util;
   const FPS = 30;
 
-  const state = { pid: "", project: null, busy: false, lastComposed: null, cur: "", time: 0, playing: false, mode: "board" };
+  const state = { pid: "", project: null, busy: false, lastComposed: null, cur: "", time: 0, playing: false, mode: "board", boxView: null };
 
   let rafId = null;
   let lastTs = 0;
@@ -96,10 +96,12 @@
         '<button class="btn small ghost" id="dwMakeupBtn">造型室</button>' +
         '<button class="btn small ghost" id="dwModeBoard">故事板</button>' +
         '<button class="btn small ghost" id="dwModeNode">节点画布</button>' +
+        '<button class="btn small ghost" id="dwMode3D">3D-BOX</button>' +
         '<button class="btn small ghost" id="dwPanelRail">分镜</button>' +
         '<button class="btn small ghost" id="dwPanelInsp">属性</button>' +
       "</div>" +
       '<div id="dwCanvasPanel" style="display:none"></div>' +
+      '<div id="dwBoxPanel" style="display:none"></div>' +
       '<div class="dw-console" id="dwConsole">' +
         '<div class="dw-rail" id="dwRail"></div>' +
         '<div class="dw-stage" id="dwStage"></div>' +
@@ -128,23 +130,35 @@
     applyMode();
   }
 
-  /* 故事板 / 节点画布（LibTV 双视图）切换 */
+  /* 故事板 / 节点画布 / 3D-BOX（LibTV 多视图）切换 */
   function applyMode() {
     const v = view();
     if (!v) return;
-    const node = state.mode === "node";
+    const mode = state.mode === "node" ? "node" : (state.mode === "box" ? "box" : "board");
+    const board = mode === "board";
+    const node = mode === "node";
+    const box = mode === "box";
     const consoleEl = v.querySelector("#dwConsole");
     const tl = v.querySelector("#dwTimeline");
     const panel = v.querySelector("#dwCanvasPanel");
+    const boxPanel = v.querySelector("#dwBoxPanel");
     const b = v.querySelector("#dwModeBoard");
     const nb = v.querySelector("#dwModeNode");
-    if (consoleEl) consoleEl.style.display = node ? "none" : "";
-    if (tl) tl.style.display = node ? "none" : "";
+    const bb = v.querySelector("#dwMode3D");
+    if (consoleEl) consoleEl.style.display = board ? "" : "none";
+    if (tl) tl.style.display = board ? "" : "none";
     if (panel) panel.style.display = node ? "" : "none";
-    if (b) b.className = "btn small " + (node ? "ghost" : "primary");
+    if (boxPanel) boxPanel.style.display = box ? "" : "none";
+    if (b) b.className = "btn small " + (board ? "primary" : "ghost");
     if (nb) nb.className = "btn small " + (node ? "primary" : "ghost");
+    if (bb) bb.className = "btn small " + (box ? "primary" : "ghost");
     if (node && panel && D.canvas && D.canvas.mount) {
       D.canvas.mount(panel, state.project, { onChange: () => saveSoon(400) });
+    }
+    if (box && boxPanel && D.box3d && D.box3d.mount) {
+      state.boxView = D.box3d.mount(boxPanel, state.project, { shotId: state.cur, onChange: () => saveSoon(400) });
+    } else {
+      state.boxView = null;
     }
   }
 
@@ -403,6 +417,7 @@
     paintInspector();
     paintTimelineActive();
     paintPlayhead();
+    if (state.mode === "box" && state.boxView) state.boxView.setShot(state.cur);
     if (keep) {
       const v = stageVideo();
       if (v) {
@@ -1125,6 +1140,7 @@
     v.querySelector("#dwMakeupBtn").onclick = async () => { await save(); if (D.makeup && D.makeup.load) await D.makeup.load(state.pid); if (XLX.app) XLX.app.go("makeup"); };
     v.querySelector("#dwModeBoard").onclick = () => { if (state.mode !== "board") { state.mode = "board"; render(); } };
     v.querySelector("#dwModeNode").onclick = () => { if (state.mode !== "node") { state.mode = "node"; render(); } };
+    v.querySelector("#dwMode3D").onclick = () => { if (state.mode !== "box") { state.mode = "box"; render(); } };
 
     /* 窄屏抽屉：分镜 / 属性 */
     const con = v.querySelector("#dwConsole");
