@@ -23,15 +23,19 @@ test("节点画布：五类节点与端口方向", () => {
   assert.deepEqual(D.canvas.NODE_TYPES.audio.in, ["text"]);
 });
 
-test("工程默认带空画布，迁移补全", () => {
+test("工程默认带多画布，迁移补全", () => {
   const { D } = createDrama();
   const p = D.project.blank({});
-  assert.ok(p.canvas && Array.isArray(p.canvas.nodes) && Array.isArray(p.canvas.edges));
-  delete p.canvas;
+  assert.ok(Array.isArray(p.canvases) && p.canvases.length === 1);
+  assert.ok(p.canvases[0] && Array.isArray(p.canvases[0].nodes) && Array.isArray(p.canvases[0].edges));
+  assert.equal(p.activeCanvasId, p.canvases[0].id);
+  delete p.canvases;
+  delete p.activeCanvasId;
   D.project.migrate(p);
-  assert.ok(p.canvas && Array.isArray(p.canvas.nodes));
-  assert.equal(p.canvas.nodes.length, 0);
-  assert.equal(p.canvas.view.k, 1);
+  const c = D.canvas.ensure(p);
+  assert.ok(Array.isArray(c.nodes));
+  assert.equal(c.nodes.length, 0);
+  assert.equal(c.view.k, 1);
 });
 
 test("增删移节点与字段写入", () => {
@@ -100,7 +104,7 @@ test("解析分镜：按空行/换行切分并自动铺图片节点", () => {
   const sc = D.canvas.addNode(p, "script", 0, 0, { text: "第一镜\n\n第二镜\n\n第三镜" });
   const made = D.canvas.explodeScript(p, sc.id);
   assert.equal(made.length, 3);
-  assert.equal(p.canvas.edges.filter(e => e.from === sc.id).length, 3);
+  assert.equal(D.canvas.activeCanvas(p).edges.filter(e => e.from === sc.id).length, 3);
   assert.equal(D.canvas.downstream(p, sc.id).length, 3);
   assert.throws(() => D.canvas.explodeScript(p, made[0].id), /只有脚本\/文本节点/);
   const empty = D.canvas.addNode(p, "script", 0, 900, { text: "" });
@@ -131,12 +135,12 @@ test("工作流 JSON 序列化/解析：保留类型与连线，不导出成图�
 
   const p2 = D.project.blank({});
   D.canvas.parse(p2, JSON.stringify(json));
-  D.canvas.ensure(p2);
-  assert.equal(p2.canvas.nodes.length, 2);
-  assert.equal(p2.canvas.edges.length, 1);
-  const types = p2.canvas.nodes.map(n => n.type).sort();
+  const c2 = D.canvas.activeCanvas(p2);
+  assert.equal(c2.nodes.length, 2);
+  assert.equal(c2.edges.length, 1);
+  const types = c2.nodes.map(n => n.type).sort();
   assert.deepEqual(types, ["image", "text"]);
-  const img2 = p2.canvas.nodes.find(n => n.type === "image");
+  const img2 = c2.nodes.find(n => n.type === "image");
   assert.equal(img2.out, "", "成图不在 JSON 里，导入后为空");
 });
 
@@ -177,5 +181,5 @@ test("挂载画布返回句柄且不报错", () => {
   const el = sandbox.document.createElement("div");
   const handle = D.canvas.mount(el, p, { onChange: () => {} });
   assert.ok(handle && typeof handle.refresh === "function");
-  assert.ok(p.canvas);
+  assert.ok(D.canvas.activeCanvas(p));
 });

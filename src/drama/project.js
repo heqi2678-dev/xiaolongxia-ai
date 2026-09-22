@@ -261,6 +261,7 @@
   function blank(opts) {
     opts = opts || {};
     const genre = opts.genre || "comic";
+    const canvasId = id("cv");
     const proj = {
       id: id(),
       title: opts.title || "未命名短剧",
@@ -280,7 +281,8 @@
       shotMode: opts.shotMode === "take" ? "take" : "shot",
       takeTarget: 15,
       takes: [],
-      canvas: { v: 1, nodes: [], edges: [], view: { x: 0, y: 0, k: 1 }, updatedAt: Date.now() },
+      canvases: [{ id: canvasId, name: "画布 1", v: 1, nodes: [], edges: [], view: { x: 0, y: 0, k: 1 }, updatedAt: Date.now() }],
+      activeCanvasId: canvasId,
       templateId: opts.templateId || "",
       thumb: "",
       createdAt: Date.now(),
@@ -392,6 +394,30 @@
 
   /* 补齐旧工程缺失字段。幂等纯函数，保留未知字段。 */
   const URL_FIELDS = ["imageUrl", "videoUrl", "audioUrl", "lipsyncUrl", "firstFrame"];
+
+  /* 旧故事板分镜 → 画布节点（D5）。仅当画布为空且分镜有待生成内容时执行一次，随后置位保证幂等。 */
+  function shotsToCanvas(p) {
+    if (p.canvasMigrated) return;
+    if (!D.canvas || !D.canvas.addNode || !D.canvas.ensure) return;
+    const c = D.canvas.ensure(p);
+    if (!c || c.nodes.length) { p.canvasMigrated = true; return; }
+    const shots = (p.shots || []).filter(s => s && (s.prompt || s.line || s.imageUrl || s.videoUrl || s.lipsyncUrl));
+    if (!shots.length) { p.canvasMigrated = true; return; }
+    const COL = 380, ROW = 300;
+    shots.forEach((s, i) => {
+      const x0 = (i % 3) * COL, y0 = Math.floor(i / 3) * ROW;
+      const txt = (s.prompt || "") + (s.line ? (s.prompt ? "\n" : "") + s.line : "");
+      const t = D.canvas.addNode(p, "text", x0, y0, { text: txt });
+      const img = D.canvas.addNode(p, "image", x0 + 160, y0, { prompt: s.prompt || s.line || "" });
+      D.canvas.addEdge(p, t.id, img.id);
+      if (s.videoUrl || s.lipsyncUrl) {
+        const v = D.canvas.addNode(p, "video", x0 + 320, y0, { prompt: s.prompt || "" });
+        D.canvas.addEdge(p, img.id, v.id);
+      }
+    });
+    p.canvasMigrated = true;
+  }
+
   function migrate(p) {
     if (!p || typeof p !== "object") return p;
     p.title = p.title || "未命名短剧";
@@ -473,8 +499,8 @@
     if (!Array.isArray(p.takes)) p.takes = [];
     D.takes.sync(p);
 
-    if (!p.canvas || typeof p.canvas !== "object") p.canvas = { v: 1, nodes: [], edges: [], view: { x: 0, y: 0, k: 1 }, updatedAt: Date.now() };
     if (D.canvas && D.canvas.ensure) D.canvas.ensure(p);
+    shotsToCanvas(p);
 
     if (typeof p.createdAt !== "number") p.createdAt = Date.now();
     if (typeof p.updatedAt !== "number") p.updatedAt = p.createdAt;

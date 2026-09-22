@@ -26,23 +26,24 @@
   function isType(t) { return !!NODE_TYPES[t]; }
   function num(v, dflt) { const x = Number(v); return isFinite(x) ? x : (dflt || 0); }
 
-  function blank() {
-    return { v: 1, nodes: [], edges: [], view: { x: 0, y: 0, k: 1 }, updatedAt: Date.now() };
+  function blankCanvas(name, cid) {
+    return { id: cid || id("cv"), name: name || "画布 1", v: 1, nodes: [], edges: [], view: { x: 0, y: 0, k: 1 }, updatedAt: Date.now() };
   }
+  function blank() { return blankCanvas("画布 1"); }
 
-  function ensure(p) {
-    if (!p) return null;
-    if (!p.canvas || typeof p.canvas !== "object") p.canvas = blank();
-    const c = p.canvas;
-    if (!Array.isArray(c.nodes)) c.nodes = [];
-    if (!Array.isArray(c.edges)) c.edges = [];
-    if (!c.view || typeof c.view !== "object") c.view = { x: 0, y: 0, k: 1 };
-    const k = num(c.view.k, 1);
-    c.view.k = (k >= MIN_K && k <= MAX_K) ? k : 1;
-    c.view.x = num(c.view.x, 0);
-    c.view.y = num(c.view.y, 0);
-    c.nodes = c.nodes.filter(n => n && isType(n.type));
-    c.nodes.forEach(n => {
+  function normalizeCanvas(c, name) {
+    const cv = (c && typeof c === "object") ? c : blankCanvas(name);
+    if (typeof cv.id !== "string" || !cv.id) cv.id = id("cv");
+    if (typeof cv.name !== "string" || !cv.name) cv.name = name || "画布 1";
+    if (!Array.isArray(cv.nodes)) cv.nodes = [];
+    if (!Array.isArray(cv.edges)) cv.edges = [];
+    if (!cv.view || typeof cv.view !== "object") cv.view = { x: 0, y: 0, k: 1 };
+    const k = num(cv.view.k, 1);
+    cv.view.k = (k >= MIN_K && k <= MAX_K) ? k : 1;
+    cv.view.x = num(cv.view.x, 0);
+    cv.view.y = num(cv.view.y, 0);
+    cv.nodes = cv.nodes.filter(n => n && isType(n.type));
+    cv.nodes.forEach(n => {
       if (!n.id) n.id = id(String(n.type)[0]);
       n.x = Math.round(num(n.x, 0));
       n.y = Math.round(num(n.y, 0));
@@ -54,10 +55,68 @@
       if (typeof n.error !== "string") n.error = "";
     });
     const ids = {};
-    c.nodes.forEach(n => { ids[n.id] = true; });
-    c.edges = c.edges.filter(e => e && e.from && e.to && e.from !== e.to && ids[e.from] && ids[e.to]);
-    c.edges.forEach(e => { if (!e.id) e.id = id("e"); });
-    c.updatedAt = Date.now();
+    cv.nodes.forEach(n => { ids[n.id] = true; });
+    cv.edges = cv.edges.filter(e => e && e.from && e.to && e.from !== e.to && ids[e.from] && ids[e.to]);
+    cv.edges.forEach(e => { if (!e.id) e.id = id("e"); });
+    cv.updatedAt = Date.now();
+    return cv;
+  }
+
+  function ensure(p) {
+    if (!p) return null;
+    if (!Array.isArray(p.canvases) || !p.canvases.length) {
+      const legacy = (p.canvas && typeof p.canvas === "object") ? p.canvas : null;
+      const c = normalizeCanvas(legacy, "画布 1");
+      p.canvases = [c];
+      p.activeCanvasId = c.id;
+      delete p.canvas;
+    }
+    p.canvases.forEach((cv, i) => normalizeCanvas(cv, "画布 " + (i + 1)));
+    if (typeof p.activeCanvasId !== "string" || !p.canvases.some(cv => cv.id === p.activeCanvasId)) {
+      p.activeCanvasId = p.canvases[0].id;
+    }
+    return p.canvases.find(cv => cv.id === p.activeCanvasId);
+  }
+
+  function listCanvases(p) { ensure(p); return p.canvases; }
+  function activeCanvas(p) { return ensure(p); }
+  function canvasById(p, cid) { ensure(p); return p.canvases.find(cv => cv.id === cid) || null; }
+
+  function addCanvas(p, name) {
+    ensure(p);
+    const c = blankCanvas(name || ("画布 " + (p.canvases.length + 1)));
+    p.canvases.push(c);
+    p.activeCanvasId = c.id;
+    return c;
+  }
+
+  function removeCanvas(p, cid) {
+    ensure(p);
+    if (p.canvases.length <= 1) throw D.err("LAST_CANVAS", "至少保留一张画布");
+    const i = p.canvases.findIndex(cv => cv.id === cid);
+    if (i < 0) throw D.err("NO_CANVAS", "画布不存在");
+    p.canvases.splice(i, 1);
+    if (p.activeCanvasId === cid) {
+      const next = p.canvases[Math.max(0, i - 1)] || p.canvases[0];
+      p.activeCanvasId = next.id;
+    }
+    return p.canvases;
+  }
+
+  function renameCanvas(p, cid, name) {
+    ensure(p);
+    const c = p.canvases.find(cv => cv.id === cid);
+    if (!c) throw D.err("NO_CANVAS", "画布不存在");
+    const n = String(name == null ? "" : name).trim();
+    if (n) c.name = n;
+    return c;
+  }
+
+  function setActiveCanvas(p, cid) {
+    ensure(p);
+    const c = p.canvases.find(cv => cv.id === cid);
+    if (!c) throw D.err("NO_CANVAS", "画布不存在");
+    p.activeCanvasId = cid;
     return c;
   }
 
@@ -313,9 +372,11 @@
         c.edges.push({ id: id("e"), from, to });
       }
     });
-    p.canvas = c;
+    const active = ensure(p);
+    active.nodes = c.nodes;
+    active.edges = c.edges;
     ensure(p);
-    return c;
+    return active;
   }
 
   async function cacheUrl(url, role) {
@@ -611,7 +672,7 @@
       const r = ctx.vp.getBoundingClientRect();
       const c = ensure(ctx.p).view;
       const x = Math.round((-c.x + r.width / 2) / c.k - NW / 2);
-      const y = Math.round((-c.y + r.height / 2) / c.k - NH / 2 + (ctx.p.canvas.nodes.length % 3) * 24);
+      const y = Math.round((-c.y + r.height / 2) / c.k - NH / 2 + (ensure(ctx.p).nodes.length % 3) * 24);
       const n = addNode(ctx.p, b.dataset.cvadd, x, y, {});
       ctx.sel = n.id;
       refresh(ctx, true);
@@ -917,6 +978,8 @@
   D.canvas = {
     NW, NH, MIN_K, MAX_K, NODE_TYPES, TYPE_ORDER, OUT_NAME, RATIOS,
     blank, ensure, addNode, removeNode, moveNode, setData, nodeById,
+    blankCanvas, normalizeCanvas, listCanvases, activeCanvas, canvasById,
+    addCanvas, removeCanvas, renameCanvas, setActiveCanvas,
     accepts, addEdge, disconnect, upstream, downstream, incoming, topoOrder,
     buildPrompt, firstFrameFrom, refImagesFrom, splitScript, explodeScript, autoLayout,
     serialize, parse, runNode, mount
