@@ -61,9 +61,11 @@
 
     async poll(jobId) {
       const c = D.getAdapterConfig("video");
+      const headers = { "Content-Type": "application/json", ...(c.key ? { "Authorization": "Bearer " + c.key } : {}) };
+      if (c.provider === "kling") return klingPoll(c, jobId, headers);
       return U.taskPoll(
         c.base + "/api/v3/contents/generations/tasks/" + jobId,
-        { "Content-Type": "application/json", ...(c.key ? { "Authorization": "Bearer " + c.key } : {}) },
+        headers,
         "content.video_url"
       );
     },
@@ -171,6 +173,21 @@
     const u = j && (j.video_url || j.url);
     if (!u) throw D.err("BAD_RESP", "视频返回异常：" + JSON.stringify(j).slice(0, 160));
     return { jobId: "sync", syncUrl: u, provider: c.provider };
+  }
+
+  /* 可灵走 DashScope 任务协议：查询 /api/v1/tasks/{id}，状态在 output.task_status，成片在 output.video_url */
+  async function klingPoll(c, jobId, headers) {
+    const j = await U.httpJson(c.base + "/api/v1/tasks/" + jobId, { headers });
+    const raw = String(U.pick(j, "output.task_status") || "");
+    const url = U.pick(j, "output.video_url") || "";
+    const failed = /FAILED|CANCELED|UNKNOWN/i.test(raw);
+    const done = /SUCCEEDED|SUCCESS/i.test(raw);
+    return {
+      status: failed ? "failed" : (done && url ? "done" : "running"),
+      url,
+      error: failed ? (U.pick(j, "output.message") || U.pick(j, "output.code")) : undefined,
+      raw: j
+    };
   }
 
   D.adapters.video = video;
