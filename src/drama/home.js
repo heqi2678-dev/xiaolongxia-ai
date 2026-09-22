@@ -43,7 +43,7 @@
 .hs-icbtn{width:32px;height:32px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--text2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .15s,color .15s}
 .hs-icbtn:hover{border-color:var(--accent);color:var(--accent2)}
 .hs-spacer{flex:1}
-.hs-send{width:36px;height:36px;border-radius:11px;border:none;background:var(--accent-grad);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.hs-send{width:36px;height:36px;border-radius:50%;border:none;background:var(--accent-grad);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;cursor:pointer}
 .hs-send:disabled{opacity:.5;cursor:default}
 .hs-tabs{display:flex;gap:22px;margin:26px 0 14px}
 .hs-tab{font-size:14px;color:var(--text3);cursor:pointer;padding-bottom:6px;border-bottom:2px solid transparent}

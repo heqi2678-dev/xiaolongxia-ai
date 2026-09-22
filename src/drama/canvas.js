@@ -484,28 +484,22 @@
 .cv-edges circle{fill:var(--accent)}
 .cv-node{position:absolute;width:248px;background:var(--panel);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.35);user-select:none}
 .cv-node.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 10px 28px rgba(0,0,0,.4)}
-.cv-node-label{position:absolute;top:-21px;left:2px;display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);white-space:nowrap;pointer-events:none}
-.cv-node-head{display:flex;align-items:center;gap:6px;padding:7px 8px;border-bottom:1px solid var(--border);cursor:move;border-radius:12px 12px 0 0;background:linear-gradient(180deg,rgba(255,255,255,.03),transparent)}
-.cv-node-head b{font-size:12px;color:var(--text)}
+.cv-node-label{position:absolute;top:-21px;left:2px;display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);white-space:nowrap;cursor:move}
 .cv-try-t{color:var(--text3);font-size:10px;flex:none}
 .cv-dot{width:8px;height:8px;border-radius:50%;flex:none}
-.cv-st{font-size:10px;padding:2px 7px;border-radius:99px;border:1px solid var(--border);color:var(--text3);margin-left:auto}
+.cv-st{font-size:10px;padding:2px 7px;border-radius:99px;border:1px solid var(--border);color:var(--text3)}
 .cv-st.st-running{color:#e8b64a;border-color:#6a5320}
 .cv-st.st-done{color:#4fd08a;border-color:#2b5a3a}
 .cv-st.st-failed{color:#ff6b6b;border-color:#6a2b2b}
-.cv-x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;line-height:1;padding:2px 4px}
-.cv-x:hover{color:var(--red)}
 .cv-node-body{padding:8px;display:flex;flex-direction:column;gap:6px}
 .cv-ta{min-height:52px;resize:vertical;font-size:11px;line-height:1.5}
-.cv-sel{font-size:11px;padding:4px 6px}
-.cv-num{width:64px;font-size:11px;padding:4px 6px}
 .cv-row{display:flex;align-items:center;gap:6px}
 .cv-out{margin-top:2px;border:1px solid var(--border);border-radius:9px;background:#0d1017;aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .cv-out img,.cv-out video{width:100%;height:100%;object-fit:cover}
 .cv-out audio{width:100%}
 .cv-ph{color:var(--text3);font-size:10px;text-align:center;padding:6px}
 .cv-err{color:#ff8080;font-size:10px;line-height:1.5}
-.cv-port{position:absolute;width:13px;height:13px;border-radius:50%;background:var(--card);border:2px solid var(--border2);top:34px;cursor:crosshair;z-index:2}
+.cv-port{position:absolute;width:13px;height:13px;border-radius:50%;background:var(--card);border:2px solid var(--border2);top:calc(50% - 6.5px);cursor:crosshair;z-index:2}
 .cv-port:hover{border-color:var(--accent);background:var(--accent)}
 .cv-port.cv-in{left:-7px}
 .cv-port.cv-out{right:-7px;background:var(--accent);border-color:var(--accent)}
@@ -533,10 +527,6 @@
 
   function esc(s) { return D.ui.esc(s == null ? "" : String(s)); }
 
-  function ratioOpts(cur) {
-    return RATIOS.map(r => '<option value="' + r + '"' + (r === cur ? " selected" : "") + ">" + r + "</option>").join("");
-  }
-
   /* 「尝试」动作区：LibTV 节点卡片底部的主动作 + 高清动作 */
   function tryRow(n, runLabel, hiresLabel) {
     const busy = n.status === "running";
@@ -556,23 +546,16 @@
       return h;
     }
     if (n.type === "image") {
-      h += '<textarea class="inp cv-ta" data-f="prompt" data-nid="' + n.id + '" placeholder="画面提示词">' + esc(n.data.prompt) + "</textarea>";
-      h += '<div class="cv-row"><select class="inp cv-sel" data-f="ratio" data-nid="' + n.id + '">' + ratioOpts(n.data.ratio) + "</select></div>";
       h += preview(n);
-      h += tryRow(n, "改图", "图片高清");
+      h += tryRow(n, "图生图", "图片高清");
       return h;
     }
     if (n.type === "video") {
-      h += '<textarea class="inp cv-ta" data-f="prompt" data-nid="' + n.id + '" placeholder="运镜与动作提示词">' + esc(n.data.prompt) + "</textarea>";
-      h += '<div class="cv-row"><select class="inp cv-sel" data-f="ratio" data-nid="' + n.id + '">' + ratioOpts(n.data.ratio) + "</select>";
-      h += '<input class="inp cv-num" type="number" min="1" max="30" data-f="duration" data-nid="' + n.id + '" value="' + esc(n.data.duration || 5) + '"><span class="cv-ph">秒</span></div>';
       h += preview(n);
       h += tryRow(n, "重绘", "视频高清");
       return h;
     }
     if (n.type === "audio") {
-      h += '<textarea class="inp cv-ta" data-f="text" data-nid="' + n.id + '" placeholder="台词（有上游文本时以上游为准）">' + esc(n.data.text) + "</textarea>";
-      h += '<div class="cv-row"><input class="inp cv-num" style="width:auto;flex:1" data-f="voice" data-nid="' + n.id + '" placeholder="音色" value="' + esc(n.data.voice || "") + '"></div>';
       h += preview(n);
       h += tryRow(n, "生成", "");
       return h;
@@ -584,9 +567,8 @@
       return h;
     }
     if (n.type === "asset") {
-      h += '<input class="inp" data-f="ref" data-nid="' + n.id + '" placeholder="资产地址" value="' + esc(n.data.ref || "") + '">';
-      h += '<div class="cv-row"><button class="btn small" data-act="bind" data-nid="' + n.id + '">引用资产</button></div>';
       h += preview(n);
+      h += '<div class="cv-row"><button class="btn small" data-act="bind" data-nid="' + n.id + '">引用资产</button></div>';
       return h;
     }
     return h;
@@ -607,19 +589,19 @@
     const t = typeOf(n.type);
     return '<div class="cv-node' + (sel === n.id ? " sel" : "") + '" data-nid="' + n.id + '" style="left:' + n.x + "px;top:" + n.y + 'px">' +
       '<div class="cv-node-label"><span class="cv-dot" style="background:' + t.accent + '"></span>' + t.label + "节点 " + (idx || 1) + "</div>" +
-      '<div class="cv-node-head">' +
-        '<span class="cv-st st-' + n.status + '">' + (STATUS_TEXT[n.status] || n.status) + "</span>" +
-        '<button class="cv-x" data-act="del" data-nid="' + n.id + '" title="删除">×</button>' +
-      "</div>" +
       '<div class="cv-node-body">' + bodyHTML(n) + "</div>" +
       (t.in.length ? '<span class="cv-port cv-in" data-port="in" data-nid="' + n.id + '" title="输入：' + t.in.map(x => OUT_NAME[x]).join("/") + '"></span>' : "") +
       '<span class="cv-port cv-out" data-port="out" data-nid="' + n.id + '" title="输出：' + OUT_NAME[t.out] + '"></span>' +
     "</div>";
   }
 
-  function portPos(n, side) {
+  /* 端口在节点内垂直居中；优先量取真实布局，量不到时退回固定高度中点 */
+  function portPos(ctx, n, side) {
     const x = side === "out" ? n.x + NW : n.x;
-    const y = n.y + 34 + 6.5;
+    let y = n.y + NH / 2;
+    const el = ctx && ctx.nodesEl ? ctx.nodesEl.querySelector('.cv-node[data-nid="' + n.id + '"]') : null;
+    const port = el ? el.querySelector(".cv-port.cv-" + side) : null;
+    if (port) y = n.y + port.offsetTop + port.offsetHeight / 2;
     return { x, y };
   }
 
@@ -672,7 +654,7 @@
       const a = c.nodes.find(n => n.id === e.from);
       const b = c.nodes.find(n => n.id === e.to);
       if (!a || !b) return;
-      const pa = portPos(a, "out"), pb = portPos(b, "in");
+      const pa = portPos(ctx, a, "out"), pb = portPos(ctx, b, "in");
       const hot = linkState.from && (linkState.from === e.from || linkState.from === e.to);
       parts.push('<path class="' + (hot ? "hot" : "") + '" d="' + edgePath(pa, pb) + '"></path>');
       parts.push('<circle cx="' + pa.x + '" cy="' + pa.y + '" r="3"></circle>');
@@ -680,7 +662,7 @@
     if (linkState.from && linkState.hover) {
       const a = c.nodes.find(n => n.id === linkState.from);
       if (a) {
-        const pa = portPos(a, "out");
+        const pa = portPos(ctx, a, "out");
         parts.push('<path class="hot" d="' + edgePath(pa, linkState.hover) + '"></path>');
       }
     }
@@ -821,9 +803,8 @@
   function bindNodes(ctx) {
     ctx.nodesEl.querySelectorAll(".cv-node").forEach(el => {
       const nid = el.dataset.nid;
-      const head = el.querySelector(".cv-node-head");
-      head.addEventListener("mousedown", e => {
-        if (e.target.closest(".cv-x")) return;
+      const label = el.querySelector(".cv-node-label");
+      label.addEventListener("mousedown", e => {
         e.stopPropagation();
         const pt = worldPoint(ctx, e.clientX, e.clientY);
         const n = nodeById(ctx.p, nid);

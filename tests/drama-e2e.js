@@ -293,6 +293,16 @@ async function flowManualComic(env) {
   await D.project.save(D.manual.state.project);
   await D.manual.render(); await settle();
   ok(!!q(doc, '.cv-node[data-nid="' + img.id + '"]'), "画布渲染出图片节点");
+
+  /* LibTV 形态：单行工具条 + 节点卡精简（字段都在右侧详情） */
+  eq(doc.querySelectorAll(".dw-wb-bar").length, 0, "画布工具条已并为单行");
+  eq(doc.querySelectorAll(".dw-workbench>.dw-bar").length, 1, "工作台只有一行工具条");
+  const imgCard = q(doc, '.cv-node[data-nid="' + img.id + '"]');
+  ok(!!imgCard.querySelector(".cv-node-label"), "节点标题显示在卡片外");
+  eq(imgCard.querySelectorAll(".cv-node-head").length, 0, "节点卡内不再有头部条");
+  eq(imgCard.querySelectorAll(".cv-node-body [data-f]").length, 0, "节点卡内不再放输入字段");
+  eq(imgCard.querySelectorAll(".cv-port").length, 2, "节点保留输入输出端口");
+  eq(Array.from(imgCard.querySelectorAll(".cv-node-body [data-act]")).map(b => b.textContent).join("/"), "图生图/图片高清", "节点卡动作对齐 LibTV");
   D.manual.state.view.select(img.id); await settle(6);
   ok(!!q(doc, '#dwSide [data-sf="prompt"]'), "点选节点后右侧出现提示词编辑框");
   await setField(doc, '#dwSide [data-sf="prompt"]', "雨夜街头，外卖箱特写", 3);

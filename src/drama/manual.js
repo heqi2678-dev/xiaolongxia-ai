@@ -14,14 +14,12 @@
 
   const CSS = `
 .dw-workbench{display:flex;flex-direction:column;gap:10px}
-.dw-workbench>.dw-bar{gap:6px;margin-bottom:0;padding:8px 10px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+.dw-workbench>.dw-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:0;padding:8px 10px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
 .dw-workbench>.dw-bar .inp{width:auto;min-width:140px}
 .dw-more{position:relative;display:inline-block}
 .dw-more-menu{position:absolute;left:0;top:calc(100% + 6px);z-index:40;display:flex;flex-direction:column;gap:6px;min-width:150px;padding:8px;border:1px solid var(--border);border-radius:12px;background:var(--card);box-shadow:0 12px 30px rgba(0,0,0,.45)}
 .dw-more-menu[hidden]{display:none}
 .dw-more-menu .btn{width:100%;justify-content:flex-start}
-.dw-wb-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
-.dw-wb-bar .inp{width:auto;min-width:140px}
 .dw-wb-sp{flex:1}
 .dw-zoom{font-size:11px;color:var(--text3);min-width:44px;text-align:center;display:inline-block}
 .dw-wb-main{display:flex;gap:10px;align-items:stretch}
@@ -128,8 +126,6 @@
             '<button class="btn small ghost" id="dwMakeupBtn">造型室</button>' +
           "</div>" +
         "</div>" +
-      "</div>" +
-      '<div class="dw-wb-bar">' +
         '<label class="label" style="margin:0">画布</label>' +
         '<select class="inp" id="dwCanvasSel">' + canvases.map(c => '<option value="' + D.ui.esc(c.id) + '"' + (c.id === state.canvasId ? " selected" : "") + ">" + D.ui.esc(c.name) + "</option>").join("") + "</select>" +
         '<button class="btn small" id="dwCanvasAdd">＋ 画布</button>' +
