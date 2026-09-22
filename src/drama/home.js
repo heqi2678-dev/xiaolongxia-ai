@@ -8,6 +8,32 @@
 
   function view() { return document.getElementById("dwHome"); }
 
+  /* ===== LibTV 风首页样式 ===== */
+  const CSS = `
+.hm-hero{position:relative;border:1px solid var(--border);border-radius:16px;overflow:hidden;padding:24px 20px;margin-bottom:14px;
+  background:radial-gradient(120% 160% at 0% 0%,rgba(255,90,60,.16),transparent 55%),
+    radial-gradient(120% 160% at 100% 0%,rgba(255,143,90,.10),transparent 55%),var(--panel)}
+.hm-hero h1{font-size:23px;font-weight:800;letter-spacing:.5px;margin:0 0 4px}
+.hm-hero p{margin:0 0 14px;color:var(--text2);font-size:12px}
+.hm-hero .hm-hero-acts{display:flex;gap:8px;flex-wrap:wrap}
+.hm-assets{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:10px}
+.hm-asset{display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--card);cursor:pointer;transition:border-color .15s,transform .15s}
+.hm-asset:hover{border-color:var(--accent);transform:translateY(-2px)}
+.hm-asset-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--accent-grad);color:#fff;flex:none}
+.hm-asset-t{font-size:13px;font-weight:600}
+.hm-asset-s{font-size:11px;color:var(--text3);line-height:1.5}
+`;
+
+  let cssDone = false;
+  function ensureCss() {
+    if (cssDone) return;
+    const s = document.createElement("style");
+    s.id = "dramaHomeCss";
+    s.textContent = CSS;
+    document.head.appendChild(s);
+    cssDone = true;
+  }
+
   function filtered() {
     let list = D.project.list();
     list.forEach(D.project.migrate);
@@ -35,6 +61,41 @@
     }
   }
 
+  const ASSETS = [
+    { tab: "views", name: "三视图", sub: "正 / 侧 / 背，把角色钉死" },
+    { tab: "scenes", name: "场景卡", sub: "场景身份锚点，前后一致" },
+    { tab: "refs", name: "多参考", sub: "每镜最多 3 张参考图" }
+  ];
+  const ASSET_ICONS = {
+    views: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="16" rx="1.5"/><rect x="14" y="4" width="7" height="16" rx="1.5"/></svg>',
+    scenes: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M4 18l5-5 3 3 4-4 4 4"/></svg>',
+    refs: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="14" height="12" rx="2"/><path d="M7 8V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-2"/></svg>'
+  };
+
+  function hero() {
+    return '<div class="hm-hero">' +
+      "<h1>短剧工作室</h1>" +
+      "<p>把想法铺成剧本与分镜，再把角色、场景与参考图一次钉死。</p>" +
+      '<div class="hm-hero-acts">' +
+        '<button class="btn primary" id="dwHomeNewManual">＋ 新建导演台工程</button>' +
+        '<button class="btn" id="dwHomeNewAuto">＋ 新建流水线工程</button>' +
+        '<button class="btn ghost" id="dwHomeMakeup">进入造型室</button>' +
+      "</div>" +
+    "</div>";
+  }
+
+  function assetsHtml() {
+    return '<div class="hm-assets">' + ASSETS.map(a =>
+      '<div class="hm-asset" data-asset-tab="' + D.ui.esc(a.tab) + '">' +
+        '<span class="hm-asset-ic">' + (ASSET_ICONS[a.tab] || "") + "</span>" +
+        "<div>" +
+          '<div class="hm-asset-t">' + D.ui.esc(a.name) + "</div>" +
+          '<div class="hm-asset-s">' + D.ui.esc(a.sub) + "</div>" +
+        "</div>" +
+      "</div>"
+    ).join("") + "</div>";
+  }
+
   function toolbar() {
     const genres = [{ id: "", name: "全部剧种" }].concat(D.GENRES);
     return '<div class="dw-bar">' +
@@ -43,8 +104,6 @@
       '<select class="inp" id="dwHomeSort" style="width:auto;min-width:130px">' +
         D.ui.opts([{ id: "updated", name: "最近更新" }, { id: "created", name: "创建时间" }, { id: "title", name: "按标题" }], state.sort) +
       "</select>" +
-      '<button class="btn primary" id="dwHomeNewManual">＋ 新建导演台工程</button>' +
-      '<button class="btn" id="dwHomeNewAuto">＋ 新建流水线工程</button>' +
       "</div>";
   }
 
@@ -71,11 +130,16 @@
 
   async function render() {
     D.ui.ensureCss();
+    ensureCss();
     const v = view();
     if (!v) return;
     const list = filtered();
     v.innerHTML = '<div class="dw-wrap">' +
-      '<div class="dw-card"><h3>项目中心 <span class="dw-hint">（共 ' + list.length + ' 个工程）</span></h3>' +
+      hero() +
+      '<div class="dw-card"><h3>资产工作台 <span class="dw-hint">（开拍前先把角色与场景钉死）</span></h3>' +
+        assetsHtml() +
+      "</div>" +
+      '<div class="dw-card"><h3>我的工程 <span class="dw-hint" id="dwHomeCount">（共 ' + list.length + ' 个工程）</span></h3>' +
         toolbar() +
         '<div id="dwHomeGrid" style="margin-top:12px">' + grid(list) + "</div>" +
       "</div>" +
@@ -93,6 +157,8 @@
     v.querySelector("#dwHomeSort").onchange = (e) => { state.sort = e.target.value; rerenderGrid(); };
     v.querySelector("#dwHomeNewManual").onclick = () => createBlank("manual");
     v.querySelector("#dwHomeNewAuto").onclick = () => createBlank("pipeline");
+    v.querySelector("#dwHomeMakeup").onclick = () => openMakeup("");
+    v.querySelectorAll("[data-asset-tab]").forEach(a => { a.onclick = () => openMakeup("", a.dataset.assetTab); });
 
     v.querySelectorAll("[data-pcard-open]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); open(b.dataset.pcardOpen); }; });
     v.querySelectorAll("[data-pcard-makeup]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); openMakeup(b.dataset.pcardMakeup); }; });
@@ -109,7 +175,7 @@
     const box = v.querySelector("#dwHomeGrid");
     const list = filtered();
     box.innerHTML = grid(list);
-    v.querySelector("h3 .dw-hint").textContent = "（共 " + list.length + " 个工程）";
+    v.querySelector("#dwHomeCount").textContent = "（共 " + list.length + " 个工程）";
     box.querySelectorAll("[data-pcard-open]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); open(b.dataset.pcardOpen); }; });
     box.querySelectorAll("[data-pcard-makeup]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); openMakeup(b.dataset.pcardMakeup); }; });
     box.querySelectorAll("[data-pcard-copy]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); copy(b.dataset.pcardCopy); }; });
@@ -167,9 +233,15 @@
     }
   }
 
-  async function openMakeup(pid) {
+  async function openMakeup(pid, tab) {
     try {
+      if (!pid) {
+        const l = filtered();
+        pid = l.length ? l[0].id : "";
+      }
+      if (!pid) { U.toast("先新建一个工程，再进造型室", "warn"); return; }
       if (D.makeup && D.makeup.load) await D.makeup.load(pid);
+      if (D.makeup && D.makeup.state && tab) D.makeup.state.tab = tab;
       if (XLX.app && XLX.app.go) XLX.app.go("makeup");
     } catch (e) {
       U.toast((e && e.message) || "打开造型室失败", "err");

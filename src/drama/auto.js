@@ -19,11 +19,37 @@
     return (p.shots || []).find(s => s.id === state.cur) || p.shots[0] || null;
   }
 
+  const CSS = `
+.au-hero{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin-bottom:14px;
+  background:radial-gradient(120% 160% at 0% 0%,rgba(255,90,60,.16),transparent 55%),
+    radial-gradient(120% 160% at 100% 0%,rgba(255,143,90,.10),transparent 55%),var(--panel)}
+.au-hero h1{font-size:20px;font-weight:800;margin:0;letter-spacing:.5px}
+.au-hero p{margin:2px 0 0;color:var(--text2);font-size:12px}
+.au-hero .au-stage{margin-left:auto;font-size:12px;color:var(--accent2);border:1px solid var(--border2);border-radius:20px;padding:5px 12px}
+`;
+
+  let cssDone = false;
+  function ensureCss() {
+    if (cssDone) return;
+    const s = document.createElement("style");
+    s.id = "dramaAutoCss";
+    s.textContent = CSS;
+    document.head.appendChild(s);
+    cssDone = true;
+  }
+
+  function hero() {
+    const st = STAGES.find(s => s[0] === stage()) || STAGES[0];
+    return '<div class="au-hero"><div><h1>分镜流水线</h1><p>一句话 → 剧本分镜 → 逐镜生成 → 合成成片</p></div>' +
+      '<span class="au-stage">当前：' + D.ui.esc(st[1]) + "</span></div>";
+  }
+
   async function render() {
     D.ui.ensureCss();
+    ensureCss();
     const v = view();
     if (!v) return;
-    v.innerHTML = '<div class="dw-wrap">' + topBar() + stepper() + '<div id="dwAutoBody"></div><div id="dwAutoMsg"></div></div>';
+    v.innerHTML = '<div class="dw-wrap">' + hero() + topBar() + stepper() + '<div id="dwAutoBody"></div><div id="dwAutoMsg"></div></div>';
     bindTop();
     const body = document.getElementById("dwAutoBody");
     if (stage() === "input") return renderInput(body);
@@ -110,7 +136,8 @@
   function stepper() {
     const idx = STAGES.findIndex(s => s[0] === stage());
     return '<div class="dw-steps">' + STAGES.map((s, i) =>
-      '<span class="dw-step' + (i === idx ? " on" : (i < idx ? " done" : "")) + '" data-stage="' + s[0] + '">' + (i < idx ? "✓ " : "") + s[1] + "</span>"
+      '<span class="dw-step' + (i === idx ? " on" : (i < idx ? " done" : "")) + '" data-stage="' + s[0] + '">' +
+        '<b class="dw-step-no">' + (i < idx ? "✓" : (i + 1)) + "</b>" + s[1] + "</span>"
     ).join("") + "</div>";
   }
 
