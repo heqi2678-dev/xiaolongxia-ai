@@ -13,7 +13,9 @@
     xlx_memory: 1,
     xlx_models: 1,
     xlx_project: 1,
-    xlx_settings: 1
+    xlx_settings: 1,
+    xlx_vendor_keys: 1,
+    xlx_vendor_keys_migrated: 1
   };
   function mapped(k) {
     if (typeof k !== "string") return k;

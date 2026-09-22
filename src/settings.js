@@ -21,6 +21,8 @@ XLX.settings = (function () {
       + '</div>'
       + '</div>'
 
+      + vendorKeysCard()
+
       + '<div class="set-card">'
       + '<h3><span class="hic">' + svg("box", 15) + '</span>模型库（可添加多个模型，一键切换当前使用）</h3>'
       + '<p class="sd">你可以把 <b>语言模型</b>（对话/AI帮写）保存多套配置，<b>每套都是独立的模型库条目</b>（名称 + 服务商 + Base URL + Key + 模型名）。标记 ⭐ 的即「当前使用」，对话时自动用它，<b style="color:var(--green)">以后想换模型只需点一下「设为当前」，无需来回改配置</b>。</p>'
@@ -141,6 +143,7 @@ XLX.settings = (function () {
     renderCustEngines();
     document.getElementById("ceAdd").onclick = addCustomEngine;
     renderModelHub();
+    bindVendorKeys();
     const hubLlmAdd = document.getElementById("hubLlmAdd");
     if (hubLlmAdd) hubLlmAdd.onclick = addHubModel;
     document.getElementById("hubLlmVendor").onchange = applyHubVendorPreset;
@@ -169,6 +172,48 @@ XLX.settings = (function () {
     { id: "tts", name: "语音合成（配音）", desc: "把台词转成自然的配音。推荐火山语音。" },
     { id: "lipsync", name: "口型驱动（对口型）", desc: "让画面嘴型与配音对齐，仿真人剧用。火山即梦需填 AccessKey ID + Secret Access Key，并先在控制台开通对应模型。" }
   ];
+
+  function vendorKeysCard() {
+    if (!XLX.vendorKeys) return '';
+    const vs = XLX.vendorKeys.all();
+    return ''
+      + '<div class="set-card">'
+      + '<h3><span class="hic">' + svg("key", 15) + '</span>厂商钥匙库（一处填 · 全站用）</h3>'
+      + '<p class="sd">按厂商填一次钥匙，<b>智能对话、AI帮写、模型库、店员大脑、短剧工作台</b>都会自动用它，不用到处重复填。填了的厂商显示 <span style="color:var(--green)">●已填</span>；下方的旧输入框保留兜底，厂商钥匙库有值时优先。Key 只保存在浏览器本地，不会上传。</p>'
+      + vs.map(function (v) {
+        const saved = XLX.vendorKeys.get(v.id);
+        const on = XLX.vendorKeys.isConfigured(v.id);
+        return ''
+          + '<div class="set-row" style="flex-direction:column;align-items:stretch;gap:6px" data-vk="' + v.id + '">'
+          + '<div class="lab"><div class="t"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + (v.color || "var(--border)") + ';margin-right:6px"></span>' + XLX.util.esc(v.name) + (on ? ' <span style="color:var(--green)">●已填</span>' : '') + '</div>'
+          + '<div class="d">' + XLX.util.esc(v.services || "") + (v.link ? ' · <a href="' + v.link + '" target="_blank" rel="noopener" style="color:var(--green)">去申请</a>' : '') + '</div></div>'
+          + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+          + v.fields.map(function (f) {
+            return '<input class="inp vk-in" data-vendor="' + v.id + '" data-field="' + f.k + '" type="' + (f.type || "text") + '" placeholder="' + XLX.util.esc(f.label + (f.ph ? "，如 " + f.ph : "")) + '" value="' + XLX.util.esc(saved[f.k] || "") + '" style="flex:1;min-width:150px">';
+          }).join("")
+          + '<button class="btn small primary vk-save" data-vendor="' + v.id + '">保存</button>'
+          + '</div>'
+          + '</div>';
+      }).join("")
+      + '</div>';
+  }
+
+  function bindVendorKeys() {
+    if (!XLX.vendorKeys) return;
+    document.querySelectorAll(".vk-save").forEach(function (btn) {
+      btn.onclick = function () {
+        const id = btn.dataset.vendor;
+        const patch = {};
+        document.querySelectorAll('.vk-in[data-vendor="' + id + '"]').forEach(function (inp) {
+          patch[inp.dataset.field] = inp.value.trim();
+        });
+        XLX.vendorKeys.set(id, patch);
+        const def = XLX.vendorKeys.vendorDef(id);
+        XLX.util.toast("已保存「" + ((def && def.name) || id) + "」钥匙，全站生效", "ok");
+        render();
+      };
+    });
+  }
 
   function dramaKindBlock(kind) {
     const meta = DRAMA_KINDS.find(k => k.id === kind.id) || kind;
@@ -238,6 +283,7 @@ XLX.settings = (function () {
       const voice = document.getElementById("ds-" + kind + "-voice");
       if (voice) cfg.voice = voice.value;
       XLX.drama.setAdapterConfig(kind, cfg);
+      if (XLX.vendorKeys && XLX.vendorKeys.syncDrama) XLX.vendorKeys.syncDrama(cfg.provider, cfg);
     });
     XLX.util.toast("短剧服务已保存", "ok");
   }
@@ -339,6 +385,7 @@ XLX.settings = (function () {
       model
     });
     XLX.util.toast("已添加「" + (item.name || item.vendor) + "」到模型库" + (item.marked ? "，并设为当前使用" : ""), "ok");
+    if (XLX.vendorKeys && XLX.vendorKeys.syncLlm) XLX.vendorKeys.syncLlm(vendorEl.value, key);
     render();
   }
 
@@ -428,6 +475,7 @@ XLX.settings = (function () {
       s.searchEngines = Array.from(engBoxes).filter(b => b.checked).map(b => b.value);
     }
     XLX.llm.saveSettings(s);
+    if (XLX.vendorKeys && XLX.vendorKeys.syncLlm) XLX.vendorKeys.syncLlm(curProvider, key);
     XLX.util.toast("设置已保存，当前平台：" + (XLX.PROVIDERS.find(x => x.id === curProvider) || {}).name, "ok");
     XLX.app.refreshStatus();
   }
@@ -446,7 +494,7 @@ XLX.settings = (function () {
 
   function exportData() {
     const data = {};
-    ["xlx_settings", "xlx_memory", "xlx_commands", "xlx_project", "xlx_images", "xlx_conversations", "xlx_chat_meta"].forEach(k => {
+    ["xlx_settings", "xlx_memory", "xlx_commands", "xlx_project", "xlx_images", "xlx_conversations", "xlx_chat_meta", "xlx_vendor_keys"].forEach(k => {
       const v = localStorage.getItem(k);
       if (v) data[k] = v;
     });
@@ -484,6 +532,8 @@ XLX.settings = (function () {
     localStorage.removeItem("xlx_images");
     localStorage.removeItem("xlx_conversations");
     localStorage.removeItem("xlx_chat_meta");
+    localStorage.removeItem("xlx_vendor_keys");
+    localStorage.removeItem("xlx_vendor_keys_migrated");
     XLX.util.toast("已清除，正在刷新…", "ok");
     setTimeout(() => location.reload(), 600);
   }

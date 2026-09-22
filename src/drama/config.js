@@ -244,15 +244,17 @@
     const map = s.adapters || {};
     const cur = map[kind] || {};
     const def = XLX.drama.adapterDef(kind, cur.provider);
+    /* 厂商钥匙库优先：一处填、全站用；旧输入框兜底 */
+    const v = (XLX.vendorKeys && XLX.vendorKeys.dramaResolve) ? XLX.vendorKeys.dramaResolve(def.id) : {};
     return {
       kind,
       provider: def.id,
       def,
-      base: ((cur.base || "").trim() || def.base || "").replace(/\/+$/, ""),
-      key: cur.key || cur.secret || "",
-      secret: cur.secret || "",
-      appId: cur.appId || "",
-      cluster: (cur.cluster || def.cluster || "").trim(),
+      base: ((v.base || ((cur.base || "").trim()) || def.base || "")).replace(/\/+$/, ""),
+      key: v.key || cur.key || cur.secret || "",
+      secret: v.secret || cur.secret || "",
+      appId: v.appId || cur.appId || "",
+      cluster: (v.cluster || cur.cluster || def.cluster || "").trim(),
       model: (cur.model || def.model || "").trim(),
       resolution: cur.resolution || def.resolution || 0,
       retryDelay: (cur.retryDelay === undefined) ? def.retryDelay : cur.retryDelay,

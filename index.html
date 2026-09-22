@@ -711,6 +711,7 @@ select.inp{padding-right:34px}
 
 <script src="src/config.js"></script>
 <script src="src/util.js"></script>
+<script src="src/vendor-keys.js"></script>
 <script>
 /* ===== 模型库：HookShot 式多模型管理 =====
  * 用户可添加/删除任意语言模型，每个模型保存为一套完整配置
@@ -771,10 +772,17 @@ XLX.modelHub = (function () {
     save(list);
   }
 
+  /* 该条目当前生效的 Key：厂商钥匙库优先，条目自带的 Key 兜底 */
+  function keyOf(m) {
+    if (!m) return "";
+    const vk = (XLX.vendorKeys && XLX.vendorKeys.llmKey) ? XLX.vendorKeys.llmKey(m.vendor) : "";
+    return vk || (m.key || "");
+  }
+
   /* 把模型库条目转成 llm.currentProvider 可用的 provider 对象 */
   function asProvider(m) {
     if (!m) return null;
-    return { id: m.id, name: m.name, base: m.base, key: m.key, model: m.model, models: m.model ? [m.model] : [], desc: "模型库：" + m.name, color: "#7c5cff", free: false };
+    return { id: m.id, name: m.name, base: m.base, key: keyOf(m), model: m.model, models: m.model ? [m.model] : [], desc: "模型库：" + m.name, color: "#7c5cff", free: false };
   }
 
   /* 语言模型是否为自定义协议（非预置平台） */
@@ -820,7 +828,7 @@ XLX.modelHub = (function () {
     } catch (e) { /* 迁移失败不影响使用 */ }
   }
 
-  return { getModels, all, current, add, remove, mark, asProvider, llmVendor, migrateFromSettings };
+  return { getModels, all, current, add, remove, mark, asProvider, keyOf, llmVendor, migrateFromSettings };
 })();
 
 </script>
@@ -837,14 +845,14 @@ XLX.modelsel = (function () {
   /* 当前模型显示文本 */
   function currentLabel() {
     const hubM = XLX.modelHub && XLX.modelHub.current("llm");
-    if (hubM && hubM.key) return hubM.name || hubM.model || hubM.vendor;
+    if (hubM && XLX.modelHub.keyOf(hubM)) return hubM.name || hubM.model || hubM.vendor;
     const p = XLX.llm.currentProvider();
     const s = XLX.llm.getSettings();
     return p.name + (s.model && s.model !== p.model ? " · " + s.model : "");
   }
 
   function buildListHTML() {
-    const hubList = (XLX.modelHub ? XLX.modelHub.all("llm") : []).filter(m => m.key);
+    const hubList = (XLX.modelHub ? XLX.modelHub.all("llm") : []).filter(m => XLX.modelHub.keyOf(m));
     const s = XLX.llm.getSettings();
     const curHub = XLX.modelHub && XLX.modelHub.current("llm");
     let html = '';
@@ -860,7 +868,8 @@ XLX.modelsel = (function () {
     html += '<div class="ms-group">' + (hubList.length ? "或使用设置中的单配置平台" : "全部平台（去设置填 Key 后可用）") + '</div>';
     html += XLX.PROVIDERS.map(p => {
       const saved = (s.providers || []).find(x => x.id === p.id);
-      const on = !!(saved && saved.key);
+      const vk = (XLX.vendorKeys && XLX.vendorKeys.llmKey) ? XLX.vendorKeys.llmKey(p.id) : "";
+      const on = !!(vk || (saved && saved.key));
       const active = !hubList.length && !curHub && (s.provider === p.id);
       return '<div class="ms-item' + (active ? " active" : "") + '" data-ms="provider" data-id="' + p.id + '">'
         + (active ? svg("check", 13) : '<span class="ms-dot" style="background:' + p.color + '"></span>')
@@ -942,13 +951,18 @@ XLX.llm = (function () {
     const s = getSettings();
     const preset = XLX.PROVIDERS.find(p => p.id === pid) || null;
     const saved = (s.providers || []).find(p => p.id === pid) || null;
+    /* 厂商钥匙库优先；旧单配置的 Key 兜底 */
+    const vk = (XLX.vendorKeys && XLX.vendorKeys.llmKey) ? XLX.vendorKeys.llmKey(pid) : "";
     /* 预置平台自带官方 Base URL；仅当用户显式填写了自定义 Base 时才覆盖 */
-    return Object.assign({}, preset, saved, { base: (saved && saved.base) || (preset && preset.base) || "" });
+    return Object.assign({}, preset, saved, {
+      key: vk || (saved && saved.key) || (preset && preset.key) || "",
+      base: (saved && saved.base) || (preset && preset.base) || ""
+    });
   }
   function currentProvider() {
     /* 模型库优先：用户添加并标记的「当前语言模型」优先于单配置 */
     const hubM = XLX.modelHub && XLX.modelHub.current("llm");
-    if (hubM && hubM.key) {
+    if (hubM && XLX.modelHub.keyOf(hubM)) {
       const p = XLX.modelHub.asProvider(hubM);
       p.base = hubM.base || XLX.PROVIDERS.find(x => x.id === (hubM.vendor || ""))?.base || "";
       return p;
@@ -958,7 +972,7 @@ XLX.llm = (function () {
   }
   function currentModel() {
     const hubM = XLX.modelHub && XLX.modelHub.current("llm");
-    if (hubM && hubM.key) return hubM.model || "";
+    if (hubM && XLX.modelHub.keyOf(hubM)) return hubM.model || "";
     const s = getSettings();
     const p = currentProvider();
     return s.model || p.model || "";
@@ -2013,13 +2027,18 @@ XLX.chat = (function () {
     if (modelEl) modelEl.value = cur.custom_model || "";
     const hint = document.getElementById("clerkBrainHint");
     if (hint) {
+      const vk = (XLX.vendorKeys && XLX.vendorKeys.llmKeyOfBrain) ? XLX.vendorKeys.llmKeyOfBrain(cur.brain) : "";
       const saved = (cur.keys || {})[cur.brain] || "";
-      if (saved) hint.textContent = "已保存钥匙：" + maskClerkKey(saved);
+      if (vk) hint.textContent = "用「设置 · 厂商钥匙库」里的钥匙：" + maskClerkKey(vk);
+      else if (saved) hint.textContent = "已保存钥匙：" + maskClerkKey(saved);
       else if (clerkIsOwner() && cur.brain === "deepseek") hint.textContent = "主人可走服务器已配的 DeepSeek 钥匙";
       else hint.textContent = "还没填钥匙";
     }
   }
   function clerkApiKey(brain) {
+    /* 厂商钥匙库优先：一处填、全站用 */
+    const vk = (XLX.vendorKeys && XLX.vendorKeys.llmKeyOfBrain) ? XLX.vendorKeys.llmKeyOfBrain(brain) : "";
+    if (vk) return vk;
     const cur = loadClerkBrain();
     const saved = ((cur.keys || {})[brain] || "").trim();
     if (saved) return saved;
@@ -2090,7 +2109,10 @@ XLX.chat = (function () {
       const key = keyEl ? keyEl.value.trim() : "";
       const cur = loadClerkBrain();
       const keys = Object.assign({}, cur.keys || {});
-      if (key) keys[brain] = key;
+      if (key) {
+        keys[brain] = key;
+        if (XLX.vendorKeys && XLX.vendorKeys.syncBrain) XLX.vendorKeys.syncBrain(brain, key);
+      }
       saveClerkBrain({
         brain,
         model: customModel.trim() || modelPick,
