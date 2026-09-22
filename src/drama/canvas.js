@@ -510,6 +510,11 @@
 .cv-menu button{display:block;width:100%;text-align:left;background:none;border:none;color:var(--text);font-size:12px;padding:7px 9px;border-radius:7px;cursor:pointer}
 .cv-menu button:hover{background:var(--card)}
 .cv-menu .cv-menu-t{padding:5px 9px;font-size:10px;color:var(--text3)}
+@media(max-width:600px){
+  .cv-wrap{height:70vh;min-height:380px}
+  .cv-bar{padding:8px}
+  .cv-menu{min-width:0;max-width:calc(100vw - 40px)}
+}
 `;
 
   let cssDone = false;

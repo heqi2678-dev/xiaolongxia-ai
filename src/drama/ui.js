@@ -130,6 +130,7 @@
 .dw-take-list .dw-take>button{margin-top:6px}
 
 @media (max-width:900px){
+  .dw-wrap{padding:12px 2px 32px}
   .dw-console{grid-template-columns:1fr}
   .dw-rail{flex-direction:row;max-height:none;overflow-x:auto;overflow-y:hidden}
   .dw-rail-item{flex:0 0 92px}

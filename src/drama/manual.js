@@ -31,7 +31,11 @@
 .dw-wb-cards{display:flex;flex-direction:column;gap:10px}
 .dw-node-empty{color:var(--text3);font-size:12px;padding:10px;line-height:1.6}
 .dw-frame-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-@media (max-width:860px){.dw-wb-main{flex-direction:column}.dw-wb-side{width:auto}}
+@media (max-width:860px){.dw-wb-main{flex-direction:column}.dw-wb-side{width:auto;max-height:none;overflow:visible}}
+@media (max-width:600px){
+  .dw-workbench>.dw-bar{padding:8px}
+  .dw-workbench>.dw-bar .inp{min-width:110px;flex:1}
+}
 `;
 
   function view() { return document.getElementById("dwManual"); }

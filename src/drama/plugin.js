@@ -20,6 +20,12 @@
 .pl-head p{margin:0;font-size:12px;color:var(--text3)}
 .pl-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 @media(max-width:720px){.pl-grid{grid-template-columns:1fr}}
+@media(max-width:600px){
+  .pl-wrap{padding:18px 12px 46px}
+  .pl-head h1{font-size:19px}
+  .pl-card{padding:16px}
+  .pl-sec{margin-top:26px}
+}
 .pl-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:20px;cursor:pointer;transition:border-color .15s,transform .15s;display:flex;flex-direction:column;gap:10px}
 .pl-card:hover{border-color:var(--accent);transform:translateY(-3px)}
 .pl-ic{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center}

@@ -318,6 +318,12 @@
 .bx-preview .bx-ph{color:var(--text3);font-size:12px;padding:18px}
 .bx-prog{font-size:12px;color:var(--text3);padding:0 14px 10px}
 .bx-note{font-size:11px;color:var(--text3);border-top:1px solid var(--border);padding:8px 14px;background:var(--panel)}
+@media(max-width:600px){
+  .bx-wrap{height:70vh;min-height:380px}
+  .bx-grid.g3,.bx-grid.g4{grid-template-columns:repeat(2,1fr)}
+  .bx-head{padding:10px 12px}
+  .bx-body{padding:12px}
+}
 `;
 
   function ensureCss() {

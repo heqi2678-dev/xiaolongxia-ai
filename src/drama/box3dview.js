@@ -16,6 +16,13 @@
 .bv-field label{font-size:11px;color:var(--text3)}
 .bv-field select{background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:12.5px;padding:8px 10px;min-width:180px}
 .bv-empty{background:var(--panel);border:1px dashed var(--border);border-radius:14px;padding:40px 24px;text-align:center;color:var(--text3);font-size:13px}
+@media(max-width:600px){
+  .bv-wrap{padding:18px 12px 46px}
+  .bv-head h1{font-size:19px}
+  .bv-picks{margin-left:0;width:100%}
+  .bv-field{flex:1}
+  .bv-field select{min-width:0;width:100%}
+}
 `;
 
   let cssDone = false;

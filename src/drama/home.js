@@ -58,6 +58,12 @@
 .hs-grid{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 @media(max-width:820px){.hs-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.hs-grid{grid-template-columns:1fr}}
+@media(max-width:600px){
+  .hs-wrap{padding:18px 12px 46px}
+  .hs-title{font-size:22px}
+  .hs-sub{margin-bottom:16px;text-align:center}
+  .hs-search input{width:96px}
+}
 .hs-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .15s;display:flex;flex-direction:column}
 .hs-card:hover{border-color:var(--accent);transform:translateY(-3px)}
 .hs-thumb{position:relative;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;overflow:hidden}

@@ -25,6 +25,12 @@
 .rk-name{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rk-desc{font-size:11.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rk-src{font-size:11px;color:var(--text3);border:1px solid var(--border);border-radius:999px;padding:3px 10px;flex:none}
+@media(max-width:600px){
+  .rk-wrap{padding:18px 12px 46px}
+  .rk-head h1{font-size:19px}
+  .rk-item{gap:10px;padding:10px 11px}
+  .rk-src{display:none}
+}
 `;
 
   let cssDone = false;

@@ -58,6 +58,7 @@
 @media (max-width:720px){
   .mk-scene{grid-template-columns:90px minmax(0,1fr)}
   .mk-scene-anchor{width:90px}
+  .mk-viewgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 `;
 
