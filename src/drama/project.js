@@ -242,6 +242,7 @@
       shotMode: opts.shotMode === "take" ? "take" : "shot",
       takeTarget: 15,
       takes: [],
+      canvas: { v: 1, nodes: [], edges: [], view: { x: 0, y: 0, k: 1 }, updatedAt: Date.now() },
       templateId: opts.templateId || "",
       thumb: "",
       createdAt: Date.now(),
@@ -431,6 +432,9 @@
 
     if (!Array.isArray(p.takes)) p.takes = [];
     D.takes.sync(p);
+
+    if (!p.canvas || typeof p.canvas !== "object") p.canvas = { v: 1, nodes: [], edges: [], view: { x: 0, y: 0, k: 1 }, updatedAt: Date.now() };
+    if (D.canvas && D.canvas.ensure) D.canvas.ensure(p);
 
     if (typeof p.createdAt !== "number") p.createdAt = Date.now();
     if (typeof p.updatedAt !== "number") p.updatedAt = p.createdAt;

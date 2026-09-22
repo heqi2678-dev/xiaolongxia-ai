@@ -5,7 +5,7 @@
   const U = XLX.util;
   const FPS = 30;
 
-  const state = { pid: "", project: null, busy: false, lastComposed: null, cur: "", time: 0, playing: false };
+  const state = { pid: "", project: null, busy: false, lastComposed: null, cur: "", time: 0, playing: false, mode: "board" };
 
   let rafId = null;
   let lastTs = 0;
@@ -93,10 +93,13 @@
         '<button class="btn small" id="dwPush">上传云端</button>' +
         '<button class="btn small" id="dwPull">云端同步</button>' +
         '<button class="btn small ghost" id="dwGuide">看教程</button>' +
-        '<button class="btn small ghost" id="dwMakeup">造型室</button>' +
+        '<button class="btn small ghost" id="dwMakeupBtn">造型室</button>' +
+        '<button class="btn small ghost" id="dwModeBoard">故事板</button>' +
+        '<button class="btn small ghost" id="dwModeNode">节点画布</button>' +
         '<button class="btn small ghost" id="dwPanelRail">分镜</button>' +
         '<button class="btn small ghost" id="dwPanelInsp">属性</button>' +
       "</div>" +
+      '<div id="dwCanvasPanel" style="display:none"></div>' +
       '<div class="dw-console" id="dwConsole">' +
         '<div class="dw-rail" id="dwRail"></div>' +
         '<div class="dw-stage" id="dwStage"></div>' +
@@ -122,6 +125,27 @@
 
     paintAll();
     bind(p);
+    applyMode();
+  }
+
+  /* 故事板 / 节点画布（LibTV 双视图）切换 */
+  function applyMode() {
+    const v = view();
+    if (!v) return;
+    const node = state.mode === "node";
+    const consoleEl = v.querySelector("#dwConsole");
+    const tl = v.querySelector("#dwTimeline");
+    const panel = v.querySelector("#dwCanvasPanel");
+    const b = v.querySelector("#dwModeBoard");
+    const nb = v.querySelector("#dwModeNode");
+    if (consoleEl) consoleEl.style.display = node ? "none" : "";
+    if (tl) tl.style.display = node ? "none" : "";
+    if (panel) panel.style.display = node ? "" : "none";
+    if (b) b.className = "btn small " + (node ? "ghost" : "primary");
+    if (nb) nb.className = "btn small " + (node ? "primary" : "ghost");
+    if (node && panel && D.canvas && D.canvas.mount) {
+      D.canvas.mount(panel, state.project, { onChange: () => saveSoon(400) });
+    }
   }
 
   function infoFields(p) {
@@ -1098,7 +1122,9 @@
       } catch (e) { U.toast((e && e.message) || "同步失败", "err"); }
     };
     v.querySelector("#dwGuide").onclick = () => { if (D.guide) D.guide.open("manual"); };
-    v.querySelector("#dwMakeup").onclick = async () => { await save(); if (D.makeup && D.makeup.load) await D.makeup.load(state.pid); if (XLX.app) XLX.app.go("makeup"); };
+    v.querySelector("#dwMakeupBtn").onclick = async () => { await save(); if (D.makeup && D.makeup.load) await D.makeup.load(state.pid); if (XLX.app) XLX.app.go("makeup"); };
+    v.querySelector("#dwModeBoard").onclick = () => { if (state.mode !== "board") { state.mode = "board"; render(); } };
+    v.querySelector("#dwModeNode").onclick = () => { if (state.mode !== "node") { state.mode = "node"; render(); } };
 
     /* 窄屏抽屉：分镜 / 属性 */
     const con = v.querySelector("#dwConsole");

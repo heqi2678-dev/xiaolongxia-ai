@@ -13,7 +13,7 @@ const DRAMA_FILES = [
   "takes.js",
   "engine.js", "compliance.js", "compose.js", "ui.js",
   "templates.js", "models.js", "timeline.js", "home.js", "guide.js",
-  "manual.js", "auto.js"
+  "manual.js", "auto.js", "makeup.js", "canvas.js"
 ];
 
 let pass = 0;

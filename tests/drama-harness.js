@@ -10,7 +10,7 @@ const DRAMA_FILES = [
   "adapters/tts.js", "adapters/lipsync.js", "project.js", "character.js",
   "takes.js", "engine.js", "compliance.js", "compose.js", "ui.js",
   "templates.js", "models.js", "timeline.js", "home.js", "guide.js",
-  "manual.js", "auto.js", "makeup.js"
+  "manual.js", "auto.js", "makeup.js", "canvas.js"
 ];
 
 function noop() {}
@@ -64,6 +64,8 @@ function makeEl() {
     remove: noop, focus: noop, setAttribute: noop, getAttribute: () => null, addEventListener: noop,
     querySelector: () => makeEl(), querySelectorAll: () => [], closest: () => null,
     insertAdjacentHTML: noop, getContext: () => ({}), innerHTML: "", textContent: "", value: "",
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 }),
+    clientWidth: 800, clientHeight: 600,
     readyState: 0, duration: 0, currentTime: 0, poster: "",
     play: () => Promise.resolve(), pause: noop
   };
