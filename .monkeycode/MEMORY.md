@@ -159,4 +159,4 @@ Entries discovered by the Agent during task execution should follow this format:
   - 管家目录 `/home/admin/work/tonglong-ui`（线上）已 `git init`（分支 `main`，首提交 `7309752`，`.git` 约 900K）；`.gitignore` 已排除虚拟环境 `ocr311/`、`ocrvenv/`、`__pycache__/`、备份 `*.bak*`、运行时数据 `rooms/`、`inbox/`、`downloads/`、`pub/`、`safety/`、`*.jsonl`，以及凭据 `*.keys.json`、`brains.json`、`works.json`。
   - 管家服务由独立 venv 启动：`/home/admin/.hermes/hermes-agent/venv/bin/python3 -m uvicorn app:app --host 127.0.0.1 --port 9130`；改后端代码后需重启该进程（前端 `index.html` 静态改动无需重启）。
   - 该目录文件多为 `admin` 所有、部分 `root`，git 以 root 操作，已 `git config --global --add safe.directory`。
-  - 尚无 GitHub 远端；备份需先在 GitHub 建空私有仓库，再为该仓库配专用部署密钥（当前 `id_ed25519_xiaolongxia` 只属于小龙虾仓库，不可复用）。
+  - GitHub 远端已配：`git@github.com:heqi2678-dev/tonglong-ui.git`（私有）；推送用专用部署密钥 `/home/admin/.ssh/id_ed25519_tonglongui`（已在仓库 Deploy keys 中勾选 write access）：`GIT_SSH_COMMAND="ssh -i /home/admin/.ssh/id_ed25519_tonglongui -o IdentitiesOnly=yes" git push origin main`。该密钥只授权 `tonglong-ui` 仓库，与小龙虾的 `id_ed25519_xiaolongxia` 相互独立。
