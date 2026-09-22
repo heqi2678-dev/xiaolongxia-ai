@@ -484,8 +484,10 @@
 .cv-edges circle{fill:var(--accent)}
 .cv-node{position:absolute;width:248px;background:var(--panel);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.35);user-select:none}
 .cv-node.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 10px 28px rgba(0,0,0,.4)}
+.cv-node-label{position:absolute;top:-21px;left:2px;display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);white-space:nowrap;pointer-events:none}
 .cv-node-head{display:flex;align-items:center;gap:6px;padding:7px 8px;border-bottom:1px solid var(--border);cursor:move;border-radius:12px 12px 0 0;background:linear-gradient(180deg,rgba(255,255,255,.03),transparent)}
 .cv-node-head b{font-size:12px;color:var(--text)}
+.cv-try-t{color:var(--text3);font-size:10px;flex:none}
 .cv-dot{width:8px;height:8px;border-radius:50%;flex:none}
 .cv-st{font-size:10px;padding:2px 7px;border-radius:99px;border:1px solid var(--border);color:var(--text3);margin-left:auto}
 .cv-st.st-running{color:#e8b64a;border-color:#6a5320}
@@ -535,6 +537,16 @@
     return RATIOS.map(r => '<option value="' + r + '"' + (r === cur ? " selected" : "") + ">" + r + "</option>").join("");
   }
 
+  /* 「尝试」动作区：LibTV 节点卡片底部的主动作 + 高清动作 */
+  function tryRow(n, runLabel, hiresLabel) {
+    const busy = n.status === "running";
+    let h = '<div class="cv-row"><span class="cv-try-t">尝试:</span>' +
+      '<button class="btn small primary" data-act="run" data-nid="' + n.id + '"' + (busy ? " disabled" : "") + ">" + (busy ? "生成中" : runLabel) + "</button>";
+    if (hiresLabel) h += '<button class="btn small" data-act="hires" data-nid="' + n.id + '"' + (busy ? " disabled" : "") + ">" + hiresLabel + "</button>";
+    h += "</div>";
+    return h;
+  }
+
   function bodyHTML(n) {
     const t = typeOf(n.type);
     let h = "";
@@ -545,30 +557,30 @@
     }
     if (n.type === "image") {
       h += '<textarea class="inp cv-ta" data-f="prompt" data-nid="' + n.id + '" placeholder="画面提示词">' + esc(n.data.prompt) + "</textarea>";
-      h += '<div class="cv-row"><select class="inp cv-sel" data-f="ratio" data-nid="' + n.id + '">' + ratioOpts(n.data.ratio) + "</select>";
-      h += '<button class="btn small primary" data-act="run" data-nid="' + n.id + '"' + (n.status === "running" ? " disabled" : "") + ">" + (n.status === "running" ? "生成中" : "生成") + "</button></div>";
+      h += '<div class="cv-row"><select class="inp cv-sel" data-f="ratio" data-nid="' + n.id + '">' + ratioOpts(n.data.ratio) + "</select></div>";
       h += preview(n);
+      h += tryRow(n, "改图", "图片高清");
       return h;
     }
     if (n.type === "video") {
       h += '<textarea class="inp cv-ta" data-f="prompt" data-nid="' + n.id + '" placeholder="运镜与动作提示词">' + esc(n.data.prompt) + "</textarea>";
       h += '<div class="cv-row"><select class="inp cv-sel" data-f="ratio" data-nid="' + n.id + '">' + ratioOpts(n.data.ratio) + "</select>";
-      h += '<input class="inp cv-num" type="number" min="1" max="30" data-f="duration" data-nid="' + n.id + '" value="' + esc(n.data.duration || 5) + '"><span class="cv-ph">秒</span>';
-      h += '<button class="btn small primary" data-act="run" data-nid="' + n.id + '"' + (n.status === "running" ? " disabled" : "") + ">" + (n.status === "running" ? "生成中" : "生成") + "</button></div>";
+      h += '<input class="inp cv-num" type="number" min="1" max="30" data-f="duration" data-nid="' + n.id + '" value="' + esc(n.data.duration || 5) + '"><span class="cv-ph">秒</span></div>';
       h += preview(n);
+      h += tryRow(n, "重绘", "视频高清");
       return h;
     }
     if (n.type === "audio") {
       h += '<textarea class="inp cv-ta" data-f="text" data-nid="' + n.id + '" placeholder="台词（有上游文本时以上游为准）">' + esc(n.data.text) + "</textarea>";
-      h += '<div class="cv-row"><input class="inp cv-num" style="width:auto;flex:1" data-f="voice" data-nid="' + n.id + '" placeholder="音色" value="' + esc(n.data.voice || "") + '">';
-      h += '<button class="btn small primary" data-act="run" data-nid="' + n.id + '"' + (n.status === "running" ? " disabled" : "") + ">" + (n.status === "running" ? "生成中" : "生成") + "</button></div>";
+      h += '<div class="cv-row"><input class="inp cv-num" style="width:auto;flex:1" data-f="voice" data-nid="' + n.id + '" placeholder="音色" value="' + esc(n.data.voice || "") + '"></div>';
       h += preview(n);
+      h += tryRow(n, "生成", "");
       return h;
     }
     if (n.type === "lipsync") {
       h += '<div class="cv-ph">上游：视频人像 + 人声，生成对口型视频</div>';
-      h += '<div class="cv-row"><button class="btn small primary" data-act="run" data-nid="' + n.id + '"' + (n.status === "running" ? " disabled" : "") + ">" + (n.status === "running" ? "生成中" : "生成") + "</button></div>";
       h += preview(n);
+      h += tryRow(n, "生成", "");
       return h;
     }
     if (n.type === "asset") {
@@ -591,12 +603,11 @@
     return h;
   }
 
-  function nodeHTML(n, sel) {
+  function nodeHTML(n, sel, idx) {
     const t = typeOf(n.type);
     return '<div class="cv-node' + (sel === n.id ? " sel" : "") + '" data-nid="' + n.id + '" style="left:' + n.x + "px;top:" + n.y + 'px">' +
+      '<div class="cv-node-label"><span class="cv-dot" style="background:' + t.accent + '"></span>' + t.label + "节点 " + (idx || 1) + "</div>" +
       '<div class="cv-node-head">' +
-        '<span class="cv-dot" style="background:' + t.accent + '"></span>' +
-        "<b>" + t.label + "</b>" +
         '<span class="cv-st st-' + n.status + '">' + (STATUS_TEXT[n.status] || n.status) + "</span>" +
         '<button class="cv-x" data-act="del" data-nid="' + n.id + '" title="删除">×</button>' +
       "</div>" +
@@ -679,7 +690,11 @@
   function paint(ctx) {
     const c = ensure(ctx.p);
     applyView(ctx);
-    ctx.nodesEl.innerHTML = c.nodes.map(n => nodeHTML(n, ctx.sel)).join("");
+    const seq = {};
+    ctx.nodesEl.innerHTML = c.nodes.map(n => {
+      seq[n.type] = (seq[n.type] || 0) + 1;
+      return nodeHTML(n, ctx.sel, seq[n.type]);
+    }).join("");
     paintEdges(ctx);
     if (ctx.foot) {
       const done = c.nodes.filter(n => n.status === "done").length;
@@ -824,6 +839,7 @@
       if (act === "del") b.onclick = e => { e.stopPropagation(); removeNode(ctx.p, nid); refresh(ctx, true); };
       else if (act === "explode") b.onclick = e => { e.stopPropagation(); doExplode(ctx, nid); };
       else if (act === "run") b.onclick = e => { e.stopPropagation(); doRun(ctx, nid); };
+      else if (act === "hires") b.onclick = e => { e.stopPropagation(); doHires(ctx, nid); };
       else if (act === "bind") b.onclick = e => { e.stopPropagation(); doBind(ctx, nid); };
     });
 
@@ -870,6 +886,21 @@
       toast("「" + typeOf(n.type).label + "」节点已生成", "ok");
     } catch (e) {
       toast((e && e.message) || "生成失败", "err");
+    }
+    refresh(ctx, true);
+  }
+
+  async function doHires(ctx, nid) {
+    const n = nodeById(ctx.p, nid);
+    if (!n) return;
+    n.status = "running"; n.error = "";
+    refresh(ctx, true);
+    try {
+      await actionNode(ctx.p, nid, "hires");
+      toast("「" + typeOf(n.type).label + "」节点已高清重绘", "ok");
+    } catch (e) {
+      n.status = "failed"; n.error = (e && e.message) || "高清重绘失败";
+      toast((e && e.message) || "高清重绘失败", "err");
     }
     refresh(ctx, true);
   }

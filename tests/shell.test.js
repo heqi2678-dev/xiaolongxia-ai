@@ -26,7 +26,8 @@ function bootShell(opts) {
     + '<div id="shellNav"></div>'
     + '<div id="shellStatus"></div>'
     + '<div id="shellTop"></div>'
-    + '</body></html>', { runScripts: "outside-only" });
+    + '<div id="modal"></div>'
+    + '</body></html>', { runScripts: "outside-only", url: "http://localhost/" });
   const w = dom.window;
   w.scrollTo = () => {};
   w.XLX = {};
@@ -80,6 +81,49 @@ test("外壳：挂载渲染主按钮、导航项、状态条与账号区", () =>
   assert.ok(doc.querySelector("#shellStatus #shellModelText"), "渲染模型状态");
   assert.ok(doc.querySelector("#shellTop #shellAccountBtn"), "渲染账号入口");
   assert.equal(doc.querySelectorAll("#shellTop .shell-menu-item").length, shell.ACCOUNT.length);
+});
+
+test("外壳：侧栏文案对齐 LibTV（品牌前缀 + 插件两行）", () => {
+  const { doc, shell } = bootShell();
+  shell.mount();
+  const txt = id => doc.querySelector('.shell-nav-item[data-view="' + id + '"] .shell-nav-txt');
+  assert.equal(txt("agent").textContent, "铜龙电商 Agent");
+  assert.equal(txt("box3d").textContent, "铜龙电商 3D-BOX");
+  const plugin = doc.querySelector('.shell-nav-item[data-view="plugin"]');
+  assert.equal(plugin.querySelector(".shell-nav-sub").textContent, "铜龙电商 Plugin", "插件占两行");
+  assert.equal(doc.querySelectorAll(".shell-nav-sub").length, 1, "只有插件是两行");
+});
+
+test("外壳：顶部提供分享与历史入口，历史按快照启用", () => {
+  const { w, doc, shell } = bootShell();
+  const toasts = [];
+  w.XLX.util = { toast: m => toasts.push(m) };
+  shell.mount();
+  assert.ok(doc.querySelector("#shellShare"), "渲染分享入口");
+  const hi = doc.querySelector("#shellHistory");
+  assert.ok(hi, "渲染历史入口");
+  assert.equal(hi.disabled, true, "无历史时禁用");
+
+  const saved = [];
+  const p = { id: "p1", title: "冒烟工程", canvases: [{ id: "c1" }], shots: [] };
+  w.XLX.drama = {
+    manual: { state: { project: p }, render() {} },
+    project: { save: x => saved.push(x) }
+  };
+  shell.snapshot(p);
+  assert.equal(hi.disabled, false, "有快照后历史入口启用");
+  assert.equal(shell.versions("p1").length, 1, "快照写入历史");
+
+  doc.querySelector("#shellShare").click();
+  assert.ok(toasts.some(x => /分享链接/.test(x)), "分享给出链接");
+
+  doc.querySelector("#shellHistory").click();
+  assert.ok(doc.querySelector("#modal").classList.contains("open"), "历史弹窗打开");
+  assert.equal(doc.querySelectorAll(".shell-hist-item").length, 1, "历史列出快照");
+  doc.querySelector(".shell-hist-item [data-hist]").click();
+  assert.ok(doc.querySelector("#modal") === null || !doc.querySelector("#modal").classList.contains("open"), "恢复后弹窗关闭");
+  assert.equal(saved.length, 1, "恢复调用工程保存");
+  assert.equal(saved[0].id, "p1", "恢复的是该工程的快照");
 });
 
 test("外壳：选中态唯一，未知视图不误选", () => {

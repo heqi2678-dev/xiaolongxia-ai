@@ -14,6 +14,12 @@
 
   const CSS = `
 .dw-workbench{display:flex;flex-direction:column;gap:10px}
+.dw-workbench>.dw-bar{gap:6px;margin-bottom:0;padding:8px 10px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+.dw-workbench>.dw-bar .inp{width:auto;min-width:140px}
+.dw-more{position:relative;display:inline-block}
+.dw-more-menu{position:absolute;left:0;top:calc(100% + 6px);z-index:40;display:flex;flex-direction:column;gap:6px;min-width:150px;padding:8px;border:1px solid var(--border);border-radius:12px;background:var(--card);box-shadow:0 12px 30px rgba(0,0,0,.45)}
+.dw-more-menu[hidden]{display:none}
+.dw-more-menu .btn{width:100%;justify-content:flex-start}
 .dw-wb-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
 .dw-wb-bar .inp{width:auto;min-width:140px}
 .dw-wb-sp{flex:1}
@@ -111,13 +117,17 @@
     v.innerHTML = '<div class="dw-wrap dw-workbench">' +
       '<div class="dw-bar">' +
         '<select class="inp" id="dwProjSel" style="width:auto;min-width:160px">' + list.map(x => '<option value="' + x.id + '"' + (x.id === p.id ? " selected" : "") + ">" + D.ui.esc(x.title) + "</option>").join("") + "</select>" +
-        '<button class="btn small" id="dwNew">新建工程</button>' +
-        '<button class="btn small" id="dwSave">保存草稿</button>' +
-        '<button class="btn small" id="dwPush">上传云端</button>' +
-        '<button class="btn small" id="dwPull">云端同步</button>' +
-        '<span class="dw-wb-sp"></span>' +
-        '<button class="btn small ghost" id="dwGuide">看教程</button>' +
-        '<button class="btn small ghost" id="dwMakeupBtn">造型室</button>' +
+        '<div class="dw-more">' +
+          '<button class="btn small" id="dwMoreBtn" type="button">工程操作 ▾</button>' +
+          '<div class="dw-more-menu" id="dwMoreMenu" hidden>' +
+            '<button class="btn small" id="dwNew">新建工程</button>' +
+            '<button class="btn small" id="dwSave">保存草稿</button>' +
+            '<button class="btn small" id="dwPush">上传云端</button>' +
+            '<button class="btn small" id="dwPull">云端同步</button>' +
+            '<button class="btn small ghost" id="dwGuide">看教程</button>' +
+            '<button class="btn small ghost" id="dwMakeupBtn">造型室</button>' +
+          "</div>" +
+        "</div>" +
       "</div>" +
       '<div class="dw-wb-bar">' +
         '<label class="label" style="margin:0">画布</label>' +
@@ -285,8 +295,9 @@
 
     h += '<div class="dw-shot-actions" style="margin-top:8px">';
     if (GEN_TYPES.indexOf(n.type) >= 0) {
-      h += '<button class="btn small primary" data-sa="gen">' + (n.out ? "重绘" : "生成") + "</button>";
-      if (n.type === "image" || n.type === "video") h += '<button class="btn small" data-sa="hires">高清重绘</button>';
+      h += '<button class="btn small primary" data-sa="gen">' + (n.type === "image" ? (n.out ? "改图" : "生成") : (n.out ? "重绘" : "生成")) + "</button>";
+      if (n.type === "image") h += '<button class="btn small" data-sa="hires">图片高清</button>';
+      else if (n.type === "video") h += '<button class="btn small" data-sa="hires">视频高清</button>';
     }
     h += '<button class="btn small ghost danger" data-sa="del">删除节点</button>' +
       "</div>";
@@ -559,6 +570,12 @@
   function bind(p) {
     const v = view();
     v.querySelector("#dwProjSel").onchange = async (e) => { state.project = null; state.lastComposed = null; state.canvasId = ""; state.sel = ""; await load(e.target.value); render(); };
+    v.querySelector("#dwMoreBtn").onclick = (e) => {
+      e.stopPropagation();
+      const mn = v.querySelector("#dwMoreMenu");
+      if (mn) mn.hidden = !mn.hidden;
+    };
+    v.querySelector("#dwMoreMenu").addEventListener("click", () => { v.querySelector("#dwMoreMenu").hidden = true; });
     v.querySelector("#dwNew").onclick = async () => {
       const np = D.project.blank({});
       await D.project.save(np);
@@ -569,7 +586,11 @@
       await load(np.id);
       render();
     };
-    v.querySelector("#dwSave").onclick = async () => { await save(); U.toast("草稿已保存", "ok"); };
+    v.querySelector("#dwSave").onclick = async () => {
+      await save();
+      if (XLX.dramaShell && XLX.dramaShell.snapshot) XLX.dramaShell.snapshot(state.project);
+      U.toast("草稿已保存", "ok");
+    };
     v.querySelector("#dwPush").onclick = async () => {
       try { await D.project.remote.save(state.project); U.toast("已上传云端", "ok"); }
       catch (e) { U.toast((e && e.message) || "上传失败", "err"); }

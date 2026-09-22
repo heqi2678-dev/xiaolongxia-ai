@@ -442,6 +442,10 @@ async function flowProjectLifecycle(env) {
   eq(D.manual.state.project.title, "测试标题A", "标题已保存");
   await click(doc, "#dwSave");
   ok(/草稿已保存/.test(toastsText(state)), "保存草稿提示");
+  await click(doc, "#dwMoreBtn", 0);
+  eq(doc.querySelector("#dwMoreMenu").hidden, false, "工程操作菜单可展开");
+  await click(doc, "#dwSave", 0);
+  eq(doc.querySelector("#dwMoreMenu").hidden, true, "点击菜单项后菜单收起");
 
   await click(doc, "#dwPush");
   ok(/已上传云端/.test(toastsText(state)), "上传云端成功提示");
