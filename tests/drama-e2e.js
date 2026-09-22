@@ -546,7 +546,8 @@ async function flowHome(env) {
 
   /* 模板排行：点选题材模板建工程 */
   await D.ranking.render(); await settle();
-  ok(doc.querySelectorAll("#dramaRanking [data-rk-kind]").length >= 4, "模板排行已渲染");
+  eq(doc.querySelectorAll('#dramaRanking [data-rk-kind="skill"]').length, 0, "挑战赛不再列技能");
+  ok(doc.querySelectorAll("#dramaRanking [data-rk-kind]").length >= 1, "模板排行已渲染");
   const before = D.project.list().length;
   await click(doc, '#dramaRanking [data-rk-kind="tpl"]', 20);
   eq(D.project.list().length, before + 1, "排行点选题材模板建工程");

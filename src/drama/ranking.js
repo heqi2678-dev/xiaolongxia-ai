@@ -1,5 +1,5 @@
-/* 铜龙电商 · AI 短剧工作台 · 模板排行（创作者挑战赛） */
-/* 排行榜列表（名次 / 标题 / 来源），数据取技能清单与题材模板；点选以该项启动创作。 */
+/* 铜龙电商 · AI 短剧工作台 · 创作者挑战赛（题材模板榜） */
+/* 排行榜列表（名次 / 标题 / 来源），数据取题材模板；点选以该项启动创作。技能已归入插件页技能库。 */
 (function () {
   const D = XLX.drama;
   const U = XLX.util;
@@ -41,17 +41,8 @@
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + ((XLX.ICONS && XLX.ICONS[name]) || "") + "</svg>";
   }
 
-  function catColor(cat) {
-    const c = (XLX.CATS || []).find(x => x.id === cat);
-    return c ? c.color : "#38d9e6";
-  }
-
   function entries() {
     const out = [];
-    (XLX.SKILLS || []).forEach(s => {
-      const kd = (D.home && D.home.kind) ? D.home.kind(s) : { label: "技能" };
-      out.push({ kind: "skill", id: s.id, name: s.name, desc: s.desc || "", icon: s.icon || "sparkle", color: catColor(s.cat), src: kd.label });
-    });
     (D.templates && D.templates.list ? D.templates.list() : []).forEach(t => {
       out.push({ kind: "tpl", id: t.id, name: t.name, desc: t.logline || t.tag || "", icon: "film", color: "#a78bfa", src: "题材模板" });
     });
@@ -64,26 +55,25 @@
     const v = view();
     if (!v) return;
     const list = entries();
+    const body = list.length
+      ? '<div class="rk-list">' + list.map((it, i) =>
+          '<div class="rk-item" data-rk-kind="' + it.kind + '" data-rk-id="' + D.ui.esc(it.id) + '">' +
+            '<div class="rk-rank">' + (i + 1) + "</div>" +
+            '<div class="rk-ic" style="background:' + it.color + '22;color:' + it.color + '">' + svg(it.icon) + "</div>" +
+            '<div class="rk-txt"><div class="rk-name">' + D.ui.esc(it.name) + "</div>" +
+              '<div class="rk-desc">' + D.ui.esc(it.desc) + "</div></div>" +
+            '<div class="rk-src">' + D.ui.esc(it.src) + "</div>" +
+          "</div>"
+        ).join("") + "</div>"
+      : D.ui.emptyBox("暂无题材模板。");
     v.innerHTML = '<div class="rk-wrap">' +
-      '<div class="rk-head"><h1>创作者挑战赛 · 模板排行</h1><p>热门 Skill 与题材模板榜 · 共 ' + list.length + " 项</p></div>" +
-      '<div class="rk-list">' + list.map((it, i) =>
-        '<div class="rk-item" data-rk-kind="' + it.kind + '" data-rk-id="' + D.ui.esc(it.id) + '">' +
-          '<div class="rk-rank">' + (i + 1) + "</div>" +
-          '<div class="rk-ic" style="background:' + it.color + '22;color:' + it.color + '">' + svg(it.icon) + "</div>" +
-          '<div class="rk-txt"><div class="rk-name">' + D.ui.esc(it.name) + "</div>" +
-            '<div class="rk-desc">' + D.ui.esc(it.desc) + "</div></div>" +
-          '<div class="rk-src">' + D.ui.esc(it.src) + "</div>" +
-        "</div>"
-      ).join("") + "</div>" +
+      '<div class="rk-head"><h1>创作者挑战赛 · 题材模板榜</h1><p>点选题材模板直接开一部片 · 共 ' + list.length + " 项</p></div>" +
+      body +
     "</div>";
     v.querySelectorAll("[data-rk-kind]").forEach(el => { el.onclick = () => start(el.dataset.rkKind, el.dataset.rkId); });
   }
 
   async function start(kind, id) {
-    if (kind === "skill") {
-      const s = XLX.getSkill ? XLX.getSkill(id) : null;
-      if (s && D.home && D.home.openSkill) { await D.home.openSkill(s); return; }
-    }
     if (kind === "tpl") { await startTemplate(id); return; }
     U.toast("该条目不可用", "warn");
   }
