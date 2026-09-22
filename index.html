@@ -712,6 +712,8 @@ select.inp{padding-right:34px}
 <script src="src/config.js"></script>
 <script src="src/util.js"></script>
 <script src="src/vendor-keys.js"></script>
+<script src="src/model-catalog.js"></script>
+<script src="src/pool.js"></script>
 <script>
 /* ===== 模型库：HookShot 式多模型管理 =====
  * 用户可添加/删除任意语言模型，每个模型保存为一套完整配置
@@ -4519,6 +4521,7 @@ XLX.app = (function () {
 
   function init() {
     XLX.modelHub && XLX.modelHub.migrateFromSettings && XLX.modelHub.migrateFromSettings();
+    XLX.pool && XLX.pool.auto && XLX.pool.auto();
     if (XLX.modelsel) { XLX.modelsel.attachGlobalClose(); XLX.modelsel.render(document.getElementById("msContainer")); }
     renderSidebar();    renderTopbar();
     renderEmpty();

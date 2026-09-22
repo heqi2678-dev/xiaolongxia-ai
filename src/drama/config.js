@@ -225,7 +225,13 @@
 
   XLX.drama.adapterDef = function (kind, id) {
     const list = XLX.drama.adapterList(kind);
-    return list.find(x => x.id === id) || list[0];
+    const def = list.find(x => x.id === id) || list[0];
+    /* 模型清单统一从模型目录取：一处维护，对话与短剧共用；无目录条目时保留本地清单 */
+    if (def && XLX.catalog && XLX.catalog.modelIds && Array.isArray(def.models)) {
+      const ids = XLX.catalog.modelIds(kind, def.id);
+      if (ids.length) def.models = ids;
+    }
+    return def;
   };
 
   /* 读取短剧服务配置（含各适配器的 Key 等），Key 只存本地 */
