@@ -692,7 +692,10 @@ select.inp{padding-right:34px}
     <div id="assetsView" class="view"><div id="dwMakeup"></div></div>
 
     <!-- TV Show（成片库） -->
-    <div id="tvshowView" class="view"><div id="dwAuto"></div></div>
+    <div id="tvshowView" class="view"><div id="dwTvshow"></div></div>
+
+    <!-- 流水线工作台 -->
+    <div id="autoView" class="view"><div id="dwAuto"></div></div>
 
     <!-- 创作者挑战赛（模板排行） -->
     <div id="rankingView" class="view"><div id="dramaRanking"></div></div>
@@ -4158,6 +4161,11 @@ XLX.studio = (function () {
 <script src="src/drama/models.js"></script>
 <script src="src/drama/timeline.js"></script>
 <script src="src/drama/home.js"></script>
+<script src="src/drama/projects.js"></script>
+<script src="src/drama/assets.js"></script>
+<script src="src/drama/tvshow.js"></script>
+<script src="src/drama/ranking.js"></script>
+<script src="src/drama/plugin.js"></script>
 <script src="src/drama/guide.js"></script>
 <script src="src/drama/manual.js"></script>
 <script src="src/drama/auto.js"></script>
@@ -4333,9 +4341,9 @@ XLX.dlview = (function () {
 
 XLX.app = (function () {
   /* LibTV 顶层视图。drama = 画布工作台；studio/tools 作为插件页内部入口保留可达 */
-  const VIEWS = ["agent", "home", "projects", "assets", "tvshow", "ranking", "box3d", "plugin", "studio", "tools", "memory", "download", "settings", "drama"];
+  const VIEWS = ["agent", "home", "projects", "assets", "tvshow", "auto", "ranking", "box3d", "plugin", "studio", "tools", "memory", "download", "settings", "drama"];
   /* 旧视图 → 新导航兼容映射（旧代码/旧链接仍能落到正确页面） */
-  const COMPAT = { chat: "agent", market: "home", dramaHome: "projects", makeup: "assets", auto: "tvshow" };
+  const COMPAT = { chat: "agent", market: "home", dramaHome: "projects", makeup: "assets", auto: "auto" };
   /* 视图 → 容器 id（默认 view + "View"，agent 复用原对话容器） */
   const VIEW_EL = { agent: "agentView" };
   let currentView = "agent";
@@ -4353,13 +4361,14 @@ XLX.app = (function () {
   function renderView(view) {
     const D = XLX.drama || {};
     switch (view) {
-      case "home": return placeholder("dramaHome", "首页 Skill 墙", "灵感输入 + Skill 墙（建设中）");
-      case "projects": return D.home && D.home.render ? D.home.render() : placeholder("dwHome", "项目", "还没有工程");
-      case "assets": return D.makeup && D.makeup.render ? D.makeup.render() : placeholder("dwMakeup", "资产", "还没有资产");
-      case "tvshow": return D.auto && D.auto.render ? D.auto.render() : placeholder("dwAuto", "TV Show", "成片库为空");
-      case "ranking": return placeholder("dramaRanking", "创作者挑战赛", "模板排行（建设中）");
+      case "home": return D.home && D.home.render ? D.home.render() : placeholder("dramaHome", "首页 Skill 墙", "灵感输入 + Skill 墙");
+      case "projects": return D.projects && D.projects.render ? D.projects.render() : (D.home && D.home.render ? D.home.render() : placeholder("dwHome", "项目", "还没有工程"));
+      case "assets": return D.assets && D.assets.render ? D.assets.render() : (D.makeup && D.makeup.render ? D.makeup.render() : placeholder("dwMakeup", "资产", "还没有资产"));
+      case "tvshow": return D.tvshow && D.tvshow.render ? D.tvshow.render() : placeholder("dwTvshow", "TV Show", "成片库为空");
+      case "auto": return D.auto && D.auto.render ? D.auto.render() : placeholder("dwAuto", "流水线", "去流水线创作");
+      case "ranking": return D.ranking && D.ranking.render ? D.ranking.render() : placeholder("dramaRanking", "创作者挑战赛", "模板排行（建设中）");
       case "box3d": return placeholder("dramaBox3d", "3D-BOX", "多机位 · 大师运镜 · 灯光相机（建设中）");
-      case "plugin": return placeholder("dramaPlugin", "插件", "软件工坊 / 工具箱 / 客户端下载（建设中）");
+      case "plugin": return D.plugin && D.plugin.render ? D.plugin.render() : placeholder("dramaPlugin", "插件", "软件工坊 / 工具箱 / 客户端下载（建设中）");
       case "drama": return D.manual && D.manual.render ? D.manual.render() : null;
       case "studio": return XLX.studio && XLX.studio.render();
       case "tools": return XLX.tools && XLX.tools.render();
@@ -4391,6 +4400,7 @@ XLX.app = (function () {
       projects: ["项目", "工程管理 · 多画布 · 一键起盘"],
       assets: ["资产", "三视图 · 场景卡 · 多参考"],
       tvshow: ["TV Show", "全网爆款成片库"],
+      auto: ["流水线", "输入→审剧本→角色→批量生成→合成"],
       ranking: ["创作者挑战赛", "模板排行 · 王者大赛"],
       box3d: ["3D-BOX", "多机位 · 大师运镜 · 灯光相机 · 多角度 · 精准编辑"],
       plugin: ["插件", "软件工坊 · 工具箱 · 客户端下载"],
@@ -4472,7 +4482,10 @@ XLX.app = (function () {
         const sid = card.dataset.it;
         if (sid) {
           go("home");
-          setTimeout(() => XLX.market.openSkill(XLX.getSkill(sid)), 120);
+          setTimeout(() => {
+            const s = XLX.getSkill(sid);
+            if (s && XLX.drama && XLX.drama.home && XLX.drama.home.openSkill) XLX.drama.home.openSkill(s);
+          }, 120);
         } else {
           go(card.dataset.go);
         }

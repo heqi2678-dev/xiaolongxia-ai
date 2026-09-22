@@ -1,131 +1,195 @@
-/* 铜龙电商 · AI 短剧工作台 · 项目中心（首页） */
-/* 工程卡片网格 + 搜索/排序/筛选 + 一键题材模板。打开工程时按 mode 分流到导演台或流水线。 */
+/* 铜龙电商 · AI 短剧工作台 · 首页（LibTV Skill 墙） */
+/* 居中灵感输入 + Skill 分栏 + 分类条 + 三列 Skill 卡；提交灵感或点选 Skill 建工程并进入画布。 */
 (function () {
   const D = XLX.drama;
   const U = XLX.util;
 
-  const state = { q: "", sort: "updated", genre: "", busy: false, covers: {} };
+  const K_FAV = "xlx_home_fav";
+  const K_USED = "xlx_home_used";
 
-  function view() { return document.getElementById("dwHome"); }
+  /* LibTV 分类条。分类过滤映射到现有技能清单的 cat 字段（需求 5.3 / 5.7） */
+  const CATS = [
+    { id: "reco", name: "推荐", match: null },
+    { id: "film", name: "专业影视", match: ["video"] },
+    { id: "ad", name: "商业广告", match: ["design", "ecom"] },
+    { id: "drama", name: "短剧漫剧", match: ["video", "media"] },
+    { id: "anime", name: "动漫游戏", match: ["design"] },
+    { id: "mv", name: "音乐MV", match: ["media"] },
+    { id: "creator", name: "自媒体创作", match: ["media"] },
+    { id: "general", name: "通用技能", match: ["office", "dev"] },
+    { id: "discover", name: "发现", match: null }
+  ];
 
-  /* ===== LibTV 风首页样式 ===== */
+  const TABS = [
+    { id: "reco", name: "推荐" },
+    { id: "fav", name: "收藏" },
+    { id: "mine", name: "我的" }
+  ];
+
+  const VIDEO_CATS = { video: 1, media: 1 };
+
+  const state = { tab: "reco", cat: "reco", q: "", busy: false };
+
+  function view() { return document.getElementById("dramaHome"); }
+
   const CSS = `
-.hm-hero{position:relative;border:1px solid var(--border);border-radius:16px;overflow:hidden;padding:24px 20px;margin-bottom:14px;
-  background:radial-gradient(120% 160% at 0% 0%,rgba(255,90,60,.16),transparent 55%),
-    radial-gradient(120% 160% at 100% 0%,rgba(255,143,90,.10),transparent 55%),var(--panel)}
-.hm-hero h1{font-size:23px;font-weight:800;letter-spacing:.5px;margin:0 0 4px}
-.hm-hero p{margin:0 0 14px;color:var(--text2);font-size:12px}
-.hm-hero .hm-hero-acts{display:flex;gap:8px;flex-wrap:wrap}
-.hm-assets{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:10px}
-.hm-asset{display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--card);cursor:pointer;transition:border-color .15s,transform .15s}
-.hm-asset:hover{border-color:var(--accent);transform:translateY(-2px)}
-.hm-asset-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--accent-grad);color:#fff;flex:none}
-.hm-asset-t{font-size:13px;font-weight:600}
-.hm-asset-s{font-size:11px;color:var(--text3);line-height:1.5}
+.hs-wrap{max-width:1080px;margin:0 auto;padding:26px 16px 60px;width:100%;display:flex;flex-direction:column;align-items:center}
+.hs-title{font-size:30px;font-weight:800;letter-spacing:1px;text-align:center;margin:18px 0 6px;background:var(--accent-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hs-sub{font-size:12.5px;color:var(--text3);margin-bottom:22px}
+.hs-inputbox{width:100%;max-width:760px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:12px 14px;transition:border-color .15s}
+.hs-inputbox:focus-within{border-color:var(--accent)}
+.hs-inputbox textarea{width:100%;background:none;border:none;outline:none;color:var(--text);font-size:14px;resize:none;min-height:56px;line-height:1.6;font-family:inherit}
+.hs-inputfoot{display:flex;align-items:center;gap:6px;margin-top:8px}
+.hs-icbtn{width:32px;height:32px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--text2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .15s,color .15s}
+.hs-icbtn:hover{border-color:var(--accent);color:var(--accent2)}
+.hs-spacer{flex:1}
+.hs-send{width:36px;height:36px;border-radius:11px;border:none;background:var(--accent-grad);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.hs-send:disabled{opacity:.5;cursor:default}
+.hs-tabs{display:flex;gap:22px;margin:26px 0 14px}
+.hs-tab{font-size:14px;color:var(--text3);cursor:pointer;padding-bottom:6px;border-bottom:2px solid transparent}
+.hs-tab.on{color:var(--text);border-bottom-color:var(--accent)}
+.hs-filterbar{width:100%;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.hs-cats{display:flex;gap:8px;flex-wrap:wrap;flex:1}
+.hs-cat{border:1px solid var(--border);background:var(--card);color:var(--text2);border-radius:999px;padding:5px 13px;font-size:12px;cursor:pointer;transition:border-color .15s,color .15s}
+.hs-cat:hover{border-color:var(--accent);color:var(--text)}
+.hs-cat.on{border-color:var(--accent);color:var(--accent2);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.hs-search{display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:0 12px;height:32px}
+.hs-search input{background:none;border:none;outline:none;color:var(--text);font-size:12.5px;width:130px}
+.hs-grid{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media(max-width:820px){.hs-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.hs-grid{grid-template-columns:1fr}}
+.hs-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .15s;display:flex;flex-direction:column}
+.hs-card:hover{border-color:var(--accent);transform:translateY(-3px)}
+.hs-thumb{position:relative;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.hs-thumb .hs-tic{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.28)}
+.hs-thumb .hs-tic svg{width:23px;height:23px}
+.hs-badge{position:absolute;left:9px;bottom:9px;font-size:10.5px;padding:2px 8px;border-radius:6px;background:rgba(0,0,0,.55);color:#fff}
+.hs-fav{position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .15s}
+.hs-card:hover .hs-fav{opacity:1}
+.hs-fav.on{opacity:1;color:#f5c451}
+.hs-cbody{padding:11px 12px 12px;display:flex;flex-direction:column;gap:5px}
+.hs-cname{font-size:13.5px;font-weight:700}
+.hs-cdesc{font-size:11.5px;color:var(--text3);line-height:1.6;min-height:34px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hs-cfoot{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px;border-top:1px solid var(--border);padding-top:8px;margin-top:2px}
+.hs-avatar{width:16px;height:16px;border-radius:50%;background:var(--accent-grad);flex:none}
 `;
 
   let cssDone = false;
   function ensureCss() {
     if (cssDone) return;
     const s = document.createElement("style");
-    s.id = "dramaHomeCss";
+    s.id = "dramaHomeWallCss";
     s.textContent = CSS;
     document.head.appendChild(s);
     cssDone = true;
   }
 
-  function filtered() {
-    let list = D.project.list();
-    list.forEach(D.project.migrate);
-    const q = state.q.trim().toLowerCase();
-    if (q) list = list.filter(p => String(p.title || "").toLowerCase().indexOf(q) >= 0);
-    if (state.genre) list = list.filter(p => p.genre === state.genre);
-    const by = {
-      updated: (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0),
-      created: (a, b) => (b.createdAt || 0) - (a.createdAt || 0),
-      title: (a, b) => String(a.title || "").localeCompare(String(b.title || ""), "zh")
-    };
-    return list.sort(by[state.sort] || by.updated);
+  function readArr(key) {
+    try {
+      const v = JSON.parse(localStorage.getItem(key) || "[]");
+      return Array.isArray(v) ? v : [];
+    } catch (e) { return []; }
+  }
+  function writeArr(key, v) {
+    try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {}
+  }
+  function favorites() { return readArr(K_FAV); }
+  function isFav(id) { return favorites().indexOf(id) >= 0; }
+  function toggleFav(id) {
+    let list = favorites();
+    if (list.indexOf(id) >= 0) list = list.filter(x => x !== id);
+    else list.push(id);
+    writeArr(K_FAV, list);
+    return list.indexOf(id) >= 0;
+  }
+  function markUsed(id) {
+    const list = readArr(K_USED);
+    if (list.indexOf(id) < 0) { list.push(id); writeArr(K_USED, list); }
   }
 
-  /* 封面可能是 asset: 引用，渲染后逐个换成可显示的 blob: */
-  async function hydrateCovers(root, list) {
-    for (const p of list) {
-      if (!p.thumb || !String(p.thumb).startsWith("asset:")) continue;
-      const el = root.querySelector('[data-cover="' + p.id + '"] img');
-      if (!el) continue;
-      if (state.covers[p.thumb] === undefined) {
-        state.covers[p.thumb] = (await D.project.assets.hydrateRef(p.thumb)) || "";
-      }
-      if (state.covers[p.thumb]) el.src = state.covers[p.thumb];
+  function svg(name, size) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:' + (size || 16) + "px;height:" + (size || 16) + 'px">' + ((XLX.ICONS && XLX.ICONS[name]) || "") + '</svg>';
+  }
+
+  function catColor(cat) {
+    const c = (XLX.CATS || []).find(x => x.id === cat);
+    return c ? c.color : "#38d9e6";
+  }
+
+  function skillList() {
+    let list = (XLX.SKILLS || []).slice();
+    const cat = CATS.find(c => c.id === state.cat);
+    if (cat && cat.match) list = list.filter(s => cat.match.indexOf(s.cat) >= 0);
+    if (state.tab === "fav") list = list.filter(s => isFav(s.id));
+    if (state.tab === "mine") {
+      const used = readArr(K_USED);
+      list = list.filter(s => used.indexOf(s.id) >= 0);
     }
+    const q = state.q.trim().toLowerCase();
+    if (q) list = list.filter(s => (String(s.name) + " " + String(s.desc || "")).toLowerCase().indexOf(q) >= 0);
+    return list;
   }
-
-  const ASSETS = [
-    { tab: "views", name: "三视图", sub: "正 / 侧 / 背，把角色钉死" },
-    { tab: "scenes", name: "场景卡", sub: "场景身份锚点，前后一致" },
-    { tab: "refs", name: "多参考", sub: "每镜最多 3 张参考图" }
-  ];
-  const ASSET_ICONS = {
-    views: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="16" rx="1.5"/><rect x="14" y="4" width="7" height="16" rx="1.5"/></svg>',
-    scenes: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M4 18l5-5 3 3 4-4 4 4"/></svg>',
-    refs: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="14" height="12" rx="2"/><path d="M7 8V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-2"/></svg>'
-  };
 
   function hero() {
-    return '<div class="hm-hero">' +
-      "<h1>短剧工作室</h1>" +
-      "<p>把想法铺成剧本与分镜，再把角色、场景与参考图一次钉死。</p>" +
-      '<div class="hm-hero-acts">' +
-        '<button class="btn primary" id="dwHomeNewManual">＋ 新建导演台工程</button>' +
-        '<button class="btn" id="dwHomeNewAuto">＋ 新建流水线工程</button>' +
-        '<button class="btn ghost" id="dwHomeMakeup">进入造型室</button>' +
+    return '<div class="hs-title">今天想做点什么？</div>' +
+      '<div class="hs-sub">一句话或一个 Skill，直接开一部片</div>' +
+      '<div class="hs-inputbox">' +
+        '<textarea id="hsInput" rows="2" placeholder="描述你的灵感，例如：一个关于外卖小哥逆袭成短剧导演的15秒爽片"></textarea>' +
+        '<div class="hs-inputfoot">' +
+          '<button class="hs-icbtn" title="附件">' + svg("plus", 15) + "</button>" +
+          '<button class="hs-icbtn" title="模型">' + svg("sparkle", 15) + "</button>" +
+          '<button class="hs-icbtn" title="文档">' + svg("book", 15) + "</button>" +
+          '<button class="hs-icbtn" title="图片">' + svg("palette", 15) + "</button>" +
+          '<span class="hs-spacer"></span>' +
+          '<button class="hs-send" id="hsSend" title="开始创作">' + svg("arrow", 17) + "</button>" +
+        "</div>" +
+      "</div>";
+  }
+
+  function tabs() {
+    return '<div class="hs-tabs">' + TABS.map(t =>
+      '<div class="hs-tab' + (state.tab === t.id ? " on" : "") + '" data-hs-tab="' + t.id + '">' + D.ui.esc(t.name) + "</div>"
+    ).join("") + "</div>";
+  }
+
+  function filterBar() {
+    return '<div class="hs-filterbar">' +
+      '<div class="hs-cats">' + CATS.map(c =>
+        '<button class="hs-cat' + (state.cat === c.id ? " on" : "") + '" data-hs-cat="' + c.id + '">' + D.ui.esc(c.name) + "</button>"
+      ).join("") + "</div>" +
+      '<div class="hs-search">' + svg("search", 13) +
+        '<input id="hsQ" placeholder="搜索 Skill" value="' + D.ui.esc(state.q) + '">' +
       "</div>" +
     "</div>";
   }
 
-  function assetsHtml() {
-    return '<div class="hm-assets">' + ASSETS.map(a =>
-      '<div class="hm-asset" data-asset-tab="' + D.ui.esc(a.tab) + '">' +
-        '<span class="hm-asset-ic">' + (ASSET_ICONS[a.tab] || "") + "</span>" +
-        "<div>" +
-          '<div class="hm-asset-t">' + D.ui.esc(a.name) + "</div>" +
-          '<div class="hm-asset-s">' + D.ui.esc(a.sub) + "</div>" +
-        "</div>" +
-      "</div>"
-    ).join("") + "</div>";
+  function card(s) {
+    const color = catColor(s.cat);
+    const video = !!VIDEO_CATS[s.cat];
+    return '<div class="hs-card" data-hs-skill="' + D.ui.esc(s.id) + '">' +
+      '<div class="hs-thumb" style="background:linear-gradient(135deg,' + color + '33,' + color + '0d)">' +
+        '<span class="hs-tic" style="color:' + color + '">' + svg(s.icon, 23) + "</span>" +
+        '<span class="hs-badge">' + (video ? "视频" : "图片") + "</span>" +
+        '<button class="hs-fav' + (isFav(s.id) ? " on" : "") + '" data-hs-fav="' + D.ui.esc(s.id) + '">' +
+          '<svg viewBox="0 0 24 24" fill="' + (isFav(s.id) ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 18l-5.8 3 1.1-6.5L2.6 9.8l6.5-.9z"/></svg>' +
+        "</button>" +
+      "</div>" +
+      '<div class="hs-cbody">' +
+        '<div class="hs-cname">' + D.ui.esc(s.name) + "</div>" +
+        '<div class="hs-cdesc">' + D.ui.esc(s.desc || "") + "</div>" +
+        '<div class="hs-cfoot"><span class="hs-avatar"></span><span>' + D.ui.esc(s.author || "小龙虾官方") + "</span></div>" +
+      "</div>" +
+    "</div>";
   }
 
-  function toolbar() {
-    const genres = [{ id: "", name: "全部剧种" }].concat(D.GENRES);
-    return '<div class="dw-bar">' +
-      '<input class="inp" id="dwHomeQ" placeholder="搜索工程标题" style="width:auto;min-width:180px" value="' + D.ui.esc(state.q) + '">' +
-      '<select class="inp" id="dwHomeGenre" style="width:auto;min-width:120px">' + D.ui.opts(genres, state.genre) + "</select>" +
-      '<select class="inp" id="dwHomeSort" style="width:auto;min-width:130px">' +
-        D.ui.opts([{ id: "updated", name: "最近更新" }, { id: "created", name: "创建时间" }, { id: "title", name: "按标题" }], state.sort) +
-      "</select>" +
-      "</div>";
-  }
-
-  function grid(list) {
+  function grid() {
+    const list = skillList();
     if (!list.length) {
-      return D.ui.emptyBox(state.q || state.genre ? "没有匹配的工程，换个关键词试试。" : "还没有工程，从新建工程或下方题材模板开始。");
+      return D.ui.emptyBox(state.tab === "fav" ? "还没有收藏的 Skill，点卡片右上角星标收藏。"
+        : state.tab === "mine" ? "还没有用过 Skill，从下方挑一个开始吧。"
+        : "没有匹配的 Skill，换个关键词试试。");
     }
-    return '<div class="dw-grid-cards">' + list.map(p => {
-      const card = D.ui.projectCard(p);
-      return card.replace('<div class="dw-pcard-cover">', '<div class="dw-pcard-cover" data-cover="' + D.ui.esc(p.id) + '">');
-    }).join("") + "</div>";
-  }
-
-  function tplGrid() {
-    const list = D.templates.list();
-    return '<div class="dw-tpl">' + list.map(t =>
-      '<div class="dw-tpl-card" data-tpl="' + D.ui.esc(t.id) + '">' +
-        '<div class="dw-tpl-name">' + D.ui.esc(t.name) + "</div>" +
-        '<div class="dw-tpl-tag">' + D.ui.esc(t.tag) + " · " + t.shots.length + " 镜</div>" +
-        '<div class="dw-tpl-desc">' + D.ui.esc(t.logline) + "</div>" +
-      "</div>"
-    ).join("") + "</div>";
+    return '<div class="hs-grid">' + list.map(card).join("") + "</div>";
   }
 
   async function render() {
@@ -133,64 +197,95 @@
     ensureCss();
     const v = view();
     if (!v) return;
-    const list = filtered();
-    v.innerHTML = '<div class="dw-wrap">' +
-      hero() +
-      '<div class="dw-card"><h3>资产工作台 <span class="dw-hint">（开拍前先把角色与场景钉死）</span></h3>' +
-        assetsHtml() +
-      "</div>" +
-      '<div class="dw-card"><h3>我的工程 <span class="dw-hint" id="dwHomeCount">（共 ' + list.length + ' 个工程）</span></h3>' +
-        toolbar() +
-        '<div id="dwHomeGrid" style="margin-top:12px">' + grid(list) + "</div>" +
-      "</div>" +
-      '<div class="dw-card"><h3>题材模板 <span class="dw-hint">（一键铺好剧本骨架与分镜示例）</span></h3>' +
-        '<div id="dwHomeTpl" style="margin-top:10px">' + tplGrid() + "</div>" +
-      "</div>" +
-    "</div>";
+    v.innerHTML = '<div class="hs-wrap">' + hero() + tabs() + filterBar() + '<div id="hsGrid" style="width:100%">' + grid() + "</div></div>";
     bind(v);
-    await hydrateCovers(v, list);
   }
 
   function bind(v) {
-    v.querySelector("#dwHomeQ").oninput = (e) => { state.q = e.target.value; rerenderGrid(); };
-    v.querySelector("#dwHomeGenre").onchange = (e) => { state.genre = e.target.value; rerenderGrid(); };
-    v.querySelector("#dwHomeSort").onchange = (e) => { state.sort = e.target.value; rerenderGrid(); };
-    v.querySelector("#dwHomeNewManual").onclick = () => createBlank("manual");
-    v.querySelector("#dwHomeNewAuto").onclick = () => createBlank("pipeline");
-    v.querySelector("#dwHomeMakeup").onclick = () => openMakeup("");
-    v.querySelectorAll("[data-asset-tab]").forEach(a => { a.onclick = () => openMakeup("", a.dataset.assetTab); });
+    const send = v.querySelector("#hsSend");
+    if (send) send.onclick = submit;
+    const inp = v.querySelector("#hsInput");
+    if (inp) inp.onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); } };
+    const q = v.querySelector("#hsQ");
+    if (q) q.oninput = (e) => { state.q = e.target.value; rerenderGrid(); };
+    v.querySelectorAll("[data-hs-tab]").forEach(t => { t.onclick = () => { state.tab = t.dataset.hsTab; render(); }; });
+    v.querySelectorAll("[data-hs-cat]").forEach(c => { c.onclick = () => { state.cat = c.dataset.hsCat; render(); }; });
+    bindCards(v);
+  }
 
-    v.querySelectorAll("[data-pcard-open]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); open(b.dataset.pcardOpen); }; });
-    v.querySelectorAll("[data-pcard-makeup]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); openMakeup(b.dataset.pcardMakeup); }; });
-    v.querySelectorAll("[data-pcard-copy]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); copy(b.dataset.pcardCopy); }; });
-    v.querySelectorAll("[data-pcard-del]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); del(b); }; });
-    v.querySelectorAll(".dw-pcard").forEach(c => { c.onclick = () => open(c.dataset.pid); });
-
-    v.querySelectorAll("[data-tpl]").forEach(c => { c.onclick = () => useTemplate(c.dataset.tpl); });
+  function bindCards(root) {
+    root.querySelectorAll("[data-hs-fav]").forEach(b => {
+      b.onclick = (e) => {
+        e.stopPropagation();
+        toggleFav(b.dataset.hsFav);
+        rerenderGrid();
+      };
+    });
+    root.querySelectorAll("[data-hs-skill]").forEach(c => {
+      c.onclick = () => {
+        const s = XLX.getSkill ? XLX.getSkill(c.dataset.hsSkill) : null;
+        if (s) openSkill(s);
+      };
+    });
   }
 
   function rerenderGrid() {
     const v = view();
     if (!v) return;
-    const box = v.querySelector("#dwHomeGrid");
-    const list = filtered();
-    box.innerHTML = grid(list);
-    v.querySelector("#dwHomeCount").textContent = "（共 " + list.length + " 个工程）";
-    box.querySelectorAll("[data-pcard-open]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); open(b.dataset.pcardOpen); }; });
-    box.querySelectorAll("[data-pcard-makeup]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); openMakeup(b.dataset.pcardMakeup); }; });
-    box.querySelectorAll("[data-pcard-copy]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); copy(b.dataset.pcardCopy); }; });
-    box.querySelectorAll("[data-pcard-del]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); del(b); }; });
-    box.querySelectorAll(".dw-pcard").forEach(c => { c.onclick = () => open(c.dataset.pid); });
-    hydrateCovers(box, list);
+    const box = v.querySelector("#hsGrid");
+    if (!box) return;
+    box.innerHTML = grid();
+    bindCards(box);
   }
 
-  async function createBlank(mode) {
+  function submit() {
+    const v = view();
+    if (!v) return;
+    const inp = v.querySelector("#hsInput");
+    const text = inp ? inp.value.trim() : "";
+    if (!text) { U.toast("先写下你的灵感", "warn"); return; }
+    startBlank(text);
+  }
+
+  /* 点选 Skill：建工程 + 铺首节点 + 进入画布（需求 5.6 / D7） */
+  async function openSkill(skill) {
+    if (!skill) return;
+    if (XLX.billing && XLX.billing.check) {
+      const chk = XLX.billing.check(skill);
+      if (!chk.ok) { U.toast(chk.reason, "warn"); return; }
+    }
+    if (state.busy) return;
+    if (skill.action === "tool" && skill.tool) {
+      if (XLX.app && XLX.app.go) XLX.app.go("tools");
+      setTimeout(() => { if (XLX.tools && XLX.tools.openTool) XLX.tools.openTool(skill.tool); }, 80);
+      return;
+    }
+    state.busy = true;
+    try {
+      markUsed(skill.id);
+      const p = D.project.blank({ title: skill.name + "·" + new Date().toLocaleDateString(), genre: skill.cat === "video" ? "realistic" : "comic" });
+      const F = fillPrompt(skill, "");
+      const textNode = D.canvas.addNode(p, "text", 60, 120, { text: F, title: skill.name });
+      const gen = buildGenChain(p, skill, textNode.id);
+      await D.project.save(p);
+      await enterCanvas(p.id);
+      kickGenerate(p, gen);
+    } catch (e) {
+      U.toast((e && e.message) || "启动创作失败", "err");
+    } finally {
+      state.busy = false;
+    }
+  }
+
+  async function startBlank(text) {
     if (state.busy) return;
     state.busy = true;
     try {
-      const p = D.project.blank({ mode });
+      const title = text.length > 16 ? text.slice(0, 16) + "…" : text;
+      const p = D.project.blank({ title: title || "未命名项目" });
+      D.canvas.addNode(p, "text", 60, 120, { text: text, title: "灵感" });
       await D.project.save(p);
-      await open(p.id);
+      await enterCanvas(p.id);
     } catch (e) {
       U.toast((e && e.message) || "新建失败", "err");
     } finally {
@@ -198,82 +293,40 @@
     }
   }
 
-  async function useTemplate(tid) {
-    if (state.busy) return;
-    const tpl = D.templates.get(tid);
-    if (!tpl) { U.toast("模板不存在", "warn"); return; }
-    state.busy = true;
-    try {
-      const p = D.project.blank({ title: tpl.name + "·" + new Date().toLocaleDateString(), genre: tpl.genre, mode: "manual", templateId: tpl.id });
-      D.templates.apply(p, tpl);
-      await D.project.save(p);
-      U.toast("已按「" + tpl.name + "」建好工程", "ok");
-      await open(p.id);
-    } catch (e) {
-      U.toast((e && e.message) || "套用模板失败", "err");
-    } finally {
-      state.busy = false;
-    }
+  /* 按 Skill 生成下游节点：影视/设计类追加图片节点，串到文本节点后 */
+  function buildGenChain(p, skill, fromId) {
+    const video = !!VIDEO_CATS[skill.cat];
+    const n = D.canvas.addNode(p, "image", 420, 120, {
+      prompt: "",
+      ratio: (p.output && p.output.ratio) || "9:16",
+      title: skill.name
+    });
+    try { D.canvas.addEdge(p, fromId, n.id); } catch (e) {}
+    return { id: n.id, video };
   }
 
-  async function open(pid) {
-    const p = D.project.get(pid);
-    if (!p) { U.toast("工程不存在", "warn"); return; }
-    D.project.migrate(p);
-    try {
-      if (p.mode === "pipeline") {
-        if (D.auto.open) await D.auto.open(pid);
-        if (XLX.app && XLX.app.go) XLX.app.go("auto");
-      } else {
-        if (D.manual.load) await D.manual.load(pid);
-        if (XLX.app && XLX.app.go) XLX.app.go("drama");
-      }
-    } catch (e) {
-      U.toast((e && e.message) || "打开工程失败", "err");
-    }
+  function kickGenerate(p, gen) {
+    if (!gen) return;
+    if (!D.isConfigured || !D.isConfigured("image")) return;
+    setTimeout(async () => {
+      try {
+        await D.canvas.runNode(p, gen.id, {});
+        await D.project.save(p);
+        if (D.manual && D.manual.state && D.manual.state.pid === p.id && D.manual.render) D.manual.render();
+      } catch (e) {}
+    }, 300);
   }
 
-  async function openMakeup(pid, tab) {
-    try {
-      if (!pid) {
-        const l = filtered();
-        pid = l.length ? l[0].id : "";
-      }
-      if (!pid) { U.toast("先新建一个工程，再进造型室", "warn"); return; }
-      if (D.makeup && D.makeup.load) await D.makeup.load(pid);
-      if (D.makeup && D.makeup.state && tab) D.makeup.state.tab = tab;
-      if (XLX.app && XLX.app.go) XLX.app.go("makeup");
-    } catch (e) {
-      U.toast((e && e.message) || "打开造型室失败", "err");
-    }
+  async function enterCanvas(pid) {
+    if (D.manual && D.manual.load) await D.manual.load(pid);
+    if (XLX.app && XLX.app.go) XLX.app.go("drama");
   }
 
-  async function copy(pid) {
-    try {
-      const c = await D.project.duplicate(pid);
-      U.toast("已复制为「" + c.title + "」", "ok");
-      await render();
-    } catch (e) {
-      U.toast((e && e.message) || "复制失败", "err");
-    }
+  function fillPrompt(skill, input) {
+    let s = String(skill.prompt || "").replace(/\{input\}/g, input || "（待补充）");
+    if (input && s.indexOf(input) < 0 && !skill.prompt) s = skill.name + "：" + input;
+    return s || (skill.name + (input ? "：" + input : ""));
   }
 
-  /* 两步删除：第一下变确认，第二下才真删，避免误触 */
-  function del(btn) {
-    const pid = btn.dataset.pcardDel;
-    if (btn.dataset.confirm !== "1") {
-      btn.dataset.confirm = "1";
-      btn.textContent = "再点一次删除";
-      setTimeout(() => {
-        if (btn.dataset.confirm === "1") { btn.dataset.confirm = ""; btn.textContent = "删除"; }
-      }, 4000);
-      return;
-    }
-    D.project.remove(pid);
-    if (D.project.remote && D.project.remote.remove) D.project.remote.remove(pid).catch(() => {});
-    U.toast("工程已删除", "ok");
-    render();
-  }
-
-  D.home = { render, open, openMakeup, state };
+  D.home = { render, openSkill, state };
 })();

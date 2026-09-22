@@ -107,7 +107,11 @@
     if (el) {
       el.innerHTML = sidebarHtml();
       const create = el.querySelector("#shellCreate");
-      if (create) create.addEventListener("click", () => { if (XLX.app && XLX.app.go) XLX.app.go("home"); });
+      if (create) create.addEventListener("click", () => {
+        const P = XLX.drama && XLX.drama.projects;
+        if (P && P.newProject) { P.newProject(); return; }
+        if (XLX.app && XLX.app.go) XLX.app.go("home");
+      });
     }
     const chip = document.getElementById("shellStatus");
     if (chip) {

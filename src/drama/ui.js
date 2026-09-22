@@ -7,7 +7,7 @@
 
   const CSS = `
 .dw-wrap{max-width:1180px;margin:0 auto;padding:14px 4px 40px;width:100%}
-#dramaHomeView,#dramaView,#autoView{overflow-y:auto}
+#homeView,#projectsView,#assetsView,#tvshowView,#rankingView,#box3dView,#pluginView,#dramaView,#autoView{overflow-y:auto}
 .dw-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 .dw-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px}
 .dw-card h3{margin:0 0 10px;font-size:14px;display:flex;align-items:center;gap:8px}

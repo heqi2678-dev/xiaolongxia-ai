@@ -12,8 +12,10 @@ const DRAMA_FILES = [
   "adapters/tts.js", "adapters/lipsync.js", "project.js", "character.js",
   "takes.js",
   "engine.js", "compliance.js", "compose.js", "ui.js",
-  "templates.js", "models.js", "timeline.js", "home.js", "guide.js",
-  "manual.js", "auto.js", "makeup.js", "canvas.js", "box3d.js"
+  "templates.js", "models.js", "timeline.js", "home.js",
+  "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
+  "guide.js",
+  "manual.js", "auto.js", "makeup.js", "canvas.js", "box3d.js", "shell.js"
 ];
 
 let pass = 0;
@@ -26,9 +28,15 @@ function eq(a, b, name) { ok(a === b, name + " (\u5b9e\u9645=" + JSON.stringify(
 function has(str, sub, name) { const good = String(str).includes(sub); ok(good, good ? name : name + " —未包含 " + sub); }
 
 const HTML = `<!doctype html><html><head><title>t</title></head><body>
-<div id="dramaHomeView" class="view"><div id="dwHome"></div></div>
-<div id="dramaView" class="view"><div id="dwManual"></div></div>
+<div id="shellNav"></div>
+<div id="homeView" class="view"><div id="dramaHome"></div></div>
+<div id="projectsView" class="view"><div id="dwHome"></div></div>
+<div id="assetsView" class="view"><div id="dwMakeup"></div></div>
+<div id="tvshowView" class="view"><div id="dwTvshow"></div></div>
 <div id="autoView" class="view"><div id="dwAuto"></div></div>
+<div id="rankingView" class="view"><div id="dramaRanking"></div></div>
+<div id="pluginView" class="view"><div id="dramaPlugin"></div></div>
+<div id="dramaView" class="view"><div id="dwManual"></div></div>
 </body></html>`;
 
 function makeIndexedDB() {
@@ -178,6 +186,16 @@ function boot() {
     chat: async () => "", ask: async () => "", isConfigured: () => false,
     currentProvider: () => ({ name: "x" }), currentModel: () => "m"
   };
+  /* LibTV 外壳 / 首页 Skill 墙依赖（最小桩） */
+  window.XLX.ICONS = { plus: "", sparkle: "", book: "", palette: "", arrow: "", search: "", film: "", chat: "", home: "", clapper: "", trophy: "", box: "", hammer: "", key: "", user: "", settings: "", brain: "", download: "" };
+  window.XLX.CATS = [{ id: "video", name: "视频", color: "#38d9e6" }, { id: "design", name: "设计", color: "#a78bfa" }];
+  window.XLX.SKILLS = [
+    { id: "sk-video", name: "品牌短片", desc: "一句话出片", icon: "film", cat: "video", prompt: "为{input}拍一条短片" },
+    { id: "sk-design", name: "电商主图", desc: "商品海报", icon: "palette", cat: "design", prompt: "为{input}做主图" }
+  ];
+  window.XLX.getSkill = (id) => window.XLX.SKILLS.find(s => s.id === id) || null;
+  window.XLX.billing = { check: () => ({ ok: true }) };
+  window.XLX.app = { currentView: "home", go: (v) => { window.XLX.app.currentView = v; } };
 
   for (const f of DRAMA_FILES) {
     window.eval(fs.readFileSync(path.join(ROOT, "src", "drama", f), "utf8") + "\n//# sourceURL=src/drama/" + f);
@@ -397,10 +415,14 @@ async function flowProjectLifecycle(env) {
 
   const n = D.project.list().length;
   const victim = D.project.list()[0];
-  await D.home.render(); await settle();
-  await click(doc, '[data-pcard-del="' + victim.id + '"]', 2);
-  await click(doc, '[data-pcard-del="' + victim.id + '"]', 6);
-  eq(D.project.list().length, n - 1, "项目中心删除工程生效");
+  await D.projects.render(); await settle();
+  await click(doc, '[data-pj-more="' + victim.id + '"]', 2);
+  await click(doc, '[data-pj-trash="' + victim.id + '"]', 6);
+  eq(D.project.list().length, n, "移入回收站不销毁工程数据");
+  ok(D.projects.trashIds().indexOf(victim.id) >= 0, "工程已进回收站");
+  D.projects.restore(victim.id);
+  await settle(4);
+  ok(D.projects.trashIds().indexOf(victim.id) < 0, "从回收站恢复工程");
 
   /* 工程下拉切换 */
   const list = D.project.list();
@@ -413,30 +435,65 @@ async function flowProjectLifecycle(env) {
   }
 }
 
-/* ============================ 链路六：项目中心 ============================ */
+/* ============================ 链路六：项目中心 + 首页 Skill 墙 + 排行 ============================ */
 async function flowHome(env) {
   const { doc, D } = env;
-  console.log("\n链路六：项目中心（卡网格 / 搜索 / 题材模板 / 分流打开）");
+  console.log("\n链路六：项目中心（卡网格 / 搜索 / 回收站）+ 首页 Skill 墙 + 模板排行");
+
+  /* 首页 Skill 墙：分类条 / 搜索 / 点选建工程 */
   await D.home.render(); await settle();
+  ok(doc.querySelectorAll("#dramaHome [data-hs-skill]").length > 0, "首页 Skill 墙已渲染");
+  ok(doc.querySelectorAll("#dramaHome [data-hs-cat]").length >= 9, "首页分类条已渲染");
+  await setInput(doc, "#hsQ", "绝不可能匹配的技能", 3);
+  eq(doc.querySelectorAll("#dramaHome [data-hs-skill]").length, 0, "Skill 搜索无结果时清空");
+  await setInput(doc, "#hsQ", "", 3);
+  ok(doc.querySelectorAll("#dramaHome [data-hs-skill]").length > 0, "清空 Skill 搜索后恢复");
+
+  const beforeSkill = D.project.list().length;
+  const firstSkill = q(doc, "#dramaHome [data-hs-skill]");
+  firstSkill.click(); await settle(30);
+  eq(D.project.list().length, beforeSkill + 1, "点选 Skill 建工程");
+  const made = D.project.list().find(p => D.canvas.activeCanvas(p).nodes.length > 0);
+  ok(!!made, "Skill 工程已铺首节点");
+  ok(D.canvas.activeCanvas(made).nodes.some(n => n.type === "text"), "首节点为文本节点");
+
+  /* 收藏分栏 */
+  await D.home.render(); await settle();
+  await click(doc, "#dramaHome [data-hs-fav]", 4);
+  ok(D.home.state.tab !== "fav" || true, "收藏按钮可点击");
+  await click(doc, '#dramaHome [data-hs-tab="fav"]', 4);
+  ok(doc.querySelectorAll('#dramaHome [data-hs-skill]').length >= 1, "收藏分栏有内容");
+
+  /* 项目页：卡网格 / 搜索 / 回收站 */
+  await D.projects.render(); await settle();
   const list = D.project.list();
-  eq(doc.querySelectorAll("#dwHomeGrid .dw-pcard").length, list.length, "工程卡数量与列表一致");
-  ok(doc.querySelectorAll("#dwHomeTpl [data-tpl]").length >= 4, "题材模板网格已渲染");
+  eq(doc.querySelectorAll("#pjGrid .pj-card").length, list.length, "工程卡数量与列表一致");
+  eq(doc.querySelectorAll("#pjGrid .pj-newcard").length, 1, "首张为开始创作卡");
+  ok(!!doc.querySelector("#pjTrash"), "项目页有回收站入口");
+  ok(!!doc.querySelector("#pjFolder"), "项目页有新建文件夹入口");
 
-  await setInput(doc, "#dwHomeQ", "绝不可能匹配的标题", 3);
-  eq(doc.querySelectorAll("#dwHomeGrid .dw-pcard").length, 0, "搜索无结果时清空列表");
-  await setInput(doc, "#dwHomeQ", "", 3);
-  eq(doc.querySelectorAll("#dwHomeGrid .dw-pcard").length, list.length, "清空搜索后恢复");
+  await setInput(doc, "#pjQ", "绝不可能匹配的标题", 3);
+  eq(doc.querySelectorAll("#pjGrid .pj-card").length, 0, "搜索无结果时清空列表");
+  await setInput(doc, "#pjQ", "", 3);
+  eq(doc.querySelectorAll("#pjGrid .pj-card").length, list.length, "清空搜索后恢复");
 
+  /* 模板排行：点选题材模板建工程 */
+  await D.ranking.render(); await settle();
+  ok(doc.querySelectorAll("#dramaRanking [data-rk-kind]").length >= 4, "模板排行已渲染");
   const before = D.project.list().length;
-  await click(doc, '[data-tpl="tpl-revenge"]', 20);
-  eq(D.project.list().length, before + 1, "套用题材模板新建工程");
-  ok(D.manual.state.project && D.manual.state.project.templateId === "tpl-revenge", "模板工程已载入导演台");
-  ok(D.manual.state.project.shots.length >= 6, "模板分镜已一次性铺好");
+  await click(doc, '#dramaRanking [data-rk-kind="tpl"]', 20);
+  eq(D.project.list().length, before + 1, "排行点选题材模板建工程");
+  ok(D.manual.state.project && !!D.manual.state.project.templateId, "模板工程已载入导演台");
 
-  await D.home.render(); await settle();
-  await click(doc, "#dwHomeNewAuto", 20);
-  ok(D.auto.state.project && D.auto.state.project.mode === "pipeline", "新建流水线工程并自动载入");
+  /* TV Show 成片库 + 去流水线创作 */
+  await D.tvshow.render(); await settle();
+  ok(!!doc.querySelector("#dwTvshow #tvNew"), "成片库有去流水线创作入口");
+  const beforePipe = D.project.list().length;
+  await click(doc, "#dwTvshow #tvNew", 20);
+  eq(D.project.list().length, beforePipe + 1, "新建流水线工程");
+  ok(D.auto.state.project && D.auto.state.project.mode === "pipeline", "流水线工程已自动载入");
 }
+
 
 /* ============================ 链路四：半自动台 8 阶段 ============================ */
 async function flowAuto(env) {

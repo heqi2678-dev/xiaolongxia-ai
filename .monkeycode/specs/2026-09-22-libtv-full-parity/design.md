@@ -74,7 +74,8 @@ graph TD
 
 ### 2. `XLX.app` 路由（改造 `index.html:4315`）
 
-- `VIEWS` 由 `["chat","market","studio","dramaHome","drama","auto","makeup","tools","memory","download","settings"]` 改为 `["agent","home","projects","assets","tvshow","ranking","box3d","plugin","studio","tools","memory","download","settings","drama"]`，其中 `drama` 为画布工作台视图。
+- `VIEWS` 由 `["chat","market","studio","dramaHome","drama","auto","makeup","tools","memory","download","settings"]` 改为 `["agent","home","projects","assets","tvshow","auto","ranking","box3d","plugin","studio","tools","memory","download","settings","drama"]`，其中 `drama` 为画布工作台视图。
+  - 实施修正：原设计未列 `auto`，但 `tvshow`（成片库）与流水线工作台都需要独立容器；实际新增 `autoView`（`#dwAuto`）承载流水线工作台，`tvshowView` 改用 `#dwTvshow` 承载成片库，`COMPAT.auto` 恒等。
 - `names` 元数据表同步更新标题与副标题。
 - `go(view)` 在切换后调用 `XLX.dramaShell.setActive(view)`；未知 view 回退 `home`。
 
@@ -86,7 +87,8 @@ graph TD
 | 首页 Skill | `src/drama/home.js` 重写 | 技能清单 `XLX.SKILLS` | 灵感输入框 + 分栏 + 分类条 + Skill 墙 |
 | 项目 | `src/drama/projects.js` 新建 | `home.js` 工程网格部分 | 工程卡网格 + 搜索 + 回收站 + 新建文件夹 |
 | 资产 | `src/drama/assets.js` 新建 | `makeup.js` + `character.js` | 三视图 / 场景卡 / 多参考 + 资产网格 |
-| TV Show | `src/drama/tvshow.js` 新建 | `auto.js` 产物 | 成片库网格 + 空态入口 |
+| TV Show | `src/drama/tvshow.js` 新建 | `auto.js` 产物 | 成片库网格 + 空态入口（容器 `#dwTvshow`） |
+| 流水线 | `src/drama/auto.js` 保留 | 现有引擎 | 成片创作工作台（容器 `#dwAuto`，视图 `auto`） |
 | 模板排行 | `src/drama/ranking.js` 新建 | `XLX.SKILLS` + `templates.js` | 排行榜列表 |
 | 3D-BOX | `src/drama/box3d.js` 加页面壳 | 现有引擎 | 五项工具页 |
 | 插件 | `src/drama/plugin.js` 新建 | `studio`/`tools`/`download` | 三入口聚合 |
