@@ -4172,6 +4172,7 @@ XLX.studio = (function () {
 <script src="src/drama/makeup.js"></script>
 <script src="src/drama/canvas.js"></script>
 <script src="src/drama/box3d.js"></script>
+<script src="src/drama/box3dview.js"></script>
 <script src="src/drama/shell.js"></script>
 <script>
 /* ===== 记忆习惯视图 & 客户端下载视图 ===== */
@@ -4367,7 +4368,7 @@ XLX.app = (function () {
       case "tvshow": return D.tvshow && D.tvshow.render ? D.tvshow.render() : placeholder("dwTvshow", "TV Show", "成片库为空");
       case "auto": return D.auto && D.auto.render ? D.auto.render() : placeholder("dwAuto", "流水线", "去流水线创作");
       case "ranking": return D.ranking && D.ranking.render ? D.ranking.render() : placeholder("dramaRanking", "创作者挑战赛", "模板排行（建设中）");
-      case "box3d": return placeholder("dramaBox3d", "3D-BOX", "多机位 · 大师运镜 · 灯光相机（建设中）");
+      case "box3d": return D.box3dview && D.box3dview.render ? D.box3dview.render() : placeholder("dramaBox3d", "3D-BOX", "多机位 · 大师运镜 · 灯光相机（建设中）");
       case "plugin": return D.plugin && D.plugin.render ? D.plugin.render() : placeholder("dramaPlugin", "插件", "软件工坊 / 工具箱 / 客户端下载（建设中）");
       case "drama": return D.manual && D.manual.render ? D.manual.render() : null;
       case "studio": return XLX.studio && XLX.studio.render();

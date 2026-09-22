@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "timeline.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "guide.js",
-  "manual.js", "auto.js", "makeup.js", "canvas.js", "box3d.js", "shell.js"
+  "manual.js", "auto.js", "makeup.js", "canvas.js", "box3d.js", "box3dview.js", "shell.js"
 ];
 
 let pass = 0;
@@ -35,6 +35,7 @@ const HTML = `<!doctype html><html><head><title>t</title></head><body>
 <div id="tvshowView" class="view"><div id="dwTvshow"></div></div>
 <div id="autoView" class="view"><div id="dwAuto"></div></div>
 <div id="rankingView" class="view"><div id="dramaRanking"></div></div>
+<div id="box3dView" class="view"><div id="dramaBox3d"></div></div>
 <div id="pluginView" class="view"><div id="dramaPlugin"></div></div>
 <div id="dramaView" class="view"><div id="dwManual"></div></div>
 </body></html>`;
@@ -728,6 +729,16 @@ async function flowBox3d(env) {
 
   v.setTool("grid"); await settle(2);
   ok(!!host.querySelector(".bx-grid .bx-cell"), "切回 9 宫格工具正常渲染");
+
+  /* Task 8：3D-BOX 独立页 */
+  doc.getElementById("dramaBox3d").innerHTML = "";
+  D.box3dview.render();
+  await settle(2);
+  const bv = doc.getElementById("dramaBox3d");
+  ok(!!bv.querySelector("#bvProj"), "3D-BOX 页渲染工程选择器");
+  ok(!!bv.querySelector("#bvShot"), "3D-BOX 页渲染分镜选择器");
+  ok(!!bv.querySelector("#bvBox .bx-wrap"), "3D-BOX 工具面板已挂载");
+  eq(bv.querySelectorAll("#bvBox [data-bx-tab]").length, 5, "3D-BOX 页含五项导演工具");
 }
 
 /* ============================ 主流程 ============================ */
