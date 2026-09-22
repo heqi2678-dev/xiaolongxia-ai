@@ -51,37 +51,45 @@
      - 校验设计属性 4（连线合法）
      - 说明：本轮按用户要求只执行开发任务；`tests/canvas.test.js` 已同步七类节点与动作声明断言并通过
 
-- [ ] 4. LibTV 外壳与路由
+- [x] 4. LibTV 外壳与路由
    - 重建左侧导航、顶部状态条与视图路由
    - 对应需求 1、需求 2、需求 3
 
-  - [ ] 4.1 新建 `src/drama/shell.js`
+  - [x] 4.1 新建 `src/drama/shell.js`
      - 实现 `NAV` 导航定义（新建项目 / Agent / 首页 / 项目 / 资产 / TV Show / 模板排行 / 3D-BOX / 插件）
      - 实现 `mount(container)`、`setActive(id)`、`status()`
      - `status()` 读取钥匙库与模型目录，渲染「钥匙 x/y + 模型 N」，点击跳设置页
      - 参考需求 1.2、1.3、2.1、2.2、2.3
+     - 落地：`XLX.dramaShell`（别名 `XLX.shell`），`mount` 渲染侧栏导航、顶部 `#shellStatus` 状态胶囊与 `#shellTop` 账号菜单；`status().keyText/modelText` 走 `XLX.vendorKeys` 与 `XLX.catalog.KINDS`，读取失败降级为 0 不阻塞
 
-  - [ ] 4.2 改造 `index.html` 外壳与路由
+  - [x] 4.2 改造 `index.html` 外壳与路由
      - 更新主题变量为 LibTV 深色工作室风（底色 `#161616`、面板 `#1e1e1e`、主色 `#22d3ee`、青底黑字胶囊主按钮）
      - 调整两栏骨架为导航 240px + 内容区，新增各新视图容器 id
      - 更新 `VIEWS`（`index.html:4315`）与 `names` 元数据表，`go(view)` 调用 `shell.setActive`，未知视图回退首页
      - 不呈现底部礼遇卡
      - 参考需求 1.1、1.4、1.6、设计「Components and Interfaces · 2/3」
+     - 落地：`VIEWS=["agent","home","projects","assets","tvshow","ranking","box3d","plugin","studio","tools","memory","download","settings","drama"]`；新增 `COMPAT`（chat→agent、market→home、dramaHome→projects、makeup→assets、auto→tvshow）与 `VIEW_EL`（agent 复用 `agentView`）；容器 `homeView/projectsView/assetsView/tvshowView/rankingView/box3dView/pluginView` 就位；删除底部礼遇卡（原 side-foot/dl-btn）
+     - 过渡接线：`projects`→`home.js`、`assets`→`makeup.js`、`tvshow`→`auto.js` 复用现有模块；`home/ranking/box3d/plugin` 暂为空态占位，待任务 6/8 落地
 
-  - [ ] 4.3 把设置 / 记忆 / 下载收进顶部账户菜单
+  - [x] 4.3 把设置 / 记忆 / 下载收进顶部账户菜单
      - 主导航移除这三项，账户菜单提供入口并复用原视图
      - 参考需求 2.4
+     - 落地：`#shellTop` 账号胶囊 + 下拉（设置 / 记忆习惯 / 下载客户端），三视图容器与渲染器原样保留
 
-  - [ ] 4.4 实现小屏抽屉导航
+  - [x] 4.4 实现小屏抽屉导航
      - 视口小于 900px 时导航收起为可展开抽屉
      - 参考需求 1.5
+     - 落地：沿用既有 `@media(max-width:900px)` 侧栏抽屉与 `#menuBtn/#sidebarMask`，底部导航项更新为 Agent/首页/项目/资产/插件
 
   - [ ]* 4.5 编写外壳测试
      - 新增 `tests/shell.test.js`：导航项集合、选中态唯一、未知视图回退
      - 校验设计属性 5、6
+     - 说明：本轮按用户要求只执行开发任务，本测试任务延后；已用 jsdom 手工冒烟（导航项 8、选中态唯一、未知回退首页、旧标识 COMPAT 映射、状态条读取）全部通过
 
-- [ ] 5. 检查点 - 外壳与路由测试通过
+- [x] 5. 检查点 - 外壳与路由测试通过
   - 运行 `node --test tests/*.test.js`，确保所有测试通过,如有疑问请询问用户
+  - 结果：单测 126/126（连跑 15 次无抖动）；契约 12/12；e2e 215/215 通过
+  - 附带修复：`canvas.js` `normalizeCanvas` 原每次归一化都刷新 `updatedAt`，导致 `project.migrate` 幂等断言随毫秒抖动（历史偶发失败）；改为仅缺失时补时间戳，写操作各自更新时间
 
 - [ ] 6. 视图拆分与新建
    - 按 LibTV 导航拆分与新建各页视图

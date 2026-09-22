@@ -61,7 +61,8 @@
     cv.nodes.forEach(n => { ids[n.id] = true; });
     cv.edges = cv.edges.filter(e => e && e.from && e.to && e.from !== e.to && ids[e.from] && ids[e.to]);
     cv.edges.forEach(e => { if (!e.id) e.id = id("e"); });
-    cv.updatedAt = Date.now();
+    /* 归一化保持幂等：仅在缺失时补时间戳，写操作各自负责更新时间 */
+    if (!isFinite(cv.updatedAt)) cv.updatedAt = Date.now();
     return cv;
   }
 

@@ -10,19 +10,20 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2096%2096%22%20fill%3D%22none%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22lgx%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%2296%22%20y2%3D%2296%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23eef4fc%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23f9e9c8%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2296%22%20height%3D%2296%22%20rx%3D%2222%22%20fill%3D%22url%28%23lgx%29%22%2F%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%2222%22%20r%3D%222.2%22%20fill%3D%22%23e8a13c%22%2F%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2214%22%20r%3D%221.6%22%20fill%3D%22%23e8a13c%22%2F%3E%3Ccircle%20cx%3D%2274%22%20cy%3D%2214%22%20r%3D%222%22%20fill%3D%22%23e8a13c%22%2F%3E%3Ccircle%20cx%3D%2284%22%20cy%3D%2230%22%20r%3D%221.5%22%20fill%3D%22%23e8a13c%22%2F%3E%3Ccircle%20cx%3D%2218%22%20cy%3D%2244%22%20r%3D%221.5%22%20fill%3D%22%23e8a13c%22%2F%3E%3Cpath%20d%3D%22M66%2030l1.4%202.8%202.8%201.4-2.8%201.4L66%2038.4l-1.4-2.8-2.8-1.4%202.8-1.4z%22%20fill%3D%22%23e8a13c%22%2F%3E%3Ccircle%20cx%3D%2248%22%20cy%3D%2240%22%20r%3D%2225%22%20fill%3D%22%23f6c453%22%20stroke%3D%22%23e8a13c%22%20stroke-width%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%2234%22%20r%3D%224%22%20fill%3D%22%23edb648%22%20opacity%3D%220.6%22%2F%3E%3Ccircle%20cx%3D%2255%22%20cy%3D%2246%22%20r%3D%226%22%20fill%3D%22%23edb648%22%20opacity%3D%220.6%22%2F%3E%3Ccircle%20cx%3D%2242%22%20cy%3D%2250%22%20r%3D%223%22%20fill%3D%22%23edb648%22%20opacity%3D%220.6%22%2F%3E%3Ccircle%20cx%3D%2258%22%20cy%3D%2230%22%20r%3D%222.5%22%20fill%3D%22%23edb648%22%20opacity%3D%220.6%22%2F%3E%3Ctext%20x%3D%2248%22%20y%3D%2289%22%20text-anchor%3D%22middle%22%20font-size%3D%2223%22%20font-weight%3D%22800%22%20fill%3D%22%23b3270f%22%20stroke%3D%22%23f2c25c%22%20stroke-width%3D%221%22%20paint-order%3D%22stroke%22%20font-family%3D%22KaiTi%2CSTKaiti%2Cserif%22%3E%E9%93%9C%E9%BE%99%E7%94%B5%E5%95%86%3C%2Ftext%3E%3C%2Fsvg%3E">
 <style>
 :root{
-  --bg:#08090d;
-  --bg2:#0e1015;
-  --panel:#14161d;
-  --panel2:#1a1d26;
-  --card:#171a22;
-  --border:#252a35;
-  --border2:#333a49;
-  --text:#eef1f6;
-  --text2:#99a1b3;
-  --text3:#5b6374;
-  --accent:#ff5a3c;
-  --accent2:#ff8f5a;
-  --accent-grad:linear-gradient(135deg,#ff5a3c,#ff9a5a);
+  --bg:#161616;
+  --bg2:#1a1a1a;
+  --panel:#1e1e1e;
+  --panel2:#242424;
+  --card:#1e1e1e;
+  --border:#2c2c2c;
+  --border2:#3a3a3a;
+  --text:#f2f2f2;
+  --text2:#a6a6a6;
+  --text3:#707070;
+  --accent:#22d3ee;
+  --accent2:#67e8f9;
+  --accent-grad:linear-gradient(135deg,#22d3ee,#38bdf8);
+  --accent-ink:#08181c;
   --green:#3ddc84;
   --blue:#4aa8ff;
   --purple:#a78bfa;
@@ -51,28 +52,46 @@ a{color:var(--blue);text-decoration:none}
 #sidebar{width:236px;min-width:236px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:20}
 #main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
 
-/* ===== Sidebar ===== */
-.side-logo{display:flex;align-items:center;gap:11px;padding:18px 16px 14px}
-.side-logo .logo-box{width:40px;height:40px;border-radius:12px;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(255,90,60,.35);flex-shrink:0}
-.side-logo .logo-box svg{width:26px;height:26px}
-.side-logo h1{font-size:17px;font-weight:700;letter-spacing:.5px}
-.side-logo h1 em{font-style:normal;color:var(--accent2)}
-.side-logo .ver{font-size:10px;color:var(--text3);display:block;line-height:1.2}
-.side-nav{flex:1;overflow-y:auto;padding:6px 10px 10px}
-.nav-group{font-size:11px;color:var(--text3);padding:14px 10px 6px;letter-spacing:1px;font-weight:600}
-.nav-item{display:flex;align-items:center;gap:10px;padding:10px 11px;border-radius:10px;color:var(--text2);margin-bottom:2px;cursor:pointer;transition:all .15s;position:relative;user-select:none}
-.nav-item:hover{background:var(--panel);color:var(--text)}
-.nav-item.active{background:var(--accent-grad);color:#fff;font-weight:600;box-shadow:0 4px 12px rgba(255,90,60,.3)}
-.nav-item svg{width:18px;height:18px;flex-shrink:0}
-.nav-item .badge{margin-left:auto;background:var(--accent);color:#fff;font-size:10px;border-radius:20px;padding:1px 7px;font-weight:700}
-.nav-item .kbd{margin-left:auto;font-size:10px;color:var(--text3);background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:0 5px}
-.side-foot{padding:12px;border-top:1px solid var(--border)}
-.status-line{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3);padding:0 4px 10px}
-.status-line .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
-.status-line .dot.off{background:var(--text3);box-shadow:none}
-.dl-btn{width:100%;display:flex;align-items:center;gap:9px;justify-content:center;padding:10px;border-radius:10px;background:linear-gradient(135deg,#2c3a55,#243045);border:1px solid var(--border);color:var(--text);font-size:13px;font-weight:600;transition:.15s}
-.dl-btn:hover{border-color:var(--accent);color:var(--accent2)}
-.dl-btn svg{width:16px;height:16px}
+/* ===== Sidebar · LibTV 外壳 ===== */
+#sidebar{width:240px;min-width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:20}
+#shellNav{display:flex;flex-direction:column;height:100%;min-height:0}
+.shell-brand{display:flex;align-items:center;gap:10px;padding:18px 16px 12px}
+.shell-logo{width:34px;height:34px;border-radius:10px;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;color:var(--accent-ink);flex-shrink:0}
+.shell-logo svg{width:20px;height:20px}
+.shell-brand-t{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.shell-brand-t b{font-size:15px;font-weight:700;letter-spacing:.3px}
+.shell-brand-t i{font-style:normal;font-size:10.5px;color:var(--text3)}
+.shell-create{display:flex;align-items:center;justify-content:center;gap:8px;margin:6px 12px 12px;padding:10px 12px;border-radius:999px;background:var(--accent-grad);color:var(--accent-ink);font-size:13.5px;font-weight:700;transition:.15s;box-shadow:0 4px 14px rgba(34,211,238,.25)}
+.shell-create:hover{filter:brightness(1.08)}
+.shell-create svg{width:16px;height:16px}
+.shell-nav{flex:1;overflow-y:auto;padding:2px 10px 10px;display:flex;flex-direction:column;gap:2px}
+.shell-nav-item{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;color:var(--text2);font-size:13.5px;cursor:pointer;transition:.15s;text-align:left;width:100%}
+.shell-nav-item:hover{background:var(--panel);color:var(--text)}
+.shell-nav-item.active{background:var(--accent-grad);color:var(--accent-ink);font-weight:700}
+.shell-nav-item svg{width:17px;height:17px;flex-shrink:0}
+.shell-nav-item>span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shell-badge{font-style:normal;font-size:10px;padding:1px 7px;border-radius:999px;background:var(--panel2);color:var(--text3);border:1px solid var(--border);flex-shrink:0}
+.shell-nav-item.active .shell-badge{background:rgba(0,0,0,.18);color:var(--accent-ink);border-color:transparent}
+.shell-status{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer;white-space:nowrap}
+.shell-status:hover{border-color:var(--accent)}
+.shell-status svg{width:14px;height:14px;color:var(--text3);flex-shrink:0}
+.shell-chip-t{display:flex;align-items:center;gap:8px}
+.shell-chip-t b{font-weight:600;color:var(--text)}
+.shell-chip-t i{font-style:normal;color:var(--text3)}
+#shellTop{position:relative;flex-shrink:0}
+.shell-account-btn{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:5px 12px 5px 10px;font-size:12px;transition:.15s}
+.shell-account-btn:hover{border-color:var(--accent)}
+.shell-account-btn svg{width:15px;height:15px;color:var(--text2);flex-shrink:0}
+.shell-acc-text{display:flex;flex-direction:column;line-height:1.15;text-align:left}
+.shell-acc-text b{font-weight:600}
+.shell-acc-text i{font-style:normal;font-size:10px;color:var(--text3)}
+.shell-caret{display:flex}
+.shell-caret svg{width:12px;height:12px;transform:rotate(90deg)}
+.shell-account-menu{position:absolute;top:calc(100% + 6px);right:0;min-width:170px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:6px;display:none;z-index:210}
+.shell-account-menu.open{display:block;animation:pop .16s ease}
+.shell-menu-item{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border-radius:8px;font-size:13px;color:var(--text2);text-align:left}
+.shell-menu-item:hover{background:var(--panel2);color:var(--text)}
+.shell-menu-item svg{width:16px;height:16px;flex-shrink:0}
 
 /* ===== Topbar ===== */
 #topbar{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);background:rgba(11,14,20,.6);backdrop-filter:blur(10px);min-height:58px;z-index:10}
@@ -498,23 +517,9 @@ select.inp{padding-right:34px}
 </div>
 
 <div id="app">
-  <!-- 侧边栏 -->
+  <!-- 侧边栏：LibTV 形态导航（由 XLX.dramaShell.mount 渲染） -->
   <aside id="sidebar">
-    <div class="side-logo">
-      <div class="logo-box" id="sideLogo"></div>
-      <div>
-        <h1>铜龙电商</h1>
-        <span class="ver">免费智能助手 v1.0.0</span>
-      </div>
-    </div>
-    <nav class="side-nav" id="sideNav"></nav>
-    <div class="side-foot">
-      <div class="status-line"><span class="dot"></span><span id="statusText">未配置Key</span></div>
-      <button class="dl-btn" onclick="XLX.app.go('download')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
-        下载客户端
-      </button>
-    </div>
+    <div id="shellNav"></div>
   </aside>
   <div id="sidebarMask"></div>
 
@@ -526,19 +531,21 @@ select.inp{padding-right:34px}
       </button>
       <div><div class="page-title" id="pageTitle"></div><div class="page-sub" id="pageSub"></div></div>
       <div class="spacer"></div>
+      <div class="shell-status" id="shellStatus"></div>
       <div class="provider-pill" id="providerPill"></div>
       <button class="tool-btn" id="newChatBtn" title="新建对话" style="display:none">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
+      <div id="shellTop"></div>
     </div>
 
-    <!-- 智能对话 -->
-    <div id="chatView" class="view active">
+    <!-- Agent（原对话引擎） -->
+    <div id="agentView" class="view active">
       <div id="chatBox">
         <div id="emptyState">
           <div class="hero-logo" id="heroLogo"></div>
-          <h2>你好，我是 <span style="color:var(--accent2)">铜龙电商</span></h2>
-          <p>接入多平台免费模型 · 40+ 免费技能 · 会写软件会写文案<br>配置一次 Key，就能一直免费使用</p>
+          <h2>你好，我是 <span style="color:var(--accent2)">小龙虾 AI 影视工作室</span></h2>
+          <p>从一句灵感到一个成片 · Skill 驱动全流程 · 画布逐节点精修<br>配置一次 Key，就能一直免费使用</p>
           <div class="suggest-grid" id="suggestGrid"></div>
         </div>
         <div class="chat-inner" id="messages" style="display:none"></div>
@@ -675,17 +682,29 @@ select.inp{padding-right:34px}
       <div class="market-wrap"><div class="market-inner" id="toolsContent"></div></div>
     </div>
 
-    <!-- 短剧工作台（项目中心） -->
-    <div id="dramaHomeView" class="view"><div id="dwHome"></div></div>
+    <!-- 首页（Skill 墙） -->
+    <div id="homeView" class="view"><div id="dramaHome"></div></div>
 
-    <!-- 短剧导演台（逐镜工坊） -->
+    <!-- 项目 -->
+    <div id="projectsView" class="view"><div id="dwHome"></div></div>
+
+    <!-- 资产（三视图 / 场景卡 / 多参考） -->
+    <div id="assetsView" class="view"><div id="dwMakeup"></div></div>
+
+    <!-- TV Show（成片库） -->
+    <div id="tvshowView" class="view"><div id="dwAuto"></div></div>
+
+    <!-- 创作者挑战赛（模板排行） -->
+    <div id="rankingView" class="view"><div id="dramaRanking"></div></div>
+
+    <!-- 3D-BOX -->
+    <div id="box3dView" class="view"><div id="dramaBox3d"></div></div>
+
+    <!-- 插件 -->
+    <div id="pluginView" class="view"><div id="dramaPlugin"></div></div>
+
+    <!-- 画布工作台 -->
     <div id="dramaView" class="view"><div id="dwManual"></div></div>
-
-    <!-- 短剧流水线（分镜流水线） -->
-    <div id="autoView" class="view"><div id="dwAuto"></div></div>
-
-    <!-- 造型室（三视图 / 场景卡 / 多参考） -->
-    <div id="makeupView" class="view"><div id="dwMakeup"></div></div>
 
     <!-- 记忆习惯 -->
     <div id="memoryView" class="view">
@@ -4145,6 +4164,7 @@ XLX.studio = (function () {
 <script src="src/drama/makeup.js"></script>
 <script src="src/drama/canvas.js"></script>
 <script src="src/drama/box3d.js"></script>
+<script src="src/drama/shell.js"></script>
 <script>
 /* ===== 记忆习惯视图 & 客户端下载视图 ===== */
 
@@ -4312,55 +4332,75 @@ XLX.dlview = (function () {
 /* ===== 主应用：路由、导航、事件绑定 ===== */
 
 XLX.app = (function () {
-  const VIEWS = ["chat", "market", "studio", "dramaHome", "drama", "auto", "makeup", "tools", "memory", "download", "settings"];
-  let currentView = "chat";
+  /* LibTV 顶层视图。drama = 画布工作台；studio/tools 作为插件页内部入口保留可达 */
+  const VIEWS = ["agent", "home", "projects", "assets", "tvshow", "ranking", "box3d", "plugin", "studio", "tools", "memory", "download", "settings", "drama"];
+  /* 旧视图 → 新导航兼容映射（旧代码/旧链接仍能落到正确页面） */
+  const COMPAT = { chat: "agent", market: "home", dramaHome: "projects", makeup: "assets", auto: "tvshow" };
+  /* 视图 → 容器 id（默认 view + "View"，agent 复用原对话容器） */
+  const VIEW_EL = { agent: "agentView" };
+  let currentView = "agent";
 
-  function navItems() {
-    return [
-      { id: "chat", name: "智能对话", icon: "chat", group: "开始" },
-      { id: "market", name: "技能市场", icon: "grid", group: "开始", badge: String(XLX.SKILL_COUNT) },
-      { id: "studio", name: "软件工坊", icon: "hammer", group: "开始", sub: "AI开发软件" },
-      { id: "dramaHome", name: "短剧工作台", icon: "film", group: "开始", sub: "项目中心" },
-      { id: "drama", name: "短剧导演台", icon: "film", group: "开始", sub: "逐镜工坊" },
-      { id: "auto", name: "短剧流水线", icon: "clapper", group: "开始", sub: "分镜流水线" },
-      { id: "makeup", name: "造型室", icon: "wand", group: "开始", sub: "三视图·场景卡·多参考" },
-      { id: "memory", name: "记忆习惯", icon: "brain", group: "开始", sub: "越用越懂你" },
-      { id: "tools", name: "工具箱", icon: "palette", group: "工具" },
-      { id: "download", name: "客户端下载", icon: "download", group: "工具", sub: "手机/电脑" },
-      { id: "settings", name: "设置", icon: "settings", group: "工具" }
-    ];
+  function placeholder(id, title, desc) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:60px 24px">'
+      + '<div class="empty-box" style="max-width:420px;width:100%">'
+      + '<div class="eb-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v18M3 12h18"/></svg></div>'
+      + '<div class="eb-t">' + title + '</div><div class="eb-d">' + desc + '</div></div></div>';
   }
 
-  function renderSidebar() {
-    const nav = document.getElementById("sideNav");
-    let html = "";
-    let lastGroup = "";
-    for (const item of navItems()) {
-      if (item.group !== lastGroup) { html += '<div class="nav-group">' + item.group + '</div>'; lastGroup = item.group; }
-      html += '<div class="nav-item' + (item.id === currentView ? " active" : "") + '" data-view="' + item.id + '">'
-        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + (XLX.ICONS[item.icon] || "") + '</svg>'
-        + '<span>' + item.name + '</span>'
-        + (item.badge ? '<span class="badge">' + item.badge + '</span>' : '')
-        + '</div>';
+  /* 各视图渲染器；模块缺失时降级为空态，不阻塞导航 */
+  function renderView(view) {
+    const D = XLX.drama || {};
+    switch (view) {
+      case "home": return placeholder("dramaHome", "首页 Skill 墙", "灵感输入 + Skill 墙（建设中）");
+      case "projects": return D.home && D.home.render ? D.home.render() : placeholder("dwHome", "项目", "还没有工程");
+      case "assets": return D.makeup && D.makeup.render ? D.makeup.render() : placeholder("dwMakeup", "资产", "还没有资产");
+      case "tvshow": return D.auto && D.auto.render ? D.auto.render() : placeholder("dwAuto", "TV Show", "成片库为空");
+      case "ranking": return placeholder("dramaRanking", "创作者挑战赛", "模板排行（建设中）");
+      case "box3d": return placeholder("dramaBox3d", "3D-BOX", "多机位 · 大师运镜 · 灯光相机（建设中）");
+      case "plugin": return placeholder("dramaPlugin", "插件", "软件工坊 / 工具箱 / 客户端下载（建设中）");
+      case "drama": return D.manual && D.manual.render ? D.manual.render() : null;
+      case "studio": return XLX.studio && XLX.studio.render();
+      case "tools": return XLX.tools && XLX.tools.render();
+      case "memory": return XLX.memview && XLX.memview.render();
+      case "download": return XLX.dlview && XLX.dlview.render();
+      case "settings": return XLX.settings && XLX.settings.render();
     }
-    nav.innerHTML = html;
-    nav.querySelectorAll(".nav-item").forEach(el => el.onclick = () => go(el.dataset.view));
+  }
 
-    /* 手机端底部导航（只渲染菜单里真实存在的页面；摘掉某页后不会再出错） */
+  function renderMobileNav() {
     const mn = document.getElementById("mobileNav");
-    mn.innerHTML = ["chat", "market", "dramaHome", "studio", "tools"]
-      .map(id => navItems().find(x => x.id === id))
+    if (!mn) return;
+    const NAV = (XLX.dramaShell && XLX.dramaShell.NAV) || [];
+    mn.innerHTML = ["agent", "home", "projects", "assets", "plugin"]
+      .map(id => NAV.find(x => x.id === id))
       .filter(Boolean)
-      .map(item =>
-        '<div class="mn' + (item.id === currentView ? " active" : "") + '" data-view="' + item.id + '">'
-        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + (XLX.ICONS[item.icon] || "") + '</svg>'
-        + '<span>' + item.name.replace(/AI/, "") + '</span></div>'
+      .map(it =>
+        '<div class="mn' + (it.id === currentView ? " active" : "") + '" data-view="' + it.id + '">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + (XLX.ICONS[it.icon] || "") + '</svg>'
+        + '<span>' + String(it.label).replace(/AI/, "") + '</span></div>'
       ).join("");
     mn.querySelectorAll(".mn").forEach(el => el.onclick = () => { go(el.dataset.view); closeSidebar(); });
   }
 
   function renderTopbar() {
-    const names = { chat: ["智能对话", "多平台免费模型 · 流式秒回"], market: ["技能市场", XLX.SKILL_COUNT + " 个免费实用技能，点击即用"], studio: ["软件工坊", "AI 开发完整软件 → 预览 → 一键打包下载"], dramaHome: ["短剧工作台", "项目管理 · 题材模板 · 一键起盘"], drama: ["短剧导演台", "逐镜生成 · 自由掌控每一帧"], auto: ["短剧流水线", "一句话 → 分镜流水线 → 成品"], makeup: ["造型室", "三视图 · 场景卡 · 每镜多参考"], tools: ["工具箱", "商品图下载、去水印、视频提取文案"], memory: ["记忆习惯", "AI 记住你的偏好，自动处理重复工作"], download: ["客户端下载", "手机 / 电脑 / 离线版"], settings: ["设置", "接入多个平台的免费 API Key"] };
+    const names = {
+      agent: ["Agent", "多平台免费模型 · 流式秒回"],
+      home: ["首页", "一句灵感 → 一个成片"],
+      projects: ["项目", "工程管理 · 多画布 · 一键起盘"],
+      assets: ["资产", "三视图 · 场景卡 · 多参考"],
+      tvshow: ["TV Show", "全网爆款成片库"],
+      ranking: ["创作者挑战赛", "模板排行 · 王者大赛"],
+      box3d: ["3D-BOX", "多机位 · 大师运镜 · 灯光相机 · 多角度 · 精准编辑"],
+      plugin: ["插件", "软件工坊 · 工具箱 · 客户端下载"],
+      drama: ["画布工作台", "逐节点生成 · 自由掌控每一帧"],
+      studio: ["软件工坊", "AI 开发完整软件 → 预览 → 一键打包下载"],
+      tools: ["工具箱", "商品图下载、去水印、视频提取文案"],
+      memory: ["记忆习惯", "AI 记住你的偏好，自动处理重复工作"],
+      download: ["客户端下载", "手机 / 电脑 / 离线版"],
+      settings: ["设置", "接入多个平台的免费 API Key"]
+    };
     const t = document.getElementById("pageTitle");
     const s = document.getElementById("pageSub");
     const viewMeta = names[currentView] || ["", ""];
@@ -4371,31 +4411,22 @@ XLX.app = (function () {
   }
 
   function go(view) {
-    if (!VIEWS.includes(view)) view = "chat";
+    if (!VIEWS.includes(view)) view = COMPAT[view] || "home";
     currentView = view;
     document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
-    const target = document.getElementById(view + "View");
+    const target = document.getElementById(VIEW_EL[view] || (view + "View"));
     if (target) target.classList.add("active");
-    renderSidebar();
+    if (XLX.dramaShell && XLX.dramaShell.setActive) XLX.dramaShell.setActive(view);
     renderTopbar();
+    renderMobileNav();
     window.scrollTo(0, 0);
-    if (view === "chat") {
-      document.getElementById("newChatBtn").style.display = "flex";
+    const nc = document.getElementById("newChatBtn");
+    if (nc) nc.style.display = (view === "agent") ? "flex" : "none";
+    if (view === "agent") {
       if (XLX.modelsel && XLX.modelsel.render) XLX.modelsel.render(document.getElementById("msContainer"));
       if (document.getElementById("chatInput")) document.getElementById("chatInput").focus();
-    } else {
-      document.getElementById("newChatBtn").style.display = "none";
     }
-    if (view === "market") XLX.market.render();
-    if (view === "studio") XLX.studio.render();
-    if (view === "dramaHome") XLX.drama.home.render();
-    if (view === "drama") XLX.drama.manual.render();
-    if (view === "auto") XLX.drama.auto.render();
-    if (view === "makeup") XLX.drama.makeup.render();
-    if (view === "tools") XLX.tools.render();
-    if (view === "memory") XLX.memview.render();
-    if (view === "download") XLX.dlview.render();
-    if (view === "settings") XLX.settings.render();
+    renderView(view);
     closeSidebar();
   }
 
@@ -4415,13 +4446,7 @@ XLX.app = (function () {
   }
 
   function refreshStatus() {
-    const ok = XLX.llm.isConfigured();
-    const dot = document.querySelector(".status-line .dot");
-    if (dot) {
-      dot.classList.toggle("off", !ok);
-      const text = document.getElementById("statusText");
-      if (text) text.textContent = ok ? "已连接 " + XLX.llm.currentProvider().name : "未配置Key";
-    }
+    if (XLX.dramaShell && XLX.dramaShell.refresh) XLX.dramaShell.refresh();
     renderTopbar();
   }
 
@@ -4446,7 +4471,7 @@ XLX.app = (function () {
       card.onclick = () => {
         const sid = card.dataset.it;
         if (sid) {
-          go("market");
+          go("home");
           setTimeout(() => XLX.market.openSkill(XLX.getSkill(sid)), 120);
         } else {
           go(card.dataset.go);
@@ -4508,7 +4533,7 @@ XLX.app = (function () {
   /* 键盘快捷键 */
   function initKeys() {
     document.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && currentView === "chat") {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && currentView === "agent") {
         document.getElementById("chatInput").focus();
       }
       if (e.key === "Escape") {
@@ -4532,13 +4557,15 @@ XLX.app = (function () {
     XLX.modelHub && XLX.modelHub.migrateFromSettings && XLX.modelHub.migrateFromSettings();
     XLX.pool && XLX.pool.auto && XLX.pool.auto();
     if (XLX.modelsel) { XLX.modelsel.attachGlobalClose(); XLX.modelsel.render(document.getElementById("msContainer")); }
-    renderSidebar();    renderTopbar();
+    if (XLX.dramaShell) XLX.dramaShell.mount(document.getElementById("shellNav"));
+    renderTopbar();
+    renderMobileNav();
     renderEmpty();
     initChatInput();
     XLX.chat.initSearchChip();
     initStudio();
     initKeys();
-    go("chat");
+    go("agent");
     refreshStatus();
     setTimeout(() => {
       const l = document.getElementById("loader");
@@ -4571,7 +4598,8 @@ XLX.router = XLX.app;
 <script>
 (function () {
   try {
-    document.getElementById("sideLogo").innerHTML = XLX.util.logo(26);
+    const sl = document.getElementById("sideLogo");
+    if (sl) sl.innerHTML = XLX.util.logo(26);
     document.getElementById("heroLogo").innerHTML = XLX.util.logo(56);
     document.getElementById("loaderLogo").innerHTML = XLX.util.logo(48);
   } catch (e) {}
