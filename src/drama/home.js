@@ -95,6 +95,7 @@
     v.querySelector("#dwHomeNewAuto").onclick = () => createBlank("pipeline");
 
     v.querySelectorAll("[data-pcard-open]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); open(b.dataset.pcardOpen); }; });
+    v.querySelectorAll("[data-pcard-makeup]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); openMakeup(b.dataset.pcardMakeup); }; });
     v.querySelectorAll("[data-pcard-copy]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); copy(b.dataset.pcardCopy); }; });
     v.querySelectorAll("[data-pcard-del]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); del(b); }; });
     v.querySelectorAll(".dw-pcard").forEach(c => { c.onclick = () => open(c.dataset.pid); });
@@ -110,6 +111,7 @@
     box.innerHTML = grid(list);
     v.querySelector("h3 .dw-hint").textContent = "（共 " + list.length + " 个工程）";
     box.querySelectorAll("[data-pcard-open]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); open(b.dataset.pcardOpen); }; });
+    box.querySelectorAll("[data-pcard-makeup]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); openMakeup(b.dataset.pcardMakeup); }; });
     box.querySelectorAll("[data-pcard-copy]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); copy(b.dataset.pcardCopy); }; });
     box.querySelectorAll("[data-pcard-del]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); del(b); }; });
     box.querySelectorAll(".dw-pcard").forEach(c => { c.onclick = () => open(c.dataset.pid); });
@@ -165,6 +167,15 @@
     }
   }
 
+  async function openMakeup(pid) {
+    try {
+      if (D.makeup && D.makeup.load) await D.makeup.load(pid);
+      if (XLX.app && XLX.app.go) XLX.app.go("makeup");
+    } catch (e) {
+      U.toast((e && e.message) || "打开造型室失败", "err");
+    }
+  }
+
   async function copy(pid) {
     try {
       const c = await D.project.duplicate(pid);
@@ -192,5 +203,5 @@
     render();
   }
 
-  D.home = { render, open, state };
+  D.home = { render, open, openMakeup, state };
 })();

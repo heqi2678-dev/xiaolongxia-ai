@@ -508,6 +508,7 @@
       "</div>" +
       '<div class="dw-pcard-acts">' +
         '<button class="btn small primary" data-pcard-open="' + esc(p.id) + '">打开</button>' +
+        '<button class="btn small" data-pcard-makeup="' + esc(p.id) + '">造型</button>' +
         '<button class="btn small" data-pcard-copy="' + esc(p.id) + '">复制</button>' +
         '<button class="btn small ghost" data-pcard-del="' + esc(p.id) + '">删除</button>' +
       "</div>" +

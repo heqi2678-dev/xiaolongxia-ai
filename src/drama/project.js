@@ -140,11 +140,15 @@
     p.characters = p.characters || [];
     for (const c of p.characters) {
       c.refImages = await Promise.all((c.refImages || []).map(u => toRef(u, { role: "character" })));
+      if (c.views) for (const v of ["front", "side", "back"]) if (c.views[v]) c.views[v] = await toRef(c.views[v], { role: "charView" });
     }
+    p.scenes = p.scenes || [];
+    for (const sc of p.scenes) if (sc.anchorRef) sc.anchorRef = await toRef(sc.anchorRef, { role: "scene" });
     p.shots = p.shots || [];
     for (const s of p.shots) {
       for (const f of ASSET_FIELDS) if (s[f]) s[f] = await toRef(s[f], { role: f });
       if (s.firstFrame) s.firstFrame = await toRef(s.firstFrame, { role: "firstFrame" });
+      if (Array.isArray(s.extraRefs)) s.extraRefs = await Promise.all(s.extraRefs.map(u => toRef(u, { role: "ref" })));
     }
     p.takes = p.takes || [];
     for (const t of p.takes) if (t.videoUrl) t.videoUrl = await toRef(t.videoUrl, { role: "takeVideo" });
@@ -156,11 +160,15 @@
     p.characters = p.characters || [];
     for (const c of p.characters) {
       c.refImages = (await Promise.all((c.refImages || []).map(u => hydrateRef(u)))).filter(Boolean);
+      if (c.views) for (const v of ["front", "side", "back"]) if (c.views[v]) c.views[v] = await hydrateRef(c.views[v]);
     }
+    p.scenes = p.scenes || [];
+    for (const sc of p.scenes) if (sc.anchorRef) sc.anchorRef = await hydrateRef(sc.anchorRef);
     p.shots = p.shots || [];
     for (const s of p.shots) {
       for (const f of ASSET_FIELDS) if (s[f]) s[f] = await hydrateRef(s[f]);
       if (s.firstFrame) s.firstFrame = await hydrateRef(s.firstFrame);
+      if (Array.isArray(s.extraRefs)) s.extraRefs = (await Promise.all(s.extraRefs.map(u => hydrateRef(u)))).filter(Boolean);
     }
     p.takes = p.takes || [];
     for (const t of p.takes) if (t.videoUrl) t.videoUrl = await hydrateRef(t.videoUrl);
@@ -176,7 +184,7 @@
   function newShot(seq) {
     return {
       id: id("s"), seq: seq || 1, name: "分镜 " + (seq || 1),
-      prompt: "", line: "", roleIds: [], duration: 5, motion: "zoom-in",
+      prompt: "", line: "", roleIds: [], extraRefs: [], duration: 5, motion: "zoom-in",
       imageUrl: "", videoUrl: "", audioUrl: "", lipsyncUrl: "",
       firstFrame: "", status: "pending", error: "", audioDuration: 0,
       trimIn: 0, trimOut: 0
@@ -209,7 +217,7 @@
   }
 
   function newCharacter(name) {
-    return { id: id("c"), name: name || "新角色", identity: "", appearance: "", details: {}, refImages: [] };
+    return { id: id("c"), name: name || "新角色", identity: "", appearance: "", details: {}, refImages: [], views: {} };
   }
 
   function blank(opts) {
@@ -222,6 +230,7 @@
       engine: genre === "realistic" ? "video" : "image",
       script: { logline: "", outline: "", scenes: [] },
       characters: [],
+      scenes: [],
       shots: [newShot(1)],
       style: genre === "realistic" ? "realistic" : "cn-manhua",
       subtitle: { enabled: true, font: "default", color: "#ffffff", stroke: "#000000" },
@@ -364,6 +373,16 @@
     if (typeof p.script.outline !== "string") p.script.outline = "";
     if (!Array.isArray(p.script.scenes)) p.script.scenes = [];
 
+    /* 场景卡：场景身份锚点，与剧本大纲的 script.scenes 互相独立 */
+    if (!Array.isArray(p.scenes)) p.scenes = [];
+    p.scenes.forEach((sc, i) => {
+      if (!sc.id) sc.id = id("sc");
+      if (typeof sc.name !== "string" || !sc.name) sc.name = "场景 " + (i + 1);
+      if (typeof sc.desc !== "string") sc.desc = "";
+      if (typeof sc.anchorRef !== "string") sc.anchorRef = "";
+      if (typeof sc.updatedAt !== "number") sc.updatedAt = Date.now();
+    });
+
     if (!p.output || typeof p.output !== "object") p.output = {};
     if (!p.output.ratio) p.output.ratio = "9:16";
     if (!p.output.resolution) p.output.resolution = "1080p";
@@ -377,7 +396,13 @@
     if (!Array.isArray(p.compliance.consentIds)) p.compliance.consentIds = [];
 
     if (!Array.isArray(p.characters)) p.characters = [];
-    p.characters.forEach(c => { if (c && !Array.isArray(c.refImages)) c.refImages = []; });
+    p.characters.forEach(c => {
+      if (!c) return;
+      if (!Array.isArray(c.refImages)) c.refImages = [];
+      if (!c.views || typeof c.views !== "object") c.views = {};
+      ["front", "side", "back"].forEach(v => { if (typeof c.views[v] !== "string") c.views[v] = ""; });
+      if (typeof c.views.updatedAt !== "number") c.views.updatedAt = 0;
+    });
 
     if (!Array.isArray(p.shots)) p.shots = [];
     p.shots.forEach((s, i) => {
@@ -387,6 +412,8 @@
       if (typeof s.prompt !== "string") s.prompt = "";
       if (typeof s.line !== "string") s.line = "";
       if (!Array.isArray(s.roleIds)) s.roleIds = [];
+      if (!Array.isArray(s.extraRefs)) s.extraRefs = [];
+      else s.extraRefs = s.extraRefs.filter(Boolean).slice(0, 3);
       if (typeof s.duration !== "number" || !(s.duration > 0)) s.duration = 5;
       if (typeof s.motion !== "string") s.motion = "zoom-in";
       if (typeof s.trimIn !== "number" || !isFinite(s.trimIn) || s.trimIn < 0) s.trimIn = 0;

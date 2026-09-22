@@ -93,6 +93,7 @@
         '<button class="btn small" id="dwPush">上传云端</button>' +
         '<button class="btn small" id="dwPull">云端同步</button>' +
         '<button class="btn small ghost" id="dwGuide">看教程</button>' +
+        '<button class="btn small ghost" id="dwMakeup">造型室</button>' +
         '<button class="btn small ghost" id="dwPanelRail">分镜</button>' +
         '<button class="btn small ghost" id="dwPanelInsp">属性</button>' +
       "</div>" +
@@ -1097,6 +1098,7 @@
       } catch (e) { U.toast((e && e.message) || "同步失败", "err"); }
     };
     v.querySelector("#dwGuide").onclick = () => { if (D.guide) D.guide.open("manual"); };
+    v.querySelector("#dwMakeup").onclick = async () => { await save(); if (D.makeup && D.makeup.load) await D.makeup.load(state.pid); if (XLX.app) XLX.app.go("makeup"); };
 
     /* 窄屏抽屉：分镜 / 属性 */
     const con = v.querySelector("#dwConsole");
