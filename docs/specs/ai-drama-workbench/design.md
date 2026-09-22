@@ -7,7 +7,7 @@
 
 ## 一、背景与目标
 
-铜龙电商（小龙虾AI）当前是纯前端 PWA，入口为 `index.html`（4511 行），业务模块拆分在 `src/`（`config.js`、`util.js`、`settings.js`），后端店门为 `gate/server.py`。短剧相关旧实现已被提交 `e27660e` 移除，完整代码保留在备份文件 `index.html.bak.20260916_110335` 中，可回收复用以下能力：
+铜龙电商当前是纯前端 PWA，入口为 `index.html`（4511 行），业务模块拆分在 `src/`（`config.js`、`util.js`、`settings.js`），后端店门为 `gate/server.py`。短剧相关旧实现已被提交 `e27660e` 移除，完整代码保留在备份文件 `index.html.bak.20260916_110335` 中，可回收复用以下能力：
 
 | 旧模块 | 能力 | 复用方式 |
 | --- | --- | --- |

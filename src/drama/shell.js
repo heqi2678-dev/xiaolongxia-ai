@@ -1,4 +1,4 @@
-/* 小龙虾 · AI 影视工作室 · LibTV 风格外壳 */
+/* 铜龙电商 · LibTV 风格外壳 */
 /* 左侧统一导航 + 顶部状态条 + 账号菜单；视图切换统一走 XLX.app.go */
 (function () {
   /* 主导航（LibTV 左侧）。newProject 为主按钮，其余为视图入口 */
@@ -65,7 +65,7 @@
     return ''
       + '<div class="shell-brand">'
       +   '<div class="shell-logo">' + icon("sparkle") + '</div>'
-      +   '<div class="shell-brand-t"><b>小龙虾</b><i>AI 影视工作室</i></div>'
+      +   '<div class="shell-brand-t"><b>铜龙电商</b></div>'
       + '</div>'
       + '<button class="shell-create" id="shellCreate">' + icon("plus") + '<span>新建项目</span></button>'
       + '<nav class="shell-nav" id="shellNavList">' + navHtml() + '</nav>';

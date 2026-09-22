@@ -6,7 +6,7 @@ RAW_BASE="https://raw.githubusercontent.com/heqi2678-dev/xiaolongxia-ai/main/sel
 if [ ! -f server.py ]; then curl -sL "$RAW_BASE/server.py" -o server.py; fi
 if [ ! -f requirements.txt ]; then curl -sL "$RAW_BASE/requirements.txt" -o requirements.txt; fi
 
-echo "===== 小龙虾AI 自托管视频服务 一键部署 ====="
+echo "===== 铜龙电商 自托管视频服务 一键部署 ====="
 
 MODEL_ID="${MODEL_ID:-Wan-AI/Wan2.2-TI2V-5B-Diffusers}"
 MODEL_DIR="${MODEL_DIR:-/root/model}"
@@ -77,7 +77,7 @@ fi
 
 echo ""
 echo "===== 完成 ====="
-echo "填入小龙虾AI 设置 → AI 视频生成 → 自定义服务："
+echo "填入铜龙电商 设置 → AI 视频生成 → 自定义服务："
 echo "  协议：同步式"
 echo "  Base URL：${PUBLIC_URL:-看上面 cloudflared.log}"
 echo "  模型：Wan2.2"

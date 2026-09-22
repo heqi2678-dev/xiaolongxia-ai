@@ -177,7 +177,7 @@
       '<div class="hs-cbody">' +
         '<div class="hs-cname">' + D.ui.esc(s.name) + "</div>" +
         '<div class="hs-cdesc">' + D.ui.esc(s.desc || "") + "</div>" +
-        '<div class="hs-cfoot"><span class="hs-avatar"></span><span>' + D.ui.esc(s.author || "小龙虾官方") + "</span></div>" +
+        '<div class="hs-cfoot"><span class="hs-avatar"></span><span>' + D.ui.esc(s.author || "铜龙电商官方") + "</span></div>" +
       "</div>" +
     "</div>";
   }

@@ -125,7 +125,7 @@ def header(img, d, kicker):
     grad_rect(img, (M, 74, M + 56, 130), ACCENT, ACCENT2, radius=16)
     d = ImageDraw.Draw(img)
     draw_bold(d, (M + 28, 102), "龙", F(30), (255, 255, 255), anchor="mm")
-    draw_bold(d, (M + 76, 102), "小龙虾AI · AI 短剧工作台", F(30), TEXT2, bold=False, anchor="lm")
+    draw_bold(d, (M + 76, 102), "铜龙电商 · AI 短剧工作台", F(30), TEXT2, bold=False, anchor="lm")
     if kicker:
         f = F(28)
         tw = text_w(d, kicker, f)
@@ -138,7 +138,7 @@ def header(img, d, kicker):
 def footer(img, d, idx, total):
     note_y = H - 132
     d.line([(M, note_y - 26), (W - M, note_y - 26)], fill=(28, 35, 50))
-    draw_bold(d, (M, note_y), "小龙虾AI · AI 短剧工作台使用教程", F(26), DIM, bold=False, anchor="lm")
+    draw_bold(d, (M, note_y), "铜龙电商 · AI 短剧工作台使用教程", F(26), DIM, bold=False, anchor="lm")
     draw_bold(d, (W - M, note_y), "%d / %d" % (idx, total), F(26), DIM, bold=False, anchor="rm")
     bar_y = H - 74
     d.rounded_rectangle([M, bar_y, W - M, bar_y + 8], radius=4, fill=(30, 37, 53))

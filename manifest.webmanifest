@@ -1,6 +1,6 @@
 {
-  "name": "铜龙电商小龙虾AI - 免费AI智能助手",
-  "short_name": "铜龙电商小龙虾AI",
+  "name": "铜龙电商 - 免费AI智能助手",
+  "short_name": "铜龙电商",
   "description": "免费的AI助手小程序：40+免费技能，电商/新媒体/视频/办公/编程/AI生图，自带Key即可使用",
   "start_url": "./",
   "display": "standalone",

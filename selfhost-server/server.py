@@ -41,7 +41,7 @@ class VideoRequest(BaseModel):
     duration: int = 5
 
 
-app = FastAPI(title="Xiaolongxia SelfHost Video Server")
+app = FastAPI(title="铜龙电商 SelfHost Video Server")
 
 # 允许前端（GitHub Pages）跨域直连：调用 /api/video 与拉取 /videos/* 直链（用于链接式视频文案转写）
 app.add_middleware(
