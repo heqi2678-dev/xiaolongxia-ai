@@ -9,7 +9,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
 const http = require("http");
-const { JSDOM } = require("jsdom");
+const { JSDOM } = require("./dom-env.js");
 
 const ROOT = path.resolve(__dirname, "..");
 const FILES = [

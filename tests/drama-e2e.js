@@ -4,7 +4,7 @@
  * 网络全部打桩，不触网。用法：NODE_PATH=/usr/local/lib/node_modules node tests/drama-e2e.js */
 const fs = require("fs");
 const path = require("path");
-const { JSDOM, VirtualConsole } = require("jsdom");
+const { JSDOM, VirtualConsole } = require("./dom-env.js");
 
 const ROOT = path.resolve(__dirname, "..");
 const DRAMA_FILES = [

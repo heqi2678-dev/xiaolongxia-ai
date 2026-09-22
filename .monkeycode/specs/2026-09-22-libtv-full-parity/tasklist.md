@@ -20,11 +20,11 @@
      - 保证幂等：已有多画布或已有节点时不重复执行
      - 参考需求 14.2、14.3 与设计 D5
 
-  - [ ]* 1.4 编写多画布与迁移单元测试
+  - [x]* 1.4 编写多画布与迁移单元测试
      - 新增 `tests/canvas-multi.test.js`：增删改切、画布隔离、最后一张保护（设计属性 2、3）
      - 新增 `tests/project-migrate.test.js`：单画布迁移、分镜转节点、重复迁移幂等（设计属性 1、4）
      - 校验设计「Correctness Properties」1、2、3、4
-     - 说明：按用户要求本轮只执行开发任务，本测试任务延后；`tests/canvas.test.js` 已同步多画布断言并全部通过
+     - 落地：`tests/canvas-multi.test.js` 6 例（默认一张/自动命名、重命名与按 id 查询、删除与最后一张保护、删活动画布后 id 有效、画布隔离、activeCanvasId 悬空回落），对应属性 3；`tests/project-migrate.test.js` 6 例（旧单画布包装、分镜转节点、无内容不建节点、重复迁移幂等、分镜/角色/场景/box3d 数据无损、非对象入参原样返回），对应属性 1、2
 
 - [x] 2. 检查点 - 多画布与迁移测试通过
   - 运行 `node --test tests/*.test.js`，确保所有测试通过,如有疑问请询问用户
@@ -46,10 +46,10 @@
      - 落地：`NODE_TYPES[t].actions` + `actionNode(p,nid,action)`；`hires` 经 `adapters.js` 的 `hiresRatio/hiresSize` 放大尺寸（上限 4096），视频强制 1080p；新增 `lipsync` 生成分支与 `asset` 节点（`bind` 引用资产）
      - 偏差：设计表 `lipsync.multi` 由 false 改为 true（口型需同时接视频与人声两个入边），已同步 design.md
 
-  - [ ]* 3.3 扩展画布单元测试
+  - [x]* 3.3 扩展画布单元测试
      - 在 `tests/canvas.test.js` 覆盖新节点类型连线规则与动作声明
      - 校验设计属性 4（连线合法）
-     - 说明：本轮按用户要求只执行开发任务；`tests/canvas.test.js` 已同步七类节点与动作声明断言并通过
+     - 落地：`tests/canvas.test.js` 覆盖七类节点与 `redraw`/`hires` 动作声明；`tests/canvas-multi.test.js` 覆盖多画布下节点与视图隔离；连线合法性（属性 4）另由 `tests/drama-e2e.js` 的连边断言交叉校验
 
 - [x] 4. LibTV 外壳与路由
    - 重建左侧导航、顶部状态条与视图路由
@@ -81,10 +81,10 @@
      - 参考需求 1.5
      - 落地：沿用既有 `@media(max-width:900px)` 侧栏抽屉与 `#menuBtn/#sidebarMask`，底部导航项更新为 Agent/首页/项目/资产/插件
 
-  - [ ]* 4.5 编写外壳测试
+  - [x]* 4.5 编写外壳测试
      - 新增 `tests/shell.test.js`：导航项集合、选中态唯一、未知视图回退
      - 校验设计属性 5、6
-     - 说明：本轮按用户要求只执行开发任务，本测试任务延后；已用 jsdom 手工冒烟（导航项 8、选中态唯一、未知回退首页、旧标识 COMPAT 映射、状态条读取）全部通过
+     - 落地：`tests/shell.test.js` 9 例（NAV/ACCOUNT 定义、挂载渲染主按钮与导航项、选中态唯一与未知清除、默认按当前视图选中、钥匙/模型统计、读取失败降级为 0、refresh 只改文本不重建 DOM、未知视图回退首页、旧标识 COMPAT 映射）；路由用例从 `index.html` 提取 `XLX.app` 闭包实测
 
 - [x] 5. 检查点 - 外壳与路由测试通过
   - 运行 `node --test tests/*.test.js`，确保所有测试通过,如有疑问请询问用户
@@ -172,6 +172,7 @@
 
 - [x] 9. 检查点 - 全量回归
   - 运行 `node --test tests/*.test.js`、`NODE_PATH="$(npm root -g)" node --test tests/adapters-http.test.js`、`NODE_PATH="$(npm root -g)" node tests/drama-e2e.js`、`cd gate && python3 -m unittest test_gate`，确保所有测试通过,如有疑问请询问用户
+  - 结果：单测 159/159、契约 12/12、e2e 241/241、gate 52/52 全通过；新增 `tests/dom-env.js` 统一解析 jsdom（本地依赖缺失时回退全局安装目录），上述命令无需 `NODE_PATH` 亦可直接运行
 
 - [x] 10. 端到端联调与旧数据兼容
    - 覆盖新导航与主链路，验证旧工程不丢数据
