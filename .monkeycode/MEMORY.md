@@ -150,3 +150,13 @@ Entries discovered by the Agent during task execution should follow this format:
   - 校验"本地改动是否已上线"时用内容比对而非本地 git 状态：本机 `/tmp/opencode/xiaolongxia-ai` 的 git 历史与线上仓库不一致（`git status` 不可作准），可靠做法是 `ssh` 取线上 `git ls-files -z | xargs -0 md5sum` 与本地 `md5sum` 逐文件比对，再把有差异的文件 `scp` 回线上提交。
   - Agent 环境（沙箱）工作副本为 `/workspace`：内容与线上逐文件一致（md5 相同），但其 git 为单 commit `c67274b`、无远端。Agent 环境已生成 `~/.ssh/id_ed25519` 并通过 `ssh-copy-id` 写入线上 root 的 `authorized_keys`，可直接 `ssh root@47.108.14.206`；部署路径为 改 `/workspace` → 同步线上 `/home/admin/work/xiaolongxia-ai` → 线上 `git` 提交推送。
   - 小龙虾 LibTV 化总方案落档在 `.monkeycode/specs/2026-09-22-libtv-3layer/总方案.md`（三层：地基 / 工作台 / 3D-BOX，外加门外与贯穿线；管家页全程排除）。
+
+[Project Knowledge Summary]
+- Date: 2026-09-22
+- Context: Discovered by Agent while 把管家（tonglong-ui）纳入 git 管理
+- Category: Operations & Deployment
+- Instructions:
+  - 管家目录 `/home/admin/work/tonglong-ui`（线上）已 `git init`（分支 `main`，首提交 `7309752`，`.git` 约 900K）；`.gitignore` 已排除虚拟环境 `ocr311/`、`ocrvenv/`、`__pycache__/`、备份 `*.bak*`、运行时数据 `rooms/`、`inbox/`、`downloads/`、`pub/`、`safety/`、`*.jsonl`，以及凭据 `*.keys.json`、`brains.json`、`works.json`。
+  - 管家服务由独立 venv 启动：`/home/admin/.hermes/hermes-agent/venv/bin/python3 -m uvicorn app:app --host 127.0.0.1 --port 9130`；改后端代码后需重启该进程（前端 `index.html` 静态改动无需重启）。
+  - 该目录文件多为 `admin` 所有、部分 `root`，git 以 root 操作，已 `git config --global --add safe.directory`。
+  - 尚无 GitHub 远端；备份需先在 GitHub 建空私有仓库，再为该仓库配专用部署密钥（当前 `id_ed25519_xiaolongxia` 只属于小龙虾仓库，不可复用）。
