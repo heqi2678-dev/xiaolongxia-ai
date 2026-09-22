@@ -228,8 +228,8 @@ def audit_size(driver, width, height, mobile=False):
         if view == "dramaHome":
             wait_for(driver, "return !!document.querySelector('#dwHome .dw-pcard');")
         elif view == "drama":
-            wait_for(driver, "const w = document.querySelector('#dwManual .dw-console');"
-                             " return w && w.querySelectorAll('.dw-rail-item').length > 0;")
+            wait_for(driver, "const w = document.querySelector('#dwManual .dw-workbench');"
+                             " return !!w && !!w.querySelector('.cv-wrap');")
         elif view == "auto":
             wait_for(driver, "return !!document.querySelector('#dwAuto .dw-wrap');")
         time.sleep(0.45)
@@ -267,8 +267,8 @@ def selftest(driver):
     wait_for(driver, "return !!document.getElementById('app');")
     time.sleep(0.5)
     goto_view(driver, "drama",
-              "const w = document.querySelector('#dwManual .dw-console');"
-              " return w && w.querySelectorAll('.dw-rail-item').length > 0;")
+              "const w = document.querySelector('#dwManual .dw-workbench');"
+              " return !!w && !!w.querySelector('.cv-wrap');")
     clean = driver.execute_script(AUDIT_JS)
     if clean.get("issues"):
         print("FAIL: 缺陷注入前就有告警，无法验证检测器")

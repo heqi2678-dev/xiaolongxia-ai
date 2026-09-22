@@ -620,7 +620,7 @@
   function renderShell(ctx) {
     const n = ++mountSeq;
     ctx.uid = n;
-    const bar = '<div class="cv-bar">' +
+    const bar = ctx.opts.bar === false ? "" : '<div class="cv-bar">' +
       TYPE_ORDER.map(t => '<button class="cv-addbtn" data-cvadd="' + t + '"><i style="background:' + NODE_TYPES[t].accent + '"></i>' + NODE_TYPES[t].label + "</button>").join("") +
       '<span class="cv-sp"></span>' +
       '<button class="btn small ghost" data-cvact="layout">自动排版</button>' +
@@ -636,7 +636,7 @@
           '<div id="cvNodes' + n + '"></div>' +
         "</div>" +
       "</div>" +
-      '<div class="cv-foot" id="cvFoot' + n + '"></div>' +
+      (ctx.opts.foot === false ? "" : '<div class="cv-foot" id="cvFoot' + n + '"></div>') +
     "</div>";
     ctx.vp = ctx.el.querySelector("#cvVp" + n);
     ctx.world = ctx.el.querySelector("#cvWorld" + n);
@@ -681,10 +681,19 @@
     applyView(ctx);
     ctx.nodesEl.innerHTML = c.nodes.map(n => nodeHTML(n, ctx.sel)).join("");
     paintEdges(ctx);
-    const done = c.nodes.filter(n => n.status === "done").length;
-    ctx.foot.innerHTML = "<span>节点 " + c.nodes.length + " 个 · 连线 " + c.edges.length + " 条 · 已生成 " + done + "</span>" +
-      "<span style=\"flex:1\"></span><span>双击空白加节点 · 右键节点加下游 · Ctrl/滚轮缩放 · 拖节点标题移动</span>";
+    if (ctx.foot) {
+      const done = c.nodes.filter(n => n.status === "done").length;
+      ctx.foot.innerHTML = "<span>节点 " + c.nodes.length + " 个 · 连线 " + c.edges.length + " 条 · 已生成 " + done + "</span>" +
+        "<span style=\"flex:1\"></span><span>双击空白加节点 · 右键节点加下游 · Ctrl/滚轮缩放 · 拖节点标题移动</span>";
+    }
     bindNodes(ctx);
+  }
+
+  function notifySelect(ctx) { if (ctx.opts.onSelect) ctx.opts.onSelect(ctx.sel || "", nodeById(ctx.p, ctx.sel || "")); }
+  function setSel(ctx, nid) {
+    ctx.sel = nid || "";
+    ctx.nodesEl.querySelectorAll(".cv-node").forEach(el => el.classList.toggle("sel", el.dataset.nid === ctx.sel));
+    notifySelect(ctx);
   }
 
   function worldPoint(ctx, clientX, clientY) {
@@ -712,6 +721,7 @@
       const n = addNode(ctx.p, b.dataset.cvadd, x, y, {});
       ctx.sel = n.id;
       refresh(ctx, true);
+      notifySelect(ctx);
     });
     ctx.el.querySelectorAll("[data-cvact]").forEach(b => b.onclick = () => act(ctx, b.dataset.cvact));
 
@@ -737,8 +747,8 @@
       const v = ensure(ctx.p).view;
       ctx.pan = { sx: e.clientX, sy: e.clientY, vx: v.x, vy: v.y };
       vp.classList.add("cv-pan");
-      ctx.sel = "";
       closeMenu(ctx);
+      setSel(ctx, "");
     });
     window.addEventListener("mousemove", onMove(ctx));
     window.addEventListener("mouseup", onUp(ctx));
@@ -803,12 +813,10 @@
         const pt = worldPoint(ctx, e.clientX, e.clientY);
         const n = nodeById(ctx.p, nid);
         ctx.drag = { id: nid, dx: pt.x - n.x, dy: pt.y - n.y };
-        ctx.sel = nid;
         closeMenu(ctx);
-        ctx.nodesEl.querySelectorAll(".cv-node.sel").forEach(x => x.classList.remove("sel"));
-        el.classList.add("sel");
+        setSel(ctx, nid);
       });
-      el.addEventListener("click", () => { ctx.sel = nid; });
+      el.addEventListener("click", () => { setSel(ctx, nid); });
     });
 
     ctx.nodesEl.querySelectorAll("[data-act]").forEach(b => {
@@ -902,6 +910,18 @@
     refresh(ctx, false);
   }
 
+  function zoom(ctx, delta) {
+    const v = ensure(ctx.p).view;
+    const r = ctx.vp.getBoundingClientRect();
+    const mx = r.width / 2, my = r.height / 2;
+    const k = Math.min(MAX_K, Math.max(MIN_K, v.k + delta));
+    if (k === v.k) return;
+    v.x = mx - ((mx - v.x) / v.k) * k;
+    v.y = my - ((my - v.y) / v.k) * k;
+    v.k = k;
+    refresh(ctx, false);
+  }
+
   function act(ctx, name) {
     if (name === "layout") { autoLayout(ctx.p, 60, 48); refresh(ctx, true); toast("已按连线自动排版", "ok"); }
     else if (name === "fit") fit(ctx);
@@ -983,6 +1003,7 @@
       ctx.sel = n.id;
       closeMenu(ctx);
       refresh(ctx, true);
+      notifySelect(ctx);
     });
   }
 
@@ -1003,21 +1024,39 @@
       const node = addNode(ctx.p, b.dataset.t, n.x + NW + 60, n.y + (downstream.indexOf(b.dataset.t) * 40), {});
       try { addEdge(ctx.p, n.id, node.id); } catch (e) { toast((e && e.message) || "连线失败", "warn"); }
       closeMenu(ctx);
+      ctx.sel = node.id;
       refresh(ctx, true);
+      notifySelect(ctx);
     });
     const del = m.querySelector('button[data-a="del"]');
-    if (del) del.onclick = () => { removeNode(ctx.p, nid); closeMenu(ctx); refresh(ctx, true); };
+    if (del) del.onclick = () => { removeNode(ctx.p, nid); closeMenu(ctx); refresh(ctx, true); notifySelect(ctx); };
   }
 
   function mount(el, p, opts) {
     if (!el) return null;
     ensureCss();
     ensure(p);
-    const ctx = { el, p, opts: opts || {}, sel: "", pan: null, drag: null, menu: null, uid: ++mountSeq };
+    const ctx = { el, p, opts: opts || {}, sel: opts && opts.select ? opts.select : "", pan: null, drag: null, menu: null, uid: ++mountSeq };
     renderShell(ctx);
     paint(ctx);
+    notifySelect(ctx);
     return {
       refresh: () => paint(ctx),
+      select: (nid) => { setSel(ctx, nid); },
+      selected: () => ctx.sel,
+      fit: () => fit(ctx),
+      zoom: (d) => zoom(ctx, d),
+      act: (name) => act(ctx, name),
+      compose: () => compose(ctx),
+      addNodeAt: (type, clientX, clientY) => {
+        const pt = worldPoint(ctx, clientX, clientY);
+        const n = addNode(ctx.p, type, Math.round(pt.x - NW / 2), Math.round(pt.y - NH / 2), {});
+        ctx.sel = n.id;
+        refresh(ctx, true);
+        notifySelect(ctx);
+        return n;
+      },
+      openAddMenu: (clientX, clientY) => openAddMenu(ctx, clientX, clientY, worldPoint(ctx, clientX, clientY)),
       ctx,
       key: "cv" + ctx.uid
     };

@@ -1,19 +1,45 @@
-/* 铜龙电商 · AI 短剧工作台 · 导演台「逐镜工坊」 */
-/* 三区创作台：左分镜列表 / 中竖屏预览 / 右镜属性与模型，底部三轨时间轴。 */
+/* 铜龙电商 · AI 短剧工作台 · 节点工作台（画布宿主） */
+/* 对齐 LibTV：顶部工程/画布/缩放/面板条 + 无限画布 + 右侧节点详情 + 底部浮动工具条。 */
 (function () {
   const D = XLX.drama;
   const U = XLX.util;
   const FPS = 30;
 
-  const state = { pid: "", project: null, busy: false, lastComposed: null, cur: "", time: 0, playing: false, mode: "board", boxView: null };
+  const state = { pid: "", project: null, busy: false, lastComposed: null, canvasId: "", sel: "", view: null, statusText: "", statusType: "" };
 
-  let rafId = null;
-  let lastTs = 0;
-  let trackAudio = null;
-  let trackSrc = "";
-  let audition = null;
+  let saveTimer = null;
+  let cssDone = false;
+
+  const GEN_TYPES = ["image", "video", "audio", "lipsync"];
+
+  const CSS = `
+.dw-workbench{display:flex;flex-direction:column;gap:10px}
+.dw-wb-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+.dw-wb-bar .inp{width:auto;min-width:140px}
+.dw-wb-sp{flex:1}
+.dw-zoom{font-size:11px;color:var(--text3);min-width:44px;text-align:center;display:inline-block}
+.dw-wb-main{display:flex;gap:10px;align-items:stretch}
+.dw-wb-canvas{flex:1;min-width:0}
+.dw-wb-canvas .cv-wrap{height:640px}
+.dw-wb-side{width:340px;flex:none;max-height:640px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.dw-wb-side.dw-side-off{display:none}
+.dw-wb-foot{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+.dw-wb-cards{display:flex;flex-direction:column;gap:10px}
+.dw-node-empty{color:var(--text3);font-size:12px;padding:10px;line-height:1.6}
+.dw-frame-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+@media (max-width:860px){.dw-wb-main{flex-direction:column}.dw-wb-side{width:auto}}
+`;
 
   function view() { return document.getElementById("dwManual"); }
+
+  function ensureCss() {
+    if (cssDone) return;
+    const s = document.createElement("style");
+    s.id = "dwWorkbenchCss";
+    s.textContent = CSS;
+    document.head.appendChild(s);
+    cssDone = true;
+  }
 
   async function ensureProject(pid) {
     let list = D.project.list();
@@ -32,9 +58,12 @@
     state.project = normalize(raw);
     if (!state.project) throw D.err("NO_PROJECT", "工程不存在");
     try { await D.project.hydrateAssets(state.project); } catch (e) {}
-    state.cur = (state.project.shots[0] || {}).id || "";
-    state.time = 0;
-    state.playing = false;
+    D.canvas.ensure(state.project);
+    const list = D.canvas.listCanvases(state.project);
+    if (!state.canvasId || !D.canvas.canvasById(state.project, state.canvasId)) {
+      state.canvasId = (D.canvas.activeCanvas(state.project) || list[0]).id;
+    }
+    state.sel = "";
     return state.project;
   }
 
@@ -44,7 +73,6 @@
     return p;
   }
 
-  let saveTimer = null;
   function saveSoon(ms) {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => { saveTimer = null; save(); }, ms || 500);
@@ -57,109 +85,81 @@
   }
 
   function setStatus(text, type) {
+    state.statusText = text || "";
+    state.statusType = type || "";
     const el = document.getElementById("dwStatus");
     if (!el) return;
     el.innerHTML = text ? '<div class="dw-card" style="border-color:' + (type === "err" ? "var(--red)" : type === "ok" ? "#2b5a3a" : "var(--border)") + '">' + D.ui.esc(text) + "</div>" : "";
   }
 
-  function shotById(sid) { return (state.project.shots || []).find(s => s.id === sid) || null; }
-  function curShot() { return shotById(state.cur) || state.project.shots[0] || null; }
-  function segOf() { return D.timeline.shotAt(state.project, state.time); }
-  function realistic() { return D.engine.isRealistic(state.project); }
-
-  /* 整段模式下，段素材里本镜的起始时间，用于把全局时间换算成视频内时间 */
-  function takeBase(shot) {
-    const p = state.project;
-    if (!p || p.shotMode !== "take" || !shot) return 0;
-    const s = D.takes.segmentOf(p, shot.id);
-    return s ? s.start : 0;
-  }
+  function activeCanvas() { return D.canvas.activeCanvas(state.project); }
+  function selNode() { return state.sel ? D.canvas.nodeById(state.project, state.sel) : null; }
+  function selCanvas() { return D.canvas.canvasById(state.project, state.canvasId) || activeCanvas(); }
 
   /* ============ 渲染骨架 ============ */
   async function render() {
+    ensureCss();
     D.ui.ensureCss();
     const v = view();
     if (!v) return;
     if (!state.project || !D.project.get(state.pid)) await load();
     const p = state.project;
     const list = D.project.list();
+    const canvases = D.canvas.listCanvases(p);
+    if (!state.canvasId || !D.canvas.canvasById(p, state.canvasId)) state.canvasId = (D.canvas.activeCanvas(p) || canvases[0]).id;
 
-    v.innerHTML = '<div class="dw-wrap">' +
+    v.innerHTML = '<div class="dw-wrap dw-workbench">' +
       '<div class="dw-bar">' +
         '<select class="inp" id="dwProjSel" style="width:auto;min-width:160px">' + list.map(x => '<option value="' + x.id + '"' + (x.id === p.id ? " selected" : "") + ">" + D.ui.esc(x.title) + "</option>").join("") + "</select>" +
-        '<button class="btn small" id="dwGoHome">项目中心</button>' +
         '<button class="btn small" id="dwNew">新建工程</button>' +
         '<button class="btn small" id="dwSave">保存草稿</button>' +
         '<button class="btn small" id="dwPush">上传云端</button>' +
         '<button class="btn small" id="dwPull">云端同步</button>' +
+        '<span class="dw-wb-sp"></span>' +
         '<button class="btn small ghost" id="dwGuide">看教程</button>' +
         '<button class="btn small ghost" id="dwMakeupBtn">造型室</button>' +
-        '<button class="btn small ghost" id="dwModeBoard">故事板</button>' +
-        '<button class="btn small ghost" id="dwModeNode">节点画布</button>' +
-        '<button class="btn small ghost" id="dwMode3D">3D-BOX</button>' +
-        '<button class="btn small ghost" id="dwPanelRail">分镜</button>' +
-        '<button class="btn small ghost" id="dwPanelInsp">属性</button>' +
       "</div>" +
-      '<div id="dwCanvasPanel" style="display:none"></div>' +
-      '<div id="dwBoxPanel" style="display:none"></div>' +
-      '<div class="dw-console" id="dwConsole">' +
-        '<div class="dw-rail" id="dwRail"></div>' +
-        '<div class="dw-stage" id="dwStage"></div>' +
-        '<div class="dw-inspector" id="dwInspector"></div>' +
+      '<div class="dw-wb-bar">' +
+        '<label class="label" style="margin:0">画布</label>' +
+        '<select class="inp" id="dwCanvasSel">' + canvases.map(c => '<option value="' + D.ui.esc(c.id) + '"' + (c.id === state.canvasId ? " selected" : "") + ">" + D.ui.esc(c.name) + "</option>").join("") + "</select>" +
+        '<button class="btn small" id="dwCanvasAdd">＋ 画布</button>' +
+        '<button class="btn small ghost" id="dwCanvasRename">重命名</button>' +
+        '<button class="btn small ghost" id="dwCanvasDel">删除画布</button>' +
+        '<span class="dw-wb-sp"></span>' +
+        '<button class="btn small" id="dwZoomOut" title="缩小">－</button>' +
+        '<span class="dw-zoom" id="dwZoomVal">100%</span>' +
+        '<button class="btn small" id="dwZoomIn" title="放大">＋</button>' +
+        '<button class="btn small ghost" id="dwFit">适应画布</button>' +
+        '<button class="btn small ghost" id="dwPanelToggle">节点详情</button>' +
       "</div>" +
-      '<div id="dwTimeline"></div>' +
-      '<div class="dw-card"><h3>作品信息与剧本</h3>' + infoFields(p) + "</div>" +
-      '<div class="dw-card"><h3>配乐与字幕</h3>' + mediaFields(p) + "</div>" +
-      charCard(p) +
-      D.ui.complianceCard(p, { prefix: "dw" }) +
-      '<div class="dw-card"><h3>合成与导出</h3>' +
-        '<div class="dw-bar">' +
-          '<button class="btn primary" id="dwCompose">浏览器合成成片</button>' +
-          '<button class="btn" id="dwComposeServer">服务端合成（需公网素材）</button>' +
-          '<button class="btn" id="dwExport">导出素材包（剪映二次剪辑）</button>' +
-          '<button class="btn" id="dwCheck">合规检查</button>' +
-        "</div>" +
-        '<div class="dw-hint" style="margin-top:8px">浏览器合成实时录制，约等于成片时长，运镜、BGM、字幕样式都在这条生效；服务端合成更快但要求素材是公网地址，只做快速拼接，不含运镜、BGM 与字幕样式。</div>' +
-        '<div id="dwComposeOut" style="margin-top:10px"></div>' +
+      '<div class="dw-wb-main">' +
+        '<div class="dw-wb-canvas" id="dwCanvasHost"></div>' +
+        '<div class="dw-wb-side" id="dwSide"></div>' +
+      "</div>" +
+      '<div class="dw-wb-foot">' +
+        '<button class="btn small primary" id="dwAddNode">＋ 节点</button>' +
+        '<button class="btn small" id="dwGenSel">生成所选</button>' +
+        '<button class="btn small" id="dwGenMissing">生成未完成</button>' +
+        '<button class="btn small ghost danger" id="dwStopAll">全部停止</button>' +
+        '<span class="dw-wb-sp"></span>' +
+        '<button class="btn small" id="dwCheck">合规检查</button>' +
+        '<button class="btn primary" id="dwCompose">合成导出</button>' +
+        '<button class="btn small" id="dwComposeServer">服务端合成</button>' +
+        '<button class="btn small" id="dwExport">导出素材包</button>' +
+      "</div>" +
+      '<div class="dw-wb-cards">' +
+        '<div class="dw-card"><h3>作品信息与剧本</h3>' + infoFields(p) + "</div>" +
+        '<div class="dw-card"><h3>配乐与字幕</h3>' + mediaFields(p) + "</div>" +
+        charCard(p) +
+        D.ui.complianceCard(p, { prefix: "dw" }) +
+        '<div class="dw-card"><h3>合成结果</h3><div id="dwComposeOut"></div></div>' +
       "</div>" +
       '<div id="dwStatus"></div>' +
     "</div>";
 
-    paintAll();
+    mountCanvas();
     bind(p);
-    applyMode();
-  }
-
-  /* 故事板 / 节点画布 / 3D-BOX（LibTV 多视图）切换 */
-  function applyMode() {
-    const v = view();
-    if (!v) return;
-    const mode = state.mode === "node" ? "node" : (state.mode === "box" ? "box" : "board");
-    const board = mode === "board";
-    const node = mode === "node";
-    const box = mode === "box";
-    const consoleEl = v.querySelector("#dwConsole");
-    const tl = v.querySelector("#dwTimeline");
-    const panel = v.querySelector("#dwCanvasPanel");
-    const boxPanel = v.querySelector("#dwBoxPanel");
-    const b = v.querySelector("#dwModeBoard");
-    const nb = v.querySelector("#dwModeNode");
-    const bb = v.querySelector("#dwMode3D");
-    if (consoleEl) consoleEl.style.display = board ? "" : "none";
-    if (tl) tl.style.display = board ? "" : "none";
-    if (panel) panel.style.display = node ? "" : "none";
-    if (boxPanel) boxPanel.style.display = box ? "" : "none";
-    if (b) b.className = "btn small " + (board ? "primary" : "ghost");
-    if (nb) nb.className = "btn small " + (node ? "primary" : "ghost");
-    if (bb) bb.className = "btn small " + (box ? "primary" : "ghost");
-    if (node && panel && D.canvas && D.canvas.mount) {
-      D.canvas.mount(panel, state.project, { onChange: () => saveSoon(400) });
-    }
-    if (box && boxPanel && D.box3d && D.box3d.mount) {
-      state.boxView = D.box3d.mount(boxPanel, state.project, { shotId: state.cur, onChange: () => saveSoon(400) });
-    } else {
-      state.boxView = null;
-    }
+    paintSide();
   }
 
   function infoFields(p) {
@@ -168,10 +168,7 @@
       '<div><label class="label" style="margin-top:0">剧种</label><select class="inp" id="dwGenre">' + D.ui.opts(D.GENRES, p.genre) + "</select></div>" +
       '<div><label class="label" style="margin-top:0">画风</label><select class="inp" id="dwStyle">' + D.ui.opts(D.STYLES, p.style) + "</select></div>" +
       '<div><label class="label" style="margin-top:0">画幅</label><select class="inp" id="dwRatio">' + D.ui.opts(D.RATIOS, p.output.ratio) + "</select></div>" +
-      (realistic() ? '<div><label class="label" style="margin-top:0">生成模式</label><select class="inp" id="dwShotMode">' + D.ui.opts([{ id: "shot", name: "逐镜生成" }, { id: "take", name: "整段生成" }], p.shotMode) + "</select></div>" : "") +
-      (realistic() && p.shotMode === "take" ? '<div><label class="label" style="margin-top:0">每段目标时长</label><input class="inp" id="dwTakeTarget" type="number" min="4" max="30" value="' + p.takeTarget + '"></div>' : "") +
       "</div>" +
-      '<div class="dw-hint" style="margin-top:8px">' + (p.genre === "realistic" ? (p.shotMode === "take" ? "整段生成：把若干连续分镜合成一次请求，一镜到底更连贯，单段上限 " + D.takes.MAX_SECONDS + " 秒。" : "仿真人剧：逐镜生成视频 + 口型同步，成本较高。") : "漫剧：逐镜生图 + 微动效 + 配音字幕，成本低产能高。") + "</div>" +
       '<label class="label">一句话故事</label><input class="inp" id="dwLogline" value="' + D.ui.esc(p.script.logline) + '">' +
       '<label class="label">剧情大纲</label><textarea class="inp" id="dwOutline" style="min-height:70px">' + D.ui.esc(p.script.outline) + "</textarea>";
   }
@@ -200,666 +197,202 @@
         "</div>" +
       "</div>" +
       "</div>" +
-      '<div class="dw-hint" style="margin-top:8px">BGM 在合成时循环垫底；字幕按每镜台词烧录并按上面的颜色描边。两者都只在浏览器合成时生效（运镜同理），服务端合成只做快速拼接。精修（转场、特效、多轨）请在导出素材包后用剪映处理。</div>';
+      '<div class="dw-hint" style="margin-top:8px">BGM 在合成时循环垫底；字幕按每镜台词烧录并按上面的颜色描边。两者都只在浏览器合成时生效（运镜同理），服务端合成只做快速拼接。</div>';
   }
 
-  function paintAll() {
-    paintRail();
-    paintStage();
-    paintInspector();
-    paintTimeline();
+  /* ============ 画布宿主 ============ */
+  function mountCanvas() {
+    const host = view().querySelector("#dwCanvasHost");
+    if (!host) return;
+    const p = state.project;
+    try { D.canvas.setActiveCanvas(p, state.canvasId); } catch (e) { state.canvasId = D.canvas.activeCanvas(p).id; }
+    state.view = D.canvas.mount(host, p, {
+      bar: false,
+      foot: false,
+      select: state.sel,
+      onSelect: (nid) => { state.sel = nid || ""; paintSide(); },
+      onChange: () => saveSoon(400)
+    });
+    syncZoom();
   }
 
-  /* ============ 左：分镜列表 ============ */
-  function paintRail() {
-    const el = document.getElementById("dwRail");
+  function refreshCanvas() {
+    if (state.view && state.view.refresh) state.view.refresh();
+    syncZoom();
+  }
+
+  function zoomValue() {
+    const c = selCanvas();
+    return (c && c.view && c.view.k) || 1;
+  }
+
+  function syncZoom() {
+    const el = document.getElementById("dwZoomVal");
+    if (el) el.textContent = Math.round(zoomValue() * 100) + "%";
+  }
+
+  /* ============ 右侧：节点详情 ============ */
+  function paintSide() {
+    const el = document.getElementById("dwSide");
     if (!el) return;
-    const p = state.project;
-    if (p.shotMode === "take" && realistic()) {
-      el.innerHTML = (p.takes || []).map(takeGroup).join("") +
-        '<button class="btn small" data-railadd="1" style="margin-top:2px">＋ 加一镜</button>';
-      el.querySelectorAll("[data-takegen]").forEach(b => { b.onclick = (e) => { e.stopPropagation(); doGenTake(b.dataset.takegen); }; });
-    } else {
-      el.innerHTML = (p.shots || []).map(s => D.ui.railItem(s, state.cur)).join("") +
-        '<button class="btn small" data-railadd="1" style="margin-top:2px">＋ 加一镜</button>';
+    const n = selNode();
+    if (!n) {
+      const c = selCanvas();
+      el.innerHTML = '<div class="dw-card"><h3>节点详情</h3>' +
+        '<div class="dw-node-empty">在画布上点选一个节点，这里编辑提示词、台词、运镜、时长与入出点。<br><br>当前画布共 ' + ((c && c.nodes.length) || 0) + " 个节点、" + ((c && c.edges.length) || 0) + " 条连线。</div></div>";
+      return;
     }
-    el.querySelectorAll("[data-rail]").forEach(x => { x.onclick = () => selectShot(x.dataset.rail); });
-    const add = el.querySelector("[data-railadd]");
-    if (add) add.onclick = async () => { const s = D.project.addShot(p); await save(); D.takes.sync(p); state.cur = s.id; await save(); paintAll(); };
-  }
+    const t = D.canvas.NODE_TYPES[n.type];
+    const canvas = activeCanvas();
+    const upstream = (canvas.nodes || []).filter(x => (canvas.edges || []).some(e => e.to === n.id && e.from === x.id));
+    const downstream = (canvas.nodes || []).filter(x => (canvas.edges || []).some(e => e.from === n.id && e.to === x.id));
+    let h = '<div class="dw-card"><h3>' + D.ui.esc(t.label) + '节点 <span data-status="' + n.id + '">' + statusBadge(n) + "</span></h3>";
+    h += '<div class="dw-hint">' + D.ui.esc(t.hint) + "</div>";
 
-  /* 只切换选中态，不重建分镜列表（切镜时用） */
-  function paintRailActive() {
-    const el = document.getElementById("dwRail");
-    if (!el) return;
-    el.querySelectorAll("[data-rail]").forEach(x => x.classList.toggle("on", x.dataset.rail === state.cur));
-    const curTake = (D.takes && D.takes.takeOf) ? D.takes.takeOf(state.project, state.cur) : null;
-    el.querySelectorAll(".dw-take[data-take]").forEach(g => g.classList.toggle("on", !!curTake && g.dataset.take === curTake.id));
-  }
-
-  function takeGroup(t) {
-    const over = Number(t.duration) > D.takes.MAX_SECONDS;
-    const head = "段 " + t.seq + " · " + t.duration + " 秒" + (over ? " · 超出上限" : "") + (t.dirty ? " · 需重绘" : "");
-    return '<div class="dw-take ' + (t.status || "pending") + (D.takes.takeOf(state.project, state.cur) === t ? " on" : "") + '" data-take="' + D.ui.esc(t.id) + '">' +
-      '<div class="dw-take-head"><b>' + D.ui.esc(head) + "</b>" + D.ui.statusBadge(t) + "</div>" +
-      '<div class="dw-take-shots">' + (t.shotIds || []).map(shotById).filter(Boolean).map(s => D.ui.railItem(s, state.cur)).join("") + "</div>" +
-      (over
-        ? '<div class="dw-hint" style="color:var(--warn)">超过单段上限 ' + D.takes.MAX_SECONDS + " 秒，请拆分为多镜或缩短时长</div>"
-        : '<button class="btn small primary" data-takegen="' + t.id + '">' + (t.videoUrl ? "整段重绘" : "生成本段") + "</button>") +
-      (t.status === "failed" ? '<div class="dw-hint" style="color:var(--red)">' + D.ui.esc(t.error || "生成失败") + "</div>" : "") +
-      (t.status === "done" && t.notice ? '<div class="dw-hint" style="color:var(--warn)">' + D.ui.esc(t.notice) + "</div>" : "") +
-      "</div>";
-  }
-
-  /* ============ 中：预览与播放 ============ */
-  /* 预览舞台的 <video>/<img> 只创建一次，切镜时改 src 复用，避免每次重绘重新拉流。 */
-  let stageVideoEl = null;
-  let stageImgEl = null;
-  let stageEmptyEl = null;
-  let stageVideoSrc = "";
-  let preloadEl = null;
-  let preloadSrc = "";
-
-  function stageVideo() { return stageVideoEl && stageVideoEl.parentNode ? stageVideoEl : null; }
-
-  function ensureMediaEls() {
-    if (stageVideoEl) return;
-    stageVideoEl = document.createElement("video");
-    stageVideoEl.id = "dwStageVideo";
-    stageVideoEl.setAttribute("playsinline", "");
-    stageVideoEl.preload = "auto";
-    stageVideoEl.onended = () => { if (state.playing) nextShot(true); };
-    stageImgEl = document.createElement("img");
-    stageImgEl.alt = "";
-    stageEmptyEl = document.createElement("div");
-    stageEmptyEl.className = "dw-stage-empty";
-  }
-
-  function buildStage(el) {
-    el.innerHTML =
-      '<div class="dw-stage-canvas"><span class="dw-stage-tip"></span></div>' +
-      '<div class="dw-stage-ctrl">' +
-        '<button class="btn small" id="dwPrev" title="上一镜">⏮</button>' +
-        '<button class="btn small" id="dwFrameBack" title="后退一帧">⏪</button>' +
-        '<button class="btn small primary" id="dwPlay">▶ 播放</button>' +
-        '<button class="btn small" id="dwFrameFwd" title="前进一帧">⏩</button>' +
-        '<button class="btn small" id="dwNext" title="下一镜">⏭</button>' +
-        '<span class="dw-stage-time" id="dwTime"></span>' +
-      "</div>" +
-      '<div class="dw-stage-failed dw-hint" style="color:var(--red);display:none"></div>' +
-      '<div class="dw-stage-hint dw-hint" id="dwStageHint"></div>';
-    el.querySelector("#dwPrev").onclick = () => stepShot(-1);
-    el.querySelector("#dwNext").onclick = () => stepShot(1);
-    el.querySelector("#dwPlay").onclick = () => { state.playing ? pause() : play(); paintStage(); };
-    el.querySelector("#dwFrameBack").onclick = () => seekBy(-1);
-    el.querySelector("#dwFrameFwd").onclick = () => seekBy(1);
-  }
-
-  function paintStage() {
-    const el = document.getElementById("dwStage");
-    if (!el) return;
-    const p = state.project;
-    const shot = curShot();
-    const seg = segOf();
-    const video = shot && (shot.lipsyncUrl || shot.videoUrl);
-    const img = shot && shot.imageUrl;
-    const total = D.timeline.total(p);
-
-    if (!el.querySelector(".dw-stage-canvas")) buildStage(el);
-    ensureMediaEls();
-    const box = el.querySelector(".dw-stage-canvas");
-    const tip = el.querySelector(".dw-stage-tip");
-
-    if (video) {
-      if (stageImgEl.parentNode === box) box.removeChild(stageImgEl);
-      if (stageEmptyEl.parentNode === box) box.removeChild(stageEmptyEl);
-      if (stageVideoEl.parentNode !== box) box.insertBefore(stageVideoEl, tip);
-      const poster = img || "";
-      if (stageVideoSrc !== video) {
-        stageVideoSrc = video;
-        stageVideoEl.setAttribute("poster", poster);
-        stageVideoEl.src = video;
-      } else if ((stageVideoEl.getAttribute("poster") || "") !== poster) {
-        stageVideoEl.setAttribute("poster", poster);
-      }
-      const off = Math.max(0, state.time - (seg ? seg.start : 0)) + takeBase(shot);
-      if (off > 0.05) {
-        const seek = () => { try { stageVideoEl.currentTime = off; } catch (e) {} };
-        if (stageVideoEl.readyState >= 1) seek();
-        else stageVideoEl.addEventListener("loadedmetadata", seek, { once: true });
-      }
-    } else if (img) {
-      if (stageVideoEl.parentNode === box) box.removeChild(stageVideoEl);
-      if (stageEmptyEl.parentNode === box) box.removeChild(stageEmptyEl);
-      if (stageImgEl.parentNode !== box) box.insertBefore(stageImgEl, tip);
-      if (stageImgEl.getAttribute("src") !== img) stageImgEl.setAttribute("src", img);
-    } else {
-      if (stageVideoEl.parentNode === box) box.removeChild(stageVideoEl);
-      if (stageImgEl.parentNode === box) box.removeChild(stageImgEl);
-      if (stageEmptyEl.parentNode !== box) box.insertBefore(stageEmptyEl, tip);
-      stageEmptyEl.innerHTML = "还没有画面<br>点下面「" + (realistic() ? "生成视频" : "生成画面") + "」出这一镜";
+    if (n.type === "script" || n.type === "text") {
+      h += '<label class="label">文本 / 台词</label><textarea class="inp" style="min-height:80px;font-size:12px" data-sf="text">' + D.ui.esc(n.data.text || "") + "</textarea>";
     }
-
-    if (tip) tip.textContent = "第 " + ((shot && shot.seq) || "-") + " 镜 · " + (shot ? (shot.name || "") : "");
-    const playBtn = el.querySelector("#dwPlay");
-    if (playBtn) playBtn.textContent = state.playing ? "⏸ 暂停" : "▶ 播放";
-    const tEl = el.querySelector("#dwTime");
-    if (tEl) tEl.textContent = D.timeline.fmt(state.time) + " / " + D.timeline.fmt(total);
-    const failed = el.querySelector(".dw-stage-failed");
-    if (failed) {
-      const on = !!(shot && shot.status === "failed");
-      failed.style.display = on ? "" : "none";
-      failed.textContent = on ? (shot.error || "生成失败") : "";
-    }
-    const hint = el.querySelector("#dwStageHint");
-    if (hint) hint.textContent = seg ? "本镜占用 " + seg.start.toFixed(1) + "s – " + seg.end.toFixed(1) + "s" : "";
-
-    preloadNext();
-  }
-
-  /* 预载下一镜/下一段的视频，切镜时首帧更快 */
-  function nextMediaUrl() {
-    const p = state.project;
-    const shots = p.shots || [];
-    const i = shots.findIndex(s => s.id === (curShot() || {}).id);
-    const nx = shots[i + 1];
-    if (!nx) return "";
-    if (p.shotMode === "take" && realistic() && D.takes.takeOf) {
-      const t = D.takes.takeOf(p, nx.id);
-      const cur = D.takes.takeOf(p, (curShot() || {}).id);
-      return (t && t.videoUrl && (!cur || cur.id !== t.id)) ? t.videoUrl : "";
-    }
-    return nx.lipsyncUrl || nx.videoUrl || "";
-  }
-
-  function preloadNext() {
-    const url = nextMediaUrl();
-    if (!url || !stageVideoEl) return;
-    if (!preloadEl) {
-      preloadEl = document.createElement("video");
-      preloadEl.id = "dwPreload";
-      preloadEl.muted = true;
-      preloadEl.preload = "auto";
-      preloadEl.style.display = "none";
-      document.body.appendChild(preloadEl);
-    }
-    if (preloadSrc !== url) { preloadSrc = url; preloadEl.src = url; }
-  }
-
-  function stepShot(dir) {
-    const p = state.project;
-    const shots = p.shots || [];
-    let i = shots.findIndex(s => s.id === (curShot() || {}).id);
-    const j = i + dir;
-    if (j < 0 || j >= shots.length) return;
-    selectShot(shots[j].id, { keepPlaying: state.playing });
-  }
-
-  function nextShot(keep) {
-    const p = state.project;
-    const shots = p.shots || [];
-    const i = shots.findIndex(s => s.id === (curShot() || {}).id);
-    const next = shots[i + 1];
-    if (!next) { pause(); state.time = D.timeline.total(p); paintStage(); return; }
-    selectShot(next.id, { keepPlaying: keep });
-  }
-
-  function selectShot(sid, o) {
-    o = o || {};
-    const seg = (D.timeline.layout(state.project) || []).find(x => x.sid === sid);
-    state.cur = sid;
-    if (seg) state.time = seg.start;
-    const keep = !!o.keepPlaying;
-    if (!keep) pause();
-    stopAudition();
-    paintRailActive();
-    paintStage();
-    paintInspector();
-    paintTimelineActive();
-    paintPlayhead();
-    if (state.mode === "box" && state.boxView) state.boxView.setShot(state.cur);
-    if (keep) {
-      const v = stageVideo();
-      if (v) {
-        try { v.currentTime = 0; } catch (e) {}
-        const pr = v.play();
-        if (pr && pr.catch) pr.catch(() => {});
-      }
-      syncTrack(true);
-      lastTs = 0;
-      if (!rafId) rafId = requestAnimationFrame(tick);
-    }
-  }
-
-  function seekTo(t, light) {
-    const p = state.project;
-    const total = D.timeline.total(p);
-    state.time = Math.max(0, Math.min(total, t));
-    const seg = D.timeline.shotAt(p, state.time);
-    if (seg && seg.sid !== state.cur) {
-      state.cur = seg.sid;
-      paintRailActive(); paintInspector(); paintStage(); paintTimelineActive();
-    }
-    if (!light) {
-      const v = stageVideo();
-      if (v && seg) { try { v.currentTime = Math.max(0, state.time - seg.start) + takeBase(curShot()); } catch (e) {} }
-      seekTrack();
-      paintTimelineActive();
-      paintPlayhead();
-    } else {
-      paintPlayhead();
-    }
-    const tEl = document.getElementById("dwTime");
-    if (tEl) tEl.textContent = D.timeline.fmt(state.time) + " / " + D.timeline.fmt(total);
-  }
-
-  function seekBy(frames) {
-    pause();
-    seekTo(D.timeline.frameStep(state.time, frames, FPS));
-    const tEl = document.getElementById("dwTime");
-    if (tEl) tEl.textContent = D.timeline.fmt(state.time) + " / " + D.timeline.fmt(D.timeline.total(state.project));
-    paintStage();
-  }
-
-  function play() {
-    if (state.playing) return;
-    const total = D.timeline.total(state.project);
-    if (state.time >= total - 1e-3) state.time = 0;
-    state.playing = true;
-    lastTs = 0;
-    const v = stageVideo();
-    if (v) { v.play().catch(() => {}); }
-    syncTrack(true);
-    rafId = requestAnimationFrame(tick);
-  }
-
-  function pause() {
-    state.playing = false;
-    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-    const v = stageVideo();
-    if (v) { try { v.pause(); } catch (e) {} }
-    pauseTrack();
-  }
-
-  /* 时间轴播放时同步当前镜的配音：切镜换源，按片段时间对轴。 */
-  function syncTrack(playing) {
-    const shot = curShot();
-    if (!shot || !shot.audioUrl) { pauseTrack(); return; }
-    const seg = segOf();
-    if (!trackAudio) trackAudio = new Audio();
-    if (trackSrc !== shot.audioUrl) {
-      trackSrc = shot.audioUrl;
-      trackAudio.src = shot.audioUrl;
-    }
-    const off = Math.max(0, state.time - (seg ? seg.start : 0));
-    const setOff = () => { try { trackAudio.currentTime = off; } catch (e) {} };
-    if (trackAudio.readyState >= 1) setOff();
-    else if (typeof trackAudio.addEventListener === "function") trackAudio.addEventListener("loadedmetadata", setOff, { once: true });
-    const pr = trackAudio.play();
-    if (pr && pr.catch) pr.catch(() => {});
-  }
-
-  function pauseTrack() {
-    if (trackAudio) { try { trackAudio.pause(); } catch (e) {} }
-  }
-
-  function seekTrack() {
-    const shot = curShot();
-    if (!trackAudio || !shot || !shot.audioUrl || trackSrc !== shot.audioUrl) return;
-    const seg = segOf();
-    try { trackAudio.currentTime = Math.max(0, state.time - (seg ? seg.start : 0)); } catch (e) {}
-  }
-
-  function stopAudition() {
-    if (audition) { try { audition.pause(); } catch (e) {} audition = null; }
-  }
-
-  function doAudition(sid) {
-    const shot = shotById(sid);
-    stopAudition();
-    if (!shot || !shot.audioUrl) { U.toast("这一镜还没配音，先点「配音」", "warn"); return; }
-    const a = new Audio(shot.audioUrl);
-    audition = a;
-    a.onended = () => { if (audition === a) audition = null; };
-    const pr = a.play();
-    if (pr && pr.catch) pr.catch(() => U.toast("浏览器拦了自动播放，请再点一次「试听」", "warn"));
-  }
-
-  function tick(ts) {
-    if (!state.playing) return;
-    const p = state.project;
-    const total = D.timeline.total(p);
-    const seg = segOf();
-    const dt = lastTs ? (ts - lastTs) / 1000 : 0;
-    lastTs = ts;
-    const v = stageVideo();
-    if (v && !isNaN(v.duration) && v.duration > 0) {
-      const local = Math.max(0, (v.currentTime || 0) - takeBase(curShot()));
-      state.time = (seg ? seg.start : 0) + Math.min(local, seg ? seg.duration : v.duration);
-    } else {
-      state.time += dt;
-    }
-    if (state.time >= total - 1e-3) { state.time = total; pause(); paintStage(); return; }
-    if (seg && state.time >= seg.end - 1e-3) {
-      const segs = D.timeline.layout(p);
-      const i = segs.findIndex(x => x.sid === seg.sid);
-      const nx = segs[i + 1];
-      if (nx) { selectShot(nx.sid, { keepPlaying: true }); return; }
-    }
-    seekTo(state.time, true);
-    rafId = requestAnimationFrame(tick);
-  }
-
-  /* ============ 右：当前镜属性与模型 ============ */
-  function paintInspector() {
-    const el = document.getElementById("dwInspector");
-    if (!el) return;
-    const p = state.project;
-    const shot = curShot();
-    if (!shot) { el.innerHTML = '<div class="dw-card"><div class="dw-empty">还没有分镜</div></div>'; return; }
-    const rl = realistic();
-    const take = (rl && p.shotMode === "take") ? D.takes.takeOf(p, shot.id) : null;
-    const durList = take ? D.takes.durationList(shot.duration) : D.DURATIONS;
-    const tr = D.project.trimOf(shot);
-    const footage = Number(shot.duration) > 0 ? Number(shot.duration) : 0;
-    const trimIn = tr.on ? tr.in : 0;
-    const trimOut = tr.on ? tr.out : footage;
-    el.innerHTML =
-      '<div class="dw-card"><h3>第 ' + shot.seq + ' 镜 ' + (take ? '<span class="dw-hint">段 ' + take.seq + "</span> " : "") + '<span data-status="' + shot.id + '">' + D.ui.statusBadge(take || shot) + "</span></h3>" +
-        '<label class="label" style="margin-top:0">分镜名</label><input class="inp" data-if="name" value="' + D.ui.esc(shot.name || "") + '">' +
-        '<label class="label">画面提示词</label><textarea class="inp" style="min-height:66px;font-size:12px" data-if="prompt">' + D.ui.esc(shot.prompt) + "</textarea>" +
-        '<label class="label">台词（留空则无配音）</label><textarea class="inp" style="min-height:50px;font-size:12px" data-if="line">' + D.ui.esc(shot.line) + "</textarea>" +
+    if (n.type === "image" || n.type === "video") {
+      h += '<label class="label">画面提示词</label><textarea class="inp" style="min-height:70px;font-size:12px" data-sf="prompt">' + D.ui.esc(n.data.prompt || "") + "</textarea>" +
         '<div class="dw-grid" style="margin-top:8px">' +
-          '<div><label class="label" style="margin-top:0">运镜</label><select class="inp" data-if="motion">' + D.ui.opts(D.MOTIONS, shot.motion) + "</select></div>" +
-          '<div><label class="label" style="margin-top:0">时长</label><select class="inp" data-if="duration">' + D.ui.opts(durList.map(d => ({ id: d, name: d + " 秒" })), shot.duration) + "</select></div>" +
-        "</div>" +
-        (footage
-          ? '<div class="dw-grid" style="margin-top:8px">' +
-              '<div><label class="label" style="margin-top:0">入点（秒）</label><input class="inp" type="number" min="0" step="0.1" data-trim="in" value="' + trimIn + '"></div>' +
-              '<div><label class="label" style="margin-top:0">出点（秒）</label><input class="inp" type="number" min="0" step="0.1" data-trim="out" value="' + trimOut + '"></div>' +
-            "</div>" +
-            '<div class="dw-bar">' +
-              (tr.on ? '<button class="btn small ghost" data-trimclear>清除裁剪</button>' : "") +
-              '<span class="dw-hint">原片 ' + footage + " 秒，实际用 " + D.project.effDuration(shot).toFixed(1) + " 秒，裁剪不重跑模型</span>" +
-            "</div>"
-          : '<div class="dw-hint">生成后可用入点/出点裁剪片段，不重跑模型</div>') +
-        (take ? '<div class="dw-hint">本段共 ' + take.shotIds.length + " 镜，合计 " + take.duration + " 秒" + (take.dirty ? "，已改动需重绘" : "") + "</div>" : "") +
-        roleChips(p, shot) +
-        (take ? '<label class="label">局段重绘要求</label><input class="inp" data-takeedit placeholder="例如：把外套换成红色，其余保持不变">' : "") +
-        '<div class="dw-shot-actions">' +
-          '<button class="btn small primary" data-iact="gen">' + (take ? "生成本段" : rl ? "生成视频" : "生成画面") + "</button>" +
-          (take ? '<button class="btn small" data-iact="takeedit">局段重绘</button>' : "") +
-          (rl && !take ? '<button class="btn small" data-iact="lipsync">只做口型</button>' : "") +
-          '<button class="btn small" data-iact="tts">配音</button>' +
-          (shot.audioUrl ? '<button class="btn small" data-iact="audition">试听</button>' : "") +
-          '<button class="btn small" data-iact="upload">换封面图</button>' +
-          '<button class="btn small ghost" data-iact="move" data-dir="-1">上移</button>' +
-          '<button class="btn small ghost" data-iact="move" data-dir="1">下移</button>' +
-          '<button class="btn small ghost" data-iact="dup">复制本镜</button>' +
-          '<button class="btn small ghost danger" data-iact="remove">删除</button>' +
-        "</div>" +
-        '<div class="dw-progress" data-prog="' + shot.id + '"></div>' +
-      "</div>" +
-      '<div class="dw-card"><h3>模型</h3>' +
-        D.ui.modelBar(rl ? "video" : "image") +
-        D.ui.modelBar("tts") +
-        (rl ? D.ui.modelBar("lipsync") : "") +
-      "</div>" +
-      '<div class="dw-card"><h3>批量</h3>' +
-        '<div class="dw-bar">' +
-          '<button class="btn small primary" id="dwGenMissing">' + (take ? "生成所有未完成段" : "生成所有未完成镜") + "</button>" +
-          '<button class="btn small" id="dwTtsAll">补全部配音</button>' +
-          '<button class="btn small ghost danger" id="dwStopAll">全部停止</button>' +
-        "</div>" +
-      "</div>";
-    bindInspector(el);
-  }
-
-  function roleChips(project, shot) {
-    if (!(project.characters || []).length) return "";
-    return '<label class="label">出场角色</label><div class="dw-role-chips">' + project.characters.map(c =>
-      '<span class="dw-chip' + ((shot.roleIds || []).indexOf(c.id) >= 0 ? " on" : "") + '" data-irole="' + c.id + '">' + D.ui.esc(c.name) + "</span>"
-    ).join("") + "</div>";
-  }
-
-  function bindInspector(el) {
-    const shot = curShot();
-    const takeMode = state.project.shotMode === "take" && realistic();
-    const take = takeMode ? D.takes.takeOf(state.project, shot.id) : null;
-    el.querySelectorAll("[data-if]").forEach(inp => {
-      const f = inp.dataset.if;
-      if (inp.tagName === "TEXTAREA" || (inp.tagName === "INPUT" && inp.type !== "number")) {
-        inp.oninput = () => {
-          shot[f] = inp.value;
-          if (takeMode && f === "prompt") D.takes.markDirty(state.project, shot.id);
-          saveSoon(500);
-        };
+          '<div><label class="label" style="margin-top:0">运镜</label><input class="inp" data-sf="motion" placeholder="例如：推近 / 环绕" value="' + D.ui.esc(n.data.motion || "") + '"></div>' +
+          '<div><label class="label" style="margin-top:0">画幅</label><select class="inp" data-sf="ratio">' + D.ui.opts(D.RATIOS.map(r => ({ id: r, name: r })), n.data.ratio || (state.project.output && state.project.output.ratio)) + "</select></div>" +
+        "</div>";
+    }
+    if (n.type === "video" || n.type === "lipsync") {
+      h += '<div class="dw-grid" style="margin-top:8px">' +
+        '<div><label class="label" style="margin-top:0">时长（秒）</label><input class="inp" type="number" min="1" max="30" data-sf="duration" value="' + Number(n.data.duration || 5) + '"></div>' +
+        '<div><label class="label" style="margin-top:0">入点（秒）</label><input class="inp" type="number" min="0" step="0.1" data-sf="trimIn" value="' + Number(n.data.trimIn || 0) + '"></div>' +
+        '<div><label class="label" style="margin-top:0">出点（秒）</label><input class="inp" type="number" min="0" step="0.1" data-sf="trimOut" value="' + Number(n.data.trimOut || 0) + '"></div>' +
+        "</div>";
+      if (n.out) {
+        h += '<div class="dw-frame-row" style="margin-top:6px">' +
+          '<button class="btn small" data-sa="frame-back">⏪ 上一帧</button>' +
+          '<button class="btn small" data-sa="frame-fwd">⏩ 下一帧</button>' +
+          '<span class="dw-hint">逐帧预览不重跑模型</span>' +
+          "</div>";
       }
-      inp.onchange = async () => {
-        shot[f] = f === "duration" ? Number(inp.value) : inp.value;
-        if (takeMode && (f === "prompt" || f === "duration")) D.takes.markDirty(state.project, shot.id);
-        await save();
-        if (takeMode && f === "duration") { D.takes.sync(state.project); await save(); paintAll(); return; }
-        if (f === "name") paintRail();
-        if (f === "duration") { paintRail(); paintTimeline(); paintInspector(); }
-      };
-    });
-    el.querySelectorAll("[data-trim]").forEach(inp => {
-      inp.onchange = async () => {
-        const cur = D.project.trimOf(shot);
-        const dur = Number(shot.duration) > 0 ? Number(shot.duration) : 0;
-        let a = cur.on ? cur.in : 0;
-        let b = cur.on ? cur.out : dur;
-        const v = Number(inp.value);
-        if (isFinite(v)) { if (inp.dataset.trim === "in") a = v; else b = v; }
-        shot.trimIn = a;
-        shot.trimOut = b;
-        D.project.migrate(state.project);
-        await save();
-        paintAll();
-      };
-    });
-    const trimClear = el.querySelector("[data-trimclear]");
-    if (trimClear) trimClear.onclick = async () => {
-      shot.trimIn = 0;
-      shot.trimOut = 0;
-      await save();
-      paintAll();
-    };
-    el.querySelectorAll("[data-irole]").forEach(c => {
-      c.onclick = async () => {
-        const cid = c.dataset.irole;
-        shot.roleIds = shot.roleIds || [];
-        const i = shot.roleIds.indexOf(cid);
-        if (i >= 0) shot.roleIds.splice(i, 1); else shot.roleIds.push(cid);
-        c.classList.toggle("on");
-        if (takeMode) D.takes.markDirty(state.project, shot.id);
-        await save();
-      };
-    });
-    const act = (name, fn) => { const b = el.querySelector('[data-iact="' + name + '"]'); if (b) b.onclick = fn; };
-    act("gen", () => (take ? doGenTake(take.id) : doGen(shot.id)));
-    act("takeedit", () => {
-      const inp = el.querySelector("[data-takeedit]");
-      doTakeEdit(take ? take.id : "", inp ? inp.value : "");
-    });
-    act("tts", () => doTts(shot.id));
-    act("audition", () => doAudition(shot.id));
-    act("lipsync", () => doLipsync(shot.id));
-    act("upload", () => pickCover(shot.id));
-    act("dup", async () => {
-      const copy = JSON.parse(JSON.stringify(shot));
-      copy.id = D.project.id("s");
-      const i = state.project.shots.findIndex(s => s.id === shot.id);
-      state.project.shots.splice(i + 1, 0, copy);
-      D.project.renumber(state.project);
-      await save();
-      state.cur = copy.id;
-      paintAll();
-      U.toast("已复制本镜", "ok");
-    });
-    act("remove", async () => {
-      D.project.removeShot(state.project, shot.id);
-      await save();
-      state.cur = (state.project.shots[0] || {}).id || "";
-      paintAll();
-    });
-    el.querySelectorAll('[data-iact="move"]').forEach(b => {
-      b.onclick = async () => { D.project.moveShot(state.project, shot.id, Number(b.dataset.dir)); await save(); paintAll(); };
-    });
-    D.models.bind(el, { onChange: async () => { paintInspector(); } });
-  }
-
-  /* ============ 底：三轨时间轴 ============ */
-  function paintTimeline() {
-    const el = document.getElementById("dwTimeline");
-    if (!el) return;
-    el.innerHTML = D.timeline.render(state.project, { currentShotId: state.cur });
-    D.timeline.bind(el, state.project, {
-      onSeek: (sid, t) => { pause(); state.cur = sid; seekTo(t); paintRailActive(); paintStage(); paintInspector(); },
-      onSelect: (sid) => { if (sid !== state.cur) { state.cur = sid; paintRailActive(); paintStage(); paintInspector(); paintTimelineActive(); } }
-    });
-    paintPlayhead();
-  }
-
-  /* 只切换时间轴选中态，不重建轨道（切镜/播放时用） */
-  function paintTimelineActive() {
-    const el = document.getElementById("dwTimeline");
-    if (!el) return;
-    el.querySelectorAll(".dw-clip[data-sid]").forEach(c => c.classList.toggle("on", c.dataset.sid === state.cur));
-  }
-
-  function paintPlayhead() {
-    const hull = document.querySelector("#dwTimeline .dw-timeline");
-    if (!hull) return;
-    const total = D.timeline.total(state.project) || 1;
-    let ph = hull.querySelector(".dw-playhead");
-    if (!ph) {
-      ph = document.createElement("div");
-      ph.className = "dw-playhead";
-      hull.appendChild(ph);
     }
-    ph.style.left = Math.max(0, Math.min(100, (state.time / total) * 100)).toFixed(3) + "%";
+    if (n.type === "audio") {
+      h += '<label class="label">台词</label><textarea class="inp" style="min-height:60px;font-size:12px" data-sf="text">' + D.ui.esc(n.data.text || "") + "</textarea>" +
+        '<label class="label">音色</label><input class="inp" data-sf="voice" placeholder="留空用默认音色" value="' + D.ui.esc(n.data.voice || "") + '">';
+    }
+    if (n.type === "asset") {
+      h += '<label class="label">资产地址</label><input class="inp" data-sf="ref" value="' + D.ui.esc(n.data.ref || "") + '">';
+    }
+
+    if (n.error) h += '<div class="dw-hint" style="color:var(--red)">' + D.ui.esc(n.error) + "</div>";
+
+    h += '<div class="dw-shot-actions" style="margin-top:8px">';
+    if (GEN_TYPES.indexOf(n.type) >= 0) {
+      h += '<button class="btn small primary" data-sa="gen">' + (n.out ? "重绘" : "生成") + "</button>";
+      if (n.type === "image" || n.type === "video") h += '<button class="btn small" data-sa="hires">高清重绘</button>';
+    }
+    h += '<button class="btn small ghost danger" data-sa="del">删除节点</button>' +
+      "</div>";
+    h += '<div class="dw-progress" data-prog="' + n.id + '"></div>';
+
+    h += '<div class="dw-hint" style="margin-top:6px">上游 ' + upstream.length + " 个 · 下游 " + downstream.length + " 个</div>";
+    h += "</div>";
+
+    const kind = (n.type === "video" || n.type === "lipsync") ? "video" : n.type === "audio" ? "tts" : "image";
+    h += '<div class="dw-card"><h3>模型</h3>' + D.ui.modelBar(kind) + "</div>";
+
+    el.innerHTML = h;
+    bindSide(el, n);
   }
 
-  /* ============ 编辑与生成动作 ============ */
-  const doGen = async (sid) => {
-    const p = state.project;
-    try {
-      D.ui.progress(sid, "正在提交生成任务…");
-      const shot = await D.engine.generateShot(p, sid, {
-        onProgress: (st) => D.ui.progress(sid, st && st.status === "done" ? "完成" : "生成中…")
-      });
+  function statusBadge(n) {
+    const map = { idle: "待生成", running: "生成中", done: "已完成", failed: "失败" };
+    const cls = n.status === "done" ? "st-done" : n.status === "failed" ? "st-failed" : n.status === "running" ? "st-running" : "";
+    return '<span class="cv-st ' + cls + '">' + (map[n.status] || n.status) + "</span>";
+  }
+
+  function bindSide(el, n) {
+    el.querySelectorAll("[data-sf]").forEach(inp => {
+      const f = inp.dataset.sf;
+      const write = () => {
+        let val = inp.value;
+        if (f === "duration" || f === "trimIn" || f === "trimOut") val = Number(val) || 0;
+        D.canvas.setData(state.project, n.id, f, val);
+        saveSoon(500);
+      };
+      inp.oninput = write;
+      inp.onchange = async () => { write(); await save(); };
+    });
+    const act = (name, fn) => { const b = el.querySelector('[data-sa="' + name + '"]'); if (b) b.onclick = fn; };
+    act("gen", () => runSelected());
+    act("hires", () => runSelected("hires"));
+    act("del", async () => {
+      D.canvas.removeNode(state.project, n.id);
+      state.sel = "";
       await save();
-      D.ui.progress(sid, "");
-      paintAll();
-      U.toast("第 " + shot.seq + " 镜生成完成", "ok");
+      refreshCanvas();
+      paintSide();
+    });
+    act("frame-back", () => stepFrame(-1));
+    act("frame-fwd", () => stepFrame(1));
+    D.models.bind(el, { onChange: () => paintSide() });
+  }
+
+  /* 逐帧预览：直接操作画布内当前节点的 <video>，不改数据 */
+  function stepFrame(dir) {
+    const host = document.getElementById("dwCanvasHost");
+    const n = selNode();
+    if (!host || !n || !n.out) { U.toast("先用生成或点开视频预览", "warn"); return; }
+    const vids = Array.from(host.querySelectorAll("video"));
+    const v = vids.find(x => (x.getAttribute("src") || "") === n.out) || vids[0];
+    if (!v) { U.toast("画布里还没挂上视频预览", "warn"); return; }
+    v.pause();
+    try { v.currentTime = Math.max(0, (v.currentTime || 0) + dir / FPS); } catch (e) {}
+  }
+
+  /* ============ 生成与管理 ============ */
+  async function runSelected(action) {
+    const n = selNode();
+    if (!n) { U.toast("先在画布上选中一个节点", "warn"); return; }
+    if (GEN_TYPES.indexOf(n.type) < 0) { U.toast("该节点不需要生成", "warn"); return; }
+    if (state.busy) { U.toast("正在生成，请等待当前任务结束", "warn"); return; }
+    state.busy = true;
+    setStatus((action === "hires" ? "正在高清重绘…" : "正在生成节点…"), "");
+    try {
+      await D.canvas[action === "hires" ? "actionNode" : "runNode"](state.project, n.id, action === "hires" ? "hires" : undefined);
+      await save();
+      refreshCanvas();
+      paintSide();
+      setStatus("节点生成完成。", "ok");
+      U.toast("节点生成完成", "ok");
     } catch (e) {
-      D.ui.progress(sid, "");
-      paintAll();
+      refreshCanvas();
+      paintSide();
+      setStatus((e && e.message) || "生成失败", "err");
       U.toast((e && e.message) || "生成失败", "err");
+    } finally {
+      state.busy = false;
     }
-  };
+  }
 
-  const doGenTake = async (tid) => {
-    const p = state.project;
-    const take = (p.takes || []).find(x => x.id === tid);
-    const firstSid = take && take.shotIds[0];
+  async function genMissing() {
+    const c = activeCanvas();
+    const ids = (c.nodes || []).filter(n => GEN_TYPES.indexOf(n.type) >= 0 && (n.status !== "done" || !n.out)).map(n => n.id);
+    if (!ids.length) { U.toast("画布上的节点都已完成", "ok"); return; }
+    if (state.busy) { U.toast("正在生成，请等待当前任务结束", "warn"); return; }
+    state.busy = true;
+    setStatus("正在生成 " + ids.length + " 个未完成节点…", "");
+    let failed = 0;
     try {
-      D.ui.progress(firstSid, "正在提交整段生成任务…");
-      const done = await D.engine.generateTake(p, tid, {
-        onProgress: (st) => D.ui.progress(firstSid, st && st.status === "done" ? "完成" : "整段生成中…")
-      });
+      for (let i = 0; i < ids.length; i++) {
+        setStatus("生成进度 " + (i + 1) + "/" + ids.length + "…", "");
+        try { await D.canvas.runNode(state.project, ids[i]); }
+        catch (e) { failed++; }
+      }
       await save();
-      D.ui.progress(firstSid, "");
-      paintAll();
-      U.toast("第 " + done.seq + " 段生成完成", "ok");
-    } catch (e) {
-      D.ui.progress(firstSid, "");
-      paintAll();
-      U.toast((e && e.message) || "整段生成失败", "err");
+      refreshCanvas();
+      paintSide();
+      setStatus(failed ? "完成，失败 " + failed + " 个节点，可单选重试。" : "全部节点生成完成。", failed ? "err" : "ok");
+    } finally {
+      state.busy = false;
     }
-  };
-
-  const doTakeEdit = async (tid, instruction) => {
-    const p = state.project;
-    const take = (p.takes || []).find(x => x.id === tid);
-    if (!take) return;
-    const firstSid = take.shotIds[0];
-    if (!instruction || !instruction.trim()) { U.toast("请先填写局段重绘要求", "warn"); return; }
-    try {
-      D.ui.progress(firstSid, "正在提交局段重绘任务…");
-      await D.engine.editTake(p, tid, instruction, {
-        onProgress: (st) => D.ui.progress(firstSid, st && st.status === "done" ? "完成" : "局段重绘中…")
-      });
-      await save();
-      D.ui.progress(firstSid, "");
-      paintAll();
-      U.toast("第 " + take.seq + " 段已重绘", "ok");
-    } catch (e) {
-      D.ui.progress(firstSid, "");
-      paintAll();
-      U.toast((e && e.message) || "局段重绘失败", "err");
-    }
-  };
-
-  const doTts = async (sid) => {
-    const p = state.project;
-    const shot = shotById(sid);
-    if (!shot) return;
-    if (!shot.line) { U.toast("这一镜没有台词", "warn"); return; }
-    try {
-      D.ui.progress(sid, "正在合成配音…");
-      await D.engine.synthShot(p, shot);
-      if (realistic() && shot.videoUrl) await D.engine.lipsyncShot(p, shot);
-      await save();
-      D.ui.progress(sid, "");
-      paintAll();
-      U.toast("配音完成（" + Math.round(shot.audioDuration || 0) + " 秒）", "ok");
-    } catch (e) {
-      D.ui.progress(sid, "");
-      U.toast((e && e.message) || "配音失败", "err");
-    }
-  };
-
-  const doLipsync = async (sid) => {
-    const p = state.project;
-    const shot = shotById(sid);
-    if (!shot) return;
-    if (!shot.videoUrl || !shot.audioUrl) { U.toast("需要先生成视频和配音", "warn"); return; }
-    try {
-      D.ui.progress(sid, "正在做口型…");
-      await D.engine.lipsyncShot(p, shot);
-      await save();
-      D.ui.progress(sid, "");
-      paintAll();
-      U.toast("口型完成", "ok");
-    } catch (e) {
-      D.ui.progress(sid, "");
-      U.toast((e && e.message) || "口型失败", "err");
-    }
-  };
-
-  function pickCover(sid) {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*";
-    input.onchange = async () => {
-      const f = input.files && input.files[0];
-      if (!f) return;
-      const guard = await D.compliance.guardUpload(f, "reference");
-      if (!guard.ok) { U.toast(guard.reason, "err"); return; }
-      if (guard.warn) U.toast(guard.warn, "warn");
-      const url = await D.adapterUtil.fileToDataUrl(f);
-      const shot = shotById(sid);
-      if (!shot) return;
-      shot.imageUrl = url;
-      shot.firstFrame = url;
-      await save();
-      paintAll();
-      U.toast("封面已替换", "ok");
-    };
-    input.click();
   }
 
   function pickBgm() {
@@ -918,88 +451,9 @@
       const r = await D.character.generateSheet(p, cid);
       await save();
       render();
-      if (r.affected) {
-        setStatus("定妆图已加入参考图，" + r.affected + " 个相关分镜已标记「需重绘」。", "ok");
-        U.toast("定妆图已生成，相关分镜请重绘", "ok");
-      } else {
-        setStatus("定妆图已生成，已加入参考图。", "ok");
-        U.toast("定妆图已生成", "ok");
-      }
+      setStatus(r.affected ? "定妆图已加入参考图，" + r.affected + " 个相关分镜已标记「需重绘」。" : "定妆图已生成，已加入参考图。", "ok");
     } catch (e) {
       setStatus((e && e.message) || "定妆图生成失败", "err");
-    } finally {
-      state.busy = false;
-    }
-  }
-
-  function needsGen(s) {
-    if (realistic()) return !s.videoUrl || s.status !== "done";
-    return !s.imageUrl || s.status !== "done";
-  }
-
-  async function genMissing() {
-    const p = state.project;
-    if (p.shotMode === "take" && realistic()) return genMissingTakes();
-    const ids = (p.shots || []).filter(needsGen).map(s => s.id);
-    if (!ids.length) { U.toast("所有分镜都已完成", "ok"); return; }
-    if (!D.isConfigured(realistic() ? "video" : "image")) {
-      U.toast("还没配置生成服务，请到「设置 → 短剧服务」填写", "err");
-      return;
-    }
-    if (state.busy) { U.toast("正在生成，请等待当前任务结束", "warn"); return; }
-    state.busy = true;
-    setStatus("正在生成 " + ids.length + " 个分镜，请保持页面打开…", "");
-    try {
-      const r = await D.engine.generateMany(p, ids, {
-        concurrency: 2,
-        onEach: (done, total) => setStatus("生成进度 " + done + "/" + total + "…", ""),
-        onProgress: () => {}
-      });
-      await save();
-      paintAll();
-      setStatus(r.errors.length ? "完成，失败 " + r.errors.length + " 镜，可单镜重试。" : "全部生成完成。", r.errors.length ? "err" : "ok");
-    } finally {
-      state.busy = false;
-    }
-  }
-
-  async function genMissingTakes() {
-    const p = state.project;
-    const ids = (p.takes || []).filter(t => t.status !== "done" || t.dirty || !t.videoUrl).map(t => t.id);
-    if (!ids.length) { U.toast("所有镜头段都已完成", "ok"); return; }
-    if (!D.isConfigured("video")) {
-      U.toast("还没配置视频生成服务，请到「设置 → 短剧服务」填写", "err");
-      return;
-    }
-    if (state.busy) { U.toast("正在生成，请等待当前任务结束", "warn"); return; }
-    state.busy = true;
-    setStatus("正在生成 " + ids.length + " 个镜头段，请保持页面打开…", "");
-    try {
-      const r = await D.engine.generateTakes(p, ids, {
-        concurrency: 2,
-        onEach: (done, total) => setStatus("生成进度 " + done + "/" + total + "…", ""),
-        onProgress: () => {}
-      });
-      await save();
-      paintAll();
-      setStatus(r.errors.length ? "完成，失败 " + r.errors.length + " 段，可单段重试。" : "全部生成完成。", r.errors.length ? "err" : "ok");
-    } finally {
-      state.busy = false;
-    }
-  }
-
-  async function ttsAll() {
-    const p = state.project;
-    const ids = (p.shots || []).filter(s => s.line && !s.audioUrl).map(s => s.id);
-    if (!ids.length) { U.toast("没有需要补配音的分镜", "ok"); return; }
-    if (state.busy) { U.toast("正在处理，请等待当前任务结束", "warn"); return; }
-    state.busy = true;
-    setStatus("正在补配音 " + ids.length + " 镜…", "");
-    try {
-      const r = await D.engine.synthMany(p, ids, { onEach: () => {} });
-      await save();
-      paintAll();
-      setStatus(r.errors.length ? "配音失败 " + r.errors.length + " 镜。" : "配音完成。", r.errors.length ? "err" : "ok");
     } finally {
       state.busy = false;
     }
@@ -1017,7 +471,6 @@
 
   async function compose() {
     if (state.busy) return;
-    pause();
     state.busy = true;
     setStatus("正在合成（实时录制，约等于成片时长，请勿切走）…", "");
     try {
@@ -1105,13 +558,14 @@
   /* ============ 绑定 ============ */
   function bind(p) {
     const v = view();
-    v.querySelector("#dwProjSel").onchange = async (e) => { state.project = null; state.lastComposed = null; await load(e.target.value); render(); };
-    v.querySelector("#dwGoHome").onclick = () => { pause(); if (XLX.app) XLX.app.go("dramaHome"); };
+    v.querySelector("#dwProjSel").onchange = async (e) => { state.project = null; state.lastComposed = null; state.canvasId = ""; state.sel = ""; await load(e.target.value); render(); };
     v.querySelector("#dwNew").onclick = async () => {
       const np = D.project.blank({});
       await D.project.save(np);
       state.project = null;
       state.lastComposed = null;
+      state.canvasId = "";
+      state.sel = "";
       await load(np.id);
       render();
     };
@@ -1131,6 +585,8 @@
         if (!full) { U.toast("拉取失败", "err"); return; }
         await D.project.save(full);
         state.project = null;
+        state.canvasId = "";
+        state.sel = "";
         await load(full.id);
         render();
         U.toast("已从云端同步", "ok");
@@ -1138,33 +594,76 @@
     };
     v.querySelector("#dwGuide").onclick = () => { if (D.guide) D.guide.open("manual"); };
     v.querySelector("#dwMakeupBtn").onclick = async () => { await save(); if (D.makeup && D.makeup.load) await D.makeup.load(state.pid); if (XLX.app) XLX.app.go("makeup"); };
-    v.querySelector("#dwModeBoard").onclick = () => { if (state.mode !== "board") { state.mode = "board"; render(); } };
-    v.querySelector("#dwModeNode").onclick = () => { if (state.mode !== "node") { state.mode = "node"; render(); } };
-    v.querySelector("#dwMode3D").onclick = () => { if (state.mode !== "box") { state.mode = "box"; render(); } };
 
-    /* 窄屏抽屉：分镜 / 属性 */
-    const con = v.querySelector("#dwConsole");
-    v.querySelector("#dwPanelRail").onclick = () => {
-      con.querySelector(".dw-rail").classList.toggle("drawer-off");
-      con.querySelector(".dw-inspector").classList.add("drawer-off");
+    /* 画布条 */
+    v.querySelector("#dwCanvasSel").onchange = async (e) => {
+      state.canvasId = e.target.value;
+      state.sel = "";
+      try { D.canvas.setActiveCanvas(state.project, state.canvasId); } catch (err) {}
+      await save();
+      mountCanvas();
+      paintSide();
     };
-    v.querySelector("#dwPanelInsp").onclick = () => {
-      con.querySelector(".dw-inspector").classList.toggle("drawer-off");
-      con.querySelector(".dw-rail").classList.add("drawer-off");
+    v.querySelector("#dwCanvasAdd").onclick = async () => {
+      const c = D.canvas.addCanvas(state.project);
+      state.canvasId = c.id;
+      state.sel = "";
+      await save();
+      render();
+    };
+    v.querySelector("#dwCanvasRename").onclick = async () => {
+      const c = selCanvas();
+      const name = prompt("画布名称：", c.name);
+      if (name == null) return;
+      D.canvas.renameCanvas(state.project, c.id, name);
+      await save();
+      render();
+    };
+    v.querySelector("#dwCanvasDel").onclick = async () => {
+      try { D.canvas.removeCanvas(state.project, state.canvasId); }
+      catch (e) { U.toast((e && e.message) || "无法删除画布", "warn"); return; }
+      state.canvasId = D.canvas.activeCanvas(state.project).id;
+      state.sel = "";
+      await save();
+      render();
+    };
+    v.querySelector("#dwZoomOut").onclick = () => { if (state.view) state.view.zoom(-0.12); syncZoom(); };
+    v.querySelector("#dwZoomIn").onclick = () => { if (state.view) state.view.zoom(0.12); syncZoom(); };
+    v.querySelector("#dwFit").onclick = () => { if (state.view) state.view.fit(); syncZoom(); };
+    v.querySelector("#dwPanelToggle").onclick = () => {
+      const side = v.querySelector("#dwSide");
+      side.classList.toggle("dw-side-off");
     };
 
+    /* 底部工具条 */
+    v.querySelector("#dwAddNode").onclick = () => {
+      const host = document.getElementById("dwCanvasHost");
+      const r = host.getBoundingClientRect();
+      if (state.view && state.view.openAddMenu) state.view.openAddMenu(r.left + r.width / 2, r.top + r.height / 2);
+    };
+    v.querySelector("#dwGenSel").onclick = () => runSelected();
     v.querySelector("#dwGenMissing").onclick = () => genMissing();
-    v.querySelector("#dwTtsAll").onclick = () => ttsAll();
     v.querySelector("#dwStopAll").onclick = () => { D.engine.abortAll(); U.toast("已请求停止", "warn"); };
+    v.querySelector("#dwCheck").onclick = () => checkCompliance();
     v.querySelector("#dwCompose").onclick = () => compose();
     v.querySelector("#dwComposeServer").onclick = () => composeServer();
     v.querySelector("#dwExport").onclick = () => exportPack();
-    v.querySelector("#dwCheck").onclick = () => checkCompliance();
 
+    /* 作品信息 */
     const titleEl = v.querySelector("#dwTitle");
     titleEl.oninput = () => { state.project.title = titleEl.value; saveSoon(500); };
     titleEl.onchange = async () => { state.project.title = titleEl.value; await save(); };
+    const logEl = v.querySelector("#dwLogline");
+    logEl.oninput = () => { state.project.script.logline = logEl.value; saveSoon(500); };
+    logEl.onchange = async () => { state.project.script.logline = logEl.value; await save(); };
+    const outEl = v.querySelector("#dwOutline");
+    outEl.oninput = () => { state.project.script.outline = outEl.value; saveSoon(500); };
+    outEl.onchange = async () => { state.project.script.outline = outEl.value; await save(); };
+    v.querySelector("#dwGenre").onchange = async (e) => { state.project.genre = e.target.value; state.project.engine = e.target.value === "realistic" ? "video" : "image"; await save(); render(); };
+    v.querySelector("#dwStyle").onchange = async (e) => { state.project.style = e.target.value; await save(); };
+    v.querySelector("#dwRatio").onchange = async (e) => { state.project.output.ratio = e.target.value; await save(); };
 
+    /* 配乐与字幕 */
     const bgmPick = v.querySelector("#dwBgmPick");
     if (bgmPick) bgmPick.onclick = () => pickBgm();
     const bgmClear = v.querySelector("#dwBgmClear");
@@ -1191,30 +690,8 @@
     };
     bindColor("#dwSubColor", "color");
     bindColor("#dwSubStroke", "stroke");
-    v.querySelector("#dwGenre").onchange = async (e) => { state.project.genre = e.target.value; state.project.engine = e.target.value === "realistic" ? "video" : "image"; await save(); render(); };
-    v.querySelector("#dwStyle").onchange = async (e) => { state.project.style = e.target.value; await save(); };
-    v.querySelector("#dwRatio").onchange = async (e) => { state.project.output.ratio = e.target.value; await save(); };
-    const modeEl = v.querySelector("#dwShotMode");
-    if (modeEl) modeEl.onchange = async (e) => {
-      state.project.shotMode = e.target.value === "take" ? "take" : "shot";
-      await save();
-      render();
-    };
-    const targetEl = v.querySelector("#dwTakeTarget");
-    if (targetEl) targetEl.onchange = async (e) => {
-      const n = Number(e.target.value);
-      state.project.takeTarget = Math.max(D.takes.MIN_SECONDS, Math.min(D.takes.MAX_SECONDS, n > 0 ? n : D.takes.TARGET_SECONDS));
-      D.takes.sync(state.project);
-      await save();
-      render();
-    };
-    const logEl = v.querySelector("#dwLogline");
-    logEl.oninput = () => { state.project.script.logline = logEl.value; saveSoon(500); };
-    logEl.onchange = async () => { state.project.script.logline = logEl.value; await save(); };
-    const outEl = v.querySelector("#dwOutline");
-    outEl.oninput = () => { state.project.script.outline = outEl.value; saveSoon(500); };
-    outEl.onchange = async () => { state.project.script.outline = outEl.value; await save(); };
 
+    /* 角色卡 */
     v.querySelectorAll("[data-cf]").forEach(el => {
       el.oninput = () => {
         const c = (state.project.characters || []).find(x => x.id === el.dataset.cid);

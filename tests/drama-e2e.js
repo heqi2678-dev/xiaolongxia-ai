@@ -213,14 +213,17 @@ function qa(doc, sel) { return Array.from(doc.querySelectorAll(sel)); }
 async function click(doc, sel, n) { const el = q(doc, sel); ok(!!el, "可点到 " + sel); if (!el) return null; el.click(); await settle(n); return el; }
 async function setInput(doc, sel, value, n) { const el = q(doc, sel); if (!el) { ok(false, "可找到 " + sel); return; } el.value = value; el.dispatchEvent(new W.Event("input", { bubbles: true })); await settle(n); }
 async function setField(doc, sel, value, n) { const el = q(doc, sel); if (!el) { ok(false, "可找到 " + sel); return; } el.value = value; el.dispatchEvent(new W.Event("change", { bubbles: true })); await settle(n); }
+async function clickIn(root, sel, n) { const el = root.querySelector(sel); ok(!!el, "可点到 " + sel); if (!el) return null; el.click(); await settle(n); return el; }
+async function setInputIn(root, sel, value, n) { const el = root.querySelector(sel); if (!el) { ok(false, "可找到 " + sel); return; } el.value = value; el.dispatchEvent(new W.Event("input", { bubbles: true })); await settle(n); }
+async function setFieldIn(root, sel, value, n) { const el = root.querySelector(sel); if (!el) { ok(false, "可找到 " + sel); return; } el.value = value; el.dispatchEvent(new W.Event("change", { bubbles: true })); await settle(n); }
 
 function lastToast(state) { return state.toasts.length ? state.toasts[state.toasts.length - 1] : null; }
 function toastsText(state) { return state.toasts.map((t) => t.t).join(" | "); }
 
-/* ============================ 链路一：手搓台 · 漫剧 ============================ */
+/* ============================ 链路一：节点工作台 · 漫剧 ============================ */
 async function flowManualComic(env) {
   const { doc, D, state } = env;
-  console.log("\n链路一：手搓台 · 漫剧（脚本→角色→分镜→生成→配音→合规→合成→导出）");
+  console.log("\n链路一：节点工作台 · 漫剧（画布→节点→生成→配音→合规→合成→导出）");
   D.setAdapterConfig("image", { provider: "custom-image", base: "https://img.test", key: "k" });
   D.setAdapterConfig("tts", { provider: "custom-tts", base: "https://tts.test", key: "k" });
   eq(D.manual.state.project, null, "起手无活动工程");
@@ -228,9 +231,10 @@ async function flowManualComic(env) {
   const p0 = D.manual.state.project;
   ok(!!p0, "自动建了默认工程");
   eq(p0.shots.length, 1, "默认 1 个分镜");
-  has(q(doc, "#dwManual").innerHTML, "dw-console", "导演台三区骨架已渲染");
-  ok(!!q(doc, "#dwRail") && !!q(doc, "#dwStage") && !!q(doc, "#dwInspector"), "左中右三区都在");
-  ok(!!q(doc, "#dwTimeline"), "底部时间轴已渲染");
+  has(q(doc, "#dwManual").innerHTML, "dw-workbench", "节点工作台骨架已渲染");
+  ok(!!q(doc, "#dwCanvasHost .cv-wrap"), "画布宿主已挂载");
+  ok(!!q(doc, "#dwSide"), "右侧节点详情面板已渲染");
+  ok(!!q(doc, "#dwGenSel") && !!q(doc, "#dwGenMissing"), "底部工具条含生成入口");
   has(q(doc, "#dwManual").innerHTML, "合规与授权", "合规区已渲染");
 
   await setField(doc, "#dwLogline", "外卖小哥其实是隐形富豪", 4);
@@ -262,37 +266,64 @@ async function flowManualComic(env) {
   eq(D.manual.state.project.characters[0].name, "林小北", "导入的角色名字正确");
   eq(D.manual.state.project.characters[0].libraryId, libId, "导入记录带上 libraryId");
 
-  /* 回到第一个工程走完整生成 */
+  /* 回到工作台走完整生成 */
   await click(doc, "#dwNew");
   const cur = D.manual.state.project;
   cur.script.logline = "外卖小哥其实是隐形富豪";
   cur.genre = "comic"; cur.engine = "image";
-  const shot = cur.shots[0];
   await D.project.save(cur);
   await D.manual.render(); await settle();
-  await setField(doc, '[data-if="prompt"]', "雨夜街头，外卖箱特写", 3);
-  await setField(doc, '[data-if="line"]', "这单，我送的是命。", 3);
-  eq(D.manual.state.project.shots[0].prompt, "雨夜街头，外卖箱特写", "画面提示词已写入");
-  eq(D.manual.state.project.shots[0].line, "这单，我送的是命。", "台词已写入");
 
-  await click(doc, '[data-iact="gen"]', 16);
+  /* 多画布：新增 / 删除 */
+  const cvBefore = D.canvas.listCanvases(cur).length;
+  await click(doc, "#dwCanvasAdd", 6);
+  eq(D.canvas.listCanvases(D.manual.state.project).length, cvBefore + 1, "新增画布");
+  await click(doc, "#dwCanvasDel", 6);
+  eq(D.canvas.listCanvases(D.manual.state.project).length, cvBefore, "删除画布回到原数量");
+
+  /* 画布：加节点 → 点选 → 编辑提示词 → 生成 */
+  const img = D.canvas.addNode(D.manual.state.project, "image", 40, 40, { prompt: "雨夜街头，外卖箱特写" });
+  await D.project.save(D.manual.state.project);
+  await D.manual.render(); await settle();
+  ok(!!q(doc, '.cv-node[data-nid="' + img.id + '"]'), "画布渲染出图片节点");
+  D.manual.state.view.select(img.id); await settle(6);
+  ok(!!q(doc, '#dwSide [data-sf="prompt"]'), "点选节点后右侧出现提示词编辑框");
+  await setField(doc, '#dwSide [data-sf="prompt"]', "雨夜街头，外卖箱特写", 3);
+  eq(D.canvas.nodeById(D.manual.state.project, img.id).data.prompt, "雨夜街头，外卖箱特写", "提示词已写入节点");
+
+  await click(doc, '#dwSide [data-sa="gen"]', 16);
+  const n1 = D.canvas.nodeById(D.project.get(cur.id), img.id);
+  eq(n1.status, "done", "节点生成后状态 done");
+  ok(/^asset:r/.test(n1.out), "节点画面已转存本地资源仓");
+
+  /* 音频节点 + 配音 */
+  const aud = D.canvas.addNode(D.manual.state.project, "audio", 380, 40, { text: "这单，我送的是命。" });
+  await D.project.save(D.manual.state.project);
+  await D.manual.render(); await settle();
+  D.manual.state.view.select(aud.id); await settle(6);
+  await click(doc, '#dwSide [data-sa="gen"]', 16);
+  const n2 = D.canvas.nodeById(D.project.get(cur.id), aud.id);
+  eq(n2.status, "done", "音频节点生成完成");
+  ok(/^asset:r/.test(n2.out), "配音地址已回填节点");
+
+  /* 缩放与适应 */
+  const k0 = D.canvas.activeCanvas(D.manual.state.project).view.k;
+  await click(doc, "#dwZoomIn", 4);
+  ok(D.canvas.activeCanvas(D.manual.state.project).view.k > k0, "放大按钮提升缩放比");
+  await click(doc, "#dwFit", 4);
+
+  /* 合成仍以分镜为准：补齐分镜并生成 */
+  const p3 = D.manual.state.project;
+  p3.shots[0].prompt = "雨夜街头，外卖箱特写";
+  p3.shots[0].line = "这单，我送的是命。";
+  await D.project.save(p3);
+  await D.engine.generateShot(p3, p3.shots[0].id);
   const s1 = D.project.get(cur.id).shots[0];
   eq(s1.status, "done", "单镜生成后状态 done");
   ok(/^asset:r/.test(s1.imageUrl), "画面已转存本地资源仓");
   eq(s1.audioUrl, "https://cdn.test/tts/line.mp3", "有台词时生成画面顺带自动配音");
 
-  await click(doc, '[data-iact="tts"]', 12);
-  eq(D.project.get(cur.id).shots[0].audioUrl, "https://cdn.test/tts/line.mp3", "手动补配音成功");
-
-  state.audios.length = 0;
-  await click(doc, '[data-iact="audition"]', 4);
-  ok(state.audios.some((a) => a.__src === "https://cdn.test/tts/line.mp3"), "试听按当前配音建了音频");
-
-  state.audios.length = 0;
-  await click(doc, "#dwPlay", 4);
-  ok(state.audios.some((a) => a.__src === "https://cdn.test/tts/line.mp3"), "时间轴播放带动配音");
-  await click(doc, "#dwPlay", 4);
-
+  await D.manual.render(); await settle();
   await click(doc, "#dwCheck");
   has(q(doc, "#dwStatus").textContent, "合规检查通过", "合规检查状态提示");
 
@@ -320,7 +351,7 @@ async function flowManualComic(env) {
 /* ============================ 链路二：手搓台 · 仿真人 + 合规闸门 ============================ */
 async function flowManualRealistic(env) {
   const { doc, D, state } = env;
-  console.log("\n链路二：手搓台 · 仿真人（视频→配音→口型；真人授权闸门）");
+  console.log("\n链路二：节点工作台 · 仿真人（视频→配音→口型；真人授权闸门）");
   D.setAdapterConfig("video", { provider: "seedance", base: "https://ark.test", key: "k" });
   D.setAdapterConfig("tts", { provider: "custom-tts", base: "https://tts.test", key: "k" });
   D.setAdapterConfig("lipsync", { provider: "custom-lipsync", base: "https://lip.test", key: "k" });
@@ -333,14 +364,13 @@ async function flowManualRealistic(env) {
 
   const p = D.manual.state.project;
   p.compliance = p.compliance || { aigcMarked: true, consentIds: [] };
+  p.shots[0].prompt = "他站在天台边，风吹起衣角";
+  p.shots[0].line = "从今天起，我不再低头。";
   await D.project.save(p);
   await D.manual.render(); await settle();
   has(q(doc, "#dwStatus").textContent, "", "状态为空");
-  const shot = D.manual.state.project.shots[0];
-  await setField(doc, '[data-if="prompt"]', "他站在天台边，风吹起衣角", 3);
-  await setField(doc, '[data-if="line"]', "从今天起，我不再低头。", 3);
 
-  await click(doc, '[data-iact="gen"]', 24);
+  await D.engine.generateShot(p, p.shots[0].id);
   const s = D.project.get(p.id).shots[0];
   eq(s.status, "done", "视频单镜生成完成");
   ok(/^asset:r/.test(s.videoUrl), "视频已转存本地资源仓");
@@ -613,15 +643,19 @@ async function flowEdge(env) {
   D.setAdapterConfig("image", { provider: "custom-image", base: "", key: "" });
   ok(!D.isConfigured("image"), "清空配置后视为未配置");
   await D.manual.render(); await settle();
+  const badId = D.canvas.addNode(D.manual.state.project, "image", 40, 40, { prompt: "空态测试" }).id;
+  await D.project.save(D.manual.state.project);
+  await D.manual.render(); await settle();
   state.toasts.length = 0;
   await click(doc, "#dwGenMissing", 6);
-  ok(/还没配置生成服务/.test(toastsText(state)), "未配置时给出设置引导");
+  const badN = D.canvas.nodeById(D.manual.state.project, badId);
+  eq(badN.status, "failed", "未配置时节点标记失败");
+  has(badN.error, "尚未配置生图服务", "失败原因提示去配置");
+  has(q(doc, "#dwStatus").textContent, "失败 1 个节点", "状态区汇总失败数");
 
   state.toasts.length = 0;
-  await click(doc, '[data-iact="tts"]', 6);
-  const line = D.manual.state.project.shots[0].line;
-  if (!line) ok(/没有台词/.test(toastsText(state)), "无台词配音给出提示");
-  else ok(true, "该镜有台词，跳过无台词分支");
+  await click(doc, "#dwGenSel", 6);
+  ok(/先在画布上选中一个节点/.test(toastsText(state)), "未选节点时提示先选节点");
 
   const blank = D.project.blank({});
   blank.shots = [];
@@ -645,55 +679,55 @@ async function flowBox3d(env) {
   D.setAdapterConfig("image", { provider: "custom-image", base: "https://img.test", key: "k" });
   D.setAdapterConfig("video", { provider: "seedance", base: "https://ark.test", key: "k", model: "seedance-2.5" });
 
-  await click(doc, "#dwNew");
-  await D.manual.render(); await settle();
-  await setField(doc, '[data-if="prompt"]', "赛场逆光，少年举拳", 3);
+  const p = D.project.blank({});
+  p.shots[0].prompt = "赛场逆光，少年举拳";
+  await D.project.save(p);
 
-  await click(doc, "#dwMode3D", 6);
-  ok(!!q(doc, "#dwBoxPanel .bx-wrap"), "3D-BOX 面板已渲染");
-  eq(doc.querySelectorAll("#dwBoxPanel [data-bx-tab]").length, 5, "五个导演工具 tab");
-  has(q(doc, "#dwBoxPanel").innerHTML, "多机位 9 宫格", "默认展示 9 宫格工具");
+  const host = doc.createElement("div");
+  doc.body.appendChild(host);
+  const v = D.box3d.mount(host, p, { shotId: p.shots[0].id, tool: "grid", onChange: () => D.project.save(p) });
+  await settle();
+  ok(!!host.querySelector(".bx-wrap"), "3D-BOX 面板已渲染");
+  eq(host.querySelectorAll("[data-bx-tab]").length, 5, "五个导演工具 tab");
+  has(host.querySelector(".bx-wrap").innerHTML, "多机位 9 宫格", "默认展示 9 宫格工具");
 
-  await click(doc, '#dwBoxPanel [data-bx-run="grid"]', 40);
+  await clickIn(host, '[data-bx-run="grid"]', 40);
   await wait(200);
-  const p1 = D.manual.state.project;
-  eq(p1.shots[0].box3d.grid.length, 9, "9 宫格已落库");
-  ok(p1.shots[0].box3d.grid.every(c => /^asset:/.test(c.url)), "9 格全部转存本地");
-  ok(!!q(doc, "#dwBoxPanel .bx-grid .bx-cell img"), "网格渲染出图片");
+  eq(p.shots[0].box3d.grid.length, 9, "9 宫格已落库");
+  ok(p.shots[0].box3d.grid.every(c => /^asset:/.test(c.url)), "9 格全部转存本地");
+  ok(!!host.querySelector(".bx-grid .bx-cell img"), "网格渲染出图片");
 
-  await click(doc, '#dwBoxPanel [data-bx-tab="light"]', 4);
-  await setField(doc, "#bxLightSel", "neon", 3);
-  await click(doc, '#dwBoxPanel [data-bx-run="light"]', 30);
+  await clickIn(host, '[data-bx-tab="light"]', 4);
+  await setFieldIn(host, "#bxLightSel", "neon", 3);
+  await clickIn(host, '[data-bx-run="light"]', 30);
   await wait(200);
-  const p2 = D.manual.state.project;
-  eq(p2.shots[0].box3d.light.id, "neon", "灯光方案已记录");
-  ok(/^asset:/.test(p2.shots[0].box3d.light.url), "灯光画面已落库");
+  eq(p.shots[0].box3d.light.id, "neon", "灯光方案已记录");
+  ok(/^asset:/.test(p.shots[0].box3d.light.url), "灯光画面已落库");
 
-  await click(doc, '#dwBoxPanel [data-bx-tab="move"]', 4);
-  await setField(doc, "#bxMoveSel", "orbit", 3);
-  await click(doc, '#dwBoxPanel [data-bx-run="move"]', 30);
+  await clickIn(host, '[data-bx-tab="move"]', 4);
+  await setFieldIn(host, "#bxMoveSel", "orbit", 3);
+  await clickIn(host, '[data-bx-run="move"]', 30);
   await wait(200);
-  const p3 = D.manual.state.project;
-  eq(p3.shots[0].box3d.move.id, "orbit", "运镜方案已记录");
-  ok(/^asset:r/.test(p3.shots[0].box3d.move.url), "运镜视频已落库");
+  eq(p.shots[0].box3d.move.id, "orbit", "运镜方案已记录");
+  ok(/^asset:r/.test(p.shots[0].box3d.move.url), "运镜视频已落库");
 
-  await click(doc, '#dwBoxPanel [data-bx-tab="edit"]', 4);
-  await setInput(doc, "#bxEditText", "把外套换成红色", 3);
+  await clickIn(host, '[data-bx-tab="edit"]', 4);
+  await setInputIn(host, "#bxEditText", "把外套换成红色", 3);
   state.toasts.length = 0;
-  D.manual.state.project.shots[0].box3d.move.url = "";
-  D.manual.state.project.shots[0].videoUrl = "";
-  await click(doc, '#dwBoxPanel [data-bx-run="edit"]', 8);
+  p.shots[0].box3d.move.url = "";
+  p.shots[0].videoUrl = "";
+  await clickIn(host, '[data-bx-run="edit"]', 8);
   ok(/视频素材/.test(toastsText(state)), "无素材时精准编辑给出提示");
 
-  D.manual.state.project.shots[0].videoUrl = "https://cdn.test/vid/base.mp4";
-  await D.project.save(D.manual.state.project);
-  await click(doc, '#dwBoxPanel [data-bx-run="edit"]', 30);
+  p.shots[0].videoUrl = "https://cdn.test/vid/base.mp4";
+  await D.project.save(p);
+  await clickIn(host, '[data-bx-run="edit"]', 30);
   await wait(200);
-  const p4 = D.project.get(D.manual.state.project.id).shots[0];
+  const p4 = D.project.get(p.id).shots[0];
   ok(/^asset:r/.test(p4.box3d.edit.url), "精准编辑结果已落库");
 
-  await click(doc, "#dwModeBoard", 4);
-  ok(q(doc, "#dwConsole").style.display !== "none", "切回故事板显示三区");
+  v.setTool("grid"); await settle(2);
+  ok(!!host.querySelector(".bx-grid .bx-cell"), "切回 9 宫格工具正常渲染");
 }
 
 /* ============================ 主流程 ============================ */

@@ -286,7 +286,7 @@
     }, opt.onProgress, opt.signal);
     b.edit = { instruction, url: await D.project.cacheRemote(r.url, { role: "box3dEdit" }) };
     b.updatedAt = Date.now();
-    return r;
+    return [{ spec: { id: "edit", name: instruction }, url: b.edit.url, error: "" }];
   }
 
   /* ============ 面板 ============ */
