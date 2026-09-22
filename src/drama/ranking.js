@@ -41,10 +41,16 @@
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + ((XLX.ICONS && XLX.ICONS[name]) || "") + "</svg>";
   }
 
+  function catColor(cat) {
+    const c = (XLX.CATS || []).find(x => x.id === cat);
+    return c ? c.color : "#38d9e6";
+  }
+
   function entries() {
     const out = [];
     (XLX.SKILLS || []).forEach(s => {
-      out.push({ kind: "skill", id: s.id, name: s.name, desc: s.desc || "", icon: s.icon || "sparkle", color: "#38d9e6", src: "技能" });
+      const kd = (D.home && D.home.kind) ? D.home.kind(s) : { label: "技能" };
+      out.push({ kind: "skill", id: s.id, name: s.name, desc: s.desc || "", icon: s.icon || "sparkle", color: catColor(s.cat), src: kd.label });
     });
     (D.templates && D.templates.list ? D.templates.list() : []).forEach(t => {
       out.push({ kind: "tpl", id: t.id, name: t.name, desc: t.logline || t.tag || "", icon: "film", color: "#a78bfa", src: "题材模板" });

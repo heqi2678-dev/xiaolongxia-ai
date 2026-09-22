@@ -38,6 +38,7 @@ const HTML = `<!doctype html><html><head><title>t</title></head><body>
 <div id="box3dView" class="view"><div id="dramaBox3d"></div></div>
 <div id="pluginView" class="view"><div id="dramaPlugin"></div></div>
 <div id="dramaView" class="view"><div id="dwManual"></div></div>
+<div id="modal"></div>
 </body></html>`;
 
 function makeIndexedDB() {
@@ -192,11 +193,16 @@ function boot() {
   window.XLX.CATS = [{ id: "video", name: "视频", color: "#38d9e6" }, { id: "design", name: "设计", color: "#a78bfa" }];
   window.XLX.SKILLS = [
     { id: "sk-video", name: "品牌短片", desc: "一句话出片", icon: "film", cat: "video", prompt: "为{input}拍一条短片" },
-    { id: "sk-design", name: "电商主图", desc: "商品海报", icon: "palette", cat: "design", prompt: "为{input}做主图" }
+    { id: "sk-design", name: "电商主图", desc: "商品海报", icon: "palette", cat: "design", prompt: "为{input}做主图" },
+    { id: "sk-chat", name: "文案撰写", desc: "写电商文案", icon: "chat", cat: "design", action: "chat", prompt: "为{input}写文案" },
+    { id: "sk-search", name: "热点追踪", desc: "联网搜热点", icon: "search", cat: "video", action: "search", prompt: "围绕{input}找热点\n{search}" },
+    { id: "sk-tool", name: "图片去水印", desc: "免费工具", icon: "sparkle", cat: "design", action: "tool", tool: "imgwm", prompt: "" }
   ];
   window.XLX.getSkill = (id) => window.XLX.SKILLS.find(s => s.id === id) || null;
   window.XLX.billing = { check: () => ({ ok: true }) };
   window.XLX.app = { currentView: "home", go: (v) => { window.XLX.app.currentView = v; } };
+  window.XLX.chat = { sent: [], send: (t, o) => { window.XLX.chat.sent.push({ t, o }); } };
+  window.XLX.tools = { opened: null, openTool: (id) => { window.XLX.tools.opened = id; } };
 
   for (const f of DRAMA_FILES) {
     window.eval(fs.readFileSync(path.join(ROOT, "src", "drama", f), "utf8") + "\n//# sourceURL=src/drama/" + f);
@@ -482,11 +488,41 @@ async function flowHome(env) {
 
   const beforeSkill = D.project.list().length;
   const firstSkill = q(doc, "#dramaHome [data-hs-skill]");
+  eq(firstSkill.dataset.hsSkill, "sk-video", "首页首张为生成类 Skill");
   firstSkill.click(); await settle(30);
-  eq(D.project.list().length, beforeSkill + 1, "点选 Skill 建工程");
+  eq(D.project.list().length, beforeSkill + 1, "点选生成类 Skill 建工程");
   const made = D.project.list().find(p => D.canvas.activeCanvas(p).nodes.length > 0);
   ok(!!made, "Skill 工程已铺首节点");
   ok(D.canvas.activeCanvas(made).nodes.some(n => n.type === "text"), "首节点为文本节点");
+
+  /* 技能类型分流：对话/搜索 → Agent 对话；工具 → 工具箱；生成类 → 画布 */
+  eq(D.home.kind(W.XLX.getSkill("sk-chat")).id, "chat", "对话类技能识别为 chat");
+  eq(D.home.kind(W.XLX.getSkill("sk-search")).id, "search", "搜索类技能识别为 search");
+  eq(D.home.kind(W.XLX.getSkill("sk-tool")).id, "tool", "工具类技能识别为 tool");
+  eq(D.home.kind(W.XLX.getSkill("sk-video")).id, "gen", "生成类技能识别为 gen");
+  eq(q(doc, '#dramaHome [data-hs-skill="sk-chat"] .hs-badge').textContent, "对话", "卡片角标显示技能类型");
+
+  const beforeChat = D.project.list().length;
+  await click(doc, '#dramaHome [data-hs-skill="sk-chat"]', 4);
+  ok(doc.getElementById("modal").classList.contains("open"), "对话类技能弹出需求输入弹窗");
+  await setInput(doc, "#hsSkillInput", "保温杯", 3);
+  await click(doc, "#hsSkillOk", 20); await wait(120);
+  eq(D.project.list().length, beforeChat, "对话类技能不再建工程");
+  eq(W.XLX.chat.sent.length, 1, "对话类技能已送入 Agent 对话");
+  has(W.XLX.chat.sent[0].t, "保温杯", "对话提示词已填入需求");
+  eq(W.XLX.app.currentView, "agent", "对话类技能跳转 Agent");
+
+  await D.home.render(); await settle();
+  await click(doc, '#dramaHome [data-hs-skill="sk-search"]', 4);
+  await setInput(doc, "#hsSkillInput", "露营", 3);
+  await click(doc, "#hsSkillOk", 20); await wait(120);
+  eq(W.XLX.chat.sent.length, 2, "搜索类技能送入对话");
+  ok(W.XLX.chat.sent[1].o && W.XLX.chat.sent[1].o.search === true, "搜索类技能带联网开关");
+
+  await D.home.render(); await settle();
+  await click(doc, '#dramaHome [data-hs-skill="sk-tool"]', 20); await wait(150);
+  eq(W.XLX.tools.opened, "imgwm", "工具类技能打开对应工具");
+  eq(W.XLX.app.currentView, "tools", "工具类技能跳转工具箱");
 
   /* 收藏分栏 */
   await D.home.render(); await settle();
@@ -515,6 +551,23 @@ async function flowHome(env) {
   await click(doc, '#dramaRanking [data-rk-kind="tpl"]', 20);
   eq(D.project.list().length, before + 1, "排行点选题材模板建工程");
   ok(D.manual.state.project && !!D.manual.state.project.templateId, "模板工程已载入导演台");
+
+  /* 插件页：技能库（全量 / 分类 / 搜索 / 分流） */
+  await D.plugin.render(); await settle();
+  eq(doc.querySelectorAll("#dramaPlugin [data-pl-go]").length, 3, "插件页三个入口仍在");
+  eq(doc.querySelectorAll("#dramaPlugin [data-pl-skill]").length, W.XLX.SKILLS.length, "技能库列出全部技能");
+  ok(doc.querySelectorAll("#dramaPlugin [data-pl-cat]").length >= 2, "技能库有分类条");
+  await setInput(doc, "#plQ", "绝不可能匹配的技能", 3);
+  eq(doc.querySelectorAll("#dramaPlugin [data-pl-skill]").length, 0, "技能库搜索无结果清空");
+  await setInput(doc, "#plQ", "", 3);
+  eq(doc.querySelectorAll("#dramaPlugin [data-pl-skill]").length, W.XLX.SKILLS.length, "技能库清空搜索恢复");
+  const beforePlug = D.project.list().length;
+  await click(doc, '#dramaPlugin [data-pl-skill="sk-chat"]', 4);
+  ok(doc.getElementById("modal").classList.contains("open"), "技能库点对话技能弹出输入弹窗");
+  await setInput(doc, "#hsSkillInput", "咖啡机", 3);
+  await click(doc, "#hsSkillOk", 20); await wait(120);
+  eq(D.project.list().length, beforePlug, "技能库对话技能不建工程");
+  has(W.XLX.chat.sent[W.XLX.chat.sent.length - 1].t, "咖啡机", "技能库提示词已填入需求");
 
   /* TV Show 成片库 + 去流水线创作 */
   await D.tvshow.render(); await settle();

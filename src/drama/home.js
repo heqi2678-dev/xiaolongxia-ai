@@ -165,11 +165,11 @@
 
   function card(s) {
     const color = catColor(s.cat);
-    const video = !!VIDEO_CATS[s.cat];
+    const kind = skillKind(s);
     return '<div class="hs-card" data-hs-skill="' + D.ui.esc(s.id) + '">' +
       '<div class="hs-thumb" style="background:linear-gradient(135deg,' + color + '33,' + color + '0d)">' +
         '<span class="hs-tic" style="color:' + color + '">' + svg(s.icon, 23) + "</span>" +
-        '<span class="hs-badge">' + (video ? "视频" : "图片") + "</span>" +
+        '<span class="hs-badge">' + kind.label + "</span>" +
         '<button class="hs-fav' + (isFav(s.id) ? " on" : "") + '" data-hs-fav="' + D.ui.esc(s.id) + '">' +
           '<svg viewBox="0 0 24 24" fill="' + (isFav(s.id) ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 18l-5.8 3 1.1-6.5L2.6 9.8l6.5-.9z"/></svg>' +
         "</button>" +
@@ -247,7 +247,16 @@
     startBlank(text);
   }
 
-  /* 点选 Skill：建工程 + 铺首节点 + 进入画布（需求 5.6 / D7） */
+  /* 技能类型：工具 / 搜索 / 对话 / 生成（生成类才进画布） */
+  function skillKind(s) {
+    if (!s) return { id: "chat", label: "对话" };
+    if (s.action === "tool") return { id: "tool", label: "工具" };
+    if (s.action === "search") return { id: "search", label: "搜索" };
+    if (s.action === "chat") return { id: "chat", label: "对话" };
+    return { id: "gen", label: VIDEO_CATS[s.cat] ? "视频" : "图片" };
+  }
+
+  /* 点选 Skill：按类型分流——工具进工具箱，对话/搜索进 Agent 对话，生成类才建工程进画布 */
   async function openSkill(skill) {
     if (!skill) return;
     if (XLX.billing && XLX.billing.check) {
@@ -255,9 +264,14 @@
       if (!chk.ok) { U.toast(chk.reason, "warn"); return; }
     }
     if (state.busy) return;
-    if (skill.action === "tool" && skill.tool) {
+    const kind = skillKind(skill);
+    if (kind.id === "tool" && skill.tool) {
       if (XLX.app && XLX.app.go) XLX.app.go("tools");
       setTimeout(() => { if (XLX.tools && XLX.tools.openTool) XLX.tools.openTool(skill.tool); }, 80);
+      return;
+    }
+    if (kind.id === "chat" || kind.id === "search") {
+      askSkillInput(skill, (input) => runInChat(skill, input));
       return;
     }
     state.busy = true;
@@ -324,9 +338,58 @@
 
   function fillPrompt(skill, input) {
     let s = String(skill.prompt || "").replace(/\{input\}/g, input || "（待补充）");
+    s = s.replace(/\{search\}/g, "（联网搜索到的资料见下方「自动搜索到的网页资料」）").replace(/\{err\}/g, "");
     if (input && s.indexOf(input) < 0 && !skill.prompt) s = skill.name + "：" + input;
     return s || (skill.name + (input ? "：" + input : ""));
   }
 
-  D.home = { render, openSkill, state };
+  /* 对话/搜索类技能：填入需求后到 Agent 对话直接生成 */
+  function runInChat(skill, input) {
+    markUsed(skill.id);
+    const prompt = fillPrompt(skill, input);
+    if (XLX.app && XLX.app.go) XLX.app.go("agent");
+    setTimeout(() => {
+      if (XLX.chat && XLX.chat.send) XLX.chat.send(prompt, { search: skill.action === "search" });
+    }, 60);
+  }
+
+  /* 技能输入弹窗：收集 {input} 需求 */
+  function askSkillInput(skill, cb) {
+    const m = document.getElementById("modal");
+    if (!m) { cb(""); return; }
+    const color = catColor(skill.cat);
+    const kind = skillKind(skill);
+    m.innerHTML = '<div class="modal-box">' +
+      '<div class="modal-head"><div class="mic" style="background:' + color + '22;border:1px solid ' + color + '44">' + svg(skill.icon, 22) + "</div>" +
+        '<div><div class="mt">' + D.ui.esc(skill.name) + '</div><div class="ms">' + kind.label + "技能</div></div></div>" +
+      '<div class="modal-body">' +
+        '<p style="font-size:12.5px;color:var(--text2);margin:0 0 2px">' + D.ui.esc(skill.desc || "") + "</p>" +
+        '<label class="label">描述你的需求</label>' +
+        '<textarea id="hsSkillInput" class="inp" style="min-height:110px" placeholder="请输入「' + D.ui.esc(skill.name) + '」需要的信息…"></textarea>' +
+      "</div>" +
+      '<div class="modal-foot">' +
+        '<button class="btn ghost" id="hsSkillCancel">取消</button>' +
+        '<button class="btn primary" id="hsSkillOk">' + (kind.id === "search" ? "搜索并生成" : "生成") + "</button>" +
+      "</div></div>";
+    m.classList.add("open");
+    const close = () => m.classList.remove("open");
+    m.onclick = (e) => { if (e.target === m) close(); };
+    const cancel = document.getElementById("hsSkillCancel");
+    if (cancel) cancel.onclick = close;
+    const inp = document.getElementById("hsSkillInput");
+    const run = () => {
+      const text = inp ? inp.value.trim() : "";
+      if (!text) { U.toast("请先填写需求", "warn"); return; }
+      close();
+      cb(text);
+    };
+    const ok = document.getElementById("hsSkillOk");
+    if (ok) ok.onclick = run;
+    if (inp) {
+      inp.onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run(); };
+      setTimeout(() => inp.focus(), 80);
+    }
+  }
+
+  D.home = { render, openSkill, kind: skillKind, state };
 })();
