@@ -513,7 +513,11 @@ async function flowHome(env) {
   /* 首页：新建画布 hero + 模型/工具行 + 最近项目/上新 */
   await D.home.render(); await settle();
   ok(!!doc.querySelector("#dramaHome #hxCreate"), "首页渲染新建画布入口");
-  eq(doc.querySelectorAll("#dramaHome [data-hx-tool]").length, 9, "首页渲染 9 个模型/工具（含更多功能）");
+  ok(doc.querySelectorAll("#dramaHome [data-hx-tool]").length >= 9, "首页渲染模型/工具行（含更多功能），实际 " + doc.querySelectorAll("#dramaHome [data-hx-tool]").length);
+  ok(!!doc.querySelector('#dramaHome [data-hx-tool="more"]'), "首页工具行含更多功能");
+  ok(doc.querySelectorAll("#dramaHome [data-hx-tool][data-hx-kind]").length > 0, "首页含可绑定的模型卡");
+  ok(doc.querySelectorAll('#dramaHome [data-hx-kind="image"]').length > 0, "首页含图片模型卡");
+  ok(doc.querySelectorAll('#dramaHome [data-hx-kind="video"]').length > 0, "首页含视频模型卡");
   const hxSkills = doc.querySelectorAll("#dramaHome [data-hx-skill]");
   ok(hxSkills.length >= 3 && hxSkills.length <= 5, "首页最近上新为独家技能卡，实际 " + hxSkills.length);
   ok(!!doc.querySelector("#dramaHome #hxTvshow"), "首页渲染成片库横幅");
@@ -522,6 +526,17 @@ async function flowHome(env) {
   eq(D.project.list().length, beforeHome + 1, "新建画布创建工程");
   eq(W.XLX.app.currentView, "drama", "新建画布进入导演台");
   ok(!!(D.manual.state && D.manual.state.pid), "新建画布已载入导演台");
+
+  /* 模型卡绑定：点视频模型卡 → 工程记 videoModel + 短剧服务切到该厂商/模型 */
+  const vCard = q(doc, '#dramaHome [data-hx-kind="video"]');
+  const vProv = vCard.dataset.hxProvider, vModel = vCard.dataset.hxModel;
+  const beforeBind = D.project.list().length;
+  await click(doc, '#dramaHome [data-hx-kind="video"]', 30);
+  eq(D.project.list().length, beforeBind + 1, "点模型卡创建工程");
+  const bound = D.project.list()[0];
+  eq(bound.videoModel, vModel, "模型卡写入工程 videoModel");
+  eq(D.getAdapterConfig("video").provider, vProv, "模型卡切换视频服务厂商");
+  eq(D.getAdapterConfig("video").model, vModel, "模型卡切换视频服务模型");
 
   /* 工具包：能力入口 / Skill 墙分类 / 搜索 */
   await D.toolkit.render(); await settle();

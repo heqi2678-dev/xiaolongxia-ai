@@ -87,3 +87,12 @@
 
 保留不动：软件工坊、工具箱、记忆、下载、工具包、Agent 对话、合规、Take 引擎与核心链路。Blender 插件页按用户意见保持现状。
 
+## 六、模型卡绑定（2026-09-23 追加）
+
+首页模型工具卡原先从写死的 `TOOLS` 渲染，点击只建对应类型节点、不写工程模型字段，出片仍走全局默认模型。现改为：
+
+- 模型卡数据源改为 `config.js` 的 `IMAGE_PROVIDERS` / `VIDEO_PROVIDERS`（`D.adapterList(kind)`），跳过 `custom-*`，免费兜底 provider 无模型时也出卡；与固定工具卡（音频 / 剧本 / 剪辑 / 更多功能）拼成同一行。
+- 点击模型卡：新建工程写 `project.imageModel` / `project.videoModel`，并 `D.setAdapterConfig(kind, {provider, model})` 切换该类型短剧服务，使 engine / canvas / box3d 生成链路按所选模型出片。
+- 已知限制：短剧服务是全局单配置（`settings.adapters[kind]`），切模型即全局切换，暂不支持按工程隔离 provider；跨工程并行使用不同厂商模型需后续把 provider 下沉到工程。
+- 测试：e2e 新增模型卡绑定断言；单测 188 / e2e 280 全绿。
+

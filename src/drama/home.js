@@ -4,18 +4,40 @@
   const D = XLX.drama;
   const U = XLX.util;
 
-  /* 创作工具行：点哪张卡就用哪种能力新建一块画布（对齐 LibTV 首页模型工具行） */
-  const TOOLS = [
-    { id: "minimax", name: "Minimax H3 Max", node: "video", icon: "video" },
-    { id: "wan", name: "Wan 3.0", node: "video", icon: "video" },
-    { id: "seedance", name: "Seedance 2.5", node: "video", icon: "film" },
-    { id: "video", name: "视频生成", node: "video", icon: "video" },
-    { id: "image", name: "图片生成", node: "image", icon: "image" },
+  /* 固定工具卡（无模型绑定）：与模型卡拼在同一行 */
+  const TOOL_FIXED = [
     { id: "audio", name: "音频生成", node: "audio", icon: "mic" },
     { id: "script", name: "剧本生成", node: "script", icon: "book" },
     { id: "edit", name: "智能剪辑", node: "video", icon: "wand" },
     { id: "more", name: "更多功能", node: "", icon: "grid" }
   ];
+
+  /* 模型卡：从短剧服务目录（config.js 的 IMAGE/VIDEO_PROVIDERS）读取，点哪张卡就把该模型写进新工程并切换服务 */
+  function modelTools() {
+    const out = [];
+    ["image", "video"].forEach(kind => {
+      let list = [];
+      try { list = D.adapterList(kind) || []; } catch (e) { list = []; }
+      list.forEach(def => {
+        if (!def || !def.id || def.id.indexOf("custom") === 0) return;
+        const models = (def.models && def.models.length) ? def.models : (def.model ? [def.model] : []);
+        if (!models.length && def.free) { models.push(""); }
+        models.forEach(m => out.push({
+          id: def.id + "::" + m,
+          name: m || def.name,
+          sub: def.name,
+          kind,
+          provider: def.id,
+          model: m || "",
+          node: kind,
+          icon: kind === "image" ? "image" : "video"
+        }));
+      });
+    });
+    return out;
+  }
+
+  function tools() { return modelTools().concat(TOOL_FIXED); }
 
   /* 首页「最近上新」展示的独家技能（按 id 取内置技能卡） */
   const FEATURED = ["director-shots", "script-studio", "title-intro"];
@@ -42,7 +64,9 @@
 .hx-tool:hover{border-color:var(--accent);transform:translateY(-3px)}
 .hx-tool .hx-tic{width:38px;height:38px;border-radius:11px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent2);display:flex;align-items:center;justify-content:center;flex:none}
 .hx-tool .hx-tic svg{width:20px;height:20px}
-.hx-tool .hx-tn{font-size:13px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hx-tool .hx-tinfo{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hx-tool .hx-tn{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hx-tool .hx-ts{font-size:10.5px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hx-projs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 @media(max-width:820px){.hx-projs{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .hx-proj{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .15s}
@@ -109,10 +133,12 @@
 
   function toolsHtml() {
     return '<div class="hx-sec"><div class="hx-sec-h"><h2>开始创作</h2><span style="font-size:12px;color:var(--text3)">选一个模型或工具，直接开画布</span></div>' +
-      '<div class="hx-tools">' + TOOLS.map(t =>
-        '<div class="hx-tool" data-hx-tool="' + t.id + '" data-hx-node="' + t.node + '" data-hx-name="' + D.ui.esc(t.name) + '">' +
+      '<div class="hx-tools">' + tools().map(t =>
+        '<div class="hx-tool" data-hx-tool="' + D.ui.esc(t.id) + '" data-hx-node="' + D.ui.esc(t.node) + '" data-hx-name="' + D.ui.esc(t.name) + '"'
+        + (t.kind ? ' data-hx-kind="' + D.ui.esc(t.kind) + '" data-hx-provider="' + D.ui.esc(t.provider) + '" data-hx-model="' + D.ui.esc(t.model) + '"' : "") + '>' +
           '<span class="hx-tic">' + svg(t.icon, 20) + "</span>" +
-          '<span class="hx-tn">' + D.ui.esc(t.name) + "</span>" +
+          '<span class="hx-tinfo"><span class="hx-tn">' + D.ui.esc(t.name) + "</span>" +
+            (t.sub ? '<span class="hx-ts">' + D.ui.esc(t.sub) + "</span>" : "") + "</span>" +
         "</div>"
       ).join("") + "</div></div>";
   }
@@ -179,7 +205,10 @@
     v.querySelectorAll("[data-hx-tool]").forEach(c => {
       c.onclick = () => {
         if (c.dataset.hxTool === "more") { if (XLX.app && XLX.app.go) XLX.app.go("toolkit"); return; }
-        newCanvas(c.dataset.hxNode, c.dataset.hxName);
+        const bind = c.dataset.hxKind
+          ? { kind: c.dataset.hxKind, provider: c.dataset.hxProvider, model: c.dataset.hxModel }
+          : null;
+        newCanvas(c.dataset.hxNode, c.dataset.hxName, bind);
       };
     });
     v.querySelectorAll("[data-hx-proj]").forEach(c => {
@@ -196,14 +225,21 @@
     if (tv) tv.onclick = () => { if (XLX.app && XLX.app.go) XLX.app.go("tvshow"); };
   }
 
-  async function newCanvas(nodeType, title) {
+  async function newCanvas(nodeType, title, bind) {
     if (state.busy) return;
     state.busy = true;
     try {
       const p = D.project.blank({ title: title || "未命名画布" });
+      if (bind && bind.kind) {
+        if (bind.kind === "image") p.imageModel = bind.model || "";
+        else if (bind.kind === "video") p.videoModel = bind.model || "";
+        /* 切换该类型的短剧服务到所选模型，出片链路（engine/canvas/box3d）按此模型生成 */
+        try { D.setAdapterConfig(bind.kind, { provider: bind.provider, model: bind.model || "" }); } catch (e) {}
+      }
       if (nodeType && D.canvas && D.canvas.addNode) D.canvas.addNode(p, nodeType, 60, 120, { title: title || "" });
       await D.project.save(p);
       await openProject(p.id);
+      if (bind && bind.kind) U.toast("已选模型 " + (bind.model || bind.provider) + "，出片将使用该模型", "ok");
     } catch (e) {
       U.toast((e && e.message) || "新建失败", "err");
     } finally {
