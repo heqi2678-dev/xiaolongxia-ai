@@ -7,6 +7,7 @@ import threading
 import time
 import unittest
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.cookiejar import CookieJar
 from pathlib import Path
@@ -467,6 +468,61 @@ class GateTests(unittest.TestCase):
         bad = self._drama_project("y" * 200)
         code, _, _ = self.req(opener, "/api/drama/projects", method="POST", json_body={"project": bad})
         self.assertEqual(code, 400)
+
+    def test_blender_token_scenes_import_download(self):
+        opener, _ = self.opener()
+        code, _, _ = self.req(opener, "/api/drama/blender/token", method="POST")
+        self.assertEqual(code, 401)
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        pid = "x-proj-blender"
+        self.req(opener, "/api/drama/projects", method="POST", json_body={"project": self._drama_project(pid)})
+        code, body, _ = self.req(opener, "/api/drama/blender/token", method="POST")
+        self.assertEqual(code, 200)
+        token = json.loads(body.decode("utf-8"))["token"]
+        auth = {"Authorization": "Bearer " + token}
+        code, body, headers = self.req(opener, "/api/drama/blender/download", headers=auth)
+        self.assertEqual(code, 200)
+        self.assertEqual(headers.get("Content-Type"), "application/zip")
+        self.assertIn(b"xlx_blender/__init__.py", body)
+        code, body, _ = self.req(opener, "/api/drama/blender/projects", headers=auth)
+        self.assertEqual(code, 200)
+        self.assertIn(pid, [p["id"] for p in json.loads(body.decode("utf-8"))["projects"]])
+        code, body, _ = self.req(opener, "/api/drama/blender/scenes?projectId=" + pid, headers=auth)
+        self.assertEqual(code, 200)
+        scenes = json.loads(body.decode("utf-8"))["scenes"]
+        self.assertEqual(len(scenes), 1)
+        self.assertEqual(scenes[0]["prompt"], "街头奔跑")
+        code, body, _ = self.req(
+            opener,
+            "/api/drama/blender/import",
+            method="POST",
+            data=b"glTF\x02\x00\x00\x00",
+            headers={
+                "Content-Type": "model/gltf-binary",
+                "X-XLX-Project": urllib.parse.quote(pid),
+                "X-XLX-Name": urllib.parse.quote("机甲白模"),
+                "Authorization": "Bearer " + token,
+            },
+        )
+        self.assertEqual(code, 200)
+        out = json.loads(body.decode("utf-8"))
+        self.assertTrue(out["ok"])
+        self.assertTrue(out["url"].startswith("http"))
+        self.assertTrue(out["url"].endswith(".glb"))
+        code, body, _ = self.req(opener, "/api/drama/blender/scenes?projectId=" + pid, headers=auth)
+        white = json.loads(body.decode("utf-8"))["whiteModel"]
+        self.assertEqual(white["name"], "机甲白模")
+        self.assertEqual(white["url"], out["url"])
+        anon, _ = self.opener()
+        code, _, _ = self.req(
+            anon,
+            "/api/drama/blender/import",
+            method="POST",
+            data=b"glTF\x02\x00\x00\x00",
+            headers={"Content-Type": "model/gltf-binary", "X-XLX-Project": pid},
+        )
+        self.assertEqual(code, 401)
+        self.req(opener, "/api/drama/projects/delete", method="POST", json_body={"id": pid})
 
     def test_drama_publishes_record(self):
         opener, _ = self.opener()

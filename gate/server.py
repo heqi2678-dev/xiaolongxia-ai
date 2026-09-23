@@ -3,6 +3,7 @@ import base64
 import hashlib
 import hmac
 import html as html_mod
+import io
 import ipaddress
 import json
 import os
@@ -18,6 +19,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 from datetime import datetime, timedelta, timezone
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -108,6 +110,7 @@ STATIC_TYPES = {
     ".wav": "audio/wav",
     ".m4a": "audio/mp4",
     ".aac": "audio/aac",
+    ".glb": "model/gltf-binary",
 }
 
 DRAMA_PUBLIC_BASE = os.environ.get("DRAMA_PUBLIC_BASE", "").rstrip("/")
@@ -116,10 +119,16 @@ DRAMA_PUB_EXT = {
     "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png", "image/webp": ".webp",
     "audio/mpeg": ".mp3", "audio/mp3": ".mp3", "audio/wav": ".wav", "audio/x-wav": ".wav",
     "audio/mp4": ".m4a", "audio/aac": ".aac", "video/mp4": ".mp4",
+    "model/gltf-binary": ".glb",
 }
-DRAMA_PUB_NAME = re.compile(r"^[A-Za-z0-9_-]{16,64}\.(mp4|mp3|wav|m4a|aac|jpg|jpeg|png|webp)$")
+DRAMA_PUB_NAME = re.compile(r"^[A-Za-z0-9_-]{16,64}\.(mp4|mp3|wav|m4a|aac|jpg|jpeg|png|webp|glb)$")
 # 火山数字人只接受公网 URL，单文件上限 200MB 与服务端合成保持一致
 DRAMA_PUB_MAX = 200 * 1024 * 1024
+
+# Blender 插件：官网可直接下载的 addon 源码目录与账号授权令牌
+BLENDER_ADDON_DIR = SHOP_DIR / "blender-addon" / "xlx_blender"
+BLENDER_ADDON_NAME = "xlx_blender"
+BLENDER_TOKEN_DAYS = 180
 
 _lock = threading.Lock()
 
@@ -681,6 +690,41 @@ def drama_delete(owner, pid):
             return cur.rowcount > 0
         finally:
             conn.close()
+
+
+def issue_blender_token(owner):
+    """给已登录用户签发一枚长期令牌，供 Blender 插件免浏览器授权调用。"""
+    token = secrets.token_urlsafe(24)
+    now_ts = time.time()
+    with _drama_lock:
+        tokens = load_json("blender_tokens.json") or {}
+        tokens[token] = {
+            "owner": owner,
+            "created_at": now_ts,
+            "exp": now_ts + BLENDER_TOKEN_DAYS * 24 * 3600,
+        }
+        save_json("blender_tokens.json", tokens)
+    return token
+
+
+def blender_token_owner(token):
+    """令牌换成用户名；无效/过期返回空串。"""
+    if not token:
+        return ""
+    with _drama_lock:
+        tokens = load_json("blender_tokens.json") or {}
+        rec = tokens.get(token)
+        if not rec:
+            return ""
+        try:
+            exp = float(rec.get("exp") or 0)
+        except (TypeError, ValueError):
+            exp = 0
+        if exp < time.time():
+            tokens.pop(token, None)
+            save_json("blender_tokens.json", tokens)
+            return ""
+        return str(rec.get("owner") or "")
 
 
 def drama_add_publish(owner, record, ip_hash=""):
@@ -1429,6 +1473,9 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/pub/"):
             self._handle_drama_pub(path[len("/pub/"):])
             return
+        if path.startswith("/api/drama/blender/"):
+            self._handle_blender_get(path[len("/api/drama/blender/"):])
+            return
         me = self._current()
         if not me:
             if path.startswith("/api/"):
@@ -1515,6 +1562,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/drama/asset":
             self._handle_drama_asset()
+            return
+        if path.startswith("/api/drama/blender/"):
+            self._handle_blender_post(path[len("/api/drama/blender/"):])
             return
         self._json(404, {"ok": False, "error": "没有这个接口"})
 
@@ -1619,8 +1669,22 @@ class Handler(BaseHTTPRequestHandler):
         extra, out = self._issue_session(name, rec)
         self._json(200, out, extra)
 
+    def _bearer_token(self):
+        raw = (self.headers.get("Authorization") or "").strip()
+        if raw[:7].lower() == "bearer ":
+            return raw[7:].strip()
+        return ""
+
     def _drama_me(self):
         me = self._current()
+        if not me:
+            token = self._bearer_token()
+            owner = blender_token_owner(token) if token else ""
+            if owner:
+                with _lock:
+                    users = load_json("users.json")
+                user = users.get(owner) or {"role": "friend", "limit": FRIEND_DAILY_LIMIT}
+                me = {"sid": "", "name": owner, "user": user, "via": "blender"}
         if not me:
             self._json(401, {"ok": False, "error": "未登录"})
             return None
@@ -1858,6 +1922,149 @@ class Handler(BaseHTTPRequestHandler):
         DRAMA_PUB_DIR.mkdir(parents=True, exist_ok=True)
         (DRAMA_PUB_DIR / name).write_bytes(raw)
         self._json(200, {"ok": True, "url": base + "/dian/pub/" + name, "name": name})
+
+    # ---------- Blender 插件：账号授权令牌 + 分镜交接 + 白模回传 + 插件包下载 ----------
+    BLENDER_GET = ("projects", "scenes", "download")
+    BLENDER_POST = ("token", "import")
+
+    def _handle_blender_get(self, action):
+        if action not in self.BLENDER_GET:
+            self._json(404, {"ok": False, "error": "没有这个接口"})
+            return
+        me = self._drama_me()
+        if not me:
+            return
+        if action == "projects":
+            self._handle_blender_projects(me)
+        elif action == "scenes":
+            self._handle_blender_scenes(me)
+        else:
+            self._handle_blender_download(me)
+
+    def _handle_blender_post(self, action):
+        if action not in self.BLENDER_POST:
+            self._json(404, {"ok": False, "error": "没有这个接口"})
+            return
+        if action == "token":
+            me = self._current()
+            if not me:
+                self._json(401, {"ok": False, "error": "请先在浏览器登录铜龙后再生成令牌"})
+                return
+            token = issue_blender_token(me["name"])
+            self._json(200, {"ok": True, "token": token, "owner": me["name"], "days": BLENDER_TOKEN_DAYS})
+            return
+        self._handle_blender_import()
+
+    def _handle_blender_projects(self, me):
+        try:
+            self._json(200, {"ok": True, "owner": me["name"], "projects": drama_list(me["name"])})
+        except Exception:
+            self._json(500, {"ok": False, "error": "读取工程列表失败"})
+
+    def _handle_blender_scenes(self, me):
+        qs = parse_qs(urlparse(self.path).query)
+        pid = unquote_to_bytes((qs.get("projectId") or [""])[0]).decode("utf-8", "ignore")
+        if not pid:
+            self._json(400, {"ok": False, "error": "缺少 projectId"})
+            return
+        project = drama_get(me["name"], pid)
+        if not project:
+            self._json(404, {"ok": False, "error": "找不到这个工程"})
+            return
+        ratio = ((project.get("output") or {}).get("ratio")) or "9:16"
+        scenes = []
+        for i, s in enumerate(project.get("shots") or []):
+            if not isinstance(s, dict):
+                continue
+            name = str(s.get("title") or s.get("line") or s.get("prompt") or "").strip()
+            scenes.append(
+                {
+                    "index": i + 1,
+                    "id": str(s.get("id") or ("shot-%d" % (i + 1))),
+                    "name": (name[:24] or ("镜头 %d" % (i + 1))),
+                    "prompt": str(s.get("prompt") or ""),
+                    "line": str(s.get("line") or ""),
+                    "duration": float(s.get("duration") or 0),
+                    "ratio": ratio,
+                }
+            )
+        white = project.get("whiteModel")
+        self._json(
+            200,
+            {
+                "ok": True,
+                "project": pid,
+                "title": str(project.get("title") or ""),
+                "ratio": ratio,
+                "scenes": scenes,
+                "whiteModel": white if isinstance(white, dict) else None,
+            },
+        )
+
+    def _handle_blender_download(self, me):
+        src = BLENDER_ADDON_DIR
+        if not src.is_dir():
+            self._json(404, {"ok": False, "error": "插件包还没准备好"})
+            return
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for path in sorted(src.rglob("*")):
+                if path.is_file() and "__pycache__" not in path.parts:
+                    arc = str(Path(BLENDER_ADDON_NAME) / path.relative_to(src))
+                    zf.write(path, arc)
+        extra = [("Content-Disposition", 'attachment; filename="xlx-blender-plugin.zip"')]
+        self._send(200, buf.getvalue(), "application/zip", extra=extra, raw=True)
+
+    def _handle_blender_import(self):
+        me = self._drama_me()
+        if not me:
+            return
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype not in ("model/gltf-binary", "application/octet-stream"):
+            self._json(400, {"ok": False, "error": "只支持 GLB 白模文件"})
+            return
+        n = int(self.headers.get("Content-Length") or 0)
+        if n <= 0:
+            self._json(400, {"ok": False, "error": "白模文件为空"})
+            return
+        if n > DRAMA_PUB_MAX:
+            self._json(400, {"ok": False, "error": "白模超过 200MB"})
+            return
+        base = self._public_base()
+        if not base:
+            self._json(400, {"ok": False, "error": "拿不到公网地址，请配置 DRAMA_PUBLIC_BASE"})
+            return
+        pid = unquote_to_bytes((self.headers.get("X-XLX-Project") or "")).decode("utf-8", "ignore").strip()
+        if not pid:
+            self._json(400, {"ok": False, "error": "缺少工程 ID"})
+            return
+        project = drama_get(me["name"], pid)
+        if not project:
+            self._json(404, {"ok": False, "error": "找不到这个工程"})
+            return
+        raw_name = self.headers.get("X-XLX-Name") or ""
+        name = unquote_to_bytes(raw_name).decode("utf-8", "ignore").strip()[:60] or "Blender 白模"
+        preview = (self.headers.get("X-XLX-Preview") or "").strip()[:500]
+        raw = self.rfile.read(n)
+        fn = secrets.token_hex(16) + ".glb"
+        DRAMA_PUB_DIR.mkdir(parents=True, exist_ok=True)
+        (DRAMA_PUB_DIR / fn).write_bytes(raw)
+        url = base + "/dian/pub/" + fn
+        project["whiteModel"] = {
+            "url": url,
+            "name": name,
+            "preview": preview,
+            "at": int(time.time()),
+        }
+        try:
+            drama_save(me["name"], project)
+        except ValueError as exc:
+            self._json(400, {"ok": False, "error": str(exc)})
+            return
+        except Exception:
+            self._json(500, {"ok": False, "error": "白模入库失败，请稍后再试"})
+            return
+        self._json(200, {"ok": True, "url": url, "project": pid, "name": name})
 
     def _handle_drama_out(self, name):
         me = self._drama_me()

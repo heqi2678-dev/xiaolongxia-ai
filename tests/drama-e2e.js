@@ -681,11 +681,20 @@ async function flowHome(env) {
   eq(D.project.list().length, before + 1, "排行点选题材模板建工程");
   ok(D.manual.state.project && !!D.manual.state.project.templateId, "模板工程已载入导演台");
 
-  /* 插件页：Blender 落地页（下载 / 安装指南 / 直达 3D 导演台） */
+  /* 插件页：Blender 落地页（真下载 / 连接账户 / 安装指南 / 直达 3D 导演台） */
   await D.plugin.render(); await settle();
   ok(!!doc.querySelector("#dramaPlugin #plDownload"), "Blender 插件页渲染下载入口");
   ok(!!doc.querySelector("#dramaPlugin #plGuide"), "Blender 插件页渲染安装指南");
   ok(!!doc.querySelector("#dramaPlugin #plDirector"), "Blender 插件页渲染 3D 导演台入口");
+  ok(!!doc.querySelector("#dramaPlugin #plToken"), "Blender 插件页渲染生成令牌入口");
+  ok(!!doc.querySelector("#dramaPlugin #plProjects"), "Blender 插件页渲染工程列表容器");
+  ok(
+    doc.querySelector("#plDownload").getAttribute("href").indexOf("/api/drama/blender/download") >= 0,
+    "下载入口指向插件包接口"
+  );
+  ok(doc.querySelector("#dramaPlugin").innerHTML.indexOf("连接账户") >= 0, "插件页含连接账户区");
+  ok(doc.querySelector("#dramaPlugin").innerHTML.indexOf("Blender 4.5") >= 0, "插件页标注 Blender 4.5+");
+  ok(D.plugin.VERSION === "1.0.0", "插件页版本号可读");
   await click(doc, "#dramaPlugin #plGuide", 4);
   ok(doc.getElementById("modal").classList.contains("open"), "安装指南弹出说明弹窗");
   const guideClose = doc.getElementById("plGuideClose");
