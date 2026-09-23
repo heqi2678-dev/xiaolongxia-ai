@@ -199,7 +199,8 @@ function boot() {
     { id: "sk-search", name: "热点追踪", desc: "联网搜热点", icon: "search", cat: "video", action: "search", prompt: "围绕{input}找热点\n{search}" },
     { id: "sk-tool", name: "图片去水印", desc: "免费工具", icon: "sparkle", cat: "design", action: "tool", tool: "imgwm", prompt: "" },
     { id: "sk-shots", name: "导演分身", desc: "梗概出分镜", icon: "film", cat: "video", media: "video", pipeline: "shots", askInput: true, action: "gen", prompt: "你是导演：{input}" },
-    { id: "sk-script", name: "剧本设定器", desc: "题材出剧本设定", icon: "book", cat: "video", media: "image", pipeline: "script", askInput: true, action: "gen", prompt: "你是编剧：{input}" }
+    { id: "sk-script", name: "剧本设定器", desc: "题材出剧本设定", icon: "book", cat: "video", media: "image", pipeline: "script", askInput: true, action: "gen", prompt: "你是编剧：{input}" },
+    { id: "sk-intro", name: "创意片头", desc: "主题出片头", icon: "film", cat: "video", media: "video", pipeline: "intro", askInput: true, action: "gen", prompt: "片头：{input}" }
   ];
   window.XLX.getSkill = (id) => window.XLX.SKILLS.find(s => s.id === id) || null;
   window.XLX.billing = { check: () => ({ ok: true }) };
@@ -632,6 +633,19 @@ async function flowHome(env) {
   eq(scriptNodes.filter(n => n.type === "image").length, 1, "铺出主角形象节点");
   ok(D.canvas.activeCanvas(scriptProj).edges.length >= 1, "设定与主角形象连边");
   ok(scriptNodes.some(n => n.data.title === "分幕大纲"), "含分幕大纲节点");
+
+  /* 创意片头：主体文案 → 横屏标题板 → 片头短视频 */
+  await D.toolkit.render(); await settle();
+  const beforeIntro = D.project.list().length;
+  await click(doc, '#dramaToolkit [data-hs-skill="sk-intro"]', 4);
+  ok(doc.getElementById("modal").classList.contains("open"), "创意片头弹出需求输入弹窗");
+  await setInput(doc, "#hsSkillInput", "星际迷航", 3);
+  await click(doc, "#hsSkillOk", 30); await wait(400); await settle();
+  eq(D.project.list().length, beforeIntro + 1, "创意片头建工程");
+  const introNodes = D.canvas.activeCanvas(D.project.list()[0]).nodes;
+  eq(introNodes.filter(n => n.type === "video").length, 1, "铺出片头视频节点");
+  const board = introNodes.find(n => n.type === "image");
+  ok(board && board.data.ratio === "16:9", "标题板为 16:9 横屏");
 
   /* 项目页：卡网格 / 搜索 / 回收站 */
   await D.projects.render(); await settle();

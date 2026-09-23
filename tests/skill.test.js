@@ -170,6 +170,18 @@ test("Skill：剧本设定器整链落进工程并连边", () => {
   assert.equal(built.run.length, 1);
 });
 
+test("Skill：创意片头铺出文案/横屏标题板/片头视频", () => {
+  const { D } = createDrama();
+  const pl = D.skill.plan({ name: "创意片头", cat: "video", pipeline: "intro", prompt: "主题：{input}" }, "星际迷航");
+  assert.deepEqual(pl.nodes.map(n => n.type), ["text", "image", "video"]);
+  assert.equal(pl.nodes[1].data.ratio, "16:9");
+  assert.equal(pl.nodes[2].data.ratio, "16:9");
+  assert.equal(pl.nodes[2].data.duration, 4);
+  assert.equal(pl.run.length, 2);
+  assert.equal(pl.edges.length, 2);
+  assert.ok(pl.nodes[0].data.text.indexOf("星际迷航") >= 0, "文案带入主题");
+});
+
 test("Skill：fromText 用首个非空行作标题并补 {input}", () => {
   const { D } = createDrama();
   const s = D.skill.fromText("# 我的口播风格\n\n先抛出痛点，再给方案。", { fileName: "koban.md" });

@@ -117,6 +117,7 @@
     const m = media(skill);
     if (skill && skill.pipeline === "shots") return planShots(skill, input, m);
     if (skill && skill.pipeline === "script") return planScript(skill, input);
+    if (skill && skill.pipeline === "intro") return planIntro(skill, input);
     const title = skill.name;
     const nodes = [
       { ref: "text", type: "text", x: X0, y: Y0, data: { text: fillPrompt(skill, input), title: title } },
@@ -197,6 +198,19 @@
     ];
     const edges = [["brief", "hero"]];
     return { media: "image", title: title, genre: "comic", nodes: nodes, edges: edges, run: ["hero"], shots: 0 };
+  }
+
+  /* 创意片头：文案 → 横屏标题板 → 片头短视频（默认 16:9、4 秒） */
+  function planIntro(skill, input) {
+    const title = skill.name;
+    const brief = fillPrompt(skill, input);
+    const nodes = [
+      { ref: "copy", type: "text", x: X0, y: Y0, data: { text: brief, title: "片头文案" } },
+      { ref: "board", type: "image", x: X1, y: Y0, data: { prompt: brief, ratio: "16:9", title: "标题板" } },
+      { ref: "clip", type: "video", x: X2, y: Y0, data: { prompt: "标题入场动画，节奏明快，片头氛围", ratio: "16:9", duration: 4, title: "片头视频" } }
+    ];
+    const edges = [["copy", "board"], ["board", "clip"]];
+    return { media: "video", title: title, genre: "realistic", nodes: nodes, edges: edges, run: ["board", "clip"], shots: 0 };
   }
 
   /* 把规划落到工程上，返回节点 id 映射与待生成清单 */
