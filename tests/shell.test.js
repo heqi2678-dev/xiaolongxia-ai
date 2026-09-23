@@ -60,9 +60,10 @@ function bootApp() {
 
 test("外壳：主导航与账号菜单定义稳定", () => {
   const { shell } = bootShell();
-  assert.deepEqual(shell.NAV.map(x => x.id), [
-    "newProject", "agent", "home", "projects", "assets", "tvshow", "ranking", "box3d", "plugin"
+  assert.deepEqual(shell.NAV.filter(x => !x.sep).map(x => x.id), [
+    "newProject", "agent", "home", "projects", "assets", "tvshow", "ranking", "box3d", "plugin", "toolkit"
   ]);
+  assert.equal(shell.NAV.filter(x => x.sep).length, 1, "只有一条分组分隔线");
   assert.equal(shell.NAV.filter(x => x.primary).length, 1, "只有一个主按钮");
   assert.equal(shell.NAV[0].primary, true);
   assert.deepEqual(shell.ACCOUNT.map(x => x.id), ["settings", "memory", "download"]);
@@ -74,9 +75,10 @@ test("外壳：挂载渲染主按钮、导航项、状态条与账号区", () =>
   shell.mount();
   assert.ok(doc.querySelector("#shellCreate"), "渲染新建项目主按钮");
   const items = doc.querySelectorAll(".shell-nav-item");
-  assert.equal(items.length, shell.NAV.length - 1, "主按钮不计入导航项");
+  assert.equal(items.length, shell.NAV.length - 2, "主按钮与分隔线不计入导航项");
+  assert.equal(doc.querySelectorAll(".shell-nav-sep").length, 1, "渲染一条分组分隔线");
   assert.deepEqual(Array.from(items).map(el => el.getAttribute("data-view")),
-    shell.NAV.filter(x => !x.primary).map(x => x.id));
+    shell.NAV.filter(x => !x.primary && !x.sep).map(x => x.id));
   assert.ok(doc.querySelector("#shellStatus #shellKeyText"), "渲染钥匙状态");
   assert.ok(doc.querySelector("#shellStatus #shellModelText"), "渲染模型状态");
   assert.ok(doc.querySelector("#shellTop #shellAccountBtn"), "渲染账号入口");
@@ -92,6 +94,7 @@ test("外壳：侧栏文案对齐 LibTV（品牌前缀 + 插件两行）", () =>
   const plugin = doc.querySelector('.shell-nav-item[data-view="plugin"]');
   assert.equal(plugin.querySelector(".shell-nav-sub").textContent, "铜龙电商 Plugin", "插件占两行");
   assert.equal(doc.querySelectorAll(".shell-nav-sub").length, 1, "只有插件是两行");
+  assert.equal(txt("toolkit").textContent, "工具包", "工具包入口存在");
 });
 
 test("外壳：顶部提供分享与历史入口，历史按快照启用", () => {

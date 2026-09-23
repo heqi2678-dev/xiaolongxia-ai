@@ -1,7 +1,7 @@
 /* 铜龙电商 · LibTV 风格外壳 */
 /* 左侧统一导航 + 顶部状态条 + 账号菜单；视图切换统一走 XLX.app.go */
 (function () {
-  /* 主导航（LibTV 左侧）。newProject 为主按钮，其余为视图入口 */
+  /* 主导航（LibTV 左侧）。newProject 为主按钮，sep 为分组分隔线，其余为视图入口 */
   const NAV = [
     { id: "newProject", label: "新建项目", icon: "plus", primary: true },
     { id: "agent", label: "铜龙电商 Agent", icon: "chat" },
@@ -10,8 +10,10 @@
     { id: "assets", label: "资产", icon: "palette" },
     { id: "tvshow", label: "TV Show", icon: "clapper", badge: "全网爆款" },
     { id: "ranking", label: "创作者挑战赛", icon: "trophy", badge: "王者大赛" },
+    { sep: true },
     { id: "box3d", label: "铜龙电商 3D-BOX", icon: "box" },
-    { id: "plugin", label: "Blender 插件", sub: "铜龙电商 Plugin", icon: "hammer" }
+    { id: "plugin", label: "Blender 插件", sub: "铜龙电商 Plugin", icon: "hammer" },
+    { id: "toolkit", label: "工具包", icon: "grid" }
   ];
 
   /* 账号菜单（从主导航移出，复用原视图） */
@@ -54,8 +56,9 @@
   }
 
   function navHtml() {
-    return NAV.filter(it => !it.primary).map(it =>
-      '<button class="shell-nav-item" data-view="' + it.id + '" title="' + esc(it.label) + '">'
+    return NAV.filter(it => !it.primary).map(it => it.sep
+      ? '<div class="shell-nav-sep"></div>'
+      : '<button class="shell-nav-item" data-view="' + it.id + '" title="' + esc(it.label) + '">'
       + icon(it.icon)
       + '<span class="shell-nav-txt">' + esc(it.label) + (it.sub ? '<i class="shell-nav-sub">' + esc(it.sub) + '</i>' : "") + "</span>"
       + (it.badge ? '<em class="shell-badge">' + esc(it.badge) + '</em>' : '')

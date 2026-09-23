@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "timeline.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "guide.js",
-  "manual.js", "auto.js", "makeup.js", "canvas.js", "box3d.js", "box3dview.js", "shell.js"
+  "manual.js", "auto.js", "makeup.js", "canvas.js", "box3d.js", "box3dview.js", "toolkit.js", "shell.js"
 ];
 
 let pass = 0;
@@ -37,6 +37,7 @@ const HTML = `<!doctype html><html><head><title>t</title></head><body>
 <div id="rankingView" class="view"><div id="dramaRanking"></div></div>
 <div id="box3dView" class="view"><div id="dramaBox3d"></div></div>
 <div id="pluginView" class="view"><div id="dramaPlugin"></div></div>
+<div id="toolkitView" class="view"><div id="dramaToolkit"></div></div>
 <div id="dramaView" class="view"><div id="dwManual"></div></div>
 <div id="modal"></div>
 </body></html>`;
@@ -489,20 +490,32 @@ async function flowProjectLifecycle(env) {
 /* ============================ 链路六：项目中心 + 首页 Skill 墙 + 排行 ============================ */
 async function flowHome(env) {
   const { doc, D } = env;
-  console.log("\n链路六：项目中心（卡网格 / 搜索 / 回收站）+ 首页 Skill 墙 + 模板排行");
+  console.log("\n链路六：项目中心（卡网格 / 搜索 / 回收站）+ 首页新建画布 + 工具包 + 模板排行");
 
-  /* 首页 Skill 墙：分类条 / 搜索 / 点选建工程 */
+  /* 首页：新建画布 hero + 模型/工具行 + 最近项目/上新 */
   await D.home.render(); await settle();
-  ok(doc.querySelectorAll("#dramaHome [data-hs-skill]").length > 0, "首页 Skill 墙已渲染");
-  ok(doc.querySelectorAll("#dramaHome [data-hs-cat]").length >= 9, "首页分类条已渲染");
+  ok(!!doc.querySelector("#dramaHome #hxCreate"), "首页渲染新建画布入口");
+  eq(doc.querySelectorAll("#dramaHome [data-hx-tool]").length, 8, "首页渲染 8 个模型/工具");
+  ok(!!doc.querySelector("#dramaHome #hxRelease"), "首页渲染最近上新入口");
+  const beforeHome = D.project.list().length;
+  await click(doc, "#dramaHome #hxCreate", 30);
+  eq(D.project.list().length, beforeHome + 1, "新建画布创建工程");
+  eq(W.XLX.app.currentView, "drama", "新建画布进入导演台");
+  ok(!!(D.manual.state && D.manual.state.pid), "新建画布已载入导演台");
+
+  /* 工具包：能力入口 / Skill 墙分类 / 搜索 */
+  await D.toolkit.render(); await settle();
+  eq(doc.querySelectorAll("#dramaToolkit [data-pl-go]").length, 3, "工具包三个能力入口");
+  ok(doc.querySelectorAll("#dramaToolkit [data-hs-skill]").length > 0, "工具包 Skill 墙已渲染");
+  ok(doc.querySelectorAll("#dramaToolkit [data-hs-cat]").length >= 9, "工具包分类条已渲染");
   await setInput(doc, "#hsQ", "绝不可能匹配的技能", 3);
-  eq(doc.querySelectorAll("#dramaHome [data-hs-skill]").length, 0, "Skill 搜索无结果时清空");
+  eq(doc.querySelectorAll("#dramaToolkit [data-hs-skill]").length, 0, "Skill 搜索无结果时清空");
   await setInput(doc, "#hsQ", "", 3);
-  ok(doc.querySelectorAll("#dramaHome [data-hs-skill]").length > 0, "清空 Skill 搜索后恢复");
+  ok(doc.querySelectorAll("#dramaToolkit [data-hs-skill]").length > 0, "清空 Skill 搜索后恢复");
 
   const beforeSkill = D.project.list().length;
-  const firstSkill = q(doc, "#dramaHome [data-hs-skill]");
-  eq(firstSkill.dataset.hsSkill, "sk-video", "首页首张为生成类 Skill");
+  const firstSkill = q(doc, "#dramaToolkit [data-hs-skill]");
+  eq(firstSkill.dataset.hsSkill, "sk-video", "工具包首张为生成类 Skill");
   firstSkill.click(); await settle(30);
   eq(D.project.list().length, beforeSkill + 1, "点选生成类 Skill 建工程");
   const made = D.project.list().find(p => D.canvas.activeCanvas(p).nodes.length > 0);
@@ -510,14 +523,15 @@ async function flowHome(env) {
   ok(D.canvas.activeCanvas(made).nodes.some(n => n.type === "text"), "首节点为文本节点");
 
   /* 技能类型分流：对话/搜索 → Agent 对话；工具 → 工具箱；生成类 → 画布 */
-  eq(D.home.kind(W.XLX.getSkill("sk-chat")).id, "chat", "对话类技能识别为 chat");
-  eq(D.home.kind(W.XLX.getSkill("sk-search")).id, "search", "搜索类技能识别为 search");
-  eq(D.home.kind(W.XLX.getSkill("sk-tool")).id, "tool", "工具类技能识别为 tool");
-  eq(D.home.kind(W.XLX.getSkill("sk-video")).id, "gen", "生成类技能识别为 gen");
-  eq(q(doc, '#dramaHome [data-hs-skill="sk-chat"] .hs-badge').textContent, "对话", "卡片角标显示技能类型");
+  eq(D.toolkit.kind(W.XLX.getSkill("sk-chat")).id, "chat", "对话类技能识别为 chat");
+  eq(D.toolkit.kind(W.XLX.getSkill("sk-search")).id, "search", "搜索类技能识别为 search");
+  eq(D.toolkit.kind(W.XLX.getSkill("sk-tool")).id, "tool", "工具类技能识别为 tool");
+  eq(D.toolkit.kind(W.XLX.getSkill("sk-video")).id, "gen", "生成类技能识别为 gen");
+  eq(D.home.kind(W.XLX.getSkill("sk-video")).id, "gen", "首页 kind 转发工具包");
+  eq(q(doc, '#dramaToolkit [data-hs-skill="sk-chat"] .hs-badge').textContent, "对话", "卡片角标显示技能类型");
 
   const beforeChat = D.project.list().length;
-  await click(doc, '#dramaHome [data-hs-skill="sk-chat"]', 4);
+  await click(doc, '#dramaToolkit [data-hs-skill="sk-chat"]', 4);
   ok(doc.getElementById("modal").classList.contains("open"), "对话类技能弹出需求输入弹窗");
   await setInput(doc, "#hsSkillInput", "保温杯", 3);
   await click(doc, "#hsSkillOk", 20); await wait(120);
@@ -526,24 +540,24 @@ async function flowHome(env) {
   has(W.XLX.chat.sent[0].t, "保温杯", "对话提示词已填入需求");
   eq(W.XLX.app.currentView, "agent", "对话类技能跳转 Agent");
 
-  await D.home.render(); await settle();
-  await click(doc, '#dramaHome [data-hs-skill="sk-search"]', 4);
+  await D.toolkit.render(); await settle();
+  await click(doc, '#dramaToolkit [data-hs-skill="sk-search"]', 4);
   await setInput(doc, "#hsSkillInput", "露营", 3);
   await click(doc, "#hsSkillOk", 20); await wait(120);
   eq(W.XLX.chat.sent.length, 2, "搜索类技能送入对话");
   ok(W.XLX.chat.sent[1].o && W.XLX.chat.sent[1].o.search === true, "搜索类技能带联网开关");
 
-  await D.home.render(); await settle();
-  await click(doc, '#dramaHome [data-hs-skill="sk-tool"]', 20); await wait(150);
+  await D.toolkit.render(); await settle();
+  await click(doc, '#dramaToolkit [data-hs-skill="sk-tool"]', 20); await wait(150);
   eq(W.XLX.tools.opened, "imgwm", "工具类技能打开对应工具");
   eq(W.XLX.app.currentView, "tools", "工具类技能跳转工具箱");
 
   /* 收藏分栏 */
-  await D.home.render(); await settle();
-  await click(doc, "#dramaHome [data-hs-fav]", 4);
-  ok(D.home.state.tab !== "fav" || true, "收藏按钮可点击");
-  await click(doc, '#dramaHome [data-hs-tab="fav"]', 4);
-  ok(doc.querySelectorAll('#dramaHome [data-hs-skill]').length >= 1, "收藏分栏有内容");
+  await D.toolkit.render(); await settle();
+  await click(doc, "#dramaToolkit [data-hs-fav]", 4);
+  ok(D.toolkit.state.tab !== "fav" || true, "收藏按钮可点击");
+  await click(doc, '#dramaToolkit [data-hs-tab="fav"]', 4);
+  ok(doc.querySelectorAll('#dramaToolkit [data-hs-skill]').length >= 1, "收藏分栏有内容");
 
   /* 项目页：卡网格 / 搜索 / 回收站 */
   await D.projects.render(); await settle();
@@ -567,22 +581,17 @@ async function flowHome(env) {
   eq(D.project.list().length, before + 1, "排行点选题材模板建工程");
   ok(D.manual.state.project && !!D.manual.state.project.templateId, "模板工程已载入导演台");
 
-  /* 插件页：技能库（全量 / 分类 / 搜索 / 分流） */
+  /* 插件页：Blender 落地页（下载 / 安装指南 / 直达 3D 导演台） */
   await D.plugin.render(); await settle();
-  eq(doc.querySelectorAll("#dramaPlugin [data-pl-go]").length, 3, "插件页三个入口仍在");
-  eq(doc.querySelectorAll("#dramaPlugin [data-pl-skill]").length, W.XLX.SKILLS.length, "技能库列出全部技能");
-  ok(doc.querySelectorAll("#dramaPlugin [data-pl-cat]").length >= 2, "技能库有分类条");
-  await setInput(doc, "#plQ", "绝不可能匹配的技能", 3);
-  eq(doc.querySelectorAll("#dramaPlugin [data-pl-skill]").length, 0, "技能库搜索无结果清空");
-  await setInput(doc, "#plQ", "", 3);
-  eq(doc.querySelectorAll("#dramaPlugin [data-pl-skill]").length, W.XLX.SKILLS.length, "技能库清空搜索恢复");
-  const beforePlug = D.project.list().length;
-  await click(doc, '#dramaPlugin [data-pl-skill="sk-chat"]', 4);
-  ok(doc.getElementById("modal").classList.contains("open"), "技能库点对话技能弹出输入弹窗");
-  await setInput(doc, "#hsSkillInput", "咖啡机", 3);
-  await click(doc, "#hsSkillOk", 20); await wait(120);
-  eq(D.project.list().length, beforePlug, "技能库对话技能不建工程");
-  has(W.XLX.chat.sent[W.XLX.chat.sent.length - 1].t, "咖啡机", "技能库提示词已填入需求");
+  ok(!!doc.querySelector("#dramaPlugin #plDownload"), "Blender 插件页渲染下载入口");
+  ok(!!doc.querySelector("#dramaPlugin #plGuide"), "Blender 插件页渲染安装指南");
+  ok(!!doc.querySelector("#dramaPlugin #plDirector"), "Blender 插件页渲染 3D 导演台入口");
+  await click(doc, "#dramaPlugin #plGuide", 4);
+  ok(doc.getElementById("modal").classList.contains("open"), "安装指南弹出说明弹窗");
+  const guideClose = doc.getElementById("plGuideClose");
+  if (guideClose) guideClose.click();
+  await click(doc, "#dramaPlugin #plDirector", 20);
+  eq(W.XLX.app.currentView, "box3d", "插件页直达 3D 导演台");
 
   /* TV Show 成片库 + 去流水线创作 */
   await D.tvshow.render(); await settle();

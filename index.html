@@ -72,6 +72,7 @@ a{color:var(--blue);text-decoration:none}
 .shell-nav-item>span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .shell-badge{font-style:normal;font-size:10px;padding:1px 7px;border-radius:999px;background:var(--panel2);color:var(--text3);border:1px solid var(--border);flex-shrink:0}
 .shell-nav-item.active .shell-badge{background:rgba(0,0,0,.18);color:var(--accent-ink);border-color:transparent}
+.shell-nav-sep{height:1px;background:var(--border);margin:8px 6px;flex-shrink:0}
 .shell-status{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer;white-space:nowrap}
 .shell-status:hover{border-color:var(--accent)}
 .shell-status svg{width:14px;height:14px;color:var(--text3);flex-shrink:0}
@@ -448,7 +449,7 @@ select.inp{padding-right:34px}
   .shell-acc-text{display:none}
   .shell-account-menu{min-width:150px}
   .view.active{overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
-  #dramaHome,#dwHome,#dwMakeup,#dwTvshow,#dwAuto,#dramaRanking,#dramaBox3d,#dramaPlugin,#dwManual{flex-shrink:0;min-height:0}
+  #dramaHome,#dwHome,#dwMakeup,#dwTvshow,#dwAuto,#dramaRanking,#dramaBox3d,#dramaPlugin,#dramaToolkit,#dwManual{flex-shrink:0;min-height:0}
   .ms-drop{left:0;right:0;min-width:0;max-width:none}
   #chatBox{padding:16px 0}
   .chat-inner{padding:0 14px}
@@ -733,8 +734,11 @@ select.inp{padding-right:34px}
     <!-- 3D-BOX -->
     <div id="box3dView" class="view"><div id="dramaBox3d"></div></div>
 
-    <!-- 插件 -->
+    <!-- Blender 插件 -->
     <div id="pluginView" class="view"><div id="dramaPlugin"></div></div>
+
+    <!-- 工具包 -->
+    <div id="toolkitView" class="view"><div id="dramaToolkit"></div></div>
 
     <!-- 画布工作台 -->
     <div id="dramaView" class="view"><div id="dwManual"></div></div>
@@ -4203,6 +4207,7 @@ XLX.studio = (function () {
 <script src="src/drama/canvas.js"></script>
 <script src="src/drama/box3d.js"></script>
 <script src="src/drama/box3dview.js"></script>
+<script src="src/drama/toolkit.js"></script>
 <script src="src/drama/shell.js"></script>
 <script>
 /* ===== 记忆习惯视图 & 客户端下载视图 ===== */
@@ -4372,7 +4377,7 @@ XLX.dlview = (function () {
 
 XLX.app = (function () {
   /* LibTV 顶层视图。drama = 画布工作台；studio/tools 作为插件页内部入口保留可达 */
-  const VIEWS = ["agent", "home", "projects", "assets", "tvshow", "auto", "ranking", "box3d", "plugin", "studio", "tools", "memory", "download", "settings", "drama"];
+  const VIEWS = ["agent", "home", "projects", "assets", "tvshow", "auto", "ranking", "box3d", "plugin", "toolkit", "studio", "tools", "memory", "download", "settings", "drama"];
   /* 旧视图 → 新导航兼容映射（旧代码/旧链接仍能落到正确页面） */
   const COMPAT = { chat: "agent", market: "home", dramaHome: "projects", makeup: "assets", auto: "auto" };
   /* 视图 → 容器 id（默认 view + "View"，agent 复用原对话容器） */
@@ -4392,14 +4397,15 @@ XLX.app = (function () {
   function renderView(view) {
     const D = XLX.drama || {};
     switch (view) {
-      case "home": return D.home && D.home.render ? D.home.render() : placeholder("dramaHome", "首页 Skill 墙", "灵感输入 + Skill 墙");
-      case "projects": return D.projects && D.projects.render ? D.projects.render() : (D.home && D.home.render ? D.home.render() : placeholder("dwHome", "项目", "还没有工程"));
+      case "home": return D.home && D.home.render ? D.home.render() : placeholder("dramaHome", "首页", "新建画布 + 最近项目");
+      case "projects": return D.projects && D.projects.render ? D.projects.render() : placeholder("dwHome", "项目", "还没有工程");
       case "assets": return D.assets && D.assets.render ? D.assets.render() : (D.makeup && D.makeup.render ? D.makeup.render() : placeholder("dwMakeup", "资产", "还没有资产"));
       case "tvshow": return D.tvshow && D.tvshow.render ? D.tvshow.render() : placeholder("dwTvshow", "TV Show", "成片库为空");
       case "auto": return D.auto && D.auto.render ? D.auto.render() : placeholder("dwAuto", "流水线", "去流水线创作");
       case "ranking": return D.ranking && D.ranking.render ? D.ranking.render() : placeholder("dramaRanking", "创作者挑战赛", "模板排行（建设中）");
       case "box3d": return D.box3dview && D.box3dview.render ? D.box3dview.render() : placeholder("dramaBox3d", "3D-BOX", "多机位 · 大师运镜 · 灯光相机（建设中）");
-      case "plugin": return D.plugin && D.plugin.render ? D.plugin.render() : placeholder("dramaPlugin", "插件", "软件工坊 / 工具箱 / 客户端下载（建设中）");
+      case "plugin": return D.plugin && D.plugin.render ? D.plugin.render() : placeholder("dramaPlugin", "Blender 插件", "3D 白模 一键成片（建设中）");
+      case "toolkit": return D.toolkit && D.toolkit.render ? D.toolkit.render() : placeholder("dramaToolkit", "工具包", "软件工坊 / 工具箱 / 技能库（建设中）");
       case "drama": return D.manual && D.manual.render ? D.manual.render() : null;
       case "studio": return XLX.studio && XLX.studio.render();
       case "tools": return XLX.tools && XLX.tools.render();
@@ -4413,7 +4419,7 @@ XLX.app = (function () {
     const mn = document.getElementById("mobileNav");
     if (!mn) return;
     const NAV = (XLX.dramaShell && XLX.dramaShell.NAV) || [];
-    mn.innerHTML = ["agent", "home", "projects", "assets", "plugin"]
+    mn.innerHTML = ["agent", "home", "projects", "box3d", "toolkit"]
       .map(id => NAV.find(x => x.id === id))
       .filter(Boolean)
       .map(it =>
@@ -4427,14 +4433,15 @@ XLX.app = (function () {
   function renderTopbar() {
     const names = {
       agent: ["Agent", "多平台免费模型 · 流式秒回"],
-      home: ["首页", "一句灵感 → 一个成片"],
+      home: ["首页", "新建画布 · 最近项目 · 最近上新"],
       projects: ["项目", "工程管理 · 多画布 · 一键起盘"],
       assets: ["资产", "三视图 · 场景卡 · 多参考"],
       tvshow: ["TV Show", "全网爆款成片库"],
       auto: ["流水线", "输入→审剧本→角色→批量生成→合成"],
       ranking: ["创作者挑战赛", "模板排行 · 王者大赛"],
       box3d: ["3D-BOX", "多机位 · 大师运镜 · 灯光相机 · 多角度 · 精准编辑"],
-      plugin: ["插件", "软件工坊 · 工具箱 · 客户端下载"],
+      plugin: ["Blender 插件", "3D 白模 一键成片"],
+      toolkit: ["工具包", "软件工坊 · 工具箱 · 全套技能库"],
       drama: ["画布工作台", "逐节点生成 · 自由掌控每一帧"],
       studio: ["软件工坊", "AI 开发完整软件 → 预览 → 一键打包下载"],
       tools: ["工具箱", "商品图下载、去水印、视频提取文案"],

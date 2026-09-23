@@ -1,59 +1,60 @@
-/* 铜龙电商 · AI 短剧工作台 · 插件页 */
-/* 聚合软件工坊 / 工具箱 / 客户端下载三个入口，并提供全部技能库（按类型分流后从这里开）。 */
+/* 铜龙电商 · AI 短剧工作台 · Blender 插件落地页 */
+/* 3D 白模一键成片：介绍 + 下载 + 安装指南 + 作品展示；右上角可直达 3D 导演台。 */
 (function () {
   const D = XLX.drama;
 
   function view() { return document.getElementById("dramaPlugin"); }
 
-  const ENTRIES = [
-    { go: "studio", icon: "hammer", color: "#38d9e6", name: "软件工坊", desc: "用一句话开发完整软件 → 预览 → 一键打包下载" },
-    { go: "tools", icon: "cart", color: "#ff8f5a", name: "工具箱", desc: "商品图下载、去水印、视频提取文案等免费工具" },
-    { go: "download", icon: "download", color: "#3ddc84", name: "客户端下载", desc: "手机 / 电脑客户端与离线版下载" }
+  const SHOWCASE = [
+    { name: "机甲白模 · 转场动画", color: "#38d9e6" },
+    { name: "角色循环动作", color: "#a78bfa" },
+    { name: "产品旋转展示", color: "#ff8f5a" },
+    { name: "场景漫游镜头", color: "#4aa8ff" },
+    { name: "粒子特效合成", color: "#ff7aa8" },
+    { name: "多机位渲染", color: "#3ddc84" }
   ];
 
-  const state = { cat: "all", q: "" };
+  const STEPS = [
+    "在 Blender 中打开你的白模工程，确认模型与相机的命名规范。",
+    "安装并启用「铜龙电商 Blender 插件」，插件会读取当前场景与相机。",
+    "在插件里填写镜头描述，选择画幅与模型，点击生成。",
+    "生成结果自动回传 3D-BOX，可继续做多机位、运镜与灯光调整。"
+  ];
 
   const CSS = `
-.pl-wrap{max-width:900px;margin:0 auto;padding:26px 16px 60px;width:100%}
-.pl-head{margin-bottom:20px}
-.pl-head h1{font-size:22px;font-weight:800;margin:0 0 4px}
-.pl-head p{margin:0;font-size:12px;color:var(--text3)}
-.pl-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-@media(max-width:720px){.pl-grid{grid-template-columns:1fr}}
-@media(max-width:600px){
-  .pl-wrap{padding:18px 12px 46px}
-  .pl-head h1{font-size:19px}
-  .pl-card{padding:16px}
-  .pl-sec{margin-top:26px}
-}
-.pl-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:20px;cursor:pointer;transition:border-color .15s,transform .15s;display:flex;flex-direction:column;gap:10px}
-.pl-card:hover{border-color:var(--accent);transform:translateY(-3px)}
-.pl-ic{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center}
-.pl-ic svg{width:24px;height:24px}
-.pl-name{font-size:15px;font-weight:700}
-.pl-desc{font-size:12px;color:var(--text3);line-height:1.65}
-.pl-sec{margin-top:34px}
+.pl-wrap{max-width:1000px;margin:0 auto;padding:26px 16px 60px;width:100%}
+.pl-top{display:flex;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-bottom:22px}
+.pl-logo{width:60px;height:60px;border-radius:17px;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent2);display:flex;align-items:center;justify-content:center;flex:none}
+.pl-logo svg{width:32px;height:32px}
+.pl-head{flex:1;min-width:220px}
+.pl-head h1{font-size:26px;font-weight:800;margin:0 0 8px}
+.pl-head p{margin:0;font-size:13px;color:var(--text3);line-height:1.75}
+.pl-cta{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto;align-self:flex-start}
+.pl-btn{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text)}
+.pl-btn.primary{border:none;background:var(--accent-grad);color:var(--accent-ink)}
+.pl-btn svg{width:16px;height:16px}
+.pl-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:26px}
+@media(max-width:820px){.pl-steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.pl-steps{grid-template-columns:1fr}}
+.pl-step{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px}
+.pl-step .pl-sn{width:26px;height:26px;border-radius:8px;background:var(--accent-grad);color:var(--accent-ink);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:9px}
+.pl-step .pl-st{font-size:12.5px;color:var(--text2);line-height:1.65}
 .pl-sec-h{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
 .pl-sec-h h2{font-size:16px;font-weight:800;margin:0}
 .pl-sec-h span{font-size:12px;color:var(--text3)}
-.pl-filter{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.pl-cats{display:flex;gap:8px;flex-wrap:wrap;flex:1}
-.pl-cat{border:1px solid var(--border);background:var(--card);color:var(--text2);border-radius:999px;padding:5px 13px;font-size:12px;cursor:pointer;transition:border-color .15s,color .15s}
-.pl-cat:hover{border-color:var(--accent);color:var(--text)}
-.pl-cat.on{border-color:var(--accent);color:var(--accent2);background:color-mix(in srgb,var(--accent) 12%,transparent)}
-.pl-search{display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:0 12px;height:32px}
-.pl-search svg{width:13px;height:13px;color:var(--text3)}
-.pl-search input{background:none;border:none;outline:none;color:var(--text);font-size:12.5px;width:130px}
-.pl-skills{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-@media(max-width:720px){.pl-skills{grid-template-columns:1fr}}
-.pl-skill{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:12px 14px;cursor:pointer;transition:border-color .15s,transform .15s}
-.pl-skill:hover{border-color:var(--accent);transform:translateX(3px)}
-.pl-skill .pl-ic{width:38px;height:38px;border-radius:11px;flex:none}
-.pl-skill .pl-ic svg{width:19px;height:19px}
-.pl-skill-txt{flex:1;min-width:0}
-.pl-skill-n{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pl-skill-d{font-size:11.5px;color:var(--text3);line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.pl-skill-tag{font-size:10.5px;color:var(--text3);border:1px solid var(--border);border-radius:999px;padding:3px 9px;flex:none}
+.pl-show{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media(max-width:720px){.pl-show{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.pl-show{grid-template-columns:1fr}}
+.pl-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:border-color .15s,transform .15s}
+.pl-card:hover{border-color:var(--accent);transform:translateY(-3px)}
+.pl-card .pl-cover{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center}
+.pl-card .pl-cover svg{width:26px;height:26px}
+.pl-card .pl-cn{padding:9px 11px;font-size:12.5px;font-weight:700}
+@media(max-width:600px){
+  .pl-wrap{padding:18px 12px 46px}
+  .pl-head h1{font-size:20px}
+  .pl-cta{margin-left:0;width:100%}
+}
 `;
 
   let cssDone = false;
@@ -66,39 +67,8 @@
     cssDone = true;
   }
 
-  function svg(name) {
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + ((XLX.ICONS && XLX.ICONS[name]) || "") + "</svg>";
-  }
-
-  function catColor(cat) {
-    const c = (XLX.CATS || []).find(x => x.id === cat);
-    return c ? c.color : "#38d9e6";
-  }
-
-  function skillKind(s) {
-    return D.home && D.home.kind ? D.home.kind(s) : { id: "chat", label: "对话" };
-  }
-
-  function skillList() {
-    let list = (XLX.SKILLS || []).slice();
-    if (state.cat !== "all") list = list.filter(s => s.cat === state.cat);
-    const q = state.q.trim().toLowerCase();
-    if (q) list = list.filter(s => (String(s.name) + " " + String(s.desc || "")).toLowerCase().indexOf(q) >= 0);
-    return list;
-  }
-
-  function skillsHtml() {
-    const list = skillList();
-    if (!list.length) return D.ui.emptyBox("没有匹配的技能，换个关键词试试。");
-    return '<div class="pl-skills">' + list.map(s => {
-      const color = catColor(s.cat);
-      return '<div class="pl-skill" data-pl-skill="' + D.ui.esc(s.id) + '">' +
-        '<div class="pl-ic" style="background:' + color + '22;color:' + color + '">' + svg(s.icon) + "</div>" +
-        '<div class="pl-skill-txt"><div class="pl-skill-n">' + D.ui.esc(s.name) + "</div>" +
-          '<div class="pl-skill-d">' + D.ui.esc(s.desc || "") + "</div></div>" +
-        '<span class="pl-skill-tag">' + skillKind(s).label + "</span>" +
-      "</div>";
-    }).join("") + "</div>";
+  function svg(name, size) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:' + (size || 16) + "px;height:" + (size || 16) + 'px">' + ((XLX.ICONS && XLX.ICONS[name]) || "") + '</svg>';
   }
 
   function render() {
@@ -106,52 +76,57 @@
     ensureCss();
     const v = view();
     if (!v) return;
-    const cats = (XLX.CATS && XLX.CATS.length ? XLX.CATS : [{ id: "all", name: "全部" }]);
-    v.innerHTML = '<div class="pl-wrap">' +
-      '<div class="pl-head"><h1>插件</h1><p>短剧之外的创作能力，都在这里</p></div>' +
-      '<div class="pl-grid">' + ENTRIES.map(e =>
-        '<div class="pl-card" data-pl-go="' + e.go + '">' +
-          '<div class="pl-ic" style="background:' + e.color + '22;color:' + e.color + '">' + svg(e.icon) + "</div>" +
-          '<div class="pl-name">' + e.name + "</div>" +
-          '<div class="pl-desc">' + e.desc + "</div>" +
-        "</div>"
-      ).join("") + "</div>" +
-      '<div class="pl-sec">' +
-        '<div class="pl-sec-h"><h2>技能库</h2><span>共 ' + (XLX.SKILLS || []).length + ' 个 · 点开即用</span></div>' +
-        '<div class="pl-filter">' +
-          '<div class="pl-cats">' + cats.map(c =>
-            '<button class="pl-cat' + (state.cat === c.id ? " on" : "") + '" data-pl-cat="' + c.id + '">' + D.ui.esc(c.name) + "</button>"
-          ).join("") + "</div>" +
-          '<div class="pl-search">' + svg("search") +
-            '<input id="plQ" placeholder="搜索技能" value="' + D.ui.esc(state.q) + '">' +
-          "</div>" +
-        "</div>" +
-        '<div id="plSkills">' + skillsHtml() + "</div>" +
-      "</div>" +
-    "</div>";
-    v.querySelectorAll("[data-pl-go]").forEach(c => { c.onclick = () => { if (XLX.app && XLX.app.go) XLX.app.go(c.dataset.plGo); }; });
-    v.querySelectorAll("[data-pl-cat]").forEach(c => { c.onclick = () => { state.cat = c.dataset.plCat; render(); }; });
-    const q = v.querySelector("#plQ");
-    if (q) q.oninput = (e) => { state.q = e.target.value; rerenderSkills(); };
-    bindSkills(v);
+    v.innerHTML = '<div class="pl-wrap">'
+      + '<div class="pl-top">'
+      +   '<div class="pl-logo">' + svg("box", 32) + "</div>"
+      +   '<div class="pl-head"><h1>3D 白模 一键成片</h1>'
+      +     '<p>把 Blender 里的白模场景一键交给 AI：自动补全材质、灯光与运镜，直接产出可用的镜头片段。'
+      +     '生成的镜头会回到 3D-BOX，继续做多机位、大师运镜与精准编辑。</p></div>'
+      +   '<div class="pl-cta">'
+      +     '<button class="pl-btn primary" id="plDownload">' + svg("download") + "下载 Blender 插件</button>"
+      +     '<button class="pl-btn" id="plGuide">' + svg("book") + "安装指南</button>"
+      +     '<button class="pl-btn" id="plDirector">' + svg("grid") + "体验 3D 导演台</button>"
+      +   "</div>"
+      + "</div>"
+      + '<div class="pl-steps">' + STEPS.map((t, i) =>
+          '<div class="pl-step"><div class="pl-sn">' + (i + 1) + '</div><div class="pl-st">' + D.ui.esc(t) + "</div></div>"
+        ).join("") + "</div>"
+      + '<div class="pl-sec"><div class="pl-sec-h"><h2>作品展示</h2><span>用插件产出的 3D 镜头</span></div>'
+      +   '<div class="pl-show">' + SHOWCASE.map(c =>
+            '<div class="pl-card"><div class="pl-cover" style="background:linear-gradient(135deg,' + c.color + '33,' + c.color + '0d);color:' + c.color + '">' + svg("box", 26) + '</div>'
+            + '<div class="pl-cn">' + D.ui.esc(c.name) + "</div></div>"
+          ).join("") + "</div>"
+      + "</div>"
+      + "</div>";
+    bind(v);
   }
 
-  function rerenderSkills() {
-    const v = view();
-    if (!v) return;
-    const box = v.querySelector("#plSkills");
-    if (!box) return;
-    box.innerHTML = skillsHtml();
-    bindSkills(box);
+  function bind(v) {
+    const dl = v.querySelector("#plDownload");
+    if (dl) dl.onclick = () => {
+      if (XLX.app && XLX.app.go) XLX.app.go("download");
+      if (XLX.util && XLX.util.toast) XLX.util.toast("前往客户端下载页获取 Blender 插件", "ok");
+    };
+    const gd = v.querySelector("#plGuide");
+    if (gd) gd.onclick = openGuide;
+    const di = v.querySelector("#plDirector");
+    if (di) di.onclick = () => { if (XLX.app && XLX.app.go) XLX.app.go("box3d"); };
   }
 
-  function bindSkills(root) {
-    root.querySelectorAll("[data-pl-skill]").forEach(el => {
-      el.onclick = () => {
-        const s = XLX.getSkill ? XLX.getSkill(el.dataset.plSkill) : null;
-        if (s && D.home && D.home.openSkill) D.home.openSkill(s);
-      };
-    });
+  function openGuide() {
+    const m = document.getElementById("modal");
+    if (!m) return;
+    m.innerHTML = '<div class="modal-box">'
+      + '<div class="modal-head"><div><div class="mt">Blender 插件安装指南</div><div class="ms">3D 白模 一键成片</div></div></div>'
+      + '<div class="modal-body"><ol style="margin:0;padding-left:20px;font-size:17px;line-height:2;color:var(--text2)">'
+      + STEPS.map(t => "<li>" + D.ui.esc(t) + "</li>").join("")
+      + "</ol></div>"
+      + '<div class="modal-foot"><button class="btn ghost" id="plGuideClose">关闭</button></div></div>';
+    m.classList.add("open");
+    const close = () => m.classList.remove("open");
+    m.onclick = (e) => { if (e.target === m) close(); };
+    const c = document.getElementById("plGuideClose");
+    if (c) c.onclick = close;
   }
 
   D.plugin = { render };

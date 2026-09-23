@@ -10,7 +10,8 @@ const DRAMA_FILES = [
   "adapters/tts.js", "adapters/lipsync.js", "project.js", "character.js",
   "takes.js", "engine.js", "compliance.js", "compose.js", "ui.js",
   "templates.js", "models.js", "timeline.js", "home.js", "guide.js",
-  "manual.js", "auto.js", "makeup.js", "canvas.js", "box3d.js", "box3dview.js"
+  "manual.js", "auto.js", "makeup.js", "canvas.js", "box3d.js", "box3dview.js",
+  "toolkit.js"
 ];
 
 function noop() {}

@@ -23,7 +23,8 @@ BASE = (_POSARGS[0] if _POSARGS else "http://127.0.0.1:9140").rstrip("/")
 APP_PATH = "/dian/"
 GATE_USER = os.environ.get("AUDIT_USER", "zhuren")
 GATE_PASS = os.environ.get("AUDIT_PASS", "")
-VIEWS = ["chat", "market", "studio", "dramaHome", "drama", "auto", "tools", "memory", "download", "settings"]
+VIEWS = ["chat", "market", "studio", "dramaHome", "drama", "auto", "tools", "memory", "download", "settings",
+         "box3d", "plugin", "toolkit"]
 
 try:
     from selenium import webdriver
@@ -232,6 +233,12 @@ def audit_size(driver, width, height, mobile=False):
                              " return !!w && !!w.querySelector('.cv-wrap');")
         elif view == "auto":
             wait_for(driver, "return !!document.querySelector('#dwAuto .dw-wrap');")
+        elif view == "box3d":
+            wait_for(driver, "return !!document.querySelector('#dramaBox3d .bv-wrap');")
+        elif view == "plugin":
+            wait_for(driver, "return !!document.querySelector('#dramaPlugin .pl-wrap');")
+        elif view == "toolkit":
+            wait_for(driver, "return !!document.querySelector('#dramaToolkit .hs-wrap');")
         time.sleep(0.45)
         res = driver.execute_script(AUDIT_JS)
         issues = res.get("issues", [])
