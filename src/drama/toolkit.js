@@ -315,6 +315,18 @@
       askSkillInput(skill, (input) => runInChat(skill, input));
       return;
     }
+    /* 生成类但需要素材（如导演分身要梗概）：先收集需求，再走 Skill 引擎出片 */
+    if (kind.id === "gen" && skill.askInput) {
+      askSkillInput(skill, (input) => {
+        state.busy = true;
+        markUsed(skill.id);
+        Promise.resolve()
+          .then(() => D.skill.run(skill, input, { generate: true }))
+          .catch((e) => U.toast((e && e.message) || "启动创作失败", "err"))
+          .finally(() => { state.busy = false; });
+      });
+      return;
+    }
     state.busy = true;
     try {
       markUsed(skill.id);

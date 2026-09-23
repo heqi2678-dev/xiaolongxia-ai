@@ -13,6 +13,9 @@
   const VIDEO_CATS = { video: 1, media: 1 };
 
   const X0 = 60, X1 = 420, X2 = 780, Y0 = 120;
+  const NH = (D.canvas && D.canvas.NH) || 200;
+  const VGAP = 28;
+  const MAX_SHOTS = 12;
 
   /* ============ 自定义 Skill 存储 ============ */
   function customs() {
@@ -112,6 +115,7 @@
   /* ============ 规划：确定性的节点流水线 ============ */
   function plan(skill, input) {
     const m = media(skill);
+    if (skill && skill.pipeline === "shots") return planShots(skill, input, m);
     const title = skill.name;
     const nodes = [
       { ref: "text", type: "text", x: X0, y: Y0, data: { text: fillPrompt(skill, input), title: title } },
@@ -124,7 +128,43 @@
       edges.push(["main", "clip"]);
       run.push("clip");
     }
-    return { media: m, title: title, genre: m === "video" ? "realistic" : "comic", nodes: nodes, edges: edges, run: run };
+    return { media: m, title: title, genre: m === "video" ? "realistic" : "comic", nodes: nodes, edges: edges, run: run, shots: 0 };
+  }
+
+  /* 把一段梗概切成分镜：优先空行/换行，其次按句末标点，最多 MAX_SHOTS 条 */
+  function shotChunks(text) {
+    const raw = String(text || "");
+    let parts = D.canvas.splitScript(raw);
+    if (parts.length <= 1) {
+      const single = (parts[0] || raw).trim();
+      const bySentence = single.split(/(?<=[。！？!?；;])/).map(s => s.trim()).filter(Boolean);
+      if (bySentence.length > 1) parts = bySentence;
+    }
+    return parts.slice(0, MAX_SHOTS);
+  }
+
+  /* 导演分身：梗概 → 分镜文本节点 + 逐镜图片（视频类再逐镜追加视频），全部由分镜文本连边 */
+  function planShots(skill, input, m) {
+    const title = skill.name;
+    const text = fillPrompt(skill, input);
+    const source = String(input || "").trim() || text;
+    const parts = shotChunks(source);
+    const shots = parts.length ? parts : [source];
+    const nodes = [{ ref: "text", type: "text", x: X0, y: Y0, data: { text: text, title: title } }];
+    const edges = [];
+    const run = [];
+    shots.forEach((t, i) => {
+      const iy = Y0 + i * (NH + VGAP);
+      nodes.push({ ref: "shot" + i, type: "image", x: X1, y: iy, data: { prompt: t, title: "分镜 " + (i + 1) } });
+      edges.push(["text", "shot" + i]);
+      run.push("shot" + i);
+      if (m === "video") {
+        nodes.push({ ref: "clip" + i, type: "video", x: X2, y: iy, data: { prompt: "", title: "分镜 " + (i + 1) } });
+        edges.push(["shot" + i, "clip" + i]);
+        run.push("clip" + i);
+      }
+    });
+    return { media: m, title: title, genre: m === "video" ? "realistic" : "comic", nodes: nodes, edges: edges, run: run, shots: shots.length };
   }
 
   /* 把规划落到工程上，返回节点 id 映射与待生成清单 */

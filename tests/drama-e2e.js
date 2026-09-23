@@ -197,7 +197,8 @@ function boot() {
     { id: "sk-design", name: "电商主图", desc: "商品海报", icon: "palette", cat: "design", prompt: "为{input}做主图" },
     { id: "sk-chat", name: "文案撰写", desc: "写电商文案", icon: "chat", cat: "design", action: "chat", prompt: "为{input}写文案" },
     { id: "sk-search", name: "热点追踪", desc: "联网搜热点", icon: "search", cat: "video", action: "search", prompt: "围绕{input}找热点\n{search}" },
-    { id: "sk-tool", name: "图片去水印", desc: "免费工具", icon: "sparkle", cat: "design", action: "tool", tool: "imgwm", prompt: "" }
+    { id: "sk-tool", name: "图片去水印", desc: "免费工具", icon: "sparkle", cat: "design", action: "tool", tool: "imgwm", prompt: "" },
+    { id: "sk-shots", name: "导演分身", desc: "梗概出分镜", icon: "film", cat: "video", media: "video", pipeline: "shots", askInput: true, action: "gen", prompt: "你是导演：{input}" }
   ];
   window.XLX.getSkill = (id) => window.XLX.SKILLS.find(s => s.id === id) || null;
   window.XLX.billing = { check: () => ({ ok: true }) };
@@ -600,6 +601,21 @@ async function flowHome(env) {
   D.toolkit.state.q = "端到端自定义"; D.toolkit.state.tab = "reco"; await D.toolkit.render(); await settle();
   ok(!!q(doc, '#dramaToolkit [data-hs-skill="' + customId + '"]'), "自定义 Skill 可被检索到");
   D.toolkit.state.q = ""; D.toolkit.state.tab = "reco";
+
+  /* 导演分身：生成类但需素材，收集梗概后拆多分镜出片 */
+  await D.toolkit.render(); await settle();
+  const beforeShots = D.project.list().length;
+  await click(doc, '#dramaToolkit [data-hs-skill="sk-shots"]', 4);
+  ok(doc.getElementById("modal").classList.contains("open"), "导演分身弹出需求输入弹窗");
+  await setInput(doc, "#hsSkillInput", "主角登场。反派现身。决战爆发。", 3);
+  await click(doc, "#hsSkillOk", 30); await wait(400); await settle();
+  eq(D.project.list().length, beforeShots + 1, "导演分身建工程");
+  const shotsProj = D.project.list()[0];
+  const shotNodes = D.canvas.activeCanvas(shotsProj).nodes;
+  eq(shotNodes.filter(n => n.type === "image").length, 3, "按三句拆出三个分镜图片节点");
+  eq(shotNodes.filter(n => n.type === "video").length, 3, "视频类逐镜追加视频节点");
+  ok(D.canvas.activeCanvas(shotsProj).edges.length >= 6, "分镜与视频均由边串联");
+  ok(shotNodes[1].data.prompt.indexOf("主角登场") >= 0, "分镜提示词来自用户梗概");
 
   /* 项目页：卡网格 / 搜索 / 回收站 */
   await D.projects.render(); await settle();

@@ -111,6 +111,40 @@ test("Skill：generate 时不阻塞，未配置服务商则不触网", async () 
   assert.equal(calls.length, 0);
 });
 
+test("Skill：导演分身流水线把梗概拆成逐镜图片+视频", () => {
+  const { D } = createDrama();
+  const skill = { name: "导演分身", cat: "video", media: "video", pipeline: "shots", action: "gen", prompt: "你是导演：{input}" };
+  const pl = D.skill.plan(skill, "第一镜。第二镜！第三镜？");
+  assert.equal(pl.shots, 3);
+  assert.deepEqual(pl.nodes[0].type, "text");
+  assert.equal(pl.nodes.filter(n => n.type === "image").length, 3);
+  assert.equal(pl.nodes.filter(n => n.type === "video").length, 3);
+  assert.equal(pl.edges.length, 6);
+  assert.equal(pl.run.length, 6);
+  assert.equal(pl.nodes[1].data.prompt, "第一镜。");
+  assert.ok(pl.nodes[0].data.text.indexOf("你是导演") >= 0, "文本节点保留导演提示词");
+});
+
+test("Skill：导演分身优先按空行/换行切分，且限制最大镜头数", () => {
+  const { D } = createDrama();
+  const img = { name: "导演分身", cat: "image", pipeline: "shots", action: "gen", prompt: "拆 {input}" };
+  const pl = D.skill.plan(img, "镜头甲\n\n镜头乙\n\n镜头丙");
+  assert.equal(pl.shots, 3);
+  assert.equal(pl.nodes.filter(n => n.type === "image").length, 3);
+  assert.equal(pl.nodes.filter(n => n.type === "video").length, 0);
+  const many = D.skill.plan(img, Array.from({ length: 30 }, (_, i) => "第" + i + "镜。").join(""));
+  assert.equal(many.shots, 12);
+});
+
+test("Skill：普通技能不收 shots 字段，导演分身按 input 而非提示词拆分", () => {
+  const { D } = createDrama();
+  const plain = D.skill.plan({ name: "主图", cat: "image", prompt: "画 {input}" }, "杯子");
+  assert.equal(plain.shots, 0);
+  const shots = D.skill.plan({ name: "导演分身", cat: "video", pipeline: "shots", prompt: "导演提示：{input}" }, "甲。乙。");
+  assert.equal(shots.nodes.filter(n => n.type === "image").length, 2);
+  assert.equal(shots.nodes[1].data.prompt, "甲。", "分镜来自 input");
+});
+
 test("Skill：fromText 用首个非空行作标题并补 {input}", () => {
   const { D } = createDrama();
   const s = D.skill.fromText("# 我的口播风格\n\n先抛出痛点，再给方案。", { fileName: "koban.md" });
