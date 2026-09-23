@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "timeline.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "guide.js",
-  "manual.js", "auto.js", "makeup.js", "canvas.js", "storyboard.js", "agent.js", "box3d.js", "box3dview.js", "toolkit.js", "shell.js"
+  "manual.js", "auto.js", "makeup.js", "canvas.js", "storyboard.js", "agent.js", "skill.js", "box3d.js", "box3dview.js", "toolkit.js", "shell.js"
 ];
 
 let pass = 0;
@@ -541,6 +541,9 @@ async function flowHome(env) {
   const made = D.project.list().find(p => D.canvas.activeCanvas(p).nodes.length > 0);
   ok(!!made, "Skill 工程已铺首节点");
   ok(D.canvas.activeCanvas(made).nodes.some(n => n.type === "text"), "首节点为文本节点");
+  const latest = D.project.list()[0];
+  ok(D.canvas.activeCanvas(latest).nodes.some(n => n.type === "image"), "生成类 Skill 铺出图片节点");
+  ok(D.canvas.activeCanvas(latest).edges.length >= 1, "Skill 流水线以边串联");
 
   /* 技能类型分流：对话/搜索 → Agent 对话；工具 → 工具箱；生成类 → 画布 */
   eq(D.toolkit.kind(W.XLX.getSkill("sk-chat")).id, "chat", "对话类技能识别为 chat");
@@ -578,6 +581,25 @@ async function flowHome(env) {
   ok(D.toolkit.state.tab !== "fav" || true, "收藏按钮可点击");
   await click(doc, '#dramaToolkit [data-hs-tab="fav"]', 4);
   ok(doc.querySelectorAll('#dramaToolkit [data-hs-skill]').length >= 1, "收藏分栏有内容");
+
+  /* Skill 执行引擎：内置+自定义合并、创建入口、自定义可检索 */
+  ok(D.skill && typeof D.skill.run === "function", "Skill 执行引擎已加载");
+  eq(D.skill.all().length >= W.XLX.SKILLS.length, true, "技能库含内置与自定义");
+  eq(D.skill.kind(W.XLX.getSkill("sk-video")).id, D.toolkit.kind(W.XLX.getSkill("sk-video")).id, "工具包 kind 转发引擎");
+  eq(D.skill.media(W.XLX.getSkill("sk-video")), "video", "视频技能媒体判定正确");
+  ok(!!doc.querySelector("#dramaToolkit #hsCreateSkill"), "工具有「创建 Skill」入口");
+  const customBefore = D.skill.customs().length;
+  D.toolkit.state.q = ""; D.toolkit.state.tab = "reco"; await D.toolkit.render(); await settle();
+  await click(doc, "#dramaToolkit #hsCreateSkill", 4);
+  ok(doc.getElementById("modal").classList.contains("open"), "创建 Skill 弹窗打开");
+  await setInput(doc, "#tkSkillName", "端到端自定义", 3);
+  await setInput(doc, "#tkSkillText", "写 {input} 的爆款文案", 3);
+  await click(doc, "#tkSkillOk", 4);
+  eq(D.skill.customs().length, customBefore + 1, "UI 创建的自定义 Skill 已入库");
+  const customId = D.skill.customs()[D.skill.customs().length - 1].id;
+  D.toolkit.state.q = "端到端自定义"; D.toolkit.state.tab = "reco"; await D.toolkit.render(); await settle();
+  ok(!!q(doc, '#dramaToolkit [data-hs-skill="' + customId + '"]'), "自定义 Skill 可被检索到");
+  D.toolkit.state.q = ""; D.toolkit.state.tab = "reco";
 
   /* 项目页：卡网格 / 搜索 / 回收站 */
   await D.projects.render(); await settle();

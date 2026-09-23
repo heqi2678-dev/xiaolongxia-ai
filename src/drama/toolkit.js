@@ -67,6 +67,8 @@
 .hs-tabs{display:flex;gap:22px;margin:26px 0 14px}
 .hs-tab{font-size:14px;color:var(--text3);cursor:pointer;padding-bottom:6px;border-bottom:2px solid transparent}
 .hs-tab.on{color:var(--text);border-bottom-color:var(--accent)}
+.hs-tab-create{margin-left:auto;color:var(--accent2)}
+.hs-tab-create:hover{border-bottom-color:var(--accent)}
 .hs-filterbar{width:100%;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 .hs-cats{display:flex;gap:8px;flex-wrap:wrap;flex:1}
 .hs-cat{border:1px solid var(--border);background:var(--card);color:var(--text2);border-radius:999px;padding:5px 13px;font-size:12px;cursor:pointer;transition:border-color .15s,color .15s}
@@ -142,13 +144,13 @@
   }
 
   function skillList() {
-    let list = (XLX.SKILLS || []).slice();
+    let list = (D.skill && D.skill.all ? D.skill.all() : (XLX.SKILLS || [])).slice();
     const cat = CATS.find(c => c.id === state.cat);
     if (cat && cat.match) list = list.filter(s => cat.match.indexOf(s.cat) >= 0);
     if (state.tab === "fav") list = list.filter(s => isFav(s.id));
     if (state.tab === "mine") {
       const used = readArr(K_USED);
-      list = list.filter(s => used.indexOf(s.id) >= 0);
+      list = list.filter(s => used.indexOf(s.id) >= 0 || s.custom);
     }
     const q = state.q.trim().toLowerCase();
     if (q) list = list.filter(s => (String(s.name) + " " + String(s.desc || "")).toLowerCase().indexOf(q) >= 0);
@@ -184,7 +186,7 @@
   function tabs() {
     return '<div class="hs-tabs">' + TABS.map(t =>
       '<div class="hs-tab' + (state.tab === t.id ? " on" : "") + '" data-hs-tab="' + t.id + '">' + D.ui.esc(t.name) + "</div>"
-    ).join("") + "</div>";
+    ).join("") + '<div class="hs-tab hs-tab-create" id="hsCreateSkill">+ 创建 Skill</div></div>';
   }
 
   function filterBar() {
@@ -243,6 +245,8 @@
     if (inp) inp.onkeydown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); } };
     const q = v.querySelector("#hsQ");
     if (q) q.oninput = (e) => { state.q = e.target.value; rerenderGrid(); };
+    const mk = v.querySelector("#hsCreateSkill");
+    if (mk) mk.onclick = createSkill;
     v.querySelectorAll("[data-hs-tab]").forEach(t => { t.onclick = () => { state.tab = t.dataset.hsTab; render(); }; });
     v.querySelectorAll("[data-hs-cat]").forEach(c => { c.onclick = () => { state.cat = c.dataset.hsCat; render(); }; });
     v.querySelectorAll("[data-pl-go]").forEach(c => { c.onclick = () => { if (XLX.app && XLX.app.go) XLX.app.go(c.dataset.plGo); }; });
@@ -283,8 +287,9 @@
     startBlank(text);
   }
 
-  /* 技能类型：工具 / 搜索 / 对话 / 生成（生成类才进画布） */
+  /* 技能类型：工具 / 搜索 / 对话 / 生成（生成类才进画布）。分类逻辑统一在 D.skill 引擎 */
   function skillKind(s) {
+    if (D.skill && D.skill.kind) return D.skill.kind(s);
     if (!s) return { id: "chat", label: "对话" };
     if (s.action === "tool") return { id: "tool", label: "工具" };
     if (s.action === "search") return { id: "search", label: "搜索" };
@@ -313,13 +318,7 @@
     state.busy = true;
     try {
       markUsed(skill.id);
-      const p = D.project.blank({ title: skill.name + "·" + new Date().toLocaleDateString(), genre: skill.cat === "video" ? "realistic" : "comic" });
-      const F = fillPrompt(skill, "");
-      const textNode = D.canvas.addNode(p, "text", 60, 120, { text: F, title: skill.name });
-      const gen = buildGenChain(p, skill, textNode.id);
-      await D.project.save(p);
-      await enterCanvas(p.id);
-      kickGenerate(p, gen);
+      await D.skill.run(skill, "", { generate: true });
     } catch (e) {
       U.toast((e && e.message) || "启动创作失败", "err");
     } finally {
@@ -343,40 +342,16 @@
     }
   }
 
-  /* 按 Skill 生成下游节点：影视/设计类追加图片节点，串到文本节点后 */
-  function buildGenChain(p, skill, fromId) {
-    const video = !!VIDEO_CATS[skill.cat];
-    const n = D.canvas.addNode(p, "image", 420, 120, {
-      prompt: "",
-      ratio: (p.output && p.output.ratio) || "9:16",
-      title: skill.name
-    });
-    try { D.canvas.addEdge(p, fromId, n.id); } catch (e) {}
-    return { id: n.id, video };
-  }
-
-  function kickGenerate(p, gen) {
-    if (!gen) return;
-    if (!D.isConfigured || !D.isConfigured("image")) return;
-    setTimeout(async () => {
-      try {
-        await D.canvas.runNode(p, gen.id, {});
-        await D.project.save(p);
-        if (D.manual && D.manual.state && D.manual.state.pid === p.id && D.manual.render) D.manual.render();
-      } catch (e) {}
-    }, 300);
-  }
-
   async function enterCanvas(pid) {
     if (D.manual && D.manual.load) await D.manual.load(pid);
     if (XLX.app && XLX.app.go) XLX.app.go("drama");
   }
 
   function fillPrompt(skill, input) {
-    let s = String(skill.prompt || "").replace(/\{input\}/g, input || "（待补充）");
+    if (D.skill && D.skill.fillPrompt) return D.skill.fillPrompt(skill, input);
+    let s = String((skill && skill.prompt) || "").replace(/\{input\}/g, input || "（待补充）");
     s = s.replace(/\{search\}/g, "（联网搜索到的资料见下方「自动搜索到的网页资料」）").replace(/\{err\}/g, "");
-    if (input && s.indexOf(input) < 0 && !skill.prompt) s = skill.name + "：" + input;
-    return s || (skill.name + (input ? "：" + input : ""));
+    return s || ((skill && skill.name) || "") + (input ? "：" + input : "");
   }
 
   /* 对话/搜索类技能：填入需求后到 Agent 对话直接生成 */
@@ -387,6 +362,80 @@
     setTimeout(() => {
       if (XLX.chat && XLX.chat.send) XLX.chat.send(prompt, { search: skill.action === "search" });
     }, 60);
+  }
+
+  /* 创建 Skill：上传 md/文本，或把当前对话沉淀；保存进自定义技能库 */
+  function createSkill() {
+    const m = document.getElementById("modal");
+    if (!m) return;
+    m.innerHTML = '<div class="modal-box">' +
+      '<div class="modal-head"><div class="mic" style="background:#22d3ee22;border:1px solid #22d3ee44">' + svg("sparkle", 22) + "</div>" +
+        '<div><div class="mt">创建 Skill</div><div class="ms">上传 md 文档或粘贴内容，沉淀成可复用 Skill</div></div></div>' +
+      '<div class="modal-body">' +
+        '<label class="label">Skill 名称</label>' +
+        '<input id="tkSkillName" class="inp" placeholder="例如：我的爆款口播风格">' +
+        '<label class="label" style="margin-top:10px">用途说明</label>' +
+        '<input id="tkSkillDesc" class="inp" placeholder="一句话说明这个 Skill 做什么">' +
+        '<label class="label" style="margin-top:10px">内容 / 提示词（可用 {input} 占位本次需求）</label>' +
+        '<textarea id="tkSkillText" class="inp" style="min-height:120px" placeholder="粘贴你的提示词、方法论或 md 文档内容…"></textarea>' +
+        '<div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">' +
+          '<label class="btn small ghost" style="cursor:pointer">上传 md/txt<input id="tkSkillFile" type="file" accept=".md,.markdown,.txt" style="display:none"></label>' +
+          '<button class="btn small ghost" id="tkSkillFromConv">从当前对话沉淀</button>' +
+          '<span id="tkSkillFileHint" style="font-size:11px;color:var(--text3)"></span>' +
+        "</div>" +
+      "</div>" +
+      '<div class="modal-foot"><button class="btn ghost" id="tkSkillCancel">取消</button>' +
+        '<button class="btn primary" id="tkSkillOk">保存 Skill</button></div></div>';
+    m.classList.add("open");
+    const close = () => m.classList.remove("open");
+    m.onclick = (e) => { if (e.target === m) close(); };
+    const cancel = document.getElementById("tkSkillCancel");
+    if (cancel) cancel.onclick = close;
+
+    const nameEl = document.getElementById("tkSkillName");
+    const descEl = document.getElementById("tkSkillDesc");
+    const textEl = document.getElementById("tkSkillText");
+    const hint = document.getElementById("tkSkillFileHint");
+    const file = document.getElementById("tkSkillFile");
+    if (file) file.onchange = () => {
+      const f = file.files && file.files[0];
+      if (!f) return;
+      const fr = new FileReader();
+      fr.onload = () => {
+        textEl.value = String(fr.result || "");
+        if (hint) hint.textContent = "已读入 " + f.name;
+        if (!nameEl.value) nameEl.value = f.name.replace(/\.[^.]+$/, "");
+      };
+      fr.onerror = () => U.toast("文件读取失败", "err");
+      fr.readAsText(f);
+    };
+    const fromConv = document.getElementById("tkSkillFromConv");
+    if (fromConv) fromConv.onclick = () => {
+      const conv = XLX.chat && XLX.chat.current ? XLX.chat.current() : null;
+      const msgs = (conv && conv.messages) || [];
+      if (!msgs.length) { U.toast("当前还没有对话内容", "warn"); return; }
+      const users = msgs.filter(x => x.role === "user" && x.content);
+      textEl.value = users.length ? users[users.length - 1].content : "";
+      if (!nameEl.value) nameEl.value = conv.title || "对话沉淀";
+      if (hint) hint.textContent = "已带入当前对话";
+    };
+
+    const save = () => {
+      const name = nameEl.value.trim();
+      const text = textEl.value.trim();
+      if (!name) { U.toast("请填写 Skill 名称", "warn"); return; }
+      if (!text) { U.toast("请填写内容或上传 md 文档", "warn"); return; }
+      try {
+        D.skill.add({ name: name, desc: descEl.value.trim() || "自定义 Skill", icon: "sparkle", cat: "media", action: "chat", prompt: text });
+        close();
+        U.toast("Skill 已保存，可在「我的」查看", "ok");
+        state.tab = "mine";
+        render();
+      } catch (e) { U.toast((e && e.message) || "保存失败", "err"); }
+    };
+    const ok = document.getElementById("tkSkillOk");
+    if (ok) ok.onclick = save;
+    if (nameEl) setTimeout(() => nameEl.focus(), 80);
   }
 
   /* 技能输入弹窗：收集 {input} 需求 */

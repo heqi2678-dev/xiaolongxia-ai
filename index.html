@@ -1384,6 +1384,10 @@ XLX.SKILLS = [
 
 /* 技能查询 */
 XLX.getSkill = function (id) {
+  if (XLX.drama && XLX.drama.skill && XLX.drama.skill.get) {
+    const s = XLX.drama.skill.get(id);
+    if (s) return s;
+  }
   return XLX.SKILLS.find(s => s.id === id);
 };
 XLX.SKILL_COUNT = XLX.SKILLS.length;
@@ -4236,6 +4240,7 @@ XLX.studio = (function () {
 <script src="src/drama/canvas.js"></script>
 <script src="src/drama/storyboard.js"></script>
 <script src="src/drama/agent.js"></script>
+<script src="src/drama/skill.js"></script>
 <script src="src/drama/box3d.js"></script>
 <script src="src/drama/box3dview.js"></script>
 <script src="src/drama/toolkit.js"></script>
