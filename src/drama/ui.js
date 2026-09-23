@@ -177,6 +177,14 @@
     ).join("") + "</div>";
   }
 
+  function sceneSelect(project, shot) {
+    if (!(project.scenes || []).length) return "";
+    return '<label class="label">场景锚点（首帧/建景参考）</label>' +
+      '<select class="inp" data-act="field" data-shot="' + shot.id + '" data-field="sceneId">' +
+      '<option value=""' + (shot.sceneId ? "" : " selected") + ">不指定</option>" +
+      opts(project.scenes, shot.sceneId) + "</select>";
+  }
+
   function previewHtml(shot, realistic) {
     if (realistic) {
       if (shot.lipsyncUrl || shot.videoUrl) return '<video class="dw-thumb wide" src="' + esc(shot.lipsyncUrl || shot.videoUrl) + '" muted playsinline controls></video>';
@@ -215,6 +223,7 @@
             '<div><label class="label" style="margin-top:0">时长（秒）</label><select class="inp" data-act="field" data-shot="' + shot.id + '" data-field="duration">' + opts(D.DURATIONS.map(d => ({ id: d, name: d + " 秒" })), shot.duration) + "</select></div>" +
           "</div>" +
           roleChips(project, shot) +
+          sceneSelect(project, shot) +
           (readonly ? "" :
             '<div class="dw-shot-actions">' +
               '<button class="btn small primary" data-act="gen" data-shot="' + shot.id + '">' + (realistic ? "生成视频" : "生成画面") + "</button>" +

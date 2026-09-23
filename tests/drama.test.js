@@ -739,6 +739,61 @@ test("多角色同框参考图按角色轮询摊平，不让单角色占满名�
   assert.match(note, /B（参考图 2）/);
 });
 
+test("逐镜参考图优先取三视图，并自动接入场景锚点、额外参考与白模预览", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  const a = D.project.addCharacter(p, "A");
+  a.views = { front: "vf", side: "vs", back: "vb" };
+  a.refImages = ["a1", "a2"];
+  const shot = p.shots[0];
+  shot.roleIds = [a.id];
+  assert.deepEqual(D.character.refUrls(a), ["vf", "vs", "vb"], "三视图优先于多参考图");
+  assert.deepEqual(D.character.refGroupsForShot(p, shot)[0].urls, ["vf", "vs", "vb"]);
+  assert.deepEqual(D.character.allRefsForShot(p, shot), ["vf", "vs", "vb"]);
+
+  p.scenes = [{ id: "sc1", name: "天台", anchorRef: "sc1u", desc: "" }];
+  shot.sceneId = "sc1";
+  assert.deepEqual(D.character.allRefsForShot(p, shot), ["vf", "vs", "sc1u"], "场景锚点占一个名额");
+
+  shot.extraRefs = ["x1"];
+  p.whiteModel = { url: "asset:wm.glb", name: "白模", preview: "wmp" };
+  const refs = D.character.allRefsForShot(p, shot);
+  assert.deepEqual(refs, ["vf", "sc1u", "x1"], "额外参考优先于白模预览且总数封顶 3 张");
+
+  const p2 = D.project.blank({});
+  const b = D.project.addCharacter(p2, "B");
+  b.refImages = ["b1"];
+  p2.shots[0].roleIds = [b.id];
+  p2.scenes = [{ id: "s1", name: "街道", anchorRef: "an1", desc: "" }];
+  assert.deepEqual(D.character.allRefsForShot(p2, p2.shots[0]), ["b1", "an1"], "只有一个场景时默认套用");
+});
+
+test("分镜卡在存在场景时渲染场景锚点选择器", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  const shot = p.shots[0];
+  assert.ok(!/data-field="sceneId"/.test(D.ui.shotCard(p, shot)), "无场景卡时不渲染选择器");
+  p.scenes = [{ id: "sc1", name: "天台", anchorRef: "u1", desc: "" }];
+  shot.sceneId = "sc1";
+  const html = D.ui.shotCard(p, shot);
+  assert.match(html, /data-field="sceneId"/);
+  assert.match(html, /value="sc1" selected/);
+});
+
+test("整段参考图包含角色三视图与场景锚点", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  const a = D.project.addCharacter(p, "A");
+  a.views = { front: "vf", side: "vs" };
+  const shot = p.shots[0];
+  shot.roleIds = [a.id];
+  p.scenes = [{ id: "sc1", name: "天台", anchorRef: "sc1u", desc: "" }];
+  shot.sceneId = "sc1";
+  const take = { shotIds: [shot.id] };
+  assert.deepEqual(D.takes.refGroups(p, take)[0].urls, ["vf", "vs"]);
+  assert.deepEqual(D.takes.refImages(p, take), ["vf", "vs", "sc1u"]);
+});
+
 test("角色定妆图：按 3:4 生成、写入参考图并标记相关分镜需重绘", async () => {
   const { D, sandbox } = createDrama();
   setAdapter(D, "image", { provider: "seedream", key: "k" });

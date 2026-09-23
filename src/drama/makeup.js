@@ -199,16 +199,10 @@
     save();
   }
 
-  /* ============ 多参考合并（供适配器后续接入） ============ */
-  /* 角色参考按轮询摊平取前 3 张，再拼上本镜额外参考，整体不超 cap。 */
+  /* ============ 多参考合并 ============ */
+  /* 出图参考统一走角色解析器：三视图/多参考优先，再补场景锚点、额外参考与白模预览。 */
   function refsForShot(project, shot, cap) {
-    const limit = cap || MAX_REFS;
-    const base = [];
-    const groups = D.character.refGroupsForShot(project, shot);
-    const flat = D.character.flattenRefs(groups, limit);
-    flat.forEach(u => base.push(u));
-    (shot.extraRefs || []).forEach(u => { if (u && base.length < limit) base.push(u); });
-    return base.slice(0, limit);
+    return D.character.allRefsForShot(project, shot, cap || MAX_REFS);
   }
 
   function shotById(sid) { return (state.project.shots || []).find(s => s.id === sid) || null; }

@@ -111,7 +111,7 @@
   function refImagesFor(project, shot) {
     const out = [];
     if (shot.firstFrame) out.push(shot.firstFrame);
-    D.character.refImagesForShot(project, shot).forEach(u => { if (u && out.indexOf(u) < 0) out.push(u); });
+    D.character.allRefsForShot(project, shot).forEach(u => { if (u && out.indexOf(u) < 0) out.push(u); });
     return out.filter(Boolean).slice(0, 3);
   }
 

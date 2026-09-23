@@ -50,7 +50,7 @@
     await save(project);
     try {
       if (isRealistic(project)) {
-        const refs = D.character.refImagesForShot(project, shot);
+        const refs = D.character.allRefsForShot(project, shot);
         const r = await D.adapters.video.generate({
           prompt: D.character.buildVideoPrompt(project, shot),
           firstFrame: shot.firstFrame || refs[0] || "",
@@ -71,7 +71,7 @@
           if (shot.videoUrl && shot.audioUrl) await lipsyncShot(project, shot);
         }
       } else {
-        const refs = D.character.refImagesForShot(project, shot);
+        const refs = D.character.allRefsForShot(project, shot);
         const r = await D.adapters.image.generate({
           prompt: D.character.buildImagePrompt(project, shot),
           ratio: project.output.ratio,

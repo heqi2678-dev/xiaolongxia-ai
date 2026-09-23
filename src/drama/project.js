@@ -210,7 +210,7 @@
   function newShot(seq) {
     return {
       id: id("s"), seq: seq || 1, name: "分镜 " + (seq || 1),
-      prompt: "", line: "", roleIds: [], extraRefs: [], duration: 5, motion: "zoom-in",
+      prompt: "", line: "", roleIds: [], sceneId: "", extraRefs: [], duration: 5, motion: "zoom-in",
       imageUrl: "", videoUrl: "", audioUrl: "", lipsyncUrl: "",
       firstFrame: "", status: "pending", error: "", audioDuration: 0,
       trimIn: 0, trimOut: 0,
@@ -479,6 +479,7 @@
       if (typeof s.line !== "string") s.line = "";
       if (typeof s.lineEn !== "string") s.lineEn = "";
       if (!Array.isArray(s.roleIds)) s.roleIds = [];
+      if (typeof s.sceneId !== "string") s.sceneId = "";
       if (!Array.isArray(s.extraRefs)) s.extraRefs = [];
       else s.extraRefs = s.extraRefs.filter(Boolean).slice(0, 3);
       if (typeof s.duration !== "number" || !(s.duration > 0)) s.duration = 5;

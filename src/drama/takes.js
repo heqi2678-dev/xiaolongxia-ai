@@ -177,18 +177,32 @@
     return order;
   }
 
-  /* 段级参考图分组：每角色最多 3 张 */
+  /* 段级参考图分组：每角色最多 3 张（三视图优先，缺失时用多参考图） */
   function refGroups(project, take) {
     return takeRoles(project, take).map(c => ({
       cid: c.id,
       name: c.name || "",
-      urls: (c.refImages || []).filter(Boolean).slice(0, 3)
+      urls: D.character.refUrls(c)
     })).filter(g => g.urls.length);
+  }
+
+  /* 段内出现的场景锚点 + 白模预览，去重后作为补充参考 */
+  function extraRefs(project, take) {
+    const out = [];
+    ((take && take.shotIds) || []).forEach(sid => {
+      const s = ((project && project.shots) || []).find(x => x.id === sid);
+      if (!s) return;
+      D.character.extraRefsForShot(project, s).forEach(u => { if (u && out.indexOf(u) < 0) out.push(u); });
+    });
+    return out;
   }
 
   /* 段级扁平参考图：多角色轮询摊平，整段默认最多 9 张 */
   function refImages(project, take, max) {
-    return D.character.flattenRefs(refGroups(project, take), max || 9);
+    const limit = max || 9;
+    const out = D.character.flattenRefs(refGroups(project, take), limit);
+    extraRefs(project, take).forEach(u => { if (out.indexOf(u) < 0 && out.length < limit) out.push(u); });
+    return out.slice(0, limit);
   }
 
   /* 段提示词：角色设定 + 按秒标出段内分镜序列 + 参考图对应表 */
@@ -231,6 +245,6 @@
   D.takes = {
     MIN_SECONDS, TARGET_SECONDS, MAX_SECONDS, DURATION_CHOICES,
     limits, durationList, group, plan, sync, takeOf, segmentOf, markDirty, signature,
-    takeRoles, refGroups, refImages, prompt
+    takeRoles, refGroups, extraRefs, refImages, prompt
   };
 })();

@@ -86,12 +86,19 @@
     return parts.filter(Boolean).join("。");
   }
 
+  /* 角色参考图来源：三视图（正/侧/背）优先，缺失时退回多参考图，每角色最多 3 张 */
+  function refUrls(c) {
+    const v = (c && c.views) || {};
+    const views = ["front", "side", "back"].map(k => v[k]).filter(Boolean);
+    return (views.length ? views : ((c && c.refImages) || [])).filter(Boolean).slice(0, 3);
+  }
+
   /* 参考图按角色分组：每个角色最多 3 张，附角色名，供适配器按角色拼接 */
   function refGroupsForShot(project, shot) {
     return rolesForShot(project, shot).map(c => ({
       cid: c.id,
       name: c.name || "",
-      urls: (c.refImages || []).filter(Boolean).slice(0, 3)
+      urls: refUrls(c)
     })).filter(g => g.urls.length);
   }
 
@@ -115,6 +122,37 @@
   /* 扁平参考图（兼容只收图片数组的适配器），顺序即分组顺序 */
   function refImagesForShot(project, shot) {
     return flattenRefs(refGroupsForShot(project, shot), 3);
+  }
+
+  /* 本镜绑定的场景：显式 sceneId 优先，仅有一个场景时默认套用 */
+  function sceneForShot(project, shot) {
+    const scenes = (project && project.scenes) || [];
+    if (!scenes.length) return null;
+    const sid = shot && shot.sceneId;
+    if (sid) return scenes.find(s => s.id === sid) || null;
+    return scenes.length === 1 ? scenes[0] : null;
+  }
+
+  /* 角色参考之外的补充参考：场景锚点图 + 本镜额外参考 + 白模预览图 */
+  function extraRefsForShot(project, shot) {
+    const out = [];
+    const sc = sceneForShot(project, shot);
+    if (sc && sc.anchorRef) out.push(sc.anchorRef);
+    ((shot && shot.extraRefs) || []).forEach(u => { if (u) out.push(u); });
+    const wm = project && project.whiteModel && project.whiteModel.preview;
+    if (wm) out.push(wm);
+    return out.filter((u, i, a) => a.indexOf(u) === i);
+  }
+
+  /* 逐镜最终参考图：角色三视图/多参考优先占位，再补场景锚点、额外参考、白模预览 */
+  function allRefsForShot(project, shot, cap) {
+    const limit = Math.max(1, cap || 3);
+    const groups = refGroupsForShot(project, shot);
+    const extras = extraRefsForShot(project, shot);
+    const charCap = groups.length ? Math.max(1, limit - extras.length) : 0;
+    const out = flattenRefs(groups, charCap);
+    extras.forEach(u => { if (u && out.indexOf(u) < 0 && out.length < limit) out.push(u); });
+    return out.slice(0, limit);
   }
 
   /* 多角色同框时给模型一张「角色-参考图」对应表 */
@@ -246,7 +284,8 @@
   D.character = {
     styleDef, stylePrompt, motionPrompt,
     rolesForShot, buildImagePrompt, buildVideoPrompt, refImagesForShot,
-    refGroupsForShot, flattenRefs, refNote, DETAIL_FIELDS, details, detailText, displayAppearance,
+    refGroupsForShot, flattenRefs, refNote, refUrls, sceneForShot, extraRefsForShot,
+    allRefsForShot, DETAIL_FIELDS, details, detailText, displayAppearance,
     affectedShots, markAffected, check, sheetPrompt, generateSheet,
     libAll, libGet, libSave, libRemove, libFromProject, libToProject
   };
