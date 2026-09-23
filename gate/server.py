@@ -826,7 +826,7 @@ def _drama_font():
     return ""
 
 
-def _drama_srt(shots):
+def _drama_srt(shots, bilingual=False):
     def fmt(sec):
         ms = int(round((sec - int(sec)) * 1000))
         s = int(sec) % 60
@@ -839,8 +839,10 @@ def _drama_srt(shots):
     for sh in shots:
         dur = max(1.0, float(sh.get("duration") or 3))
         text = str(sh.get("line") or "").strip()
-        if text:
-            lines.append("%d\n%s --> %s\n%s\n" % (len(lines) + 1, fmt(t), fmt(t + dur), text))
+        text_en = str(sh.get("lineEn") or "").strip() if bilingual else ""
+        body = "\n".join([x for x in (text, text_en) if x])
+        if body:
+            lines.append("%d\n%s --> %s\n%s\n" % (len(lines) + 1, fmt(t), fmt(t + dur), body))
         t += dur
     return "\n".join(lines)
 
@@ -1135,7 +1137,7 @@ def drama_compose(owner, project):
         final = out_dir / (pid + "-" + secrets.token_hex(3) + ".mp4")
         font = _drama_font()
         filters = []
-        srt = _drama_srt(shots)
+        srt = _drama_srt(shots, bool((project.get("subtitle") or {}).get("bilingual")))
         if srt:
             srt_file = work / "sub.srt"
             srt_file.write_text(srt, encoding="utf-8")

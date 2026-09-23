@@ -272,7 +272,7 @@
       scenes: [],
       shots: [newShot(1)],
       style: genre === "realistic" ? "realistic" : "cn-manhua",
-      subtitle: { enabled: true, font: "default", color: "#ffffff", stroke: "#000000" },
+      subtitle: { enabled: true, bilingual: false, font: "default", color: "#ffffff", stroke: "#000000" },
       bgm: "",
       output: { ratio: opts.ratio || "9:16", resolution: "1080p", fps: 30 },
       compliance: { aigcMarked: true, consentIds: [] },
@@ -453,8 +453,9 @@
     if (!p.output.resolution) p.output.resolution = "1080p";
     if (!p.output.fps) p.output.fps = 30;
 
-    if (!p.subtitle || typeof p.subtitle !== "object") p.subtitle = { enabled: true, font: "default", color: "#ffffff", stroke: "#000000" };
+    if (!p.subtitle || typeof p.subtitle !== "object") p.subtitle = { enabled: true, bilingual: false, font: "default", color: "#ffffff", stroke: "#000000" };
     if (typeof p.subtitle.enabled !== "boolean") p.subtitle.enabled = true;
+    if (typeof p.subtitle.bilingual !== "boolean") p.subtitle.bilingual = false;
 
     if (!p.compliance || typeof p.compliance !== "object") p.compliance = { aigcMarked: true, consentIds: [] };
     if (typeof p.compliance.aigcMarked !== "boolean") p.compliance.aigcMarked = true;
@@ -476,6 +477,7 @@
       if (!s.name) s.name = "分镜 " + (i + 1);
       if (typeof s.prompt !== "string") s.prompt = "";
       if (typeof s.line !== "string") s.line = "";
+      if (typeof s.lineEn !== "string") s.lineEn = "";
       if (!Array.isArray(s.roleIds)) s.roleIds = [];
       if (!Array.isArray(s.extraRefs)) s.extraRefs = [];
       else s.extraRefs = s.extraRefs.filter(Boolean).slice(0, 3);

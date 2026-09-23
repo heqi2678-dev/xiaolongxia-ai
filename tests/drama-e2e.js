@@ -248,6 +248,17 @@ async function flowManualComic(env) {
   ok(!!q(doc, "#dwGenSel") && !!q(doc, "#dwGenMissing"), "底部工具条含生成入口");
   has(q(doc, "#dwManual").innerHTML, "合规与授权", "合规区已渲染");
 
+  ok(!!q(doc, "#dwSubBi"), "配乐与字幕面板含双语开关");
+  const biBox = q(doc, "#dwSubBi");
+  biBox.checked = true;
+  biBox.dispatchEvent(new W.Event("change", { bubbles: true }));
+  await settle();
+  eq(D.manual.state.project.subtitle.bilingual, true, "开启双语写入工程");
+  biBox.checked = false;
+  biBox.dispatchEvent(new W.Event("change", { bubbles: true }));
+  await settle();
+  eq(D.manual.state.project.subtitle.bilingual, false, "关闭双语写回工程");
+
   await setField(doc, "#dwLogline", "外卖小哥其实是隐形富豪", 4);
   eq(D.manual.state.project.script.logline, "外卖小哥其实是隐形富豪", "一句话故事已写入工程");
 

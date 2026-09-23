@@ -783,5 +783,21 @@ class GateTests(unittest.TestCase):
         self.assertEqual(code, 404)
 
 
+    def test_drama_srt_bilingual(self):
+        gate = self.gate
+        shots = [
+            {"seq": 1, "line": "你好", "lineEn": "Hello", "duration": 3},
+            {"seq": 2, "line": "再见", "lineEn": "Bye", "duration": 2},
+        ]
+        mono = gate._drama_srt(shots)
+        self.assertIn("你好", mono)
+        self.assertNotIn("Hello", mono)
+        bi = gate._drama_srt(shots, True)
+        self.assertIn("你好\nHello", bi)
+        self.assertIn("再见\nBye", bi)
+        only_en = gate._drama_srt([{"seq": 1, "lineEn": "Solo", "duration": 3}], True)
+        self.assertIn("Solo", only_en)
+
+
 if __name__ == "__main__":
     unittest.main()

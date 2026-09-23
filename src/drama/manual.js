@@ -240,6 +240,8 @@
         '<label class="label" style="margin-top:0">字幕</label>' +
         '<label class="label" style="display:flex;align-items:center;gap:6px;margin-top:0">' +
           '<input type="checkbox" id="dwSubOn"' + (sub.enabled === false ? "" : " checked") + "> 合成时烧录台词字幕</label>" +
+        '<label class="label" style="display:flex;align-items:center;gap:6px;margin-top:0">' +
+          '<input type="checkbox" id="dwSubBi"' + (sub.bilingual ? " checked" : "") + "> 双语字幕（中英，英文字幕逐镜精修）</label>" +
         '<div class="dw-grid" style="margin-top:6px">' +
           '<div><label class="label" style="margin-top:0">字幕颜色</label><input class="inp" type="color" id="dwSubColor" value="' + (isHex(sub.color) ? sub.color : "#ffffff") + '"></div>' +
           '<div><label class="label" style="margin-top:0">描边颜色</label><input class="inp" type="color" id="dwSubStroke" value="' + (isHex(sub.stroke) ? sub.stroke : "#000000") + '"></div>' +
@@ -737,6 +739,12 @@
     if (subOn) subOn.onchange = async () => {
       state.project.subtitle = state.project.subtitle || {};
       state.project.subtitle.enabled = subOn.checked;
+      await save();
+    };
+    const subBi = v.querySelector("#dwSubBi");
+    if (subBi) subBi.onchange = async () => {
+      state.project.subtitle = state.project.subtitle || {};
+      state.project.subtitle.bilingual = subBi.checked;
       await save();
     };
     const bindColor = (sel, key) => {

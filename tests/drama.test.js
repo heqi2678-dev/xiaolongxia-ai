@@ -610,6 +610,36 @@ test("合成：srt 忽略无台词分镜但保留时间推进", () => {
   assert.ok(!/00:00:00,000 --> 00:00:05,000/.test(srt));
 });
 
+test("合成：双语字幕逐镜输出中英两行，关闭双语则忽略英文", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({ genre: "comic" });
+  p.shots[0].line = "你好";
+  p.shots[0].lineEn = "Hello";
+  p.shots[0].duration = 4;
+  p.subtitle.bilingual = true;
+  let srt = D.compose.srt(p);
+  assert.match(srt, /你好\nHello/, "双语同屏两行");
+  p.subtitle.bilingual = false;
+  srt = D.compose.srt(p);
+  assert.match(srt, /你好/);
+  assert.ok(!/Hello/.test(srt), "关闭双语不输出英文");
+  p.subtitle.bilingual = true;
+  p.shots[0].line = "";
+  srt = D.compose.srt(p);
+  assert.match(srt, /Hello/, "仅英文台词也成条");
+});
+
+test("分镜卡：提供英文字幕精修输入框", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({ genre: "comic" });
+  p.shots[0].line = "你好";
+  p.shots[0].lineEn = "Hello";
+  const html = D.ui.shotCard(p, p.shots[0]);
+  assert.match(html, /data-field="lineEn"/);
+  assert.match(html, /英文字幕/);
+  assert.match(html, /Hello/);
+});
+
 /* ============ 跨工程角色库 ============ */
 
 test("角色库：同名同外观原地更新，不重复入库", () => {
@@ -1120,6 +1150,7 @@ test("配乐与字幕：默认开启字幕且可在工程里改样式与 BGM", (
   const { D } = createDrama();
   const p = D.project.blank({});
   assert.equal(p.subtitle.enabled, true);
+  assert.equal(p.subtitle.bilingual, false, "默认关闭双语");
   assert.equal(p.subtitle.color, "#ffffff");
   assert.equal(p.bgm, "");
   p.subtitle.enabled = false;
@@ -1127,5 +1158,6 @@ test("配乐与字幕：默认开启字幕且可在工程里改样式与 BGM", (
   p.bgm = "asset:bgm1";
   D.project.migrate(p);
   assert.equal(p.subtitle.color, "#ffcc00", "migrate 保留字幕样式");
+  assert.equal(p.subtitle.bilingual, false, "migrate 补双语开关");
   assert.equal(p.bgm, "asset:bgm1", "migrate 保留 BGM 引用");
 });

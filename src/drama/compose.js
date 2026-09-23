@@ -82,27 +82,31 @@
   }
 
   function drawSubtitle(ctx, shot, w, h, sub) {
-    const text = (shot.line || "").trim();
-    if (!text) return;
     const st = sub || {};
+    const zh = (shot.line || "").trim();
+    const en = st.bilingual ? (shot.lineEn || "").trim() : "";
+    if (!zh && !en) return;
     const fs = Math.round(w * 0.038);
+    const efs = Math.round(fs * 0.72);
     const fill = /^#[0-9a-f]{6}$/i.test(String(st.color || "").trim()) ? st.color : "#ffffff";
     const stroke = hexRgba(st.stroke, 0.85) || "rgba(0,0,0,0.85)";
     ctx.save();
-    ctx.font = "700 " + fs + "px system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
     ctx.lineJoin = "round";
-    const lines = wrapText(ctx, text, w * 0.86);
-    const lh = fs * 1.35;
-    let y = h - h * 0.09 - (lines.length - 1) * lh;
-    lines.forEach(line => {
-      ctx.lineWidth = Math.max(4, fs * 0.16);
+    const zhLines = zh ? wrapText(ctx, zh, w * 0.86) : [];
+    const enLines = en ? wrapText(ctx, en, w * 0.86) : [];
+    const rows = zhLines.map(t => ({ t: t, s: fs })).concat(enLines.map(t => ({ t: t, s: efs })));
+    const total = rows.reduce((a, r) => a + r.s * 1.35, 0);
+    let y = h - h * 0.09 - (total - rows[rows.length - 1].s * 1.35);
+    rows.forEach(row => {
+      ctx.font = "700 " + row.s + "px system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif";
+      ctx.lineWidth = Math.max(3, row.s * 0.16);
       ctx.strokeStyle = stroke;
-      ctx.strokeText(line, w / 2, y);
+      ctx.strokeText(row.t, w / 2, y);
       ctx.fillStyle = fill;
-      ctx.fillText(line, w / 2, y);
-      y += lh;
+      ctx.fillText(row.t, w / 2, y);
+      y += row.s * 1.35;
     });
     ctx.restore();
   }
@@ -318,10 +322,14 @@
       const hh = Math.floor(sec / 3600);
       return String(hh).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0") + "," + String(ms).padStart(3, "0");
     };
+    const bi = !!(project.subtitle && project.subtitle.bilingual);
     project.shots.forEach((shot, i) => {
       const dur = Math.max(0.2, D.project.effDuration(shot) || 3);
-      if (shot.line && shot.line.trim()) {
-        out += (i + 1) + "\n" + fmt(t) + " --> " + fmt(t + dur) + "\n" + shot.line.trim() + "\n\n";
+      const zh = (shot.line || "").trim();
+      const en = bi ? (shot.lineEn || "").trim() : "";
+      if (zh || en) {
+        const body = [zh, en].filter(Boolean).join("\n");
+        out += (i + 1) + "\n" + fmt(t) + " --> " + fmt(t + dur) + "\n" + body + "\n\n";
       }
       t += dur;
     });

@@ -208,6 +208,8 @@
           '<textarea class="inp" style="min-height:54px;font-size:12px" data-act="field" data-shot="' + shot.id + '" data-field="prompt" placeholder="这一镜的画面描述">' + esc(shot.prompt) + "</textarea>" +
           '<label class="label">台词（留空则无配音）</label>' +
           '<textarea class="inp" style="min-height:44px;font-size:12px" data-act="field" data-shot="' + shot.id + '" data-field="line" placeholder="角色要说的话">' + esc(shot.line) + "</textarea>" +
+          '<label class="label">英文字幕（开启双语后合成）</label>' +
+          '<textarea class="inp" style="min-height:36px;font-size:12px" data-act="field" data-shot="' + shot.id + '" data-field="lineEn" placeholder="English subtitle">' + esc(shot.lineEn) + "</textarea>" +
           '<div class="dw-grid" style="margin-top:8px">' +
             '<div><label class="label" style="margin-top:0">运镜</label><select class="inp" data-act="field" data-shot="' + shot.id + '" data-field="motion">' + opts(D.MOTIONS, shot.motion) + "</select></div>" +
             '<div><label class="label" style="margin-top:0">时长（秒）</label><select class="inp" data-act="field" data-shot="' + shot.id + '" data-field="duration">' + opts(D.DURATIONS.map(d => ({ id: d, name: d + " 秒" })), shot.duration) + "</select></div>" +
