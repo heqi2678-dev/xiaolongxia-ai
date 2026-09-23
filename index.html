@@ -79,7 +79,7 @@ a{color:var(--blue);text-decoration:none}
 .shell-chip-t{display:flex;align-items:center;gap:8px}
 .shell-chip-t b{font-weight:600;color:var(--text)}
 .shell-chip-t i{font-style:normal;color:var(--text3)}
-#shellTop{position:relative;flex-shrink:0}
+#shellTop{position:relative;flex-shrink:0;display:flex;align-items:center;gap:8px}
 .shell-account-btn{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:5px 12px 5px 10px;font-size:12px;transition:.15s}
 .shell-account-btn:hover{border-color:var(--accent)}
 .shell-account-btn svg{width:15px;height:15px;color:var(--text2);flex-shrink:0}
@@ -96,7 +96,7 @@ a{color:var(--blue);text-decoration:none}
 .shell-nav-txt{display:flex;flex-direction:column;line-height:1.2;white-space:normal}
 .shell-nav-sub{font-style:normal;font-size:10px;color:var(--text3)}
 .shell-nav-item.active .shell-nav-sub{color:var(--accent-ink);opacity:.8}
-.shell-actions{display:flex;align-items:center;gap:6px;margin-right:6px}
+.shell-actions{display:flex;align-items:center;gap:6px}
 .shell-top-btn{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--text2);transition:.15s;white-space:nowrap}
 .shell-top-btn:hover{border-color:var(--accent);color:var(--text)}
 .shell-top-btn svg{width:14px;height:14px;flex-shrink:0}
@@ -110,10 +110,13 @@ a{color:var(--blue);text-decoration:none}
 .shell-hist-m{font-size:10.5px;color:var(--text3);flex-shrink:0}
 
 /* ===== Topbar ===== */
-#topbar{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);background:rgba(11,14,20,.6);backdrop-filter:blur(10px);min-height:58px;z-index:10}
+#topbar{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);background:rgba(11,14,20,.6);backdrop-filter:blur(10px);min-height:58px;z-index:10;flex-wrap:nowrap}
+#topbar>*{flex-shrink:0}
 #topbar .page-title{font-size:16px;font-weight:700}
 #topbar .page-sub{font-size:12px;color:var(--text3)}
-#topbar .spacer{flex:1}
+#topbar .page-titles{min-width:0;overflow:hidden;flex-shrink:1}
+#topbar .page-title,#topbar .page-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topbar .spacer{flex:1;min-width:8px;flex-shrink:1}
 #menuBtn{display:none;align-items:center;justify-content:center;width:36px;height:36px;border-radius:9px;background:var(--panel);border:1px solid var(--border)}
 #menuBtn svg{width:18px;height:18px}
 .provider-pill{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:30px;padding:5px 13px;font-size:12px;cursor:pointer}
@@ -560,7 +563,7 @@ select.inp{padding-right:34px}
       <button id="menuBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
       </button>
-      <div><div class="page-title" id="pageTitle"></div><div class="page-sub" id="pageSub"></div></div>
+      <div class="page-titles"><div class="page-title" id="pageTitle"></div><div class="page-sub" id="pageSub"></div></div>
       <div class="spacer"></div>
       <div class="shell-status" id="shellStatus"></div>
       <div class="provider-pill" id="providerPill"></div>

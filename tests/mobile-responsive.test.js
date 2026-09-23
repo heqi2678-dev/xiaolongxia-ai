@@ -61,7 +61,7 @@ test("各视图在窄屏收缩内边距与网格", () => {
   assert.match(read("src/drama/ui.js"), /@media \(max-width:900px\)\{[\s\S]*?\.dw-wrap\{padding:12px 2px 32px\}/);
   assert.match(read("src/drama/ranking.js"), /@media\(max-width:600px\)\{[\s\S]*?\.rk-wrap\{padding:18px 12px 46px\}/);
   assert.match(read("src/drama/plugin.js"), /@media\(max-width:600px\)\{[\s\S]*?\.pl-wrap\{padding:18px 12px 46px\}/);
-  assert.match(read("src/drama/box3dview.js"), /@media\(max-width:600px\)\{[\s\S]*?\.bv-field select\{min-width:0;width:100%\}/);
+  assert.match(read("src/drama/box3dview.js"), /@media\(max-width:600px\)\{[\s\S]*?\.bv-scene\{width:164px\}/);
   assert.match(read("src/drama/makeup.js"), /\.mk-viewgrid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/);
   assert.match(read("src/drama/manual.js"), /\.dw-wb-side\{width:auto;max-height:none;overflow:visible\}/);
 });

@@ -812,10 +812,18 @@ async function flowBox3d(env) {
   D.box3dview.render();
   await settle(2);
   const bv = doc.getElementById("dramaBox3d");
-  ok(!!bv.querySelector("#bvProj"), "3D-BOX 页渲染工程选择器");
-  ok(!!bv.querySelector("#bvShot"), "3D-BOX 页渲染分镜选择器");
-  ok(!!bv.querySelector("#bvBox .bx-wrap"), "3D-BOX 工具面板已挂载");
-  eq(bv.querySelectorAll("#bvBox [data-bx-tab]").length, 5, "3D-BOX 页含五项导演工具");
+  eq(bv.querySelectorAll("[data-bv-scene]").length, 5, "3D-BOX 页渲染 5 个场景灵感");
+  ok(!!bv.querySelector("#bvPrompt"), "3D-BOX 页渲染居中提示词框");
+  ok(!!bv.querySelector("#bvModel"), "3D-BOX 页渲染模型选择");
+  ok(!!bv.querySelector("#bvRatio") && !!bv.querySelector("#bvGen"), "3D-BOX 页渲染比例与生成按钮");
+  eq(bv.querySelectorAll("[data-bv-eg]").length, 3, "3D-BOX 页渲染 3 条示例");
+  ok(!bv.querySelector("#bvBox") && !bv.querySelector("#bvProj"), "3D-BOX 页已移除旧控制台");
+  await clickIn(bv, "[data-bv-scene]", 2);
+  has(bv.querySelector("#bvPrompt").value, "雨夜街头", "点击场景灵感回填提示词");
+  const beforeGen = D.project.list().length;
+  await clickIn(bv, "#bvGen", 12);
+  await settle(2);
+  eq(D.project.list().length, beforeGen + 1, "3D-BOX 生成直接建工程进画布");
 }
 
 /* ============================ 主流程 ============================ */
