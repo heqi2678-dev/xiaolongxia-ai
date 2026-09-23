@@ -66,7 +66,9 @@ Entries discovered by the Agent during task execution should follow this format:
   - 前端脚本单文件语法校验：`node --check <file>`。
   - 真 DOM 端到端实测：`NODE_PATH="$(npm root -g)" node tests/drama-e2e.js`（本机 `npm root -g` 为 `/usr/lib/node_modules`），用 jsdom 提供真实 DOM/事件/localStorage，加载 `src/drama/*.js` 后按用户操作点按钮、填表单，全部网络打桩；依赖全局安装的 `jsdom`（`npm install -g jsdom`）。
   - jsdom 不做排版，测不出 overflow 裁切/滚动类布局缺陷；这类问题必须用真实浏览器布局审计：`AUDIT_USER=zhuren AUDIT_PASS=<口令> python3 tests/layout_audit.py http://127.0.0.1:9140`（依赖 chromium/chromium-driver/selenium，缺任一则打印 SKIP 退出 0）。脚本用 CDP `Emulation.setDeviceMetricsOverride` 做真实移动视口，逐视图检测「视图根 overflow:hidden 却内容溢出」与「元素被不可滚动的 hidden/clip 祖先裁剪」。检测器本身可用 `--self-test` 验证：注入 `.dw-wrap{overflow:hidden;height:220px}` 必须被检出，移除后必须恢复无告警。
-  - 提交前建议同时跑：drama 前端测试 + drama 端到端 + 店门后端测试 + 对 `src/drama/*` 全部 `node --check` + 真实浏览器布局审计（服务在跑时）。
+   - **Blender 插件真机冒烟**（沙箱内，2026-09-23 建）：官方 `download.blender.org` 下载会卡在 0 字节，改用南京大学镜像 `https://mirror.nju.edu.cn/blender/blender-release/Blender4.5/blender-4.5.14-linux-x64.tar.xz`（约 360MB）；解压后先补运行库 `DEBIAN_FRONTEND=noninteractive apt-get install -y libgl1 libegl1 libice6 libsm6 libxfixes3 libxi6 libxrender1 libxkbcommon0 libxxf86vm1`，否则报 `libXrender.so.1` 等缺失；跑 `./blender-4.5.14-linux-x64/blender -b --factory-startup -noaudio --python <脚本>`。
+   - headless 下 `bpy.ops.render.opengl` 必报 `Cannot use OpenGL render in background mode (no opengl context)`，故视口预览为空属正常，预览回传只在有 GUI/GPU 的机器上生效；GLB 导出与回传不依赖它。
+   - 提交前建议同时跑：drama 前端测试 + drama 端到端 + 店门后端测试 + 对 `src/drama/*` 全部 `node --check` + 真实浏览器布局审计（服务在跑时）。
 
 [Project Knowledge Summary]
 - Date: 2026-09-16（2026-09-21 修订）
