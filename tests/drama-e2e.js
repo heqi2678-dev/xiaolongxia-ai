@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "timeline.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "guide.js",
-  "manual.js", "auto.js", "makeup.js", "canvas.js", "storyboard.js", "box3d.js", "box3dview.js", "toolkit.js", "shell.js"
+  "manual.js", "auto.js", "makeup.js", "canvas.js", "storyboard.js", "agent.js", "box3d.js", "box3dview.js", "toolkit.js", "shell.js"
 ];
 
 let pass = 0;
@@ -304,6 +304,16 @@ async function flowManualComic(env) {
   await click(doc, '[data-sb-open="' + img.id + '"]', 3);
   ok(!q(doc, "#dwCanvasHost").hidden, "点定位后回到节点画布");
   await click(doc, '[data-wbmode="canvas"]', 2);
+
+  /* 画布感知 Agent：对话指令直接落到画布，并作为上下文注入 */
+  ok(D.agent.focused() && D.agent.focused().id === cur.id, "Agent 已聚焦当前工程");
+  ok(D.agent.canHandle("加一个视频节点：日落"), "Agent 识别加节点指令");
+  has(D.agent.promptContext(), "当前画布", "Agent 画布上下文可注入提示词");
+  const agOut = await D.agent.handle("加一个视频节点：日落");
+  ok(agOut.changed, "Agent 执行加节点并改动画布");
+  const agNodes = D.canvas.activeCanvas(D.project.get(cur.id)).nodes;
+  ok(agNodes.some(n => n.type === "video" && n.data.prompt === "日落"), "Agent 新节点已落到画布");
+  ok(D.agent.canHandle("你好呀") === false, "非画布指令不介入");
 
   /* LibTV 形态：单行工具条 + 节点卡精简（字段都在右侧详情） */
   eq(doc.querySelectorAll(".dw-wb-bar").length, 0, "画布工具条已并为单行");

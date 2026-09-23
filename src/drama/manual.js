@@ -75,6 +75,7 @@
       state.canvasId = (D.canvas.activeCanvas(state.project) || list[0]).id;
     }
     state.sel = "";
+    if (D.agent && D.agent.focus) D.agent.focus(state.pid);
     return state.project;
   }
 
@@ -794,5 +795,5 @@
     });
   }
 
-  D.manual = { render, load, state };
+  D.manual = { render, load, state, refreshCanvas };
 })();
