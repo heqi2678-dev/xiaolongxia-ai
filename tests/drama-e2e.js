@@ -827,7 +827,9 @@ async function flowBox3d(env) {
   ok(!!bv.querySelector("#bvModel"), "3D-BOX 页渲染模型选择");
   ok(!!bv.querySelector("#bvRatio") && !!bv.querySelector("#bvGen"), "3D-BOX 页渲染比例与生成按钮");
   eq(bv.querySelectorAll("[data-bv-eg]").length, 3, "3D-BOX 页渲染 3 条示例");
-  ok(!bv.querySelector("#bvBox") && !bv.querySelector("#bvProj"), "3D-BOX 页已移除旧控制台");
+  ok(!!bv.querySelector("#bvProj") && !!bv.querySelector("#bvShot"), "3D-BOX 页恢复工程/分镜选择");
+  eq(bv.querySelectorAll("#bvPanel [data-bx-tab]").length, 5, "3D-BOX 页恢复五工具面板");
+  ok(!!bv.querySelector("#bvPanel .bx-wrap"), "3D-BOX 页挂载导演工具台");
   await clickIn(bv, "[data-bv-scene]", 2);
   has(bv.querySelector("#bvPrompt").value, "雨夜街头", "点击场景灵感回填提示词");
   const beforeGen = D.project.list().length;

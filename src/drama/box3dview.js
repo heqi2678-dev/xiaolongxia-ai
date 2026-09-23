@@ -1,5 +1,6 @@
 /* 铜龙电商 · AI 短剧工作台 · 3D-BOX 独立页（LibTV 形态） */
-/* 场景灵感轮播 + 居中提示词：一句话描述空间镜头，点生成直接进画布。 */
+/* 上：场景灵感轮播 + 居中提示词（一句话进画布）。
+   下：导演工具台，挂载 D.box3d 的五工具面板（多机位 9 宫格 / 大师运镜 / 灯光相机 / 多角度 / 精准编辑）。 */
 (function () {
   const D = XLX.drama;
   const U = XLX.util;
@@ -21,7 +22,7 @@
     "切换夜景灯光，再补两个多角度机位"
   ];
 
-  const state = { ratio: "16:9", auto: true };
+  const state = { ratio: "16:9", auto: true, pid: "", shotId: "", tool: "grid" };
 
   const CSS = `
 .bv-page{width:100%;display:flex;flex-direction:column;gap:24px;padding-bottom:60px}
@@ -55,6 +56,12 @@
 .bv-eg{display:flex;align-items:center;gap:8px;background:none;border:none;color:var(--text2);font-size:12.5px;cursor:pointer;padding:0;text-align:left;line-height:1.5}
 .bv-eg:hover{color:var(--accent2)}
 .bv-eg i{font-style:normal;color:var(--text3);flex:none;font-size:14px}
+.bv-tools{width:100%;max-width:1080px;margin:0 auto;padding:0 16px;display:flex;flex-direction:column;gap:12px}
+.bv-tools-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bv-tools-head b{font-size:15px;font-weight:800}
+.bv-tools-head .bv-sel{max-width:240px;height:32px}
+.bv-tools-head .bv-sp{flex:1}
+.bv-empty{font-size:12.5px;color:var(--text3);border:1px dashed var(--border);border-radius:12px;padding:18px;text-align:center;line-height:1.8}
 @media(max-width:600px){
   .bv-page{gap:18px}
   .bv-scenes{padding:12px 12px 2px}
@@ -63,6 +70,7 @@
   .bv-hero h1{font-size:20px}
   .bv-model select{max-width:104px}
   .bv-gen{padding:9px 20px}
+  .bv-tools-head .bv-sel{max-width:none;flex:1}
 }
 `;
 
@@ -115,17 +123,78 @@
     ).join("") + "</div>";
   }
 
+  /* ============ 导演工具台 ============ */
+  function projects() { return D.project.list(); }
+
+  function ensureProject() {
+    const list = projects();
+    if (!list.length) return null;
+    let p = (state.pid && D.project.get(state.pid)) || list[0];
+    state.pid = p.id;
+    try { D.project.migrate(p); } catch (e) {}
+    return p;
+  }
+
+  function ensureShot(p) {
+    if (!p) return;
+    if (!Array.isArray(p.shots)) p.shots = [];
+    if (!p.shots.length) D.project.addShot(p);
+    if (!state.shotId || !p.shots.some(s => s.id === state.shotId)) {
+      state.shotId = p.shots[0] ? p.shots[0].id : "";
+    }
+  }
+
+  function toolsHeadHtml(p) {
+    const proj = projects().map(x => '<option value="' + D.ui.esc(x.id) + '"' + (p && x.id === p.id ? " selected" : "") + ">" + D.ui.esc(x.title || "未命名工程") + "</option>").join("");
+    const shots = p ? (p.shots || []).map(s => '<option value="' + D.ui.esc(s.id) + '"' + (s.id === state.shotId ? " selected" : "") + ">第 " + D.ui.esc(s.seq) + " 镜</option>").join("") : "";
+    return '<div class="bv-tools-head"><b>导演工具台</b>' +
+      '<select class="bv-sel" id="bvProj">' + proj + "</select>" +
+      (p ? '<select class="bv-sel" id="bvShot">' + shots + "</select>" : "") +
+      '<span class="bv-sp"></span>' +
+      (p ? '<button class="btn small" id="bvAddShot">＋ 分镜</button>' : "") +
+    "</div>";
+  }
+
+  function toolsHtml(p) {
+    if (!p) return toolsHeadHtml(null) + '<div class="bv-empty">还没有工程。先在上面的提示词框「生成」一个 3D-BOX 工程，或去节点工作台新建工程。</div>';
+    return toolsHeadHtml(p) + '<div id="bvPanel"></div>';
+  }
+
+  let panel = null;
+
   function render() {
     ensureCss();
     const v = view();
     if (!v) return;
+    const p = ensureProject();
+    if (p) ensureShot(p);
     v.innerHTML = '<div class="bv-page">' + scenesHtml()
       + '<div class="bv-main">' + heroHtml() + promptHtml() + examplesHtml() + "</div>"
+      + '<div class="bv-tools">' + toolsHtml(p) + "</div>"
       + "</div>";
-    bind(v);
+    bindPrompt(v);
+    bindTools(v, p);
+    mountPanel(p);
   }
 
-  function bind(v) {
+  function mountPanel(p) {
+    panel = null;
+    const host = view() && view().querySelector("#bvPanel");
+    if (!host || !p || !D.box3d) return;
+    try {
+      panel = D.box3d.mount(host, p, {
+        tool: state.tool,
+        shotId: state.shotId,
+        onChange: async () => {
+          try { await D.project.save(p); } catch (e) {}
+        }
+      });
+    } catch (e) {
+      host.innerHTML = '<div class="bv-empty">' + D.ui.esc((e && e.message) || "导演工具台加载失败") + "</div>";
+    }
+  }
+
+  function bindPrompt(v) {
     const ta = v.querySelector("#bvPrompt");
     v.querySelectorAll("[data-bv-scene]").forEach(c => {
       c.onclick = () => { if (ta) { ta.value = c.dataset.bvPrompt; ta.focus(); } };
@@ -143,11 +212,27 @@
     if (gen) gen.onclick = () => generate(ta, v.querySelector("#bvRatio"));
   }
 
+  function bindTools(v, p) {
+    const proj = v.querySelector("#bvProj");
+    if (proj) proj.onchange = () => { state.pid = proj.value; state.shotId = ""; render(); };
+    const shot = v.querySelector("#bvShot");
+    if (shot) shot.onchange = () => { state.shotId = shot.value; if (panel) panel.setShot(state.shotId); };
+    const add = v.querySelector("#bvAddShot");
+    if (add) add.onclick = async () => {
+      if (!p) return;
+      const s = D.project.addShot(p);
+      state.shotId = s.id;
+      try { await D.project.save(p); } catch (e) {}
+      render();
+    };
+  }
+
   async function generate(ta, ratio) {
     const text = ta ? ta.value.trim() : "";
     if (!text) { U.toast("先描述你想拍的空间镜头", "warn"); return; }
     try {
       const p = D.project.blank({ title: text.length > 16 ? text.slice(0, 16) + "…" : text });
+      state.pid = p.id;
       if (D.canvas) {
         D.canvas.addNode(p, "text", 60, 120, { text: text, title: "3D-BOX 提示词" });
         D.canvas.addNode(p, "video", 420, 120, { title: "空间镜头" });
@@ -162,5 +247,5 @@
     }
   }
 
-  D.box3dview = { render, state };
+  D.box3dview = { render, state, ensureProject };
 })();
