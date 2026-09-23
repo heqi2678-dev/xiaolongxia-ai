@@ -116,6 +116,7 @@
   function plan(skill, input) {
     const m = media(skill);
     if (skill && skill.pipeline === "shots") return planShots(skill, input, m);
+    if (skill && skill.pipeline === "script") return planScript(skill, input);
     const title = skill.name;
     const nodes = [
       { ref: "text", type: "text", x: X0, y: Y0, data: { text: fillPrompt(skill, input), title: title } },
@@ -165,6 +166,37 @@
       }
     });
     return { media: m, title: title, genre: m === "video" ? "realistic" : "comic", nodes: nodes, edges: edges, run: run, shots: shots.length };
+  }
+
+  /* 剧本设定器：生成一块可填写的剧本设定工作区（设定→分幕→人物/世界观→主角形象） */
+  const T_OUTLINE =
+    "【分幕大纲】\n" +
+    "第一幕 · 建置：介绍主角与处境，抛出核心冲突的引线\n" +
+    "第二幕 · 对抗：冲突升级，主角付出代价并发生转变\n" +
+    "第三幕 · 收束：高潮对决与结局，呼应主题\n" +
+    "（按题材增减幕数，每幕写 2-3 句剧情走向）";
+  const T_CHARS =
+    "【人物设定】\n" +
+    "主角：\n- 身份/年龄：\n- 性格：\n- 核心欲望：\n- 成长弧光：\n" +
+    "对手：\n- 立场与动机：\n- 与主角的冲突点：\n" +
+    "关键配角：\n- 作用：\n- 关系：";
+  const T_WORLD =
+    "【世界观 / 场景】\n" +
+    "时代与地域：\n社会规则/势力：\n核心场景（3-5 个）：\n视觉基调（色彩/光影/质感）：";
+
+  function planScript(skill, input) {
+    const title = skill.name;
+    const brief = fillPrompt(skill, input);
+    const step = NH + VGAP;
+    const nodes = [
+      { ref: "brief", type: "text", x: X0, y: Y0, data: { text: brief, title: "剧本设定" } },
+      { ref: "outline", type: "text", x: X1, y: Y0, data: { text: T_OUTLINE, title: "分幕大纲" } },
+      { ref: "chars", type: "text", x: X1, y: Y0 + step, data: { text: T_CHARS, title: "人物设定" } },
+      { ref: "world", type: "text", x: X1, y: Y0 + step * 2, data: { text: T_WORLD, title: "世界观 / 场景" } },
+      { ref: "hero", type: "image", x: X2, y: Y0, data: { prompt: brief, title: "主角形象" } }
+    ];
+    const edges = [["brief", "hero"]];
+    return { media: "image", title: title, genre: "comic", nodes: nodes, edges: edges, run: ["hero"], shots: 0 };
   }
 
   /* 把规划落到工程上，返回节点 id 映射与待生成清单 */

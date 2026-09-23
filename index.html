@@ -1324,6 +1324,8 @@ XLX.SKILLS = [
     prompt: "请把下面的内容转化为专业视频分镜脚本表格：\n\n【原始内容】{input}\n\n输出表格列：镜号 | 景别(远/全/中/近/特写) | 画面内容 | 运镜方式 | 台词/字幕 | 音效BGM | 时长(秒)。并给出全片总时长与节奏建议。" },
   { id: "director-shots", cat: "video", name: "导演分身", icon: "film", desc: "输入梗概，AI 导演拆解逐镜分镜（景别/机位/运镜/情绪），一键铺进画布出片", action: "gen", pipeline: "shots", askInput: true, media: "video",
     prompt: "你是资深影视导演。请把下面的故事梗概拆解为可直接拍摄的分镜脚本：\n\n【梗概】{input}\n\n要求：①每镜一句话，涵盖景别（远/全/中/近/特写）、机位、运镜与情绪基调 ②叙事连贯、节奏张弛有度。" },
+  { id: "script-studio", cat: "video", name: "剧本设定器", icon: "book", desc: "从题材/梗概生成剧本设定：分幕大纲、人物设定、世界观与主角形象，铺进画布", action: "gen", pipeline: "script", askInput: true, media: "image",
+    prompt: "你是编剧。请围绕以下题材/梗概，产出原创或改编的剧本设定：\n\n【题材 / 梗概】{input}\n\n请同时给出：分幕大纲、主要人物设定、世界观与核心场景、主角视觉形象描述。" },
   { id: "research-script", cat: "video", name: "关键词搜资料生成视频脚本", icon: "search", desc: "输入关键词，AI自动搜索网页资料并生成剧情视频脚本", action: "search",
     prompt: "请根据以下搜索到的网页资料，创作一条知识科普/剧情类视频脚本。\n\n【搜集到的资料】\n{search}\n\n【视频主题/关键词】{input}\n\n要求：①提炼资料中的核心事实与数据 ②设计故事化叙事结构（开头悬念-展开-结论）③输出完整口播稿+分镜表+标题。" },
   { id: "video-plan", cat: "video", name: "短视频选题策划", icon: "crown", desc: "结合账号定位，批量产出选题库与更新计划", action: "chat",

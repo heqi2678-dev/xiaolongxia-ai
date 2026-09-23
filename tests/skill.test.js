@@ -145,6 +145,31 @@ test("Skill：普通技能不收 shots 字段，导演分身按 input 而非提�
   assert.equal(shots.nodes[1].data.prompt, "甲。", "分镜来自 input");
 });
 
+test("Skill：剧本设定器铺出设定/分幕/人物/世界观/主角形象节点", () => {
+  const { D } = createDrama();
+  const skill = { name: "剧本设定器", cat: "video", media: "image", pipeline: "script", action: "gen", prompt: "你是编剧：{input}" };
+  const pl = D.skill.plan(skill, "民国悬疑");
+  assert.equal(pl.shots, 0);
+  const texts = pl.nodes.filter(n => n.type === "text");
+  assert.deepEqual(texts.map(n => n.data.title), ["剧本设定", "分幕大纲", "人物设定", "世界观 / 场景"]);
+  assert.ok(texts[0].data.text.indexOf("民国悬疑") >= 0, "设定节点带入题材");
+  assert.ok(texts[1].data.text.indexOf("第一幕") >= 0, "含分幕模板");
+  assert.equal(pl.nodes.filter(n => n.type === "image").length, 1);
+  assert.equal(pl.run.length, 1);
+  assert.equal(pl.edges.length, 1);
+});
+
+test("Skill：剧本设定器整链落进工程并连边", () => {
+  const { D } = createDrama();
+  const p = D.project.blank({});
+  D.canvas.ensure(p);
+  const built = D.skill.build(p, { name: "剧本设定器", pipeline: "script", prompt: "题材：{input}" }, "仙侠");
+  const nodes = D.canvas.activeCanvas(p).nodes;
+  assert.equal(nodes.length, 5);
+  assert.equal(D.canvas.activeCanvas(p).edges.length, 1);
+  assert.equal(built.run.length, 1);
+});
+
 test("Skill：fromText 用首个非空行作标题并补 {input}", () => {
   const { D } = createDrama();
   const s = D.skill.fromText("# 我的口播风格\n\n先抛出痛点，再给方案。", { fileName: "koban.md" });
