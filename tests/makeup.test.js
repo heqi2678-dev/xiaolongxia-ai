@@ -17,9 +17,10 @@ function ready() {
   return { D, sandbox, p, c };
 }
 
-test("造型室目录：三个面板、三种视图、上限 3 张", () => {
+test("造型室目录：四个分类、三种视图、上限 3 张", () => {
   const { D } = createDrama();
-  assert.deepEqual(D.makeup.TABS.map(t => t.id), ["views", "scenes", "refs"]);
+  assert.deepEqual(D.makeup.TABS.map(t => t.id), ["views", "refs", "scenes", "style"]);
+  assert.deepEqual(D.makeup.TABS.map(t => t.name), ["角色", "主体", "场景", "风格"], "分类对齐 LibTV");
   assert.deepEqual(D.makeup.VIEW_ORDER.map(v => v.id), ["front", "side", "back"]);
   assert.equal(D.makeup.MAX_REFS, 3);
 });

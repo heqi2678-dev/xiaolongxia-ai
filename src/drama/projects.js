@@ -285,12 +285,8 @@
     if (!p) { U.toast("工程不存在", "warn"); return; }
     D.project.migrate(p);
     try {
-      if (p.mode === "pipeline" && D.auto.open) {
-        await D.auto.open(pid);
-      } else if (D.manual.load) {
-        await D.manual.load(pid);
-      }
-      if (XLX.app && XLX.app.go) XLX.app.go(p.mode === "pipeline" ? "auto" : "drama");
+      if (D.manual.load) await D.manual.load(pid);
+      if (XLX.app && XLX.app.go) XLX.app.go("drama");
     } catch (e) {
       U.toast((e && e.message) || "打开工程失败", "err");
     }

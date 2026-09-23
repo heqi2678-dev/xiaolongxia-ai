@@ -12,10 +12,9 @@ const DRAMA_FILES = [
   "adapters/tts.js", "adapters/lipsync.js", "project.js", "character.js",
   "takes.js",
   "engine.js", "compliance.js", "compose.js", "ui.js",
-  "templates.js", "models.js", "timeline.js", "home.js",
+  "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
-  "guide.js",
-  "manual.js", "auto.js", "makeup.js", "canvas.js", "storyboard.js", "agent.js", "skill.js", "box3d.js", "box3dview.js", "toolkit.js", "shell.js"
+  "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dview.js", "changelog.js", "toolkit.js", "shell.js"
 ];
 
 let pass = 0;
@@ -33,10 +32,10 @@ const HTML = `<!doctype html><html><head><title>t</title></head><body>
 <div id="projectsView" class="view"><div id="dwHome"></div></div>
 <div id="assetsView" class="view"><div id="dwMakeup"></div></div>
 <div id="tvshowView" class="view"><div id="dwTvshow"></div></div>
-<div id="autoView" class="view"><div id="dwAuto"></div></div>
 <div id="rankingView" class="view"><div id="dramaRanking"></div></div>
 <div id="box3dView" class="view"><div id="dramaBox3d"></div></div>
 <div id="pluginView" class="view"><div id="dramaPlugin"></div></div>
+<div id="changelogView" class="view"><div id="dramaChangelog"></div></div>
 <div id="toolkitView" class="view"><div id="dramaToolkit"></div></div>
 <div id="dramaView" class="view"><div id="dwManual"></div></div>
 <div id="modal"></div>
@@ -309,16 +308,6 @@ async function flowManualComic(env) {
   await D.manual.render(); await settle();
   ok(!!q(doc, '.cv-node[data-nid="' + img.id + '"]'), "画布渲染出图片节点");
 
-  /* 故事板双视图：切到故事板读节点，定位后回画布 */
-  await click(doc, '[data-wbmode="storyboard"]', 3);
-  const sbHost = q(doc, "#dwStoryHost");
-  ok(sbHost && !sbHost.hidden, "故事板视图已显示");
-  ok(q(doc, "#dwCanvasHost").hidden, "节点画布已隐藏");
-  has(sbHost.innerHTML, "雨夜街头", "故事板读到节点提示词");
-  await click(doc, '[data-sb-open="' + img.id + '"]', 3);
-  ok(!q(doc, "#dwCanvasHost").hidden, "点定位后回到节点画布");
-  await click(doc, '[data-wbmode="canvas"]', 2);
-
   /* 画布感知 Agent：对话指令直接落到画布，并作为上下文注入 */
   ok(D.agent.focused() && D.agent.focused().id === cur.id, "Agent 已聚焦当前工程");
   ok(D.agent.canHandle("加一个视频节点：日落"), "Agent 识别加节点指令");
@@ -393,11 +382,6 @@ async function flowManualComic(env) {
   ok(Array.isArray(state.zip), "素材包已打包");
   ["字幕.srt", "分镜表.csv", "AI生成说明.txt", "使用说明.txt", "成片.webm", "画面/01.png"].forEach((f) => ok(state.zip.includes(f), "素材包含 " + f));
   ok(state.downloads.some((d) => /素材包\.zip$/.test(d.name)), "触发了素材包下载");
-
-  await click(doc, "#dwGuide");
-  ok(!!q(doc, "#gdMask"), "教程弹层打开");
-  await click(doc, "#gdClose");
-  ok(!q(doc, "#gdMask"), "教程弹层关闭");
 }
 
 /* ============================ 链路二：手搓台 · 仿真人 + 合规闸门 ============================ */
@@ -529,8 +513,10 @@ async function flowHome(env) {
   /* 首页：新建画布 hero + 模型/工具行 + 最近项目/上新 */
   await D.home.render(); await settle();
   ok(!!doc.querySelector("#dramaHome #hxCreate"), "首页渲染新建画布入口");
-  eq(doc.querySelectorAll("#dramaHome [data-hx-tool]").length, 8, "首页渲染 8 个模型/工具");
-  ok(!!doc.querySelector("#dramaHome #hxRelease"), "首页渲染最近上新入口");
+  eq(doc.querySelectorAll("#dramaHome [data-hx-tool]").length, 9, "首页渲染 9 个模型/工具（含更多功能）");
+  const hxSkills = doc.querySelectorAll("#dramaHome [data-hx-skill]");
+  ok(hxSkills.length >= 3 && hxSkills.length <= 5, "首页最近上新为独家技能卡，实际 " + hxSkills.length);
+  ok(!!doc.querySelector("#dramaHome #hxTvshow"), "首页渲染成片库横幅");
   const beforeHome = D.project.list().length;
   await click(doc, "#dramaHome #hxCreate", 30);
   eq(D.project.list().length, beforeHome + 1, "新建画布创建工程");
@@ -692,124 +678,19 @@ async function flowHome(env) {
   await click(doc, "#dramaPlugin #plDirector", 20);
   eq(W.XLX.app.currentView, "box3d", "插件页直达 3D 导演台");
 
-  /* TV Show 成片库 + 去流水线创作 */
+  /* TV Show 成片库 + 去画布创作 */
   await D.tvshow.render(); await settle();
-  ok(!!doc.querySelector("#dwTvshow #tvNew"), "成片库有去流水线创作入口");
+  ok(!!doc.querySelector("#dwTvshow #tvNew"), "成片库有去画布创作入口");
+  eq(doc.querySelector("#dwTvshow #tvNew").textContent.trim(), "去画布创作", "入口文案指向画布");
   const beforePipe = D.project.list().length;
   await click(doc, "#dwTvshow #tvNew", 20);
-  eq(D.project.list().length, beforePipe + 1, "新建流水线工程");
-  ok(D.auto.state.project && D.auto.state.project.mode === "pipeline", "流水线工程已自动载入");
-}
+  eq(D.project.list().length, beforePipe + 1, "新建工程");
+  ok(D.manual.state.project && D.manual.state.project.id, "工程已载入画布工作台");
 
-
-/* ============================ 链路四：半自动台 8 阶段 ============================ */
-async function flowAuto(env) {
-  const { doc, D, state } = env;
-  console.log("\n链路四：半自动台（输入→审剧本→角色→批量生成→检查→配音→合成→终审）");
-  D.setAdapterConfig("image", { provider: "custom-image", base: "https://img.test", key: "k" });
-  D.setAdapterConfig("tts", { provider: "custom-tts", base: "https://tts.test", key: "k" });
-
-  D.auto.state.stage = "input";
-  D.auto.state.project = null;
-  await D.auto.render(); await settle();
-
-  /* 顶部工程下拉：不经过项目中心也能直接切换工程 */
-  const auSel = q(doc, "#auProjSel");
-  ok(!!auSel, "流水线顶部渲染出工程下拉");
-  eq(auSel.options.length, D.project.list().length + 1, "下拉 = 占位项 + 全部工程");
-  eq(auSel.value, "", "未打开工程时选中占位项");
-  ok(auSel.options[0].textContent.includes("选择工程"), "占位项文案为「选择工程」");
-  const target = D.project.list().find((x) => x.mode !== "pipeline") || D.project.list()[0];
-  await setField(doc, "#auProjSel", target.id, 20);
-  ok(D.auto.state.project && D.auto.state.project.id === target.id, "下拉切换后载入对应工程");
-  eq(q(doc, "#auProjSel").value, target.id, "下拉选中项跟随当前工程");
-  ok(!q(doc, "#auProjSel").options[0].textContent.includes("选择工程"), "载入工程后占位项消失");
-  D.auto.state.stage = "input";
-  D.auto.state.project = null;
-  await D.auto.render(); await settle();
-
-  ok(!!q(doc, "#auTopic"), "输入阶段渲染出题材框");
-  ok(q(doc, "#dwAuto").innerHTML.includes("输入题材"), "步骤条在「输入题材」");
-
-  await setInput(doc, "#auTopic", "外卖小哥其实是隐形富豪", 3);
-  eq(D.auto.state.input.topic, "外卖小哥其实是隐形富豪", "题材已填入");
-  await click(doc, "#auGo", 12);
-  const p = D.auto.state.project;
-  ok(!!p, "AI 出剧本分镜后生成工程");
-  eq(D.auto.state.stage, "plan", "进入关卡一");
-  ok(p.shots.length >= 3, "内置模板至少 3 镜，实际 " + p.shots.length);
-  ok(p.characters.length >= 2, "模板给出角色");
-  ok(/模板生成|请审核/.test(toastsText(state)) || true, "给出剧本提示");
-
-  await setField(doc, "#auLogline", "改了的一句话", 3);
-  eq(D.auto.state.project.script.logline, "改了的一句话", "关卡一可改剧本");
-  const shotsBefore = D.auto.state.project.shots.length;
-  await click(doc, "#auAdd");
-  eq(D.auto.state.project.shots.length, shotsBefore + 1, "关卡一可加镜");
-  await click(doc, "#auApprove");
-  eq(D.auto.state.stage, "chars", "通过后进入角色锁定");
-  ok(!!q(doc, '#dwAuto [data-act="charload"]'), "角色阶段有「从角色库添加」");
-  await click(doc, "#auLockAll");
-  ok(D.auto.state.project.characters.every((c) => c.locked), "全部锁定生效");
-  await click(doc, "#auStartGen");
-  eq(D.auto.state.stage, "gen", "进入批量生成");
-  ok(!!q(doc, "#auGenRun"), "批量生成有开始按钮");
-
-  await click(doc, "#auGenRun", 30);
-  const all = D.project.get(p.id).shots;
-  ok(all.every((s) => s.status === "done"), "批量生成全部完成");
-  ok(all.every((s) => s.imageUrl), "每镜都有画面");
-  await click(doc, "#auGenNext");
-  eq(D.auto.state.stage, "review", "进入关卡二逐镜检查");
-  eq(doc.querySelectorAll("#auReviewGrid .dw-rail-item").length, all.length, "逐镜检查列出全部分镜");
-
-  await click(doc, "#auRedrawFail");
-  await click(doc, "#auApprove2");
-  eq(D.auto.state.stage, "voice", "进入配音");
-  await click(doc, "#auTtsRun", 20);
-  const need = D.project.get(p.id).shots.filter((s) => s.line && !s.audioUrl);
-  eq(need.length, 0, "批量配音补齐所有台词");
-  await click(doc, "#auApprove3");
-  eq(D.auto.state.stage, "compose", "进入合成");
-
-  await click(doc, "#auCompose", 40);
-  await wait(700);
-  ok(D.auto.state.lastComposed, "半自动台浏览器合成拿到成片");
-  await click(doc, "#auApprove4");
-  eq(D.auto.state.stage, "final", "进入关卡三终审");
-  ok(!!q(doc, "#auComplianceCard") || q(doc, "#dwAuto").innerHTML.includes("合规与授权"), "终审含合规区");
-  ok(!!q(doc, "#auDownload"), "终审有下载成片");
-  await click(doc, "#auPack", 12);
-  ok(Array.isArray(state.zip), "终审可导出素材包");
-  await click(doc, "#auRestart");
-  eq(D.auto.state.stage, "input", "「做下一部」回到输入");
-
-  /* 半自动台真人剧：终审合规闸门 */
-  D.auto.state.input.genre = "realistic";
-  D.auto.state.project = null; D.auto.state.stage = "input";
-  D.setAdapterConfig("video", { provider: "seedance", base: "https://ark.test", key: "k" });
-  D.setAdapterConfig("lipsync", { provider: "custom-lipsync", base: "https://lip.test", key: "k" });
-  await D.auto.render(); await settle();
-  await setInput(doc, "#auTopic", "古风女将军复仇", 3);
-  await click(doc, "#auGo", 12);
-  await click(doc, "#auApprove");
-  await click(doc, "#auStartGen");
-  await click(doc, "#auGenRun", 40);
-  const pr = D.auto.state.project;
-  ok(pr.shots.every((s) => s.videoUrl), "半自动台真人剧出视频");
-  await click(doc, "#auGenNext");
-  await click(doc, "#auApprove2");
-  await click(doc, "#auTtsRun", 30);
-  await click(doc, "#auApprove3");
-  await click(doc, "#auApprove4");
-  eq(D.auto.state.stage, "final", "真人剧到终审");
-  ok(!D.compliance.verify(pr).ok, "真人剧未授权：终审合规不通过");
-  await click(doc, '#dwAuto [data-act="addconsent"]');
-  await setField(doc, "#auConsentName", "张三", 3);
-  await click(doc, "#auConsentSave", 6);
-  ok(D.compliance.verify(D.auto.state.project).ok, "半自动台登记授权后合规通过");
-  await click(doc, '#dwAuto [data-act="checkcompliance"]');
-  has(q(doc, "#dwAutoMsg").textContent, "合规检查通过", "半自动台合规检查提示");
+  /* 版本更新记录页 */
+  await D.changelog.render(); await settle();
+  eq(doc.querySelectorAll("#dramaChangelog .cl-item").length, D.changelog.RELEASES.length, "版本更新记录渲染全部条目");
+  ok(doc.querySelector("#dramaChangelog").innerHTML.includes("版本更新记录"), "记录页含标题");
 }
 
 /* ============================ 链路五：空态与边界 ============================ */
@@ -844,9 +725,6 @@ async function flowEdge(env) {
   ok(D.project.validate(b2).missing.some((m) => m.reason.includes("生成失败")), "失败镜未重试被识别");
 
   D.setAdapterConfig("image", { provider: "custom-image", base: "https://img.test", key: "k" });
-  state.toasts.length = 0;
-  ok(!!D.guide.tip("manual"), "教程小贴士可用");
-  ok(Object.keys(D.guide.tutorials).length === 4, "教程共 4 篇，实际 " + Object.keys(D.guide.tutorials).length);
 }
 
 /* ============================ 链路七：3D-BOX 导演工具 ============================ */
@@ -937,7 +815,6 @@ async function main() {
     await flowProjectLifecycle(env);
     await flowHome(env);
     await flowBox3d(env);
-    await flowAuto(env);
     await flowEdge(env);
   } catch (e) {
     fails.push("运行时异常：" + (e && e.stack || e));

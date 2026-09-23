@@ -5,7 +5,7 @@
   const U = XLX.util;
   const FPS = 30;
 
-  const state = { pid: "", project: null, busy: false, lastComposed: null, canvasId: "", sel: "", mode: "canvas", view: null, statusText: "", statusType: "" };
+  const state = { pid: "", project: null, busy: false, lastComposed: null, canvasId: "", sel: "", view: null, statusText: "", statusType: "" };
 
   let saveTimer = null;
   let cssDone = false;
@@ -21,13 +21,10 @@
 .dw-more-menu[hidden]{display:none}
 .dw-more-menu .btn{width:100%;justify-content:flex-start}
 .dw-wb-sp{flex:1}
-.dw-wbmode{display:inline-flex;gap:4px}
-.dw-wbmode .btn.primary{border-color:var(--accent);color:var(--accent)}
 .dw-zoom{font-size:11px;color:var(--text3);min-width:44px;text-align:center;display:inline-block}
 .dw-wb-main{display:flex;gap:10px;align-items:stretch}
 .dw-wb-canvas{flex:1;min-width:0}
 .dw-wb-canvas .cv-wrap{height:640px}
-.dw-wb-story{flex:1;min-width:0;max-height:640px;overflow-y:auto;border:1px solid var(--border);border-radius:12px;background:var(--bg);padding:10px}
 .dw-wb-side{width:340px;flex:none;max-height:640px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
 .dw-wb-side.dw-side-off{display:none}
 .dw-wb-foot{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
@@ -130,7 +127,6 @@
             '<button class="btn small" id="dwSave">保存草稿</button>' +
             '<button class="btn small" id="dwPush">上传云端</button>' +
             '<button class="btn small" id="dwPull">云端同步</button>' +
-            '<button class="btn small ghost" id="dwGuide">看教程</button>' +
             '<button class="btn small ghost" id="dwMakeupBtn">造型室</button>' +
           "</div>" +
         "</div>" +
@@ -140,10 +136,6 @@
         '<button class="btn small ghost" id="dwCanvasRename">重命名</button>' +
         '<button class="btn small ghost" id="dwCanvasDel">删除画布</button>' +
         '<span class="dw-wb-sp"></span>' +
-        '<div class="dw-wbmode" id="dwModeSw">' +
-          '<button class="btn small" data-wbmode="canvas" type="button">节点画布</button>' +
-          '<button class="btn small" data-wbmode="storyboard" type="button">故事板</button>' +
-        "</div>" +
         '<button class="btn small" id="dwZoomOut" title="缩小">－</button>' +
         '<span class="dw-zoom" id="dwZoomVal">100%</span>' +
         '<button class="btn small" id="dwZoomIn" title="放大">＋</button>' +
@@ -152,7 +144,6 @@
       "</div>" +
       '<div class="dw-wb-main">' +
         '<div class="dw-wb-canvas" id="dwCanvasHost"></div>' +
-        '<div class="dw-wb-story" id="dwStoryHost" hidden></div>' +
         '<div class="dw-wb-side" id="dwSide"></div>' +
       "</div>" +
       '<div class="dw-wb-foot">' +
@@ -178,38 +169,8 @@
 
     mountCanvas();
     bind(p);
-    applyMode();
     paintSide();
   }
-
-  /* ============ 双视图：节点画布 / 故事板 ============ */
-  function applyMode() {
-    const m = state.mode === "storyboard" ? "storyboard" : "canvas";
-    const cv = document.getElementById("dwCanvasHost");
-    const sb = document.getElementById("dwStoryHost");
-    if (cv) cv.hidden = m !== "canvas";
-    if (sb) sb.hidden = m !== "storyboard";
-    const v = view();
-    if (v) v.querySelectorAll("[data-wbmode]").forEach(b => {
-      b.classList.toggle("primary", b.getAttribute("data-wbmode") === m);
-    });
-    if (m === "storyboard" && D.storyboard) {
-      D.storyboard.mount(sb, state.project, {
-        onChange: () => saveSoon(500),
-        onSave: () => save(),
-        onOpen: (nid) => {
-          setMode("canvas");
-          if (nid) {
-            state.sel = nid;
-            if (state.view && state.view.select) state.view.select(nid);
-            paintSide();
-          }
-        }
-      });
-    }
-  }
-
-  function setMode(m) { state.mode = m === "storyboard" ? "storyboard" : "canvas"; applyMode(); }
 
   function infoFields(p) {
     return '<div class="dw-grid">' +
@@ -268,7 +229,6 @@
   }
 
   function refreshCanvas() {
-    if (state.mode === "storyboard") { applyMode(); return; }
     if (state.view && state.view.refresh) state.view.refresh();
     syncZoom();
   }
@@ -655,7 +615,6 @@
         U.toast("已从云端同步", "ok");
       } catch (e) { U.toast((e && e.message) || "同步失败", "err"); }
     };
-    v.querySelector("#dwGuide").onclick = () => { if (D.guide) D.guide.open("manual"); };
     v.querySelector("#dwMakeupBtn").onclick = async () => { await save(); if (D.makeup && D.makeup.load) await D.makeup.load(state.pid); if (XLX.app) XLX.app.go("makeup"); };
 
     /* 画布条 */
@@ -665,7 +624,6 @@
       try { D.canvas.setActiveCanvas(state.project, state.canvasId); } catch (err) {}
       await save();
       mountCanvas();
-      applyMode();
       paintSide();
     };
     v.querySelector("#dwCanvasAdd").onclick = async () => {
@@ -691,9 +649,6 @@
       await save();
       render();
     };
-    v.querySelectorAll("[data-wbmode]").forEach(b => {
-      b.onclick = () => setMode(b.getAttribute("data-wbmode"));
-    });
     v.querySelector("#dwZoomOut").onclick = () => { if (state.view) state.view.zoom(-0.12); syncZoom(); };
     v.querySelector("#dwZoomIn").onclick = () => { if (state.view) state.view.zoom(0.12); syncZoom(); };
     v.querySelector("#dwFit").onclick = () => { if (state.view) state.view.fit(); syncZoom(); };

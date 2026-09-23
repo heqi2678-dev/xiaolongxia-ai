@@ -1,5 +1,5 @@
 /* 铜龙电商 · AI 短剧工作台 · 首页（LibTV 形态） */
-/* 新建画布大框 + 一排创作模型/工具卡 + 最近项目 + 最近上新；对话类技能在「工具包」页。 */
+/* 新建画布大框 + 一排创作模型/工具卡（含「更多功能」）+ 最近项目 + 最近上新（5 张独家技能卡）+ 成片库横幅。 */
 (function () {
   const D = XLX.drama;
   const U = XLX.util;
@@ -9,12 +9,16 @@
     { id: "minimax", name: "Minimax H3 Max", node: "video", icon: "video" },
     { id: "wan", name: "Wan 3.0", node: "video", icon: "video" },
     { id: "seedance", name: "Seedance 2.5", node: "video", icon: "film" },
-    { id: "video", name: "视频", node: "video", icon: "video" },
-    { id: "image", name: "图片", node: "image", icon: "image" },
-    { id: "audio", name: "音频", node: "audio", icon: "mic" },
+    { id: "video", name: "视频生成", node: "video", icon: "video" },
+    { id: "image", name: "图片生成", node: "image", icon: "image" },
+    { id: "audio", name: "音频生成", node: "audio", icon: "mic" },
     { id: "script", name: "剧本生成", node: "script", icon: "book" },
-    { id: "edit", name: "智能剪辑", node: "video", icon: "wand" }
+    { id: "edit", name: "智能剪辑", node: "video", icon: "wand" },
+    { id: "more", name: "更多功能", node: "", icon: "grid" }
   ];
+
+  /* 首页「最近上新」展示的独家技能（按 id 取内置技能卡） */
+  const FEATURED = ["director-shots", "script-studio", "title-intro"];
 
   const state = { busy: false };
 
@@ -32,10 +36,9 @@
 .hx-sec-h h2{font-size:16px;font-weight:800;margin:0}
 .hx-sec-h .hx-more{margin-left:auto;font-size:12px;color:var(--text3);cursor:pointer}
 .hx-sec-h .hx-more:hover{color:var(--accent2)}
-.hx-tools{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-@media(max-width:820px){.hx-tools{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:560px){.hx-tools{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.hx-tool{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:border-color .15s,transform .15s}
+.hx-tools{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.hx-tool{flex:0 0 186px;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:border-color .15s,transform .15s}
+@media(max-width:560px){.hx-tool{flex-basis:156px}}
 .hx-tool:hover{border-color:var(--accent);transform:translateY(-3px)}
 .hx-tool .hx-tic{width:38px;height:38px;border-radius:11px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent2);display:flex;align-items:center;justify-content:center;flex:none}
 .hx-tool .hx-tic svg{width:20px;height:20px}
@@ -56,6 +59,24 @@
 .hx-newcard .hx-ncover svg{width:30px;height:30px}
 .hx-newcard .hx-nt{font-size:16px;font-weight:800;margin-bottom:6px}
 .hx-newcard .hx-nd{font-size:12.5px;color:var(--text3);line-height:1.7}
+.hx-skills{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+@media(max-width:980px){.hx-skills{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:560px){.hx-skills{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.hx-skill{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .15s}
+.hx-skill:hover{border-color:var(--accent);transform:translateY(-3px)}
+.hx-skill .hx-sc{aspect-ratio:16/10;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 24%,transparent),color-mix(in srgb,#a78bfa 20%,transparent));display:flex;align-items:center;justify-content:center;color:var(--accent2)}
+.hx-skill .hx-sc svg{width:26px;height:26px}
+.hx-skill .hx-sb{padding:9px 11px 11px}
+.hx-skill .hx-sn{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hx-skill .hx-sd{font-size:10.5px;color:var(--text3);margin-top:3px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hx-skill .hx-snew{position:absolute;top:8px;left:8px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--accent-grad);color:var(--accent-ink)}
+.hx-banner{display:flex;align-items:center;gap:18px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px 18px;cursor:pointer;transition:border-color .15s,transform .15s}
+.hx-banner:hover{border-color:var(--accent);transform:translateY(-2px)}
+.hx-banner .hx-bic{width:48px;height:48px;border-radius:14px;background:var(--accent-grad);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;flex:none}
+.hx-banner .hx-bic svg{width:24px;height:24px}
+.hx-banner .hx-bt{font-size:15px;font-weight:800;margin-bottom:4px}
+.hx-banner .hx-bd{font-size:12.5px;color:var(--text3);line-height:1.65}
+.hx-banner .hx-bgo{margin-left:auto;font-size:12px;color:var(--accent2);white-space:nowrap}
 @media(max-width:640px){
   .hx-wrap{padding:18px 12px 46px;gap:20px}
   .hx-hero{min-height:140px}
@@ -104,20 +125,43 @@
           '<div class="hx-proj" data-hx-proj="' + D.ui.esc(p.id) + '">' +
             '<div class="hx-cover">' + svg("film", 24) + "</div>" +
             '<div class="hx-pb"><div class="hx-pn">' + D.ui.esc(p.title || "未命名工程") + "</div>" +
-              '<div class="hx-pm">' + (p.mode === "pipeline" ? "流水线" : "画布") + " · " + (p.shots ? p.shots.length : 0) + " 分镜</div></div>" +
+              '<div class="hx-pm">画布 · ' + (p.shots ? p.shots.length : 0) + " 分镜</div></div>" +
           "</div>"
         ).join("") + "</div>"
       : D.ui.emptyBox("还没有项目，点上方「新建画布创作」开始。");
     return '<div class="hx-sec"><div class="hx-sec-h"><h2>最近项目</h2><span class="hx-more" id="hxMore">查看全部</span></div>' + body + "</div>";
   }
 
+  function featuredSkills() {
+    let all = [];
+    try { all = (D.skill && D.skill.all && D.skill.all()) || []; } catch (e) { all = []; }
+    const picked = FEATURED.map(id => all.find(s => s.id === id)).filter(Boolean);
+    if (picked.length) return picked;
+    return all.slice(0, 5);
+  }
+
   function releasesHtml() {
-    return '<div class="hx-sec"><div class="hx-sec-h"><h2>最近上新</h2></div>' +
-      '<div class="hx-new"><div class="hx-newcard" id="hxRelease">' +
-        '<div class="hx-ncover">' + svg("clapper", 30) + "</div>" +
-        '<div><div class="hx-nt">全网爆款成片库</div>' +
-          '<div class="hx-nd">新上线的短剧 / TV Show 成片都在这里，点开就能看别人的镜头怎么排。</div></div>' +
-      "</div></div></div>";
+    const list = featuredSkills().slice(0, 5);
+    const body = list.length
+      ? '<div class="hx-skills">' + list.map(s =>
+          '<div class="hx-skill" data-hx-skill="' + D.ui.esc(s.id) + '">' +
+            '<span class="hx-snew">独家</span>' +
+            '<div class="hx-sc">' + svg(s.icon || "star", 26) + "</div>" +
+            '<div class="hx-sb"><div class="hx-sn">' + D.ui.esc(s.name) + "</div>" +
+              '<div class="hx-sd">' + D.ui.esc(s.desc || "") + "</div></div>" +
+          "</div>"
+        ).join("") + "</div>"
+      : D.ui.emptyBox("技能即将上新。");
+    return '<div class="hx-sec"><div class="hx-sec-h"><h2>最近上新</h2><span class="hx-more" id="hxSkillsMore">全部技能</span></div>' + body + "</div>";
+  }
+
+  function bannerHtml() {
+    return '<div class="hx-banner" id="hxTvshow">' +
+      '<span class="hx-bic">' + svg("clapper", 24) + "</span>" +
+      '<div><div class="hx-bt">全网爆款成片库</div>' +
+        '<div class="hx-bd">新上线的短剧 / TV Show 成片都在这里，点开就能看别人的镜头怎么排。</div></div>' +
+      '<span class="hx-bgo">去看看</span>' +
+    "</div>";
   }
 
   async function render() {
@@ -125,7 +169,7 @@
     ensureCss();
     const v = view();
     if (!v) return;
-    v.innerHTML = '<div class="hx-wrap">' + heroHtml() + toolsHtml() + projectsHtml() + releasesHtml() + "</div>";
+    v.innerHTML = '<div class="hx-wrap">' + heroHtml() + toolsHtml() + projectsHtml() + releasesHtml() + bannerHtml() + "</div>";
     bind(v);
   }
 
@@ -133,15 +177,23 @@
     const create = v.querySelector("#hxCreate");
     if (create) create.onclick = () => newCanvas("", "");
     v.querySelectorAll("[data-hx-tool]").forEach(c => {
-      c.onclick = () => newCanvas(c.dataset.hxNode, c.dataset.hxName);
+      c.onclick = () => {
+        if (c.dataset.hxTool === "more") { if (XLX.app && XLX.app.go) XLX.app.go("toolkit"); return; }
+        newCanvas(c.dataset.hxNode, c.dataset.hxName);
+      };
     });
     v.querySelectorAll("[data-hx-proj]").forEach(c => {
       c.onclick = () => openProject(c.dataset.hxProj);
     });
+    v.querySelectorAll("[data-hx-skill]").forEach(c => {
+      c.onclick = () => openSkill(c.dataset.hxSkill);
+    });
     const more = v.querySelector("#hxMore");
     if (more) more.onclick = () => { if (XLX.app && XLX.app.go) XLX.app.go("projects"); };
-    const rel = v.querySelector("#hxRelease");
-    if (rel) rel.onclick = () => { if (XLX.app && XLX.app.go) XLX.app.go("tvshow"); };
+    const skMore = v.querySelector("#hxSkillsMore");
+    if (skMore) skMore.onclick = () => { if (XLX.app && XLX.app.go) XLX.app.go("toolkit"); };
+    const tv = v.querySelector("#hxTvshow");
+    if (tv) tv.onclick = () => { if (XLX.app && XLX.app.go) XLX.app.go("tvshow"); };
   }
 
   async function newCanvas(nodeType, title) {

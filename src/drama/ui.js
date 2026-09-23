@@ -7,7 +7,7 @@
 
   const CSS = `
 .dw-wrap{max-width:1180px;margin:0 auto;padding:14px 4px 40px;width:100%}
-#homeView,#projectsView,#assetsView,#tvshowView,#rankingView,#box3dView,#pluginView,#toolkitView,#dramaView,#autoView{overflow-y:auto}
+#homeView,#projectsView,#assetsView,#tvshowView,#rankingView,#box3dView,#pluginView,#changelogView,#toolkitView,#dramaView{overflow-y:auto}
 .dw-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 .dw-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px}
 .dw-card h3{margin:0 0 10px;font-size:14px;display:flex;align-items:center;gap:8px}
@@ -232,7 +232,7 @@
   function renderShots(container, project, handlers) {
     handlers = handlers || {};
     if (!(project.shots || []).length) {
-      container.innerHTML = '<div class="dw-empty">还没有分镜，点下面「加一镜」或先用半自动台生成</div>';
+      container.innerHTML = '<div class="dw-empty">还没有分镜，点下面「加一镜」或用 Agent 生成</div>';
       return;
     }
     container.innerHTML = project.shots.map(s => shotCard(project, s, handlers)).join("");
@@ -294,7 +294,7 @@
     return (project.shots || []).filter(only || (() => true)).map(s => s.id);
   }
 
-  /* ============ 合规与授权区（手搓台、半自动台共用） ============ */
+  /* ============ 合规与授权区（导演台共用） ============ */
   function complianceCard(project, o) {
     o = o || {};
     const px = o.prefix || "dw";
@@ -500,7 +500,7 @@
   /* 项目中心卡片 */
   function projectCard(p, coverUrl) {
     const genre = (D.GENRES.find(g => g.id === p.genre) || {}).name || p.genre || "未定剧种";
-    const mode = p.mode === "pipeline" ? "流水线" : "导演台";
+    const mode = "导演台";
     const shots = (p.shots || []).length;
     const cover = coverUrl || p.thumb || "";
     const coverHtml = cover

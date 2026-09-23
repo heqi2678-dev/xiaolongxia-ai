@@ -5,9 +5,10 @@
   const U = XLX.util;
 
   const TABS = [
-    { id: "views", name: "三视图", sub: "正面 / 侧面 / 背面，治崩脸" },
-    { id: "scenes", name: "场景卡", sub: "场景身份锚点，同一场景前后一致" },
-    { id: "refs", name: "多参考", sub: "每镜最多 3 张" }
+    { id: "views", name: "角色", sub: "三视图治崩脸" },
+    { id: "refs", name: "主体", sub: "每镜最多 3 张参考" },
+    { id: "scenes", name: "场景", sub: "场景身份锚点" },
+    { id: "style", name: "风格", sub: "画风预设" }
   ];
 
   const VIEW_ORDER = [
@@ -54,6 +55,13 @@
 .mk-ref-add:hover{border-color:var(--accent);color:var(--accent2)}
 .mk-count{font-size:11px;color:var(--text3)}
 .mk-note{font-size:11px;color:var(--text3);line-height:1.7;margin-top:8px}
+.mk-styles{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.mk-style{border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--bg);cursor:pointer;transition:border-color .15s,transform .15s}
+.mk-style:hover{border-color:var(--border2);transform:translateY(-2px)}
+.mk-style.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.mk-style b{display:block;font-size:13px;margin-bottom:6px;color:var(--text)}
+.mk-style.on b{color:var(--accent2)}
+.mk-style span{font-size:11px;color:var(--text3);line-height:1.6}
 .mk-prog{font-size:11px;color:var(--blue);margin-top:6px}
 @media (max-width:720px){
   .mk-scene{grid-template-columns:90px minmax(0,1fr)}
@@ -248,6 +256,7 @@
     if (!box) return;
     if (state.tab === "views") box.innerHTML = viewsHtml();
     else if (state.tab === "scenes") box.innerHTML = scenesHtml();
+    else if (state.tab === "style") box.innerHTML = styleHtml();
     else box.innerHTML = refsHtml();
     bindBody();
   }
@@ -372,6 +381,20 @@
     "</div>";
   }
 
+  /* ===== 风格（画风预设） ===== */
+  function styleHtml() {
+    const p = state.project;
+    const list = D.STYLES || [];
+    return '<div class="dw-card"><h3>画风 <span class="dw-hint">（选一种画风，生成分镜时作为统一风格前缀）</span></h3>' +
+      '<div class="mk-styles">' + list.map(s =>
+        '<div class="mk-style' + (s.id === p.style ? " on" : "") + '" data-mk-style="' + esc(s.id) + '">' +
+          "<b>" + esc(s.name) + "</b><span>" + esc(s.prompt) + "</span>" +
+        "</div>"
+      ).join("") + "</div>" +
+      '<div class="mk-note">画风会写进每一镜的提示词前缀，保证全片视觉统一。选完立即生效。</div>' +
+    "</div>";
+  }
+
   /* ============ 事件绑定 ============ */
   function bind(p) {
     const v = view();
@@ -389,6 +412,11 @@
   function bindBody() {
     const v = view();
     const p = state.project;
+
+    /* 风格 */
+    v.querySelectorAll("[data-mk-style]").forEach(el => {
+      el.onclick = async () => { p.style = el.dataset.mkStyle; p.updatedAt = Date.now(); await save(); paintBody(); };
+    });
 
     /* 三视图 */
     v.querySelectorAll("[data-mk-view]").forEach(b => {

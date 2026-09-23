@@ -824,18 +824,12 @@ test("角色库面板：列出已存角色并带加入与删除入口", () => {
   assert.match(html, /data-act="libdel"/);
 });
 
-test("两个工作台都复用共用组件，半自动台不再用 prompt 收集授权", () => {
+test("导演台复用共用组件，授权区不再内联", () => {
   const manual = dramaSrc("manual.js");
   assert.match(manual, /D\.ui\.complianceCard\(p, \{ prefix: "dw" \}\)/);
   assert.match(manual, /D\.ui\.bindLib\(v, state\.project/);
   assert.ok(!/id="dwCheck2"/.test(manual), "手搓台不应再保留内联授权区");
   assert.ok(!/function complianceCard/.test(manual), "授权区已抽到 ui.js 共用");
-
-  const auto = dramaSrc("auto.js");
-  assert.match(auto, /D\.ui\.complianceCard\(p, \{ prefix: "au" \}\)/);
-  assert.match(auto, /D\.ui\.bindCompliance\(/);
-  assert.match(auto, /D\.ui\.bindLib\(v, p/);
-  assert.ok(!/prompt\(/.test(auto), "终审不应再用 prompt() 收集授权");
 });
 
 /* ============ 题材模板 ============ */
@@ -928,66 +922,6 @@ test("project.duplicate：生成独立副本", async () => {
   assert.equal(D.project.get(p.id).shots[0].prompt, "原提示词", "副本改动不影响原工程");
 });
 
-/* ============ 三轨时间轴 ============ */
-
-test("timeline：总时长按分镜时长累加", () => {
-  const { D } = createDrama();
-  const p = D.project.blank({});
-  p.shots = [
-    { id: "a", seq: 1, duration: 5, status: "done" },
-    { id: "b", seq: 2, duration: 4, status: "pending" }
-  ];
-  assert.equal(D.timeline.total(p), 9);
-  const segs = D.timeline.layout(p);
-  assert.deepEqual(segs.map(s => [s.sid, s.start, s.end]), [["a", 0, 5], ["b", 5, 9]]);
-});
-
-test("timeline.shotAt：定位归属并夹紧越界", () => {
-  const { D } = createDrama();
-  const p = D.project.blank({});
-  p.shots = [
-    { id: "a", seq: 1, duration: 5, status: "done" },
-    { id: "b", seq: 2, duration: 4, status: "done" }
-  ];
-  assert.equal(D.timeline.shotAt(p, 0).sid, "a");
-  assert.equal(D.timeline.shotAt(p, 4.99).sid, "a");
-  assert.equal(D.timeline.shotAt(p, 5).sid, "b", "区间左闭右开");
-  assert.equal(D.timeline.shotAt(p, 999).sid, "b", "超尾夹到末镜");
-  assert.equal(D.timeline.shotAt(p, -3).sid, "a", "负值夹到首镜");
-  assert.equal(D.timeline.shotAt({ shots: [] }, 1), null);
-});
-
-test("timeline.frameStep：按帧率步进且不越过 0", () => {
-  const { D } = createDrama();
-  assert.ok(Math.abs(D.timeline.frameStep(1, 1, 30) - (1 + 1 / 30)) < 1e-9);
-  assert.ok(Math.abs(D.timeline.frameStep(1 / 30, -1, 30)) < 1e-9);
-  assert.equal(D.timeline.frameStep(0, -1, 30), 0);
-  assert.ok(Math.abs(D.timeline.frameStep(0.5, 1) - (0.5 + 1 / 30)) < 1e-9, "缺省 30fps");
-});
-
-test("timeline.fmt：秒数格式化为 mm:ss", () => {
-  const { D } = createDrama();
-  assert.equal(D.timeline.fmt(0), "00:00");
-  assert.equal(D.timeline.fmt(9.6), "00:10");
-  assert.equal(D.timeline.fmt(65), "01:05");
-  assert.equal(D.timeline.fmt(-5), "00:00");
-});
-
-test("timeline.render：三轨带时长与当前镜高亮", () => {
-  const { D } = createDrama();
-  const p = D.project.blank({});
-  p.shots = [
-    { id: "a", seq: 1, duration: 5, status: "done", line: "台词", audioUrl: "a.mp3" },
-    { id: "b", seq: 2, duration: 5, status: "pending" }
-  ];
-  const html = D.timeline.render(p, { currentShotId: "b" });
-  assert.match(html, /data-track="video"/);
-  assert.match(html, /data-track="audio"/);
-  assert.match(html, /data-track="subtitle"/);
-  assert.match(html, /总时长 00:10/);
-  assert.match(html, /dw-clip on[^"]*"[^>]*data-sid="b"/, "当前镜高亮");
-  assert.match(html, /共 2 镜/);
-});
 
 test("takes.sync：复用既有段对象，保持对象身份稳定", () => {
   const { D } = createDrama();
@@ -1104,21 +1038,15 @@ test("段内裁剪：trimOf 归一化边界，effDuration 反映裁剪后时长"
   assert.equal(D.project.effDuration(s), 6);
 });
 
-test("timeline：裁剪后段长与总时长按有效时长计算", () => {
+test("project.effDuration：裁剪后按有效时长计算", () => {
   const { D } = createDrama();
   const p = D.project.blank({});
   p.shots = [
     { id: "a", seq: 1, duration: 6, status: "done", trimIn: 1, trimOut: 4 },
     { id: "b", seq: 2, duration: 4, status: "done" }
   ];
-  assert.equal(D.timeline.total(p), 7);
-  const segs = D.timeline.layout(p);
-  assert.deepEqual(segs.map(s => [s.sid, s.start, s.end]), [["a", 0, 3], ["b", 3, 7]]);
-  assert.equal(segs[0].trimmed, true);
-  assert.equal(segs[0].footage, 6);
-
-  const html = D.timeline.render(p, { currentShotId: "a" });
-  assert.match(html, /dw-clip on[^"]*trimmed/, "裁剪片段带 trimmed 标记");
+  assert.equal(D.project.effDuration(p.shots[0]), 3, "裁剪段取 trimOut- trimIn");
+  assert.equal(D.project.effDuration(p.shots[1]), 4, "未裁剪段取原时长");
 });
 
 test("合成：resolveShots 把裁剪换算成片段源窗口", () => {

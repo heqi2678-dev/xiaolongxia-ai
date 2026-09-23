@@ -9,8 +9,8 @@ const DRAMA_FILES = [
   "config.js", "adapters.js", "adapters/image.js", "adapters/video.js",
   "adapters/tts.js", "adapters/lipsync.js", "project.js", "character.js",
   "takes.js", "engine.js", "compliance.js", "compose.js", "ui.js",
-  "templates.js", "models.js", "timeline.js", "home.js", "guide.js",
-  "manual.js", "auto.js", "makeup.js", "canvas.js", "storyboard.js", "agent.js", "skill.js", "box3d.js", "box3dview.js",
+  "templates.js", "models.js", "home.js",
+  "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dview.js",
   "toolkit.js"
 ];
 

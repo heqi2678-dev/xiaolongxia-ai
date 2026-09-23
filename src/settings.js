@@ -153,8 +153,6 @@ XLX.settings = (function () {
     if (rvTest) rvTest.onclick = testResolveConfig;
     const dsSave = document.getElementById("dramaSave");
     if (dsSave) dsSave.onclick = saveDramaServices;
-    const dsGuide = document.getElementById("dramaOpenGuide");
-    if (dsGuide) dsGuide.onclick = () => { if (XLX.drama && XLX.drama.guide) XLX.drama.guide.open("basics"); };
     DRAMA_KINDS.forEach(k => {
       const sel = document.getElementById("ds-" + k.id + "-provider");
       if (!sel) return;
@@ -253,11 +251,11 @@ XLX.settings = (function () {
   function dramaServiceCard() {
     return ''
       + '<div class="set-card">'
-      + '<h3><span class="hic">' + svg("film", 15) + '</span>短剧服务（手搓台 / 半自动台）</h3>'
-      + '<p class="sd">两个 AI 短剧工作台用这里的四类服务。<b>漫剧</b>只需「文生图 + 语音」；<b>仿真人剧</b>还需「图生视频 + 口型」。所有 Key 只保存在浏览器本地，不会上传。填之前可先看工作台里的「看教程」。<b style="color:var(--green)">没有 API Key 也能用半自动台出剧本</b>，但生成画面/配音必须配置对应服务。</p>'
+      + '<h3><span class="hic">' + svg("film", 15) + '</span>短剧服务（导演台）</h3>'
+      + '<p class="sd">AI 短剧工作台用这里的四类服务。<b>漫剧</b>只需「文生图 + 语音」；<b>仿真人剧</b>还需「图生视频 + 口型」。所有 Key 只保存在浏览器本地，不会上传。填之前可先在导演台里体验。<b style="color:var(--green)">没有 API Key 也能先出剧本与分镜</b>，但生成画面/配音必须配置对应服务。</p>'
       + DRAMA_KINDS.map(dramaKindBlock).join("")
       + '<div class="set-row"><div class="lab"><div class="t">保存短剧服务</div><div class="d">保存后立即在短剧工作台生效</div></div>'
-      + '<div class="val"><button class="btn primary small" id="dramaSave">保存</button> <button class="btn small" id="dramaOpenGuide">看教程</button></div></div>'
+      + '<div class="val"><button class="btn primary small" id="dramaSave">保存</button></div></div>'
       + '</div>';
   }
 

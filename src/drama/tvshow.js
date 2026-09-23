@@ -1,5 +1,5 @@
 /* 铜龙电商 · AI 短剧工作台 · 成片库（TV Show） */
-/* 流水线产物与成片卡片网格；空态给「去流水线创作」入口。 */
+/* 已出片的工程卡片网格；空态给「去画布创作」入口。 */
 (function () {
   const D = XLX.drama;
   const U = XLX.util;
@@ -32,8 +32,14 @@
     cssDone = true;
   }
 
+  /* 有出片产物的工程：任一分镜有视频，或画布上有生成完成的视频节点 */
+  function hasOutput(p) {
+    if ((p.shots || []).some(s => s && s.videoUrl)) return true;
+    return (p.canvases || []).some(c => (c.nodes || []).some(n => n.type === "video" && n.status === "done" && n.out));
+  }
+
   function products() {
-    return D.project.list().filter(p => p.mode === "pipeline" || p.source === "auto");
+    return D.project.list().filter(hasOutput);
   }
 
   function card(p) {
@@ -51,9 +57,9 @@
 
   function head(count) {
     return '<div class="tv-head"><span class="tv-title">成片库</span>' +
-      '<span class="tv-sub">流水线产物 · 共 ' + count + " 部</span>" +
+      '<span class="tv-sub">全网爆款 · 共 ' + count + " 部</span>" +
       '<span style="flex:1"></span>' +
-      '<button class="btn small primary" id="tvNew">去流水线创作</button>' +
+      '<button class="btn small primary" id="tvNew">去画布创作</button>' +
     "</div>";
   }
 
@@ -65,36 +71,36 @@
     const list = products();
     const body = list.length
       ? '<div class="tv-grid">' + list.map(card).join("") + "</div>"
-      : D.ui.emptyBox("成片库还是空的，去流水线跑一部吧。");
+      : D.ui.emptyBox("成片库还是空的，去画布创作一部吧。");
     v.innerHTML = '<div class="dw-wrap">' + head(list.length) + body + "</div>";
     bind(v);
   }
 
   function bind(v) {
     const nw = v.querySelector("#tvNew");
-    if (nw) nw.onclick = createPipeline;
+    if (nw) nw.onclick = createProject;
     v.querySelectorAll("[data-tv-open]").forEach(c => { c.onclick = () => open(c.dataset.tvOpen); });
   }
 
   async function open(pid) {
     try {
-      if (D.auto && D.auto.open) await D.auto.open(pid);
-      if (XLX.app && XLX.app.go) XLX.app.go("auto");
+      if (D.manual && D.manual.load) await D.manual.load(pid);
+      if (XLX.app && XLX.app.go) XLX.app.go("drama");
     } catch (e) {
       U.toast((e && e.message) || "打开成片失败", "err");
     }
   }
 
-  async function createPipeline() {
+  async function createProject() {
     try {
-      const p = D.project.blank({ title: "未命名成片", source: "auto", mode: "pipeline" });
+      const p = D.project.blank({ title: "未命名成片" });
       await D.project.save(p);
-      if (D.auto && D.auto.open) await D.auto.open(p.id);
-      if (XLX.app && XLX.app.go) XLX.app.go("auto");
+      if (D.manual && D.manual.load) await D.manual.load(p.id);
+      if (XLX.app && XLX.app.go) XLX.app.go("drama");
     } catch (e) {
-      U.toast((e && e.message) || "新建流水线失败", "err");
+      U.toast((e && e.message) || "新建失败", "err");
     }
   }
 
-  D.tvshow = { render, open, createPipeline };
+  D.tvshow = { render, open, createProject, createPipeline: createProject };
 })();

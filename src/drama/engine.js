@@ -1,5 +1,5 @@
 /* 铜龙电商 · AI 短剧工作台 · 剧种引擎（漫剧 / 仿真人） */
-/* 负责单镜生成、批量生成、配音、口型，以及半自动台的剧本分镜规划。 */
+/* 负责单镜生成、批量生成、配音、口型，以及 Agent 的剧本分镜规划。 */
 (function () {
   const D = XLX.drama;
   const jobs = {};
@@ -327,7 +327,7 @@
     Object.keys(jobs).forEach(k => { jobs[k].abort(); delete jobs[k]; });
   }
 
-  /* ============ 半自动台：题材 -> 剧本分镜 ============ */
+  /* ============ Agent / Skill：题材 -> 剧本分镜 ============ */
   function extractJson(text) {
     if (!text) return null;
     let t = String(text).trim();

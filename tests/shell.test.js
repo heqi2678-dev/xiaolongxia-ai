@@ -61,7 +61,7 @@ function bootApp() {
 test("外壳：主导航与账号菜单定义稳定", () => {
   const { shell } = bootShell();
   assert.deepEqual(shell.NAV.filter(x => !x.sep).map(x => x.id), [
-    "newProject", "agent", "home", "projects", "assets", "tvshow", "ranking", "box3d", "plugin", "toolkit"
+    "newProject", "agent", "home", "projects", "assets", "tvshow", "ranking", "box3d", "plugin", "changelog", "toolkit"
   ]);
   assert.equal(shell.NAV.filter(x => x.sep).length, 1, "只有一条分组分隔线");
   assert.equal(shell.NAV.filter(x => x.primary).length, 1, "只有一个主按钮");

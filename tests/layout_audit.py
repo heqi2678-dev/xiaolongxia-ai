@@ -23,7 +23,7 @@ BASE = (_POSARGS[0] if _POSARGS else "http://127.0.0.1:9140").rstrip("/")
 APP_PATH = "/dian/"
 GATE_USER = os.environ.get("AUDIT_USER", "zhuren")
 GATE_PASS = os.environ.get("AUDIT_PASS", "")
-VIEWS = ["chat", "market", "studio", "dramaHome", "drama", "auto", "tools", "memory", "download", "settings",
+VIEWS = ["chat", "market", "studio", "dramaHome", "drama", "changelog", "tools", "memory", "download", "settings",
          "box3d", "plugin", "toolkit"]
 
 try:
@@ -231,8 +231,8 @@ def audit_size(driver, width, height, mobile=False):
         elif view == "drama":
             wait_for(driver, "const w = document.querySelector('#dwManual .dw-workbench');"
                              " return !!w && !!w.querySelector('.cv-wrap');")
-        elif view == "auto":
-            wait_for(driver, "return !!document.querySelector('#dwAuto .dw-wrap');")
+        elif view == "changelog":
+            wait_for(driver, "return !!document.querySelector('#dramaChangelog .cl-item');")
         elif view == "box3d":
             wait_for(driver, "return !!document.querySelector('#dramaBox3d .bv-wrap');")
         elif view == "plugin":

@@ -13,6 +13,7 @@
     { sep: true },
     { id: "box3d", label: "铜龙电商 3D-BOX", icon: "box" },
     { id: "plugin", label: "Blender 插件", sub: "铜龙电商 Plugin", icon: "hammer" },
+    { id: "changelog", label: "版本更新记录", icon: "history" },
     { id: "toolkit", label: "工具包", icon: "grid" }
   ];
 
