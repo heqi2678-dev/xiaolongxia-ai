@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "timeline.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "guide.js",
-  "manual.js", "auto.js", "makeup.js", "canvas.js", "box3d.js", "box3dview.js", "toolkit.js", "shell.js"
+  "manual.js", "auto.js", "makeup.js", "canvas.js", "storyboard.js", "box3d.js", "box3dview.js", "toolkit.js", "shell.js"
 ];
 
 let pass = 0;
@@ -294,6 +294,16 @@ async function flowManualComic(env) {
   await D.project.save(D.manual.state.project);
   await D.manual.render(); await settle();
   ok(!!q(doc, '.cv-node[data-nid="' + img.id + '"]'), "画布渲染出图片节点");
+
+  /* 故事板双视图：切到故事板读节点，定位后回画布 */
+  await click(doc, '[data-wbmode="storyboard"]', 3);
+  const sbHost = q(doc, "#dwStoryHost");
+  ok(sbHost && !sbHost.hidden, "故事板视图已显示");
+  ok(q(doc, "#dwCanvasHost").hidden, "节点画布已隐藏");
+  has(sbHost.innerHTML, "雨夜街头", "故事板读到节点提示词");
+  await click(doc, '[data-sb-open="' + img.id + '"]', 3);
+  ok(!q(doc, "#dwCanvasHost").hidden, "点定位后回到节点画布");
+  await click(doc, '[data-wbmode="canvas"]', 2);
 
   /* LibTV 形态：单行工具条 + 节点卡精简（字段都在右侧详情） */
   eq(doc.querySelectorAll(".dw-wb-bar").length, 0, "画布工具条已并为单行");
