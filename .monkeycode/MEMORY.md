@@ -148,7 +148,8 @@ Entries discovered by the Agent during task execution should follow this format:
   - 短剧工作台线上地址是 `http://47.108.14.206/dian/`：nginx `^~ /dian/` → `127.0.0.1:9140`（`gate/server.py`，`SHOP_DIR=/home/admin/work/xiaolongxia-ai`），`_shop_file()` 每次请求都 `read_bytes()` 读盘，**改前端静态文件（`index.html`、`src/**`）无需重启服务**。
   - 根路径 `/` → `127.0.0.1:9130` 的 `tonglong-ui`（另一个 app，目录 `/home/admin/work/tonglong-ui`，与本项目无关），需要登录：`curl /` 返回 401，`curl /dian/` 返回「铜龙电商 · 请进店」登录页。因此**未登录时无法用 curl 校验前端静态产物**（`/dian/src/...` 取不到），只能确认 `SHOP_DIR` 磁盘文件已更新。
   - 校验"本地改动是否已上线"时用内容比对而非本地 git 状态：本机 `/tmp/opencode/xiaolongxia-ai` 的 git 历史与线上仓库不一致（`git status` 不可作准），可靠做法是 `ssh` 取线上 `git ls-files -z | xargs -0 md5sum` 与本地 `md5sum` 逐文件比对，再把有差异的文件 `scp` 回线上提交。
-  - Agent 环境（沙箱）工作副本为 `/workspace`：内容与线上逐文件一致（md5 相同），但其 git 为单 commit `c67274b`、无远端。Agent 环境已生成 `~/.ssh/id_ed25519` 并通过 `ssh-copy-id` 写入线上 root 的 `authorized_keys`，可直接 `ssh root@47.108.14.206`；部署路径为 改 `/workspace` → 同步线上 `/home/admin/work/xiaolongxia-ai` → 线上 `git` 提交推送。
+   - Agent 环境（沙箱）工作副本为 `/workspace`：内容与线上逐文件一致（md5 相同），但其 git 为单 commit `c67274b`、无远端。Agent 环境已生成 `~/.ssh/id_ed25519` 并通过 `ssh-copy-id` 写入线上 root 的 `authorized_keys`，可直接 `ssh root@47.108.14.206`；部署路径为 改 `/workspace` → 同步线上 `/home/admin/work/xiaolongxia-ai` → 线上 `git` 提交推送。
+   - 网关 `gate/server.py` 属后端，改动后需重启才生效：`systemctl restart xiaolongxia-gate.service`（服务单元名 `xiaolongxia-gate.service`，进程为 `/usr/bin/python3 /home/admin/work/xiaolongxia-ai/gate/server.py`）；前端静态文件（`index.html`、`src/**`）仍是覆盖即生效、无需重启。（2026-09-23 补记）
   - 小龙虾 LibTV 化总方案落档在 `.monkeycode/specs/2026-09-22-libtv-3layer/总方案.md`（三层：地基 / 工作台 / 3D-BOX，外加门外与贯穿线；管家页全程排除）。
 
 [Project Knowledge Summary]
