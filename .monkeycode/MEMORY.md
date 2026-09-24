@@ -154,6 +154,15 @@ Entries discovered by the Agent during task execution should follow this format:
    - 网关 `gate/server.py` 属后端，改动后需重启才生效：`systemctl restart xiaolongxia-gate.service`（服务单元名 `xiaolongxia-gate.service`，进程为 `/usr/bin/python3 /home/admin/work/xiaolongxia-ai/gate/server.py`）；前端静态文件（`index.html`、`src/**`）仍是覆盖即生效、无需重启。（2026-09-23 补记）
   - 小龙虾 LibTV 化总方案落档在 `.monkeycode/specs/2026-09-22-libtv-3layer/总方案.md`（三层：地基 / 工作台 / 3D-BOX，外加门外与贯穿线；管家页全程排除）。
 
+[User Instruction Summary]
+- Date: 2026-09-24
+- Context: LibTV 全对齐差距盘点收口（剩余三项 ③④⑤ 逐一拍板）
+- Instructions:
+  - ⑤ 导航定价/免费试用/LibTV CLI 入口：不做，平台自用无收费场景。
+  - ③ Plugin/CLI（Codex/Claude Code/OpenClaw 外部 AI 编程工具接入平台）：不做，站内 Agent 对话已能驱动生成能力，判定为重复能力；该项增量仅在「脱离网页、从终端/IDE 驱动或脚本批量跑」时才有价值。
+  - ④ 首页商业横幅/TV Show 作品预览：挂起（可做可不做），用户想做时再立项。
+  - LibTV 全对齐工作就此收口；后续再盘点差距时勿重复提出这三项。
+
 [Project Knowledge Summary]
 - Date: 2026-09-22
 - Context: Discovered by Agent while 把管家（tonglong-ui）纳入 git 管理
