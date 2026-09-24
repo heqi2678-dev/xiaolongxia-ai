@@ -225,6 +225,8 @@
       move: { id: "", name: "", url: "" },
       light: { id: "", name: "", url: "" },
       edit: { instruction: "", url: "" },
+      blocking: [], camPath: [],
+      cam: { pos: [], look: [], fov: 45 },
       updatedAt: 0
     };
   }

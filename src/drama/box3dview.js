@@ -22,7 +22,7 @@
     "切换夜景灯光，再补两个多角度机位"
   ];
 
-  const state = { ratio: "16:9", auto: true, pid: "", shotId: "", tool: "grid" };
+  const state = { ratio: "16:9", auto: true, pid: "", shotId: "", tool: "grid", impl: "ai" };
 
   const CSS = `
 .bv-page{width:100%;display:flex;flex-direction:column;gap:24px;padding-bottom:60px}
@@ -61,6 +61,12 @@
 .bv-tools-head b{font-size:15px;font-weight:800}
 .bv-tools-head .bv-sel{max-width:240px;height:32px}
 .bv-tools-head .bv-sp{flex:1}
+.bv-impl{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;flex:none}
+.bv-impl button{border:none;background:var(--card);color:var(--text2);font-size:12px;padding:0 12px;height:32px;cursor:pointer}
+.bv-impl button+button{border-left:1px solid var(--border)}
+.bv-impl button.on{background:var(--accent-grad);color:var(--accent-ink);font-weight:700}
+.bv-impl button:disabled{opacity:.45;cursor:not-allowed}
+.bv-stage{margin-top:4px}
 .bv-empty{font-size:12.5px;color:var(--text3);border:1px dashed var(--border);border-radius:12px;padding:18px;text-align:center;line-height:1.8}
 @media(max-width:600px){
   .bv-page{gap:18px}
@@ -144,6 +150,19 @@
     }
   }
 
+  function sceneReady() {
+    return !!(D.box3dscene && D.box3dscene.supported && D.box3dscene.supported());
+  }
+
+  function implSwitchHtml() {
+    const ok3d = sceneReady();
+    const impl = ok3d ? state.impl : "ai";
+    return '<span class="bv-impl">' +
+      '<button data-bv-impl="ai" class="' + (impl === "ai" ? "on" : "") + '">AI 取景</button>' +
+      '<button data-bv-impl="real3d" class="' + (impl === "real3d" ? "on" : "") + '"' + (ok3d ? "" : ' disabled title="当前环境不支持 WebGL"') + ">真 3D 视口</button>" +
+    "</span>";
+  }
+
   function toolsHeadHtml(p) {
     const proj = projects().map(x => '<option value="' + D.ui.esc(x.id) + '"' + (p && x.id === p.id ? " selected" : "") + ">" + D.ui.esc(x.title || "未命名工程") + "</option>").join("");
     const shots = p ? (p.shots || []).map(s => '<option value="' + D.ui.esc(s.id) + '"' + (s.id === state.shotId ? " selected" : "") + ">第 " + D.ui.esc(s.seq) + " 镜</option>").join("") : "";
@@ -151,16 +170,28 @@
       '<select class="bv-sel" id="bvProj">' + proj + "</select>" +
       (p ? '<select class="bv-sel" id="bvShot">' + shots + "</select>" : "") +
       '<span class="bv-sp"></span>' +
+      implSwitchHtml() +
       (p ? '<button class="btn small" id="bvAddShot">＋ 分镜</button>' : "") +
     "</div>";
   }
 
+  function stageHtml() {
+    return sceneReady() ? '<div class="bv-stage" id="bvStage"></div>' : "";
+  }
+
   function toolsHtml(p) {
     if (!p) return toolsHeadHtml(null) + '<div class="bv-empty">还没有工程。先在上面的提示词框「生成」一个 3D-BOX 工程，或去节点工作台新建工程。</div>';
-    return toolsHeadHtml(p) + '<div id="bvPanel"></div>';
+    return toolsHeadHtml(p) + stageHtml() + '<div id="bvPanel"></div>';
   }
 
   let panel = null;
+  let scene = null;
+
+  function currentShot(p) {
+    if (!p) return null;
+    const shots = p.shots || [];
+    return shots.find(s => s.id === state.shotId) || shots[0] || null;
+  }
 
   function render() {
     ensureCss();
@@ -174,7 +205,24 @@
       + "</div>";
     bindPrompt(v);
     bindTools(v, p);
+    mountScene(p);
     mountPanel(p);
+  }
+
+  function mountScene(p) {
+    scene = null;
+    const host = view() && view().querySelector("#bvStage");
+    const shot = currentShot(p);
+    if (!host || !p || !shot || !sceneReady()) return;
+    try {
+      scene = D.box3dscene.mount(host, p, shot, {
+        onChange: async () => {
+          try { await D.project.save(p); } catch (e) {}
+        }
+      });
+    } catch (e) {
+      host.innerHTML = '<div class="bv-empty">' + D.ui.esc((e && e.message) || "真 3D 视口加载失败") + "</div>";
+    }
   }
 
   function mountPanel(p) {
@@ -185,6 +233,7 @@
       panel = D.box3d.mount(host, p, {
         tool: state.tool,
         shotId: state.shotId,
+        provider: state.impl === "real3d" ? "real3d" : "",
         onChange: async () => {
           try { await D.project.save(p); } catch (e) {}
         }
@@ -216,7 +265,14 @@
     const proj = v.querySelector("#bvProj");
     if (proj) proj.onchange = () => { state.pid = proj.value; state.shotId = ""; render(); };
     const shot = v.querySelector("#bvShot");
-    if (shot) shot.onchange = () => { state.shotId = shot.value; if (panel) panel.setShot(state.shotId); };
+    if (shot) shot.onchange = () => { state.shotId = shot.value; if (panel) panel.setShot(state.shotId); mountScene(p); };
+    v.querySelectorAll("[data-bv-impl]").forEach(b => {
+      b.onclick = () => {
+        if (b.disabled) return;
+        state.impl = b.getAttribute("data-bv-impl");
+        render();
+      };
+    });
     const add = v.querySelector("#bvAddShot");
     if (add) add.onclick = async () => {
       if (!p) return;
@@ -247,5 +303,5 @@
     }
   }
 
-  D.box3dview = { render, state, ensureProject };
+  D.box3dview = { render, state, ensureProject, mountScene, currentShot, sceneReady, implSwitchHtml };
 })();

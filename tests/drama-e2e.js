@@ -14,7 +14,7 @@ const DRAMA_FILES = [
   "engine.js", "compliance.js", "compose.js", "ui.js",
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
-  "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dview.js", "changelog.js", "toolkit.js", "shell.js"
+  "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js", "shell.js"
 ];
 
 let pass = 0;
@@ -821,6 +821,10 @@ async function flowBox3d(env) {
   ok(!!bv.querySelector("#bvProj") && !!bv.querySelector("#bvShot"), "3D-BOX 页恢复工程/分镜选择");
   eq(bv.querySelectorAll("#bvPanel [data-bx-tab]").length, 5, "3D-BOX 页恢复五工具面板");
   ok(!!bv.querySelector("#bvPanel .bx-wrap"), "3D-BOX 页挂载导演工具台");
+  eq(bv.querySelectorAll("[data-bv-impl]").length, 2, "3D-BOX 页提供 AI / 真 3D 实现切换");
+  ok(!bv.querySelector("#bvStage"), "无 WebGL 环境不挂载真 3D 视口，AI 取景兜底");
+  await clickIn(bv, '[data-bv-impl="real3d"]', 2);
+  eq(D.box3dview.state.impl, "ai", "无 WebGL 时真 3D 切换被禁用，实现保持 AI");
   await clickIn(bv, "[data-bv-scene]", 2);
   has(bv.querySelector("#bvPrompt").value, "雨夜街头", "点击场景灵感回填提示词");
   const beforeGen = D.project.list().length;

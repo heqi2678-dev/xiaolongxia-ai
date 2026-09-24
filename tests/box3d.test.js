@@ -163,3 +163,98 @@ test("挂载面板返回句柄且不报错", () => {
   assert.ok(typeof handle.setShot === "function");
   assert.ok(typeof handle.setTool === "function");
 });
+
+/* ---------------- 真 3D 视口（box3dscene 纯逻辑 + real3d 实现） ---------------- */
+
+test("真 3D 视口纯逻辑：机位/角度位姿、灯光预设、轨迹提示与可播放判定", () => {
+  const { D } = createDrama();
+  const s = D.box3dscene;
+  assert.ok(s, "box3dscene 已加载");
+
+  const wide = s.poseFor("wide", "eye");
+  assert.deepEqual(wide.pos, [0, 1.4, 8.4], "全景平视距离最远");
+  const high = s.poseFor("close", "high");
+  assert.ok(high.pos[1] > high.pos[2], "俯拍机位更高");
+  const low = s.poseFor("medium", "low");
+  assert.equal(low.pos[1], 0.42, "仰拍贴地");
+
+  assert.deepEqual(s.anglePoseFor("front").pos, [0, 1.4, 4.6]);
+  assert.deepEqual(s.anglePoseFor("side").pos, [4.6, 1.4, 0]);
+  assert.deepEqual(s.anglePoseFor("back").pos, [0, 1.6, -4.6]);
+  const top = s.anglePoseFor("top");
+  assert.equal(top.pos[0], 0);
+  assert.ok(top.pos[1] > top.pos[2], "俯视机位在高处");
+  assert.deepEqual(s.anglePoseFor("不存在").pos, [0, 1.4, 4.6], "未知角度退回正面");
+
+  assert.equal(s.lightPreset("neon").key.color, 0xff3d8b);
+  assert.equal(s.lightPreset("nope").key.color, 0xffffff, "未知灯光退回三点布光");
+  assert.equal(s.FOV, 45);
+
+  assert.equal(s.playable([[0, 0, 0]]), false);
+  assert.equal(s.playable([[0, 0, 0], [1, 0, 1]]), true);
+  assert.equal(s.pathPrompt([[0, 0, 0]]), "", "不足两点没有运镜描述");
+  assert.ok(/推进/.test(s.pathPrompt([[0, 1.4, 4], [0, 1.4, 1]])), "识别向前推进");
+  assert.ok(/上升/.test(s.pathPrompt([[0, 1, 2], [0, 3, 2]])), "识别镜头上升");
+
+  assert.deepEqual(s.vec3([1, 2, 3]), [1, 2, 3]);
+  assert.equal(s.vec3([1, 2]), null);
+  assert.equal(s.vec3(["x", 2, 3]), null);
+});
+
+test("真 3D 在无 WebGL 环境优雅降级：supported=false，未就绪时 render 报错", async () => {
+  const { D, p, shot } = ready();
+  assert.equal(D.box3dscene.supported(), false, "测试台无 WebGL");
+  assert.equal(D.box3dscene.providerReady(), false);
+
+  D.box3d.setProvider("real3d");
+  assert.equal(D.box3d.currentProvider().id, "real3d", "real3d 已注册");
+  await assert.rejects(
+    () => D.box3d.render(p, shot, D.box3d.spec("camera", D.box3d.GRID[0])),
+    /视口未就绪/
+  );
+  D.box3d.setProvider("ai");
+  assert.equal(D.box3d.currentProvider().id, "ai");
+});
+
+test("取景接口支持按次指定实现，且不改动全局实现", async () => {
+  const { D, p, shot } = ready();
+  D.box3d.register("fake3d", { id: "fake3d", label: "假 3D", render: async (proj, s, sp) => ({ url: "asset:fake/" + sp.id, media: "image" }) });
+  const r = await D.box3d.render(p, shot, D.box3d.spec("camera", D.box3d.GRID[0]), { provider: "fake3d" });
+  assert.equal(r.url, "asset:fake/wide-eye");
+  assert.equal(D.box3d.currentProvider().id, "ai", "全局实现仍是 AI");
+});
+
+test("工具运行按 provider 走指定实现并落库", async () => {
+  const { D, p, shot } = ready();
+  D.box3d.register("fake3d", { id: "fake3d", label: "假 3D", render: async (proj, s, sp) => ({ url: "asset:fake/" + sp.id, media: "image" }) });
+  const res = await D.box3d.runTool(p, shot, "grid", { provider: "fake3d" });
+  assert.equal(res.length, 9);
+  assert.equal(shot.box3d.grid.length, 9);
+  assert.ok(shot.box3d.grid.every(c => /^asset:fake\//.test(c.url)), "九格均来自指定实现");
+});
+
+test("3D-BOX 面板：asset 结果用 data-ref 占位待水合，http 结果直接给 src", () => {
+  const { D, sandbox, p, shot } = ready();
+  shot.box3d.grid = [{ id: "wide-eye", name: "全景 · 平视", url: "asset:x1", error: "" }];
+  shot.box3d.light = { id: "neon", name: "霓虹", url: "https://cdn/l.png", error: "" };
+  const gridEl = sandbox.document.createElement("div");
+  D.box3d.mount(gridEl, p, { shotId: shot.id, tool: "grid" });
+  assert.ok(gridEl.innerHTML.includes('data-ref="asset:x1"'), "asset 结果带 data-ref 便于水合");
+  const lightEl = sandbox.document.createElement("div");
+  D.box3d.mount(lightEl, p, { shotId: shot.id, tool: "light" });
+  assert.ok(lightEl.innerHTML.includes('src="https://cdn/l.png"'), "http 结果直接给 src");
+  assert.ok(!/data-ref="https:\/\/cdn\/l\.png"/.test(lightEl.innerHTML), "http 结果不需要水合");
+});
+
+test("3D-BOX 独立页：默认 AI 实现，无 WebGL 时视口分支关闭", () => {
+  const { D, p } = ready();
+  assert.equal(D.box3dview.state.impl, "ai");
+  assert.equal(D.box3dview.sceneReady(), false);
+  const html = D.box3dview.implSwitchHtml();
+  assert.ok(html.includes('data-bv-impl="ai"'), "提供 AI 取景切换项");
+  assert.ok(html.includes('data-bv-impl="real3d"'), "提供真 3D 视口切换项");
+  assert.ok(/data-bv-impl="real3d"[^>]*disabled/.test(html), "无 WebGL 时真 3D 项禁用");
+  assert.equal(D.box3dview.currentShot(p).id, p.shots[0].id, "默认取第一镜");
+  assert.doesNotThrow(() => D.box3dview.mountScene(p), "无 WebGL 时 mountScene 安全跳过");
+  assert.equal(typeof D.box3dview.render, "function");
+});

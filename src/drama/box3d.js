@@ -151,9 +151,11 @@
   };
   register("ai", aiProvider);
 
-  /* 执行单个取景方案（走当前实现） */
+  /* 执行单个取景方案：默认走当前实现，opts.provider 可按次指定实现（如真 3D 视口） */
   function render(project, shot, sp, opts) {
-    return currentProvider().render(project, shot, sp, opts);
+    opts = opts || {};
+    const prov = (opts.provider && providers[opts.provider]) || currentProvider();
+    return prov.render(project, shot, sp, opts);
   }
 
   /* 一组取景方案：并行调用，结果按传入顺序返回 */
@@ -212,8 +214,17 @@
       move: { id: "", name: "", url: "" },
       light: { id: "", name: "", url: "" },
       edit: { instruction: "", url: "" },
+      blocking: [], camPath: [],
+      cam: { pos: [], look: [], fov: 45 },
       updatedAt: 0
     };
+  }
+
+  /* 三维向量归一化：[x,y,z] 数字才保留，否则空数组 */
+  function vec3(a) {
+    if (!Array.isArray(a) || a.length !== 3) return [];
+    const v = a.map(Number);
+    return v.every(n => isFinite(n)) ? v : [];
   }
 
   function ensure(shot) {
@@ -231,6 +242,19 @@
     if (!b.edit || typeof b.edit !== "object") b.edit = { instruction: "", url: "" };
     if (typeof b.edit.instruction !== "string") b.edit.instruction = "";
     if (typeof b.edit.url !== "string") b.edit.url = "";
+    if (!Array.isArray(b.blocking)) b.blocking = [];
+    b.blocking = b.blocking.filter(x => x && vec3(x.pos).length === 3).slice(0, 16).map(x => ({
+      id: typeof x.id === "string" ? x.id : "",
+      name: typeof x.name === "string" ? x.name : "",
+      pos: vec3(x.pos)
+    }));
+    if (!Array.isArray(b.camPath)) b.camPath = [];
+    b.camPath = b.camPath.filter(p => p && vec3(p.pos).length === 3).slice(0, 120).map(p => ({
+      pos: vec3(p.pos),
+      look: vec3(p.look)
+    }));
+    if (!b.cam || typeof b.cam !== "object") b.cam = { pos: [], look: [], fov: 45 };
+    b.cam = { pos: vec3(b.cam.pos), look: vec3(b.cam.look), fov: isFinite(Number(b.cam.fov)) ? Number(b.cam.fov) : 45 };
     if (typeof b.updatedAt !== "number") b.updatedAt = 0;
     return b;
   }
@@ -336,13 +360,33 @@
 
   function esc(s) { return D.ui.esc(s == null ? "" : String(s)); }
 
+  /* 资源仓引用（asset:）不能直接被浏览器加载，先占位再水合成 blob: 地址 */
+  function mediaSrc(url) {
+    const u = String(url || "");
+    if (!u) return "";
+    return ' src="' + esc(u) + '"' + (u.startsWith("asset:") ? ' data-ref="' + esc(u) + '"' : "");
+  }
+
+  async function hydrate(root) {
+    if (!root || !root.querySelectorAll || !D.project.assets || !D.project.assets.hydrateRef) return;
+    const els = root.querySelectorAll("img[data-ref],video[data-ref]");
+    for (const el of els) {
+      const ref = el.getAttribute("data-ref");
+      if (!ref) continue;
+      try {
+        const u = await D.project.assets.hydrateRef(ref);
+        if (u) el.src = u;
+      } catch (e) {}
+    }
+  }
+
   function cellHTML(cell, emptyLabel) {
     if (cell && cell.error) {
       return '<div class="bx-cell err" title="' + esc(cell.error) + '"><div class="bx-cell-media">' + esc(cell.error) + "</div>" +
         '<div class="bx-cell-cap">' + esc(cell.name || emptyLabel || "") + "</div></div>";
     }
     const media = (cell && cell.url)
-      ? '<img src="' + esc(cell.url) + '" alt="">'
+      ? '<img' + mediaSrc(cell.url) + ' alt="">'
       : '<span class="bx-ph">' + esc(emptyLabel || "待生成") + "</span>";
     const cap = (cell && cell.name) || emptyLabel || "";
     return '<div class="bx-cell"><div class="bx-cell-media">' + media + "</div>" +
@@ -366,7 +410,7 @@
     return '<div class="bx-desc">' + esc(toolOf("move").desc) + "</div>" +
       '<div class="bx-row"><select class="inp" id="bxMoveSel" style="width:auto">' + opts + "</select>" +
       '<button class="btn small primary" data-bx-run="move"' + (ctx.busy ? " disabled" : "") + ">" + (ctx.busy ? "生成中" : "生成运镜视频") + "</button></div>" +
-      '<div class="bx-preview">' + (cur ? '<video src="' + esc(cur) + '" controls></video>' : '<span class="bx-ph">' + (b.move.error ? esc(b.move.error) : "尚未生成运镜视频") + "</span>") + "</div>";
+      '<div class="bx-preview">' + (cur ? '<video' + mediaSrc(cur) + ' controls></video>' : '<span class="bx-ph">' + (b.move.error ? esc(b.move.error) : "尚未生成运镜视频") + "</span>") + "</div>";
   }
 
   function lightHTML(ctx) {
@@ -376,7 +420,7 @@
     return '<div class="bx-desc">' + esc(toolOf("light").desc) + "</div>" +
       '<div class="bx-row"><select class="inp" id="bxLightSel" style="width:auto">' + opts + "</select>" +
       '<button class="btn small primary" data-bx-run="light"' + (ctx.busy ? " disabled" : "") + ">" + (ctx.busy ? "生成中" : "生成布光画面") + "</button></div>" +
-      '<div class="bx-preview">' + (cur ? '<img src="' + esc(cur) + '" alt="">' : '<span class="bx-ph">' + (b.light.error ? esc(b.light.error) : "尚未生成布光画面") + "</span>") + "</div>";
+      '<div class="bx-preview">' + (cur ? '<img' + mediaSrc(cur) + ' alt="">' : '<span class="bx-ph">' + (b.light.error ? esc(b.light.error) : "尚未生成布光画面") + "</span>") + "</div>";
   }
 
   function angleHTML(ctx) {
@@ -402,7 +446,7 @@
       '<textarea class="inp" id="bxEditText" style="min-height:60px;font-size:12px" placeholder="例如：把外套换成红色，其余保持不变">' + esc(ctx.editText || b.edit.instruction) + "</textarea>" +
       '<div class="bx-row"><button class="btn small primary" data-bx-run="edit"' + (ctx.busy ? " disabled" : "") + ">" + (ctx.busy ? "生成中" : "生成编辑结果") + "</button>" +
       '<span class="bx-desc">' + (ref ? "将以本镜现有视频为参考" : "本镜还没有视频素材") + "</span></div>" +
-      '<div class="bx-preview">' + (cur ? '<video src="' + esc(cur) + '" controls></video>' : '<span class="bx-ph">尚未生成编辑结果</span>') + "</div>";
+      '<div class="bx-preview">' + (cur ? '<video' + mediaSrc(cur) + ' controls></video>' : '<span class="bx-ph">尚未生成编辑结果</span>') + "</div>";
   }
 
   function bodyHTML(ctx) {
@@ -416,7 +460,7 @@
   function shellHTML(ctx) {
     const shot = ctx.shot;
     const tabs = TOOLS.map(t => '<button class="bx-tab' + (t.id === ctx.tool ? " on" : "") + '" data-bx-tab="' + esc(t.id) + '">' + esc(t.name) + "</button>").join("");
-    const prov = currentProvider();
+    const prov = (ctx.provider && providers[ctx.provider]) || currentProvider();
     return '<div class="bx-wrap">' +
       '<div class="bx-head"><b>3D-BOX 导演工具</b>' +
         '<span class="bx-shot">' + (shot ? "第 " + esc(shot.seq) + " 镜" : "无分镜") + "</span>" +
@@ -424,7 +468,7 @@
       '<div class="bx-tabs">' + tabs + "</div>" +
       '<div class="bx-body" id="bxBody">' + bodyHTML(ctx) + "</div>" +
       '<div class="bx-prog" id="bxProg"></div>' +
-      '<div class="bx-note">机位 / 灯光 / 角度 走同一套取景接口，当前实现为 AI 生成；接入真 3D 引擎时只需注册一种新实现，上层工具不变。</div>' +
+      '<div class="bx-note">机位 / 灯光 / 角度 / 运镜 走同一套取景接口，可在 AI 生成与真 3D 视口之间切换。</div>' +
     "</div>";
   }
 
@@ -436,6 +480,7 @@
   function refresh(ctx) {
     ctx.el.innerHTML = shellHTML(ctx);
     bind(ctx);
+    hydrate(ctx.el);
   }
 
   function setBusy(ctx, on) {
@@ -460,6 +505,7 @@
     try {
       const opt = {
         media: mediaFor(toolId, ctx.p),
+        provider: ctx.provider,
         id: ctx.sel[toolId],
         angles: ctx.sel.angles.slice(),
         instruction: ctx.editText,
@@ -514,6 +560,7 @@
       el, p: project, opts,
       tool: opts.tool || "grid",
       shotId: opts.shotId || "",
+      provider: opts.provider || "",
       busy: false,
       editText: "",
       sel: { move: MOVES[0].id, light: LIGHTS[0].id, angles: ANGLES.slice(0, 4).map(a => a.id) }
