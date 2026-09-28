@@ -115,38 +115,45 @@
 - 1688 开放平台：注册企业开发者 → 创建应用 → 申请「商品/店铺」API 权限 → 审核通过后拿到 AppKey/AppSecret。
 - 抖音开放平台（抖店）：入驻抖店 → 创建自用型应用 → 申请「商品/订单/物流」等权限 → 拿到 AppKey/AppSecret。
 
-### 3. 配置到服务（在服务器执行）
+### 3. 配置到服务（已预置，只需填一个文件）
 
-在 systemd 单元里加 Environment 行，然后重载重启：
-
-```bash
-sudo systemctl edit --full xiaolongxia-gate.service
-```
-
-在 `[Service]` 段追加（示例占位，替换为你的真实值）：
-
-```ini
-Environment=ECOM_1688_APPKEY=your-1688-appkey
-Environment=ECOM_1688_APPSECRET=your-1688-appsecret
-Environment=ECOM_1688_ACCESS_TOKEN=your-1688-token
-Environment=ECOM_DOUYIN_APPKEY=your-douyin-appkey
-Environment=ECOM_DOUYIN_APPSECRET=your-douyin-appsecret
-```
-
-保存后重载并重启：
+服务器上只需编辑一个文件：
 
 ```bash
-sudo systemctl daemon-reload
+sudo nano /home/admin/work/xiaolongxia-gate-data/ecom.env
+```
+
+把等号后面填上你的值（没申请到的平台可留空）：
+
+```bash
+ECOM_1688_APPKEY=你的1688应用Key
+ECOM_1688_APPSECRET=你的1688应用密钥
+ECOM_1688_ACCESS_TOKEN=你的1688授权令牌
+ECOM_DOUYIN_APPKEY=你的抖店应用Key
+ECOM_DOUYIN_APPSECRET=你的抖店应用密钥
+```
+
+保存后重启服务（systemd 已通过 drop-in 自动加载该文件）：
+
+```bash
 sudo systemctl restart xiaolongxia-gate.service
 sudo systemctl status xiaolongxia-gate.service
 ```
 
-### 4. 验证是否启用真机
+### 4. 验证是否启用真机（一条命令）
 
-`jobs.ensure_adapters()` 会按凭证存在与否注册：只要 `ECOM_1688_APPKEY` / `ECOM_DOUYIN_APPKEY` 存在，对应平台适配器即自动启用，未配置的平台继续走 mock。
+```bash
+cd /home/admin/work/xiaolongxia-ai/gate
+python3 -m ecom.smoke_cli
+```
 
-- 可用 collector 选择平台 `1688` 做一次单商品采集冒烟，观察是否返回真实数据；
-- 抖店目标侧在「店铺与授权」里提交 access_token 后再铺货冒烟。
+输出会打印每个变量「已配置 / 未配置」以及「真机已启用: 1688, douyin」。带商品冒烟：
+
+```bash
+python3 -m ecom.smoke_cli --offer https://detail.1688.com/offer/替换为真实offerId.html
+```
+
+`jobs.ensure_adapters()` 按凭证存在与否注册：只要 `ECOM_1688_APPKEY` / `ECOM_DOUYIN_APPKEY` 存在，对应平台适配器即自动启用，未配置的平台继续走 mock。
 
 ### 5. 校准点（真机链路已知待校准）
 
