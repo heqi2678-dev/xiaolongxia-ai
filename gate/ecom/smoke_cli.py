@@ -20,10 +20,12 @@ import sys
 
 REQUIRED = {
     "1688": ["ECOM_1688_APPKEY", "ECOM_1688_APPSECRET", "ECOM_1688_ACCESS_TOKEN"],
+    "taobao": ["ECOM_TAOBAO_APPKEY", "ECOM_TAOBAO_APPSECRET"],
     "douyin": ["ECOM_DOUYIN_APPKEY", "ECOM_DOUYIN_APPSECRET"],
 }
 OPTIONAL = {
     "1688": ["ECOM_1688_BASE_URL"],
+    "taobao": ["ECOM_TAOBAO_BASE_URL"],
     "douyin": ["ECOM_DOUYIN_BASE_URL"],
 }
 
@@ -77,6 +79,8 @@ def report_adapters():
     enabled = []
     if "1688" in sources:
         enabled.append("1688")
+    if "taobao" in targets:
+        enabled.append("taobao")
     if "douyin" in targets:
         enabled.append("douyin")
     if enabled:
@@ -84,6 +88,37 @@ def report_adapters():
     else:
         print("真机未启用：仅 mock 可用（配置凭证后重启服务即可自动启用）")
     print()
+
+
+def smoke_taobao_categories():
+    from ecom.adapters import target_taobao
+    from ecom.registry import EcomError
+
+    print("== 淘宝类目树冒烟 ==")
+    adapter = target_taobao.TargetTaobaoAdapter()
+    token = os.environ.get("ECOM_TAOBAO_ACCESS_TOKEN") or "app-only"
+    try:
+        tree = adapter.fetch_category_tree({"shop_auth": {"access_token": token}})
+    except EcomError as exc:
+        print("失败：%s" % exc)
+        return 1
+    except Exception as exc:  # noqa: BLE001
+        print("失败（未知错误）：%s" % exc)
+        return 1
+    leaves = _count_leaves(tree)
+    print("成功：一级类目 %s 个，叶子类目 %s 个" % (len(tree), leaves))
+    return 0
+
+
+def _count_leaves(nodes):
+    total = 0
+    for node in nodes or []:
+        children = node.get("children") or []
+        if children:
+            total += _count_leaves(children)
+        else:
+            total += 1
+    return total
 
 
 def smoke_offer(offer):
@@ -112,6 +147,7 @@ def smoke_offer(offer):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="电商真机凭证冒烟自检")
     parser.add_argument("--offer", help="1688 商品链接或 offerId，用于单商品冒烟")
+    parser.add_argument("--taobao", action="store_true", help="拉取淘宝可发布类目树做冒烟")
     parser.add_argument(
         "--env-file",
         default=DEFAULT_ENV_FILE,
@@ -128,7 +164,9 @@ def main(argv=None):
     report_adapters()
     if args.offer:
         return smoke_offer(args.offer)
-    print("提示：加 --offer <1688链接或offerId> 可做一次真实采集冒烟。")
+    if args.taobao:
+        return smoke_taobao_categories()
+    print("提示：加 --offer <1688链接或offerId> 可做一次真实采集冒烟；加 --taobao 可拉取淘宝类目树。")
     return 0
 
 

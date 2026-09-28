@@ -414,6 +414,10 @@ def ensure_adapters():
         from ecom.adapters import target_douyin
 
         registry.register_target("douyin", target_douyin.TargetDouyinAdapter())
+    if os.environ.get("ECOM_TAOBAO_APPKEY"):
+        from ecom.adapters import target_taobao
+
+        registry.register_target("taobao", target_taobao.TargetTaobaoAdapter())
 
 
 def install():

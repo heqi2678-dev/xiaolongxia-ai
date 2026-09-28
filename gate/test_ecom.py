@@ -6,13 +6,14 @@
 
 运行：cd gate && python3 -m unittest test_ecom
 """
+import os
 import tempfile
 import time
 import unittest
 from pathlib import Path
 
 from ecom import api, jobs, queue, registry, store
-from ecom.adapters import base, mock, source_1688, target_douyin
+from ecom.adapters import base, mock, source_1688, target_douyin, target_taobao
 
 
 class StoreTest(unittest.TestCase):
@@ -718,6 +719,173 @@ class DouyinTargetTest(unittest.TestCase):
         self.assertEqual(remote_id, "9001")
 
 
+class TaobaoTargetTest(unittest.TestCase):
+    """淘宝目标适配器：扁平类目还原为树、字段映射、发布/改价/上下架与错误归一化。"""
+
+    CATEGORY = {
+        "itemcats_authorize_get_response": {
+            "item_cats": {
+                "item_cat": [
+                    {"cid": 1, "parent_cid": 0, "name": "服饰", "is_parent": True},
+                    {"cid": 11, "parent_cid": 1, "name": "女装", "is_parent": True},
+                    {"cid": 111, "parent_cid": 11, "name": "连衣裙", "is_parent": False},
+                    {"cid": 12, "parent_cid": 1, "name": "男装", "is_parent": True},
+                    {"cid": 121, "parent_cid": 12, "name": "T恤", "is_parent": False},
+                ]
+            }
+        }
+    }
+    ADD_OK = {"item_add_response": {"item": {"num_iid": 9001}}}
+    ONSALE = {
+        "items_onsale_get_response": {
+            "items": {"item": [{"num_iid": 1, "title": "连衣裙", "price": "59.00", "num": 10}]},
+            "total_results": 1,
+        }
+    }
+
+    class FakeTransport:
+        """单网关 POST：按 params['method'] 分派响应。"""
+
+        def __init__(self, responses=None):
+            self.calls = []
+            self.responses = responses or {}
+
+        def post(self, url, params):
+            self.calls.append((url, dict(params)))
+            method = params.get("method")
+            for key, value in self.responses.items():
+                if key == method:
+                    return value(params) if callable(value) else value
+            return {"itemcats_authorize_get_response": {"item_cats": {"item_cat": []}}}
+
+    def _adapter(self, responses=None):
+        return target_taobao.TargetTaobaoAdapter(
+            appkey="app", secret="sec", transport=self.FakeTransport(responses)
+        )
+
+    def _default(self):
+        return self._adapter(
+            {
+                "taobao.itemcats.authorize.get": self.CATEGORY,
+                "taobao.item.add": self.ADD_OK,
+                "taobao.items.onsale.get": self.ONSALE,
+            }
+        )
+
+    def test_sign_deterministic(self):
+        sig = target_taobao.top_sign({"b": "2", "a": "1"}, "secret")
+        self.assertEqual(sig, target_taobao.top_sign({"a": "1", "b": "2"}, "secret"))
+        self.assertEqual(len(sig), 32)
+        self.assertEqual(sig, sig.upper(), "TOP md5 签名应为大写")
+        self.assertNotEqual(sig, target_taobao.top_sign({"a": "1", "b": "2"}, "other"))
+        self.assertNotEqual(sig, target_taobao.top_sign({"a": "1", "b": "2"}, "secret", "hmac"))
+
+    def test_fetch_category_tree_builds_nesting(self):
+        adapter = self._default()
+        tree = adapter.fetch_category_tree({"shop_auth": {"access_token": "t"}})
+        self.assertEqual(tree[0]["name"], "服饰")
+        self.assertFalse(tree[0]["leaf"], "有子类目应为非叶子")
+        self.assertEqual(tree[0]["children"][0]["name"], "女装")
+        leaf = tree[0]["children"][0]["children"][0]
+        self.assertEqual(leaf["name"], "连衣裙")
+        self.assertTrue(leaf["leaf"])
+
+    def test_match_category(self):
+        adapter = self._default()
+        adapter.fetch_category_tree({"shop_auth": {"access_token": "t"}})
+        match = adapter.match_category({"title": "女装连衣裙 碎花"})
+        self.assertEqual(match["category_id"], "111", "命中关键词取叶子类目")
+        self.assertGreater(match["confidence"], 0)
+
+    def test_map_fields(self):
+        adapter = self._default()
+        mapped = adapter.map_fields(
+            {
+                "title": "连衣裙",
+                "price": 59.9,
+                "stock": 30,
+                "main_image": "https://img/1.jpg",
+                "images": ["https://img/1.jpg"],
+                "skus": [{"spec": "红"}],
+                "detail": {"html": "<p>x</p>"},
+            },
+            "111",
+        )
+        self.assertEqual(mapped["missing"], [])
+        self.assertEqual(mapped["data"]["price"], "59.90", "淘宝价格用元、保留两位")
+        self.assertEqual(mapped["data"]["cid"], "111")
+        self.assertEqual(mapped["data"]["num"], 30)
+        empty = adapter.map_fields({}, "")
+        self.assertIn("title", empty["missing"])
+        self.assertIn("cid", empty["missing"])
+        self.assertIn("skus", empty["missing"])
+
+    def test_publish_update_listing(self):
+        adapter = self._default()
+        auth = {"access_token": "t"}
+        data = {"title": "连衣裙", "cid": "111", "price": "59.90", "num": 30, "pic_path": "https://img/1.jpg"}
+        published = adapter.publish(data, auth)
+        self.assertEqual(published["remote_id"], "9001")
+        adapter.update_price("9001", 88.0, auth)
+        adapter.set_listing("9001", False, auth)
+        url, params = adapter.transport.calls[-1]
+        self.assertEqual(params["method"], "taobao.item.update.delisting")
+        self.assertEqual(params["session"], "t")
+        self.assertTrue(params["sign"])
+        price_call = [c for c in adapter.transport.calls if c[1]["method"] == "taobao.item.update"][0][1]
+        self.assertEqual(price_call["price"], "88.00")
+        self.assertEqual(price_call["num_iid"], "9001")
+
+    def test_list_listings(self):
+        adapter = self._default()
+        result = adapter.list_listings({"access_token": "t"})
+        self.assertEqual(result["items"][0]["remote_id"], "1")
+        self.assertIsNone(result["cursor"])
+
+    def test_missing_app_credentials(self):
+        adapter = target_taobao.TargetTaobaoAdapter(transport=self.FakeTransport())
+        with self.assertRaises(registry.EcomError) as ctx:
+            adapter.fetch_category_tree({"shop_auth": {"access_token": "t"}})
+        self.assertEqual(ctx.exception.code, registry.AUTH_EXPIRED)
+
+    def test_missing_shop_auth(self):
+        adapter = self._default()
+        with self.assertRaises(registry.EcomError) as ctx:
+            adapter.publish({"title": "x", "cid": "111"}, {})
+        self.assertEqual(ctx.exception.code, registry.AUTH_EXPIRED)
+
+    def test_error_response_normalized(self):
+        adapter = self._adapter(
+            {
+                "taobao.item.add": {
+                    "error_response": {
+                        "code": 15,
+                        "sub_code": "isv.invalid-category",
+                        "msg": "Remote service error",
+                        "sub_msg": "category qualification missing",
+                    }
+                }
+            }
+        )
+        with self.assertRaises(registry.EcomError) as ctx:
+            adapter.publish({"title": "x", "cid": "111"}, {"access_token": "t"})
+        self.assertEqual(ctx.exception.code, registry.CATEGORY_RIGHTS)
+        self.assertFalse(ctx.exception.retryable)
+
+    def test_rate_limited_by_limiter(self):
+        adapter = self._default()
+        adapter.limiter = registry.RateLimiter(qps=1, clock=lambda: 1000.0)
+        adapter.limiter.spend()
+        with self.assertRaises(registry.EcomError) as ctx:
+            adapter.fetch_category_tree({"shop_auth": {"access_token": "t"}})
+        self.assertEqual(ctx.exception.code, registry.RATE_LIMITED)
+
+    def test_contract_selfcheck(self):
+        adapter = self._default()
+        remote_id = base.assert_target_contract(adapter)
+        self.assertEqual(remote_id, "9001")
+
+
 class EcomApiTest(unittest.TestCase):
     owner = "api-user"
 
@@ -1126,6 +1294,18 @@ class JobsTest(unittest.TestCase):
         jobs.ensure_adapters()
         self.assertIn("mock", registry.REGISTRY.sources())
         self.assertIn("mock", registry.REGISTRY.targets())
+
+    def test_ensure_adapters_registers_taobao_with_credentials(self):
+        registry.reset()
+        os.environ["ECOM_TAOBAO_APPKEY"] = "app"
+        os.environ["ECOM_TAOBAO_APPSECRET"] = "sec"
+        try:
+            jobs.ensure_adapters()
+        finally:
+            os.environ.pop("ECOM_TAOBAO_APPKEY", None)
+            os.environ.pop("ECOM_TAOBAO_APPSECRET", None)
+        self.assertIn("taobao", registry.REGISTRY.targets())
+        self.assertEqual(registry.target("taobao").platform, "taobao")
 
 
 if __name__ == "__main__":

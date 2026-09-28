@@ -77,15 +77,27 @@
 - [x] 16. 测试收口（`tests/ecom.test.js`、`tests/drama-e2e.js`、`gate/test_ecom.py`）
   - 前端单测：电商视图 15 项（含「10 视图均可渲染 + 导航/标题对齐」收口用例），全量 `tests/*.test.js` 214 项
   - e2e：`tests/drama-e2e.js` 链路七覆盖 10 视图（含 AI 创作占位），全量 363 项
-  - 网关单测：`gate/test_ecom.py` 95 项 + `gate/test_gate.py` 56 项
+  - 网关单测：`gate/test_ecom.py` 107 项 + `gate/test_gate.py` 56 项
   - 注：电商 e2e 已并入 `tests/drama-e2e.js`（未单独新建 `tests/ecom-e2e.js`）
 
 ## 二期（暂缓）
 
 - [ ] 淘宝/拼多多源采集
-- [ ] 淘宝/拼多多/快手指向铺货
+- [x] 淘宝指向铺货（2026-09-28 提前完成，见下）
+- [ ] 拼多多/快手指向铺货
 - [ ] AI 创作接入
 - [ ] 店群聚合增强
+
+### 淘宝目标适配器（提前落地）
+
+用户实际经营淘宝，故把二期的淘宝铺货提前到一期完成：
+
+- `gate/ecom/adapters/target_taobao.py`：淘宝开放平台（TOP）适配器，覆盖类目树（`taobao.itemcats.authorize.get`，扁平列表按 `parent_cid` 还原为树）、字段映射、发布（`taobao.item.add`）、改价（`taobao.item.update`，价格用元、两位小数）、上下架（`taobao.item.update.listing`/`delisting`）、在售列表（`taobao.items.onsale.get`）。
+- 签名 `top_sign`：TOP md5（`MD5(secret+串+secret)` 大写），另支持 `hmac`。
+- 注册：`jobs.ensure_adapters()` 检测到 `ECOM_TAOBAO_APPKEY` 即注册 `taobao` 目标平台。
+- 测试：`gate/test_ecom.py::TaobaoTargetTest` 12 项（含契约自检与错误归一化）；真机契约自检由 `base.assert_target_contract` 覆盖。
+- 前端无需改动（平台键 `taobao` 已在 `ecom.js`/`ecom-shops.js`/`ecom-compliance.js` 中就位）。
+- 待真机校准：图片空间上传（`pic_path` 外链 vs `taobao.picture.upload`）、类目属性 `prop`、发货地址 `location`。
 
 ## 待确认（开工前拍板）
 
@@ -95,24 +107,27 @@
 - [x] 平台 appkey 到位时间（决定适配器先 mock 还是真机）→ 用户自行对接；mock 始终可用，真机按凭证存在与否自动启用（操作指引见下）
 - [x] 图片工坊参照物 hookshot：`https://www.hkshot.com/`（HookShot 霍客引擎，路由与工具清单见 `hookshot-reference.md`）
 
-## 真机对接指引（1688 / 抖音小店）
+## 真机对接指引（1688 / 淘宝 / 抖店）
 
 目标：拿到 appkey/secret 后，让适配器从 mock 切到真机，无需改代码。
 
-### 1. 需要的凭证（共 6 个环境变量）
+### 1. 需要的凭证（按平台配置，未申请的可留空）
 
 | 平台 | 变量 | 说明 |
 |------|------|------|
-| 1688 | `ECOM_1688_APPKEY` | 开放平台应用 AppKey |
+| 1688（采集源） | `ECOM_1688_APPKEY` | 开放平台应用 AppKey |
 | 1688 | `ECOM_1688_APPSECRET` | 应用 AppSecret（签名用） |
 | 1688 | `ECOM_1688_ACCESS_TOKEN` | 店铺/用户授权令牌 |
-| 抖音小店 | `ECOM_DOUYIN_APPKEY` | 抖店应用 AppKey |
+| 淘宝（铺货目标） | `ECOM_TAOBAO_APPKEY` | 淘宝开放平台 AppKey |
+| 淘宝 | `ECOM_TAOBAO_APPSECRET` | 淘宝 AppSecret（签名用） |
+| 抖音小店（可选） | `ECOM_DOUYIN_APPKEY` | 抖店应用 AppKey |
 | 抖音小店 | `ECOM_DOUYIN_APPSECRET` | 抖店应用 AppSecret |
-| 抖音小店 | `ECOM_DOUYIN_BASE_URL`（可选） | 默认抖店开放平台网关，一般不用改 |
+| 各平台 | `ECOM_*_BASE_URL`（可选） | 默认官方网关，一般不用改 |
 
 ### 2. 申请入口
 
 - 1688 开放平台：注册企业开发者 → 创建应用 → 申请「商品/店铺」API 权限 → 审核通过后拿到 AppKey/AppSecret。
+- 淘宝开放平台：以淘宝卖家账号 + 营业执照创建应用 → 申请「商品发布/商品管理/类目」权限 → 拿到 AppKey/AppSecret。
 - 抖音开放平台（抖店）：入驻抖店 → 创建自用型应用 → 申请「商品/订单/物流」等权限 → 拿到 AppKey/AppSecret。
 
 ### 3. 配置到服务（已预置，只需填一个文件）
@@ -129,8 +144,8 @@ sudo nano /home/admin/work/xiaolongxia-gate-data/ecom.env
 ECOM_1688_APPKEY=你的1688应用Key
 ECOM_1688_APPSECRET=你的1688应用密钥
 ECOM_1688_ACCESS_TOKEN=你的1688授权令牌
-ECOM_DOUYIN_APPKEY=你的抖店应用Key
-ECOM_DOUYIN_APPSECRET=你的抖店应用密钥
+ECOM_TAOBAO_APPKEY=你的淘宝应用Key
+ECOM_TAOBAO_APPSECRET=你的淘宝应用密钥
 ```
 
 保存后重启服务（systemd 已通过 drop-in 自动加载该文件）：
@@ -147,18 +162,20 @@ cd /home/admin/work/xiaolongxia-ai/gate
 python3 -m ecom.smoke_cli
 ```
 
-输出会打印每个变量「已配置 / 未配置」以及「真机已启用: 1688, douyin」。带商品冒烟：
+输出会打印每个变量「已配置 / 未配置」以及「真机已启用: 1688, taobao」。带商品/类目冒烟：
 
 ```bash
 python3 -m ecom.smoke_cli --offer https://detail.1688.com/offer/替换为真实offerId.html
+python3 -m ecom.smoke_cli --taobao
 ```
 
-`jobs.ensure_adapters()` 按凭证存在与否注册：只要 `ECOM_1688_APPKEY` / `ECOM_DOUYIN_APPKEY` 存在，对应平台适配器即自动启用，未配置的平台继续走 mock。
+`jobs.ensure_adapters()` 按凭证存在与否注册：只要 `ECOM_1688_APPKEY` / `ECOM_TAOBAO_APPKEY` / `ECOM_DOUYIN_APPKEY` 存在，对应平台适配器即自动启用，未配置的平台继续走 mock。
 
 ### 5. 校准点（真机链路已知待校准）
 
 - 1688 AOP 签名拼接顺序与请求头格式；
+- 淘宝 `pic_path` 外链 vs 图片空间上传、类目属性 `prop`、发货地址 `location`；
 - 抖店接口名、参数名与价格单位（分/元）、类目树层级；
 - 各平台限流阈值（QPS / 日配额）与错误码映射到现有 8 类错误。
 
-真机接口名与签名规则待冒烟时按官方文档校准；校准只改 `gate/ecom/adapters/source_1688.py` 与 `target_douyin.py`，API 层与前端无需改动。
+真机接口名与签名规则待冒烟时按官方文档校准；校准只改 `gate/ecom/adapters/` 下的适配器文件，API 层与前端无需改动。
