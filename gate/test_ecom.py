@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 
 from ecom import queue, registry, store
-from ecom.adapters import base, mock, source_1688
+from ecom.adapters import base, mock, source_1688, target_douyin
 
 
 class StoreTest(unittest.TestCase):
@@ -556,6 +556,166 @@ class Source1688Test(unittest.TestCase):
             adapter, sample_id="123456", shop_url="https://shop123.1688.com"
         )
         self.assertTrue(product["skus"])
+
+
+class DouyinTargetTest(unittest.TestCase):
+    """抖音小店目标适配器：类目树、字段映射、发布/改价/上下架与错误归一化。"""
+
+    CATEGORY = {
+        "code": 10000,
+        "data": {
+            "categoryList": [
+                {
+                    "id": 1,
+                    "name": "服饰",
+                    "children": [
+                        {
+                            "id": 11,
+                            "name": "女装",
+                            "children": [{"id": 111, "name": "连衣裙"}],
+                        },
+                        {
+                            "id": 12,
+                            "name": "男装",
+                            "children": [{"id": 121, "name": "T恤"}],
+                        },
+                    ],
+                }
+            ]
+        },
+    }
+    OK = {"code": 10000, "data": {"product_id": "9001"}}
+
+    class FakeTransport:
+        def __init__(self, responses=None):
+            self.calls = []
+            self.responses = responses or {}
+
+        def post(self, url, params):
+            self.calls.append((url, dict(params)))
+            for key, value in self.responses.items():
+                if key in url:
+                    return value(params) if callable(value) else value
+            return {"code": 10000, "data": {}}
+
+    def _adapter(self, responses=None):
+        return target_douyin.TargetDouyinAdapter(
+            appkey="app", secret="sec", transport=self.FakeTransport(responses)
+        )
+
+    def _default(self):
+        return self._adapter(
+            {
+                "category/getCascade": self.CATEGORY,
+                "product/addV2": self.OK,
+                "product/listV2": {
+                    "code": 10000,
+                    "data": {"products": [{"product_id": "1", "name": "连衣裙"}], "total": 1},
+                },
+            }
+        )
+
+    def test_sign_deterministic(self):
+        sig = target_douyin.doudian_sign({"b": "2", "a": "1"}, "secret")
+        self.assertEqual(sig, target_douyin.doudian_sign({"a": "1", "b": "2"}, "secret"))
+        self.assertEqual(len(sig), 32)
+        self.assertNotEqual(sig, target_douyin.doudian_sign({"a": "1", "b": "2"}, "other"))
+
+    def test_fetch_category_tree(self):
+        adapter = self._default()
+        tree = adapter.fetch_category_tree({"shop_auth": {"access_token": "t"}})
+        self.assertEqual(tree[0]["name"], "服饰")
+        self.assertEqual(tree[0]["children"][0]["name"], "女装")
+        self.assertFalse(tree[0]["children"][0]["children"][0].get("children"))
+
+    def test_match_category(self):
+        adapter = self._default()
+        adapter.fetch_category_tree({"shop_auth": {"access_token": "t"}})
+        match = adapter.match_category({"title": "女装连衣裙 碎花"})
+        self.assertEqual(match["category_id"], "111", "命中关键词取叶子类目")
+        self.assertGreater(match["confidence"], 0)
+
+    def test_map_fields(self):
+        adapter = self._default()
+        mapped = adapter.map_fields(
+            {
+                "title": "连衣裙",
+                "price": 59.9,
+                "stock": 30,
+                "main_image": "https://img/1.jpg",
+                "images": ["https://img/1.jpg"],
+                "skus": [{"spec": "红"}],
+                "detail": {"html": "<p>x</p>"},
+            },
+            "111",
+        )
+        self.assertEqual(mapped["missing"], [])
+        self.assertEqual(mapped["data"]["market_price"], 5990, "价格转分")
+        self.assertEqual(mapped["data"]["category_leaf_id"], "111")
+        empty = adapter.map_fields({}, "")
+        self.assertIn("name", empty["missing"])
+        self.assertIn("skus", empty["missing"])
+
+    def test_publish_update_listing(self):
+        adapter = self._default()
+        auth = {"access_token": "t"}
+        data = {"name": "连衣裙", "category_leaf_id": "111", "pic": "https://img/1.jpg"}
+        published = adapter.publish(data, auth)
+        self.assertEqual(published["remote_id"], "9001")
+        adapter.update_price("9001", 88.0, auth)
+        adapter.set_listing("9001", False, auth)
+        url, params = adapter.transport.calls[-1]
+        self.assertIn("product/down", url)
+        self.assertEqual(params["access_token"], "t")
+        self.assertTrue(params["sign"])
+        price_call = [c for c in adapter.transport.calls if "updatePrice" in c[0]][0][1]
+        self.assertEqual(price_call["param_json"], '{"product_id":"9001","price":8800}')
+
+    def test_list_listings(self):
+        adapter = self._default()
+        result = adapter.list_listings({"access_token": "t"})
+        self.assertEqual(result["items"][0]["remote_id"], "1")
+        self.assertIsNone(result["cursor"])
+
+    def test_missing_app_credentials(self):
+        adapter = target_douyin.TargetDouyinAdapter(transport=self.FakeTransport())
+        with self.assertRaises(registry.EcomError) as ctx:
+            adapter.fetch_category_tree({"shop_auth": {"access_token": "t"}})
+        self.assertEqual(ctx.exception.code, registry.AUTH_EXPIRED)
+
+    def test_missing_shop_auth(self):
+        adapter = self._default()
+        with self.assertRaises(registry.EcomError) as ctx:
+            adapter.publish({"name": "x", "category_leaf_id": "111"}, {})
+        self.assertEqual(ctx.exception.code, registry.AUTH_EXPIRED)
+
+    def test_error_response_normalized(self):
+        adapter = self._adapter(
+            {"product/addV2": {"code": 40004, "message": "category qualification missing"}}
+        )
+        with self.assertRaises(registry.EcomError) as ctx:
+            adapter.publish({"name": "x", "category_leaf_id": "111"}, {"access_token": "t"})
+        self.assertEqual(ctx.exception.code, registry.CATEGORY_RIGHTS)
+        self.assertFalse(ctx.exception.retryable)
+
+    def test_rate_limited_by_limiter(self):
+        adapter = self._default()
+        adapter.limiter = registry.RateLimiter(qps=1, clock=lambda: 1000.0)
+        adapter.limiter.spend()
+        with self.assertRaises(registry.EcomError) as ctx:
+            adapter.fetch_category_tree({"shop_auth": {"access_token": "t"}})
+        self.assertEqual(ctx.exception.code, registry.RATE_LIMITED)
+
+    def test_rate_limiter_counting(self):
+        adapter = self._default()
+        adapter.limiter = registry.RateLimiter(qps=100, clock=lambda: 1000.0)
+        adapter.fetch_category_tree({"shop_auth": {"access_token": "t"}})
+        self.assertEqual(adapter.limiter.snapshot()["used"], 1)
+
+    def test_contract_selfcheck(self):
+        adapter = self._default()
+        remote_id = base.assert_target_contract(adapter)
+        self.assertEqual(remote_id, "9001")
 
 
 if __name__ == "__main__":

@@ -24,7 +24,9 @@
 - [x] 5. 1688 源适配器 `adapters/source_1688.py`（单商品 + 整店）
   - AOP 签名、offerId 解析、商品/SKU/主图/详情映射、整店分页、错误归一化
   - 凭证走 `ECOM_1688_*` 环境变量；transport 可注入，真机待 appkey 冒烟
-- [ ] 6. 抖音小店目标适配器 `adapters/target_douyin.py`（类目树/字段映射/发布/改价/上下架）
+- [x] 6. 抖音小店目标适配器 `adapters/target_douyin.py`（类目树/字段映射/发布/改价/上下架）
+  - 类目级联树、关键词匹配取叶子、价格转分、发布/改价/上下架/列表、签名与限流接入
+  - 凭证走 `ECOM_DOUYIN_*`，店铺 token 经 `shop_auth`；真机待资质，接口名与签名待冒烟校准
 - [ ] 7. 商品库 + 素材库 UI `ecom-products.js`
 - [ ] 8. 一键铺货向导 `ecom-publish.js`
 - [ ] 9. 图片工坊 `ecom-image.js` + `POST /assets/process`（参照 HookShot，见 `hookshot-reference.md`）
