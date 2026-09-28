@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js",
-  "ecom/ecom-css.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-collect.js", "ecom/ecom-products.js", "ecom/ecom-publish.js", "ecom/ecom-image.js", "ecom/ecom-tasks.js", "ecom/ecom-shops.js", "shell.js"
+  "ecom/ecom-css.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-collect.js", "ecom/ecom-products.js", "ecom/ecom-publish.js", "ecom/ecom-image.js", "ecom/ecom-tasks.js", "ecom/ecom-shops.js", "ecom/ecom-compliance.js", "shell.js"
 ];
 
 let pass = 0;
@@ -190,6 +190,7 @@ function boot() {
     if (u.includes("/dian/api/ecom/publish")) return J({ ok: true, task: { id: "tp1", status: "queued" }, item_count: 1, deduped: 0 });
     if (u.includes("/dian/api/ecom/listing/batch")) return J({ ok: true, task: { id: "tl1", status: "queued" }, item_count: 1 });
     if (u.includes("/dian/api/ecom/price/adjust")) return J({ ok: true, task: { id: "tr1", status: "queued" }, item_count: 1 });
+    if (u.includes("/dian/api/ecom/compliance/check")) return J({ ok: true, task: { id: "tcp1", status: "succeeded" }, verdict: "block", reports: [{ product_id: "p1", verdict: "block", hits_json: [{ type: "forbidden", word: "最", level: "block" }] }] });
     if (u.includes("/dian/api/ecom/tasks/t1/retry")) return J({ ok: true, task: { id: "t1", status: "queued" } });
     if (u.includes("/dian/api/ecom/tasks/t1")) return J({ ok: true, task: { id: "t1", kind: "collect", title: "采集任务", status: "partial", done: 1, failed: 1, total: 2, error: "" }, items: [{ seq: 1, ref_type: "product", ref_id: "p1", status: "done", attempt: 1, error: "" }, { seq: 2, ref_type: "product", ref_id: "p2", status: "failed", attempt: 1, error: "平台限流" }] });
     if (u.includes("/dian/api/ecom/tasks")) return J({ ok: true, total: 1, page: 1, page_size: 20, items: [{ id: "t1", kind: "collect", title: "采集任务", status: "partial", done: 1, failed: 1, total: 2, created_at: 1 }] });
@@ -1011,6 +1012,17 @@ async function flowEcom(env) {
   sel.querySelector('[data-auth="s1"]').click();
   await settle(1);
   ok(!!sel.querySelector("#ecomShopToken"), "授权面板出现令牌输入");
+
+  const cml = doc.getElementById("ecomComplianceView");
+  cml.innerHTML = "";
+  E.setSelection("products", ["p1"]);
+  E.render("ecomCompliance");
+  await settle(2);
+  ok(!!cml.querySelector("#ecomComplianceRun"), "合规检测渲染运行按钮");
+  cml.querySelector("#ecomComplianceRun").click();
+  await settle(3);
+  has(cml.querySelector("#ecomComplianceMain").innerHTML, "拦截", "合规检测显示拦截结论");
+  has(cml.querySelector("#ecomComplianceMain").innerHTML, "违禁词：最", "合规检测显示命中明细");
 
   shell.setZone("drama", { noGo: true });
   await settle(2);

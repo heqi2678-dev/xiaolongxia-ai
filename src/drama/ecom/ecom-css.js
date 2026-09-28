@@ -152,6 +152,11 @@
 .ecom-td-act{white-space:nowrap}
 .ecom-alert{padding:8px 10px;border-radius:9px;background:rgba(229,83,61,.12);color:#e5533d;font-size:12.5px}
 
+/* 合规检测 */
+.ecom-hit{font-size:11.5px;padding:3px 9px;border-radius:20px;background:rgba(229,83,61,.14);color:#e5533d}
+.ecom-report{border-bottom:1px dashed var(--border);padding:8px 0}
+.ecom-report:last-child{border-bottom:none}
+
 @media(max-width:760px){.ecom-detail{flex-direction:column}.ecom-detail-form{grid-template-columns:1fr}}
 
 @media(max-width:760px){.ecom-grid2{grid-template-columns:1fr}.ecom-row-prog{display:none}}

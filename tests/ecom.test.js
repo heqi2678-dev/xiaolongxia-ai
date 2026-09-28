@@ -22,6 +22,7 @@ function boot(fetchImpl) {
     + '<div id="ecomPublishView" class="view"></div>'
     + '<div id="ecomTasksView" class="view"></div>'
     + '<div id="ecomShopsView" class="view"></div>'
+    + '<div id="ecomComplianceView" class="view"></div>'
     + '<div id="toasts"></div></body></html>',
     { runScripts: "outside-only", url: "http://localhost/dian/" });
   const w = dom.window;
@@ -49,6 +50,7 @@ function boot(fetchImpl) {
   w.eval(src("ecom-image.js"));
   w.eval(src("ecom-tasks.js"));
   w.eval(src("ecom-shops.js"));
+  w.eval(src("ecom-compliance.js"));
   return { w, doc: w.document, EC: w.XLX.drama.ecom };
 }
 
@@ -514,6 +516,34 @@ test("店铺与授权：渲染店铺与分组、提交授权与新增", async ()
   await flush();
   await flush();
   assert.deepEqual(posted[1], ["group", { name: "二组" }]);
+});
+
+test("合规检测：运行检测并渲染命中明细", async () => {
+  const bodies = [];
+  const routes = [
+    { method: "POST", match: "/compliance/check", json: (p, opts) => {
+      bodies.push(JSON.parse(opts.body));
+      return { ok: true, task: { id: "tcp1", status: "succeeded" }, verdict: "block", reports: [
+        { product_id: "p1", verdict: "block", hits_json: [{ type: "forbidden", word: "最", level: "block" }, { type: "b_end", word: "批发", level: "warn" }] },
+        { product_id: "p2", verdict: "pass", hits_json: [] }
+      ] };
+    } }
+  ];
+  const { doc, EC } = boot(jsonFetch(routes));
+  EC.setSelection("products", ["p1", "p2"]);
+  await EC.render("ecomCompliance");
+  const main = doc.querySelector("#ecomComplianceMain");
+  assert.match(main.textContent, /已选 2/);
+  doc.querySelector("#ecomComplianceRun").click();
+  await flush();
+  await flush();
+
+  assert.deepEqual(bodies[0].product_ids, ["p1", "p2"]);
+  assert.equal(bodies[0].platform, "douyin");
+  assert.match(main.textContent, /拦截/);
+  assert.match(main.textContent, /违禁词：最/);
+  assert.match(main.textContent, /B 端词：批发/);
+  assert.match(main.textContent, /tcp1/);
 });
 
 test("共享通道：api 抛错带 code，状态与平台文案映射", async () => {

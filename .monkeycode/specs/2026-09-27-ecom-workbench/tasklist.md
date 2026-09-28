@@ -70,7 +70,10 @@
   - 分组列表 + 新建分组；店铺列表（平台 / 分组 / 授权状态徽标）按分组筛选
   - 接入店铺表单；粘贴 access_token 提交授权；删除店铺
   - 测试：`tests/ecom.test.js` 增 1 项、e2e 扩店铺/分组/授权面板
-- [ ] 15. 合规检测 `ecom-compliance.js` + `/compliance/check`
+- [x] 15. 合规检测 `ecom-compliance.js` + `/compliance/check`
+  - 目标平台选择、同步/异步运行；verdict 汇总（通过/警告/拦截）
+  - 报告按商品展示命中词（违禁词/品牌词/B 端词），可跳任务中心
+  - 测试：`tests/ecom.test.js` 增 1 项、e2e 扩检测运行与命中明细
 - [ ] 16. 测试收口（`tests/ecom.test.js`、`tests/ecom-e2e.js`、`gate/test_ecom.py`）
 
 ## 二期（暂缓）
