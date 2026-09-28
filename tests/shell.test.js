@@ -154,6 +154,41 @@ test("外壳：挂载默认按当前视图选中", () => {
   assert.equal(active.getAttribute("data-view"), "assets");
 });
 
+test("外壳：分区切换按分区过滤导航并持久化", () => {
+  const EC = {
+    NAV: [{ id: "ecomHome", label: "首页", icon: "home" }, { id: "ecomCollect", label: "采集下载", icon: "download" }],
+    DEFAULT_VIEW: "ecomHome"
+  };
+  const { w, doc, shell } = bootShell({ drama: { ecom: EC } });
+  shell.mount();
+  assert.equal(doc.querySelectorAll(".shell-zone").length, 2, "渲染两个分区按钮");
+
+  shell.setZone("ecom", { noGo: true });
+  assert.equal(doc.querySelectorAll(".shell-nav-item").length, 2, "电商分区渲染 ecom 导航");
+  assert.ok(doc.querySelector('.shell-nav-item[data-view="ecomHome"]'), "电商导航项就位");
+  assert.ok(doc.querySelector('.shell-zone.active[data-zone="ecom"]'), "电商分区按钮高亮");
+  assert.equal(shell.zone(), "ecom", "当前分区为电商");
+  assert.equal(w.localStorage.getItem("xlx_zone"), "ecom", "分区写入 localStorage");
+  assert.equal(doc.querySelector("#shellCreate"), null, "电商分区隐藏新建项目按钮");
+
+  shell.setZone("drama", { noGo: true });
+  assert.equal(doc.querySelectorAll(".shell-nav-item").length, shell.NAV.length - 2, "切回短剧导航恢复");
+  assert.ok(doc.querySelector("#shellCreate"), "短剧分区恢复新建项目按钮");
+});
+
+test("外壳：setActive 依据视图归属自动切换分区", () => {
+  const EC = { NAV: [{ id: "ecomHome", label: "首页", icon: "home" }], DEFAULT_VIEW: "ecomHome" };
+  const { doc, shell } = bootShell({ drama: { ecom: EC } });
+  shell.mount();
+  assert.equal(shell.zoneOfView("ecomProducts"), "ecom", "电商视图归属电商分区");
+  assert.equal(shell.zoneOfView("projects"), "drama", "短剧视图归属短剧分区");
+
+  shell.setActive("ecomHome");
+  assert.equal(shell.zone(), "ecom", "选中电商视图自动切到电商分区");
+  const active = doc.querySelector(".shell-nav-item.active");
+  assert.ok(active && active.getAttribute("data-view") === "ecomHome", "电商视图选中态正确");
+});
+
 test("外壳：钥匙与模型状态统计正确", () => {
   const vendors = [{ id: "a" }, { id: "b" }, { id: "c" }];
   const { shell } = bootShell({

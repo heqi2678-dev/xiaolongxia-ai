@@ -14,7 +14,8 @@ const DRAMA_FILES = [
   "engine.js", "compliance.js", "compose.js", "ui.js",
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
-  "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js", "shell.js"
+  "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js",
+  "ecom/ecom-css.js", "ecom/ecom.js", "shell.js"
 ];
 
 let pass = 0;
@@ -38,6 +39,16 @@ const HTML = `<!doctype html><html><head><title>t</title></head><body>
 <div id="changelogView" class="view"><div id="dramaChangelog"></div></div>
 <div id="toolkitView" class="view"><div id="dramaToolkit"></div></div>
 <div id="dramaView" class="view"><div id="dwManual"></div></div>
+<div id="ecomHomeView" class="view"></div>
+<div id="ecomCollectView" class="view"></div>
+<div id="ecomProductsView" class="view"></div>
+<div id="ecomAssetsView" class="view"></div>
+<div id="ecomImageView" class="view"></div>
+<div id="ecomAiView" class="view"></div>
+<div id="ecomPublishView" class="view"></div>
+<div id="ecomComplianceView" class="view"></div>
+<div id="ecomShopsView" class="view"></div>
+<div id="ecomTasksView" class="view"></div>
 <div id="modal"></div>
 </body></html>`;
 
@@ -189,7 +200,7 @@ function boot() {
     currentProvider: () => ({ name: "x" }), currentModel: () => "m"
   };
   /* LibTV 外壳 / 首页 Skill 墙依赖（最小桩） */
-  window.XLX.ICONS = { plus: "", sparkle: "", book: "", palette: "", arrow: "", search: "", film: "", chat: "", home: "", clapper: "", trophy: "", box: "", hammer: "", key: "", user: "", settings: "", brain: "", download: "" };
+  window.XLX.ICONS = { plus: "", sparkle: "", book: "", palette: "", arrow: "", search: "", film: "", chat: "", home: "", clapper: "", trophy: "", box: "", hammer: "", key: "", user: "", settings: "", brain: "", download: "", history: "", grid: "", cart: "", image: "", send: "", scan: "", shopping: "", clock: "" };
   window.XLX.CATS = [{ id: "video", name: "视频", color: "#38d9e6" }, { id: "design", name: "设计", color: "#a78bfa" }];
   window.XLX.SKILLS = [
     { id: "sk-video", name: "品牌短片", desc: "一句话出片", icon: "film", cat: "video", prompt: "为{input}拍一条短片" },
@@ -833,6 +844,43 @@ async function flowBox3d(env) {
   eq(D.project.list().length, beforeGen + 1, "3D-BOX 生成直接建工程进画布");
 }
 
+/* ============================ 链路七：电商工作台 · 分区骨架 ============================ */
+async function flowEcom(env) {
+  const { doc, D } = env;
+  console.log("\n链路七：电商工作台（分区切换 → 导航 → 视图占位渲染）");
+  const E = D.ecom;
+  ok(!!E, "电商模块已注册 XLX.drama.ecom");
+  eq(E.NAV.length, 10, "电商导航 10 项");
+  eq(E.VIEWS.length, 10, "电商视图键 10 个");
+  eq(E.DEFAULT_VIEW, "ecomHome", "电商默认视图为首页");
+  E.VIEWS.forEach(v => ok(!!doc.getElementById(v + "View"), "存在电商视图容器 #" + v + "View"));
+
+  const shell = env.window.XLX.dramaShell;
+  const nav = doc.getElementById("shellNav");
+  shell.setZone("ecom", { noGo: true });
+  await settle(2);
+  eq(nav.querySelectorAll(".shell-nav-item").length, 10, "电商分区渲染 10 个导航项");
+  eq(nav.querySelectorAll(".shell-zone").length, 2, "渲染短剧/电商两个分区切换按钮");
+  ok(!!nav.querySelector('.shell-zone.active[data-zone="ecom"]'), "电商分区按钮高亮");
+  ok(!!nav.querySelector('.shell-nav-item[data-view="ecomHome"]'), "电商导航含首页项");
+  ok(!nav.querySelector("#shellCreate"), "电商分区隐藏「新建项目」按钮");
+
+  doc.getElementById("ecomHomeView").innerHTML = "";
+  E.render("ecomHome");
+  await settle(2);
+  const el = doc.getElementById("ecomHomeView");
+  has(el.innerHTML, "电商首页", "首页占位渲染标题");
+  has(el.innerHTML, "ecom-ph", "首页占位容器类名正确");
+  has(el.innerHTML, "建设中", "占位视图标注建设中");
+
+  shell.setZone("drama", { noGo: true });
+  await settle(2);
+  eq(nav.querySelectorAll(".shell-nav-item").length, shell.NAV.length - 2, "切回短剧分区导航恢复");
+  ok(!!nav.querySelector("#shellCreate"), "短剧分区恢复「新建项目」按钮");
+  eq(shell.zoneOfView("ecomProducts"), "ecom", "电商视图归属电商分区");
+  eq(shell.zoneOfView("home"), "drama", "短剧视图归属短剧分区");
+}
+
 /* ============================ 主流程 ============================ */
 async function main() {
   const env = boot();
@@ -844,6 +892,7 @@ async function main() {
     await flowHome(env);
     await flowBox3d(env);
     await flowEdge(env);
+    await flowEcom(env);
   } catch (e) {
     fails.push("运行时异常：" + (e && e.stack || e));
     console.log("\n!! 运行异常 " + (e && e.stack || e));

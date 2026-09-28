@@ -24,6 +24,23 @@
     { id: "download", label: "下载客户端", icon: "download" }
   ];
 
+  /* 顶层工作台分区：短剧工作台 / 电商工作台。导航按分区过滤，当前分区持久化。 */
+  const ZONES = [
+    { id: "drama", label: "短剧工作台" },
+    { id: "ecom", label: "电商工作台" }
+  ];
+  const ZKEY = "xlx_zone";
+
+  function zone() {
+    try { return localStorage.getItem(ZKEY) === "ecom" ? "ecom" : "drama"; } catch (e) { return "drama"; }
+  }
+  function ecomApi() { return (XLX.drama && XLX.drama.ecom) || null; }
+  function navForZone(z) {
+    if (z === "ecom") { const E = ecomApi(); return (E && E.NAV) || []; }
+    return NAV;
+  }
+  function zoneOfView(v) { return (typeof v === "string" && v.indexOf("ecom") === 0) ? "ecom" : "drama"; }
+
   function icon(n) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'
       + ((XLX.ICONS && XLX.ICONS[n]) || "") + '</svg>';
@@ -57,7 +74,7 @@
   }
 
   function navHtml() {
-    return NAV.filter(it => !it.primary).map(it => it.sep
+    return navForZone(zone()).filter(it => !it.primary).map(it => it.sep
       ? '<div class="shell-nav-sep"></div>'
       : '<button class="shell-nav-item" data-view="' + it.id + '" title="' + esc(it.label) + '">'
       + icon(it.icon)
@@ -67,13 +84,21 @@
     ).join("");
   }
 
+  function zoneSwitchHtml() {
+    return '<div class="shell-zones" id="shellZones">'
+      + ZONES.map(z => '<button class="shell-zone' + (z.id === zone() ? " active" : "") + '" data-zone="' + z.id + '">' + esc(z.label) + "</button>").join("")
+      + "</div>";
+  }
+
   function sidebarHtml() {
+    const z = zone();
     return ''
       + '<div class="shell-brand">'
       +   '<div class="shell-logo">' + icon("sparkle") + '</div>'
       +   '<div class="shell-brand-t"><b>铜龙电商</b></div>'
       + '</div>'
-      + '<button class="shell-create" id="shellCreate">' + icon("plus") + '<span>新建项目</span></button>'
+      + zoneSwitchHtml()
+      + (z === "ecom" ? "" : '<button class="shell-create" id="shellCreate">' + icon("plus") + '<span>新建项目</span></button>')
       + '<nav class="shell-nav" id="shellNavList">' + navHtml() + '</nav>';
   }
 
@@ -180,24 +205,43 @@
     if (m) m.classList.remove("open");
   }
 
+  function renderNav(container) {
+    const el = container || document.getElementById("shellNav");
+    if (!el) return null;
+    el.innerHTML = sidebarHtml();
+    const create = el.querySelector("#shellCreate");
+    if (create) create.addEventListener("click", () => {
+      const P = XLX.drama && XLX.drama.projects;
+      if (P && P.newProject) { P.newProject(); return; }
+      if (XLX.app && XLX.app.go) XLX.app.go("home");
+    });
+    el.querySelectorAll(".shell-zone").forEach(b => {
+      b.addEventListener("click", () => setZone(b.getAttribute("data-zone")));
+    });
+    bindNav();
+    return el;
+  }
+
+  function setZone(z, opts) {
+    z = z === "ecom" ? "ecom" : "drama";
+    try { localStorage.setItem(ZKEY, z); } catch (e) {}
+    renderNav();
+    if (!(opts && opts.noGo) && XLX.app && XLX.app.go) {
+      const E = ecomApi();
+      XLX.app.go(z === "ecom" ? ((E && E.DEFAULT_VIEW) || "ecomHome") : "home");
+    }
+  }
+
   function setActive(view) {
+    if (zoneOfView(view) !== zone()) setZone(zoneOfView(view), { noGo: true });
     document.querySelectorAll(".shell-nav-item").forEach(el => {
       el.classList.toggle("active", el.getAttribute("data-view") === view);
     });
   }
 
-  /* 侧栏挂载：主导航 + 顶部状态条 + 账号菜单（后两者若存在容器则渲染） */
+  /* 侧栏挂载：分区切换器 + 主导航 + 顶部状态条 + 账号菜单（后两者若存在容器则渲染） */
   function mount(container) {
-    const el = container || document.getElementById("shellNav");
-    if (el) {
-      el.innerHTML = sidebarHtml();
-      const create = el.querySelector("#shellCreate");
-      if (create) create.addEventListener("click", () => {
-        const P = XLX.drama && XLX.drama.projects;
-        if (P && P.newProject) { P.newProject(); return; }
-        if (XLX.app && XLX.app.go) XLX.app.go("home");
-      });
-    }
+    const el = renderNav(container);
     const chip = document.getElementById("shellStatus");
     if (chip) {
       chip.innerHTML = statusChipHtml();
@@ -223,7 +267,6 @@
         });
       });
     }
-    bindNav();
     setActive((XLX.app && XLX.app.currentView) || "agent");
     return el;
   }
@@ -255,6 +298,6 @@
 
   document.addEventListener("click", closeMenu);
 
-  XLX.dramaShell = { NAV, ACCOUNT, mount, setActive, status, refresh, navHtml, sidebarHtml, snapshot, versions, shareProject, openHistory, restoreVersion, currentProject };
+  XLX.dramaShell = { NAV, ACCOUNT, ZONES, zone, setZone, navForZone, zoneOfView, mount, setActive, status, refresh, navHtml, sidebarHtml, snapshot, versions, shareProject, openHistory, restoreVersion, currentProject };
   XLX.shell = XLX.dramaShell;
 })();

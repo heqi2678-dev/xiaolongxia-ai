@@ -746,6 +746,18 @@ select.inp{padding-right:34px}
     <!-- 画布工作台 -->
     <div id="dramaView" class="view"><div id="dwManual"></div></div>
 
+    <!-- ===== 电商工作台（第二分区） ===== -->
+    <div id="ecomHomeView" class="view"></div>
+    <div id="ecomCollectView" class="view"></div>
+    <div id="ecomProductsView" class="view"></div>
+    <div id="ecomAssetsView" class="view"></div>
+    <div id="ecomImageView" class="view"></div>
+    <div id="ecomAiView" class="view"></div>
+    <div id="ecomPublishView" class="view"></div>
+    <div id="ecomComplianceView" class="view"></div>
+    <div id="ecomShopsView" class="view"></div>
+    <div id="ecomTasksView" class="view"></div>
+
     <!-- 记忆习惯 -->
     <div id="memoryView" class="view">
       <div class="mem-wrap"><div class="mem-inner" id="memContent"></div></div>
@@ -4251,6 +4263,8 @@ XLX.studio = (function () {
 <script src="src/drama/box3dscene.js"></script>
 <script src="src/drama/box3dview.js"></script>
 <script src="src/drama/toolkit.js"></script>
+<script src="src/drama/ecom/ecom-css.js"></script>
+<script src="src/drama/ecom/ecom.js"></script>
 <script src="src/drama/shell.js"></script>
 <script>
 /* ===== 记忆习惯视图 & 客户端下载视图 ===== */
@@ -4420,7 +4434,8 @@ XLX.dlview = (function () {
 
 XLX.app = (function () {
   /* LibTV 顶层视图。drama = 画布工作台；studio/tools 作为插件页内部入口保留可达 */
-  const VIEWS = ["agent", "home", "projects", "assets", "tvshow", "ranking", "box3d", "plugin", "changelog", "toolkit", "studio", "tools", "memory", "download", "settings", "drama"];
+  const VIEWS = ["agent", "home", "projects", "assets", "tvshow", "ranking", "box3d", "plugin", "changelog", "toolkit", "studio", "tools", "memory", "download", "settings", "drama"]
+    .concat((XLX.drama && XLX.drama.ecom && XLX.drama.ecom.VIEWS) || []);
   /* 旧视图 → 新导航兼容映射（旧代码/旧链接仍能落到正确页面） */
   const COMPAT = { chat: "agent", market: "home", dramaHome: "projects", makeup: "assets" };
   /* 视图 → 容器 id（默认 view + "View"，agent 复用原对话容器） */
@@ -4439,6 +4454,9 @@ XLX.app = (function () {
   /* 各视图渲染器；模块缺失时降级为空态，不阻塞导航 */
   function renderView(view) {
     const D = XLX.drama || {};
+    if (typeof view === "string" && view.indexOf("ecom") === 0) {
+      return D.ecom && D.ecom.render ? D.ecom.render(view) : placeholder(view + "View", "电商工作台", "建设中");
+    }
     switch (view) {
       case "home": return D.home && D.home.render ? D.home.render() : placeholder("dramaHome", "首页", "新建画布 + 最近项目");
       case "projects": return D.projects && D.projects.render ? D.projects.render() : placeholder("dwHome", "项目", "还没有工程");
@@ -4461,9 +4479,14 @@ XLX.app = (function () {
   function renderMobileNav() {
     const mn = document.getElementById("mobileNav");
     if (!mn) return;
-    const NAV = (XLX.dramaShell && XLX.dramaShell.NAV) || [];
-    mn.innerHTML = ["agent", "home", "projects", "box3d", "toolkit"]
-      .map(id => NAV.find(x => x.id === id))
+    const SH = XLX.dramaShell || {};
+    const zone = SH.zone ? SH.zone() : "drama";
+    const list = (SH.navForZone ? SH.navForZone(zone) : SH.NAV) || [];
+    const pick = (String(currentView).indexOf("ecom") === 0)
+      ? ["ecomHome", "ecomCollect", "ecomProducts", "ecomPublish", "ecomTasks"]
+      : ["agent", "home", "projects", "box3d", "toolkit"];
+    mn.innerHTML = pick
+      .map(id => list.find(x => x.id === id))
       .filter(Boolean)
       .map(it =>
         '<div class="mn' + (it.id === currentView ? " active" : "") + '" data-view="' + it.id + '">'
@@ -4493,6 +4516,8 @@ XLX.app = (function () {
       download: ["客户端下载", "手机 / 电脑 / 离线版"],
       settings: ["设置", "接入多个平台的免费 API Key"]
     };
+    const EC = XLX.drama && XLX.drama.ecom;
+    if (EC && EC.TITLES) Object.keys(EC.TITLES).forEach(k => { names[k] = EC.TITLES[k]; });
     const t = document.getElementById("pageTitle");
     const s = document.getElementById("pageSub");
     const viewMeta = names[currentView] || ["", ""];
@@ -4660,7 +4685,9 @@ XLX.app = (function () {
     XLX.chat.initSearchChip();
     initStudio();
     initKeys();
-    go("agent");
+    const bootZone = (XLX.dramaShell && XLX.dramaShell.zone) ? XLX.dramaShell.zone() : "drama";
+    const bootEcom = XLX.drama && XLX.drama.ecom;
+    go(bootZone === "ecom" ? ((bootEcom && bootEcom.DEFAULT_VIEW) || "ecomHome") : "agent");
     refreshStatus();
     setTimeout(() => {
       const l = document.getElementById("loader");
