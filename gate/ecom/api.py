@@ -82,6 +82,8 @@ def _dispatch(method, path, owner, query, body):
     elif head == "assets":
         if not rest and method == "GET":
             return _assets_list(owner, query)
+        if rest == ["recipes"] and method == "GET":
+            return _assets_recipes()
         if rest == ["process"] and method == "POST":
             return _assets_process(owner, body)
     elif head == "generate" and not rest and method == "POST":
@@ -334,6 +336,17 @@ def _assets_list(owner, query):
     return _ok(items=items, total=total, page=page, page_size=size)
 
 
+def _assets_recipes():
+    from ecom.imaging import PLATFORMS, PROCESSORS, RECIPES, SIZE_TABLE
+
+    recipes = [
+        {"id": rid, "label": r["label"], "roles": r.get("roles") or [], "ops": r.get("ops") or []}
+        for rid, r in RECIPES.items()
+    ]
+    processors = [{"id": pid, "label": label} for pid, label in PROCESSORS.items()]
+    return _ok(recipes=recipes, processors=processors, sizes=SIZE_TABLE, platforms=PLATFORMS)
+
+
 def _assets_process(owner, body):
     media_ids = _ids(body, "media_ids")
     product_ids = _ids(body, "product_ids")
@@ -344,11 +357,22 @@ def _assets_process(owner, body):
             "recipe": body.get("recipe") or "",
             "ops": body.get("ops") or [],
             "size": body.get("size") or "",
+            "spec_id": body.get("spec_id") or "",
             "platform": body.get("platform") or "",
         },
         body,
     )
     task = _create(owner, "assets", body.get("title") or "图片工坊批处理", items, params)
+    if body.get("sync"):
+        queue.run_task(owner, task["id"])
+        task = store.get("tasks", owner, task["id"])
+        rows = store.list_rows(
+            "task_items", owner, where="task_id=?", params=(task["id"],)
+        )
+        outputs = []
+        for row in rows:
+            outputs.extend((row.get("result_json") or {}).get("outputs") or [])
+        return _ok(task=task, item_count=len(items), outputs=outputs)
     return _ok(task=task, item_count=len(items))
 
 

@@ -17,7 +17,7 @@ import hashlib
 import math
 import os
 
-from ecom import queue, registry, store
+from ecom import imaging, queue, registry, store
 from ecom.adapters import mock
 from ecom.registry import EcomError, AUTH_EXPIRED, UNKNOWN
 
@@ -317,14 +317,26 @@ def listing_handler(task, item):
 
 
 def assets_handler(task, item):
-    """图片工坊批处理：当前产出处理方案，真处理器（抠图/白底/去重等）在 Task 11 接入。"""
+    """图片工坊批处理：按配方 / 处理器 / 平台规格派生 edit 素材（设计稿 6.3）。"""
+    owner = task["owner"]
     params = task.get("params_json") or {}
+    outputs = imaging.derive(
+        owner,
+        item,
+        recipe=params.get("recipe") or "",
+        ops=params.get("ops") or [],
+        size=params.get("size") or "",
+        platform=params.get("platform") or "",
+        spec_id=params.get("spec_id") or "",
+    )
     return {
         "media_id": item.get("ref_id", ""),
         "recipe": params.get("recipe") or "",
         "ops": params.get("ops") or [],
         "size": params.get("size") or "",
-        "processor": "pending",
+        "processor": "local",
+        "count": len(outputs),
+        "outputs": outputs,
     }
 
 

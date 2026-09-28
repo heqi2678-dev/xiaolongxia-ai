@@ -1006,6 +1006,65 @@ class EcomApiTest(unittest.TestCase):
         self.assertEqual(bounded["page_size"], 1)
         self.assertEqual(len(bounded["items"]), 1)
 
+    def test_assets_recipes_catalog(self):
+        status, payload = self.call("GET", "/assets/recipes")
+        self.assertEqual(status, 200)
+        recipe_ids = [r["id"] for r in payload["recipes"]]
+        self.assertIn("white", recipe_ids)
+        self.assertIn("suite", recipe_ids)
+        self.assertTrue(any(p["id"] == "cutout" for p in payload["processors"]))
+        self.assertTrue(any(s["id"] == "main_square" for s in payload["sizes"]))
+        self.assertIn("douyin", payload["platforms"])
+
+    def test_assets_process_sync_derives_media(self):
+        product_id = self.collect_one()
+        before = self.call("GET", "/assets", query={"source": "collected"})[1]["total"]
+        payload = self.call(
+            "POST",
+            "/assets/process",
+            body={
+                "product_ids": [product_id],
+                "recipe": "white",
+                "ops": ["cutout", "white_bg"],
+                "size": "800x800",
+                "platform": "douyin",
+                "sync": True,
+            },
+        )[1]
+        self.assertEqual(payload["task"]["status"], "succeeded")
+        self.assertEqual(len(payload["outputs"]), 1)
+        out = payload["outputs"][0]
+        self.assertEqual(out["role"], "white")
+        self.assertEqual((out["width"], out["height"]), (800, 800))
+        edited = self.call("GET", "/assets", query={"source": "edit"})[1]
+        self.assertEqual(edited["total"], 1)
+        self.assertGreater(self.call("GET", "/assets")[1]["total"], before)
+
+    def test_assets_process_is_idempotent(self):
+        product_id = self.collect_one()
+        body = {
+            "product_ids": [product_id],
+            "recipe": "suite",
+            "size": "750x1000",
+            "platform": "douyin",
+            "sync": True,
+        }
+        first = self.call("POST", "/assets/process", body=body)[1]["outputs"]
+        second = self.call("POST", "/assets/process", body=body)[1]["outputs"]
+        self.assertEqual(len(first), 4)
+        self.assertEqual([o["media_id"] for o in first], [o["media_id"] for o in second])
+        self.assertEqual(self.call("GET", "/assets", query={"source": "edit"})[1]["total"], 4)
+
+    def test_assets_process_media_source(self):
+        self.collect_one()
+        media = self.call("GET", "/assets", query={"source": "collected"})[1]["items"][0]
+        payload = self.call(
+            "POST",
+            "/assets/process",
+            body={"media_ids": [media["id"]], "recipe": "poster", "sync": True},
+        )[1]
+        self.assertEqual(payload["outputs"][0]["role"], "poster")
+
     def test_owner_isolation(self):
         self.collect_one()
         self.assertEqual(self.call("GET", "/products", owner="other")[1]["total"], 0)

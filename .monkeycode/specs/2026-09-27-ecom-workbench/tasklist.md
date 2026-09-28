@@ -49,12 +49,14 @@
   - 上架节奏：立即 / 定时（schedule.mode=at）/ 分时（schedule.mode=recurring + window）
   - 批量上下架页签（`/listing/batch`）与铺货记录页签（`/tasks?kind=publish`）
   - 测试：`tests/ecom.test.js` 增 1 项、e2e 扩铺货向导全流程
-- [ ] 11. 图片工坊 `ecom-image.js` + `POST /assets/process`（参照 HookShot，见 `hookshot-reference.md`）
+- [x] 11. 图片工坊 `ecom-image.js` + `POST /assets/process`（参照 HookShot，见 `hookshot-reference.md`）
   - 主图制作：白底图、卖点图、细节图、尺寸图、使用场景图、场景渲染图、营销海报、商品套图
   - 详情页：详情长图生成、图片复刻（选长图模板）
   - 操作流：上传 → 配方/模板 → 平台与分辨率/宽高比（分辨率对照表）→ 批量提交 → 预览/下载
   - 素材沉淀「我的素材」、任务落「任务中心」
+  - 后端 `gate/ecom/imaging.py`：配方/处理器/分辨率对照表；`assets_handler` 派生 `edit` 素材（按来源+配方+尺寸哈希幂等）；`POST /assets/process` 支持 `sync` 内联返回；`GET /assets/recipes` 下发配方表
   - 短视频带货制作归二期「AI 创作」（`ecom-ai`），参照 HookShot `/video-agent`
+  - 测试：`gate/test_ecom.py` 增 4 项、`tests/ecom.test.js` 增 1 项、e2e 扩图片工坊全流程
 - [ ] 12. 批量改价 `ecom-publish.js` + `/price/adjust`
 - [ ] 13. 任务中心 UI `ecom-tasks.js`（`/tasks`、`/tasks/{id}`、`/tasks/{id}/retry`、`/tasks/{id}/pause`）
 - [ ] 14. 店铺与授权 `ecom-shops.js`（`/shops`、`/shops/{id}`、`/shops/auth`、`/shop-groups`）

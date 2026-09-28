@@ -18,6 +18,7 @@ function boot(fetchImpl) {
     + '<div id="ecomCollectView" class="view"></div>'
     + '<div id="ecomProductsView" class="view"></div>'
     + '<div id="ecomAssetsView" class="view"></div>'
+    + '<div id="ecomImageView" class="view"></div>'
     + '<div id="ecomPublishView" class="view"></div>'
     + '<div id="toasts"></div></body></html>',
     { runScripts: "outside-only", url: "http://localhost/dian/" });
@@ -43,6 +44,7 @@ function boot(fetchImpl) {
   w.eval(src("ecom-collect.js"));
   w.eval(src("ecom-products.js"));
   w.eval(src("ecom-publish.js"));
+  w.eval(src("ecom-image.js"));
   return { w, doc: w.document, EC: w.XLX.drama.ecom };
 }
 
@@ -332,6 +334,48 @@ test("搬家铺货：向导五步走完并提交，策略进入请求体", async
   assert.equal(publishBodies[0].strategy.price_rule.value, 30);
   assert.match(doc.querySelector("#ecomStepBody").textContent, /tp9/);
   assert.match(doc.querySelector("#ecomStepBody").textContent, /去任务中心/);
+});
+
+test("图片工坊：加载配方表、按配方同步处理并预览结果", async () => {
+  const processBodies = [];
+  const routes = [
+    { method: "GET", match: "/assets/recipes", json: { ok: true,
+      recipes: [
+        { id: "white", label: "白底图", roles: ["white"], ops: ["cutout", "white_bg"] },
+        { id: "suite", label: "商品套图", roles: ["white", "promo"], ops: ["cutout"] }
+      ],
+      processors: [{ id: "cutout", label: "抠图" }, { id: "white_bg", label: "白底" }],
+      sizes: [{ id: "main_square", label: "主图 · 1:1", width: 800, height: 800, ratio: "1:1" }],
+      platforms: ["douyin"] } },
+    { method: "POST", match: "/assets/process", json: (p, opts) => {
+      processBodies.push(JSON.parse(opts.body));
+      return { ok: true, item_count: 1, task: { id: "ti1", status: "succeeded" }, outputs: [
+        { media_id: "e1", role: "white", recipe: "white", url: "http://x/1.png", width: 800, height: 800, ops: ["cutout", "white_bg"], platform: "douyin" }
+      ] };
+    } }
+  ];
+  const { doc, EC } = boot(jsonFetch(routes));
+  EC.setSelection("media", ["m1"]);
+  await EC.render("ecomImage");
+  await flush();
+  await flush();
+
+  assert.match(doc.querySelector("#ecomImageMain").textContent, /白底图/);
+  assert.match(doc.querySelector("#ecomImageMain").textContent, /已选素材 1/);
+  assert.equal(doc.querySelectorAll("[data-spec]").length, 1);
+
+  doc.querySelector("#ecomImageSubmit").click();
+  await flush();
+  await flush();
+
+  assert.equal(processBodies.length, 1);
+  assert.deepEqual(processBodies[0].media_ids, ["m1"]);
+  assert.equal(processBodies[0].recipe, "white");
+  assert.ok(processBodies[0].ops.indexOf("cutout") >= 0, "默认处理器随配方带入");
+  assert.equal(processBodies[0].spec_id, "main_square");
+  assert.equal(processBodies[0].sync, true);
+  assert.match(doc.querySelector("#ecomImagePreview").textContent, /白底图/);
+  assert.ok(doc.querySelector("#ecomImagePreview a[download]"), "结果提供下载入口");
 });
 
 test("共享通道：api 抛错带 code，状态与平台文案映射", async () => {

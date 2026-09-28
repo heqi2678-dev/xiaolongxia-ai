@@ -132,6 +132,18 @@
 .ecom-kv b{color:var(--text1)}
 .ecom-kv:last-child{border-bottom:none}
 
+/* 图片工坊 */
+.ecom-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.ecom-sel-count{display:flex;gap:18px;font-size:13px;color:var(--text2)}
+.ecom-sel-count b{color:var(--accent2)}
+.ecom-choices{display:flex;flex-wrap:wrap;gap:8px}
+.ecom-choices-col{flex-direction:column}
+.ecom-choices-col .ecom-choice{width:100%;justify-content:space-between}
+.ecom-choice{font-size:12.5px;color:var(--text1)}
+.ecom-choice-d{color:var(--text3);font-size:11.5px}
+.ecom-ops{display:flex;flex-wrap:wrap;gap:8px 14px}
+.ecom-op{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text2);cursor:pointer}
+
 @media(max-width:760px){.ecom-detail{flex-direction:column}.ecom-detail-form{grid-template-columns:1fr}}
 
 @media(max-width:760px){.ecom-grid2{grid-template-columns:1fr}.ecom-row-prog{display:none}}

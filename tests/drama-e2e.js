@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js",
-  "ecom/ecom-css.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-collect.js", "ecom/ecom-products.js", "ecom/ecom-publish.js", "shell.js"
+  "ecom/ecom-css.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-collect.js", "ecom/ecom-products.js", "ecom/ecom-publish.js", "ecom/ecom-image.js", "shell.js"
 ];
 
 let pass = 0;
@@ -175,6 +175,14 @@ function boot() {
     if (u.includes("/dian/api/drama/projects")) return J({ ok: true, projects: state.remoteProjects || [], project: state.remoteProject || null });
     if (u.includes("/dian/api/ecom/stats")) return J({ ok: true, products: 4, media: 6, shops: 2, listings: 3 });
     if (u.includes("/dian/api/ecom/products")) return J({ ok: true, total: 1, page: 1, page_size: 20, items: [{ id: "p1", title: "连衣裙", source_platform: "1688", price: 59, stock: 10, status: "collected", updated_at: 1, main_image: "" }] });
+    if (u.includes("/dian/api/ecom/assets/recipes")) return J({ ok: true,
+      recipes: [{ id: "white", label: "白底图", roles: ["white"], ops: ["cutout", "white_bg"] },
+        { id: "detail_long", label: "详情长图", roles: ["detail_long"], ops: ["compose"] },
+        { id: "recreate", label: "图片复刻", roles: ["recreate"], ops: ["template"] }],
+      processors: [{ id: "cutout", label: "抠图" }, { id: "white_bg", label: "白底" }],
+      sizes: [{ id: "main_square", label: "主图 · 1:1", width: 800, height: 800, ratio: "1:1" }],
+      platforms: ["douyin"] });
+    if (u.includes("/dian/api/ecom/assets/process")) return J({ ok: true, item_count: 1, task: { id: "ti1", status: "succeeded" }, outputs: [{ media_id: "e1", role: "white", recipe: "white", url: "https://cdn.test/e/1.png", width: 800, height: 800, ops: ["cutout", "white_bg"], platform: "douyin" }] });
     if (u.includes("/dian/api/ecom/assets")) return J({ ok: true, total: 1, page: 1, page_size: 20, items: [{ id: "m1", kind: "image", source_type: "collected", product_id: "p1", url: "", meta_json: { width: 800, height: 800 }, created_at: 1 }] });
     if (u.includes("/dian/api/ecom/shops")) return J({ ok: true, items: [{ id: "s1", name: "店A", platform: "douyin", auth_status: "normal" }] });
     if (u.includes("/dian/api/ecom/shop-groups")) return J({ ok: true, items: [{ id: "g1", name: "一组" }] });
@@ -918,6 +926,22 @@ async function flowEcom(env) {
   ael.querySelector("[data-select-all]").click();
   ael.querySelector("[data-to-image]").click();
   ok(E.getSelection("media").indexOf("m1") >= 0, "素材选择集带入图片工坊");
+
+  const iel = doc.getElementById("ecomImageView");
+  iel.innerHTML = "";
+  E.render("ecomImage");
+  await settle(3);
+  ok(!!iel.querySelector("#ecomImageMain"), "图片工坊渲染配方区");
+  eq(iel.querySelectorAll("[data-recipe]").length, 8, "主图制作渲染八个配方");
+  eq(iel.querySelectorAll("[data-spec]").length, 1, "分辨率对照表渲染规格");
+  has(iel.querySelector("#ecomImageMain").innerHTML, "已选素材", "来源选择集数量展示");
+  iel.querySelector("#ecomImageSubmit").click();
+  await settle(4);
+  has(iel.querySelector("#ecomImagePreview").innerHTML, "白底图", "处理结果渲染配方名");
+  ok(!!iel.querySelector("#ecomImagePreview a[download]"), "处理结果提供下载");
+  iel.querySelector('[data-tab="detail"]').click();
+  await settle(1);
+  has(iel.querySelector("#ecomImageMain").innerHTML, "详情长图", "切到详情页渲染详情配方");
 
   const pub = doc.getElementById("ecomPublishView");
   pub.innerHTML = "";
