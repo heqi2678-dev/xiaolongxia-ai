@@ -1,5 +1,8 @@
 #!/usr/bin/python3
-"""电商工作台 · 数据层与任务队列测试（gate/ecom/store.py、gate/ecom/queue.py）。
+"""电商工作台 · 数据层、任务队列与适配器框架测试。
+
+覆盖 `gate/ecom/store.py`、`gate/ecom/queue.py`、`gate/ecom/registry.py`、
+`gate/ecom/adapters/`。
 
 运行：cd gate && python3 -m unittest test_ecom
 """
@@ -8,7 +11,8 @@ import time
 import unittest
 from pathlib import Path
 
-from ecom import queue, store
+from ecom import queue, registry, store
+from ecom.adapters import base, mock
 
 
 class StoreTest(unittest.TestCase):
@@ -299,6 +303,145 @@ class QueueTest(unittest.TestCase):
             time.sleep(0.05)
         queue.stop()
         self.assertEqual(store.get("tasks", "u1", task["id"])["status"], "succeeded")
+
+
+class AdapterTest(unittest.TestCase):
+    """适配器框架：注册表、错误归一化、限流与统一契约（设计稿 4.5 / 4.6）。"""
+
+    def test_registry_register_and_get(self):
+        reg = registry.Registry()
+        src = mock.MockSourceAdapter()
+        tgt = mock.MockTargetAdapter()
+        reg.register_source("mock", src)
+        reg.register_target("mock", tgt)
+        self.assertIs(reg.source("mock"), src)
+        self.assertIs(reg.target("mock"), tgt)
+        self.assertEqual(reg.sources(), ["mock"])
+        self.assertEqual(reg.targets(), ["mock"])
+
+    def test_registry_unknown_platform(self):
+        reg = registry.Registry()
+        with self.assertRaises(registry.EcomError) as ctx:
+            reg.source("taobao")
+        self.assertEqual(ctx.exception.code, registry.UNKNOWN)
+
+    def test_registry_swap_implementation(self):
+        reg = registry.Registry()
+        first = mock.MockSourceAdapter()
+        second = mock.MockSourceAdapter([mock.raw_product("x", "换实现")])
+        reg.register_source("mock", first)
+        reg.register_source("mock", second)
+        self.assertIs(reg.source("mock"), second, "新增/替换平台实现不改应用层")
+
+    def test_normalize_error_categories(self):
+        cases = [
+            ("category qualification missing", registry.CATEGORY_RIGHTS),
+            ("命中违禁词", registry.FORBIDDEN_WORD),
+            ("image size not allowed", registry.IMAGE_SIZE),
+            ("sku 不完整", registry.SKU_INCOMPLETE),
+            ("429 too many requests", registry.RATE_LIMITED),
+            ("token expired 401", registry.AUTH_EXPIRED),
+            ("connection timeout", registry.NETWORK),
+            ("something odd", registry.UNKNOWN),
+        ]
+        for text, expected in cases:
+            self.assertEqual(registry.normalize_error(Exception(text)).code, expected, text)
+
+    def test_retryable_policy(self):
+        self.assertTrue(registry.is_retryable(registry.EcomError("超时", registry.NETWORK)))
+        self.assertTrue(registry.is_retryable(registry.EcomError("限流", registry.RATE_LIMITED)))
+        self.assertFalse(registry.is_retryable(registry.EcomError("违禁词", registry.FORBIDDEN_WORD)))
+        self.assertFalse(registry.is_retryable(registry.EcomError("授权失效", registry.AUTH_EXPIRED)))
+
+    def test_error_as_dict(self):
+        err = registry.EcomError("触发限流", registry.RATE_LIMITED, remote_code="429")
+        payload = err.as_dict()
+        self.assertEqual(payload["label"], "触发限流")
+        self.assertTrue(payload["retryable"])
+        self.assertEqual(payload["remote_code"], "429")
+
+    def test_rate_limiter_qps_and_quota(self):
+        now = {"t": 1000.0}
+        limiter = registry.RateLimiter(qps=2, daily_limit=2, clock=lambda: now["t"])
+        self.assertTrue(limiter.acquire()[0])
+        limiter.spend()
+        ok, reason = limiter.acquire()
+        self.assertFalse(ok, "同一时刻 QPS 内不应放行第二次")
+        self.assertIn("QPS", reason)
+        now["t"] += 0.5
+        self.assertTrue(limiter.acquire()[0], "半个周期后（qps=2）可再次调用")
+        limiter.spend()
+        now["t"] += 10
+        ok, reason = limiter.acquire()
+        self.assertFalse(ok, "达到日配额后应被拦截")
+        self.assertIn("配额", reason)
+        now["t"] += 86400
+        self.assertTrue(limiter.acquire()[0], "跨日后配额重置")
+
+    def test_rate_limiter_spend_raises(self):
+        limiter = registry.RateLimiter(qps=1, clock=lambda: 500.0)
+        limiter.spend()
+        with self.assertRaises(registry.EcomError) as ctx:
+            limiter.spend()
+        self.assertEqual(ctx.exception.code, registry.RATE_LIMITED)
+
+    def test_mock_source_contract(self):
+        adapter = mock.MockSourceAdapter()
+        product = base.assert_source_contract(adapter)
+        self.assertEqual(product["source_id"], "sample-1")
+        self.assertTrue(product["skus"])
+
+    def test_mock_target_contract(self):
+        adapter = mock.MockTargetAdapter()
+        remote_id = base.assert_target_contract(adapter)
+        self.assertIn(remote_id, adapter.published)
+        self.assertEqual(adapter.published[remote_id]["price"], 88.0)
+
+    def test_mock_target_requires_category(self):
+        adapter = mock.MockTargetAdapter()
+        with self.assertRaises(registry.EcomError) as ctx:
+            adapter.publish({"title": "无类目", "category_id": ""}, {"access_token": "t"})
+        self.assertEqual(ctx.exception.code, registry.CATEGORY_RIGHTS)
+
+    def test_mock_target_normalizes_publish_failure(self):
+        adapter = mock.MockTargetAdapter(fail_publish="429 too many requests")
+        with self.assertRaises(registry.EcomError) as ctx:
+            adapter.publish({"title": "x", "category_id": "100101"}, {"access_token": "t"})
+        err = registry.normalize_error(ctx.exception)
+        self.assertEqual(err.code, registry.RATE_LIMITED)
+        self.assertTrue(err.retryable)
+
+    def test_mock_target_auth_expired(self):
+        adapter = mock.MockTargetAdapter()
+        with self.assertRaises(registry.EcomError) as ctx:
+            adapter.publish({"title": "x", "category_id": "100101"}, {})
+        self.assertEqual(ctx.exception.code, registry.AUTH_EXPIRED)
+
+    def test_mock_target_listing_lifecycle(self):
+        adapter = mock.MockTargetAdapter()
+        auth = {"access_token": "t"}
+        remote_id = adapter.publish({"title": "女装连衣裙", "category_id": "100101"}, auth)["remote_id"]
+        adapter.set_listing(remote_id, False, auth)
+        items = adapter.list_listings(auth)["items"]
+        self.assertEqual(items[0]["remote_id"], remote_id)
+        self.assertFalse(items[0]["on"])
+
+    def test_adapter_consumed_by_queue(self):
+        """应用层消费契约：任务处理器调用适配器，成功即落 task_items.result_json。"""
+
+        def handler(task, item):
+            adapter = registry.REGISTRY.target("mock")
+            product = mock.raw_product(item["ref_id"], "女装连衣裙 A")
+            mapped = adapter.map_fields(product, "100101")
+            return adapter.publish(mapped["data"], {"access_token": "t"})
+
+        registry.REGISTRY.register_target("mock", mock.MockTargetAdapter())
+        queue.register("t_adapter", handler)
+        task = queue.create_task("u1", "t_adapter", items=[{"ref_id": "a"}, {"ref_id": "b"}])
+        result = queue.run_task("u1", task["id"])
+        self.assertEqual(result["status"], "succeeded")
+        items = store.list_rows("task_items", "u1", where="task_id=?", params=(task["id"],))
+        self.assertTrue(all(it["result_json"]["remote_id"] for it in items))
 
 
 if __name__ == "__main__":

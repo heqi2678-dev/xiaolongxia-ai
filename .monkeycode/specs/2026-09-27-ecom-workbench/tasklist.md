@@ -17,13 +17,20 @@
   - 状态机对齐设计稿 7.1：`scheduled → queued → running → paused / succeeded / partial / failed`（取消为 `canceled`）
   - 定时（`schedule.at` / `run_after` / `schedule.window`）与分时（`pacing` 日限 / 间隔 / 时段）
   - 重试仅重置失败项，已成功项不重复执行（7.3 / 7.5）
-- [ ] 4. 适配器框架 `gate/ecom/registry.py` + `adapters/base.py` + `adapters/mock.py`（统一契约 + 注册表 + 限流 + 错误归一化）
+- [x] 4. 适配器框架 `gate/ecom/registry.py` + `adapters/base.py` + `adapters/mock.py`（统一契约 + 注册表 + 限流 + 错误归一化）
+  - `registry.py`：`Registry` 可注入注册/取用、`EcomError` 归一化（8 类 + 可重试判定）、`RateLimiter`（QPS + 日配额）
+  - `adapters/base.py`：`SourceAdapter`/`TargetAdapter` 基类 + `assert_source_contract`/`assert_target_contract` 契约自检
+  - `adapters/mock.py`：确定性 mock 源/目标适配器，可注入失败验证错误归一化
 - [ ] 5. 1688 源适配器 `adapters/source_1688.py`（单商品 + 整店）
 - [ ] 6. 抖音小店目标适配器 `adapters/target_douyin.py`（类目树/字段映射/发布/改价/上下架）
 - [ ] 7. 商品库 + 素材库 UI `ecom-products.js`
 - [ ] 8. 一键铺货向导 `ecom-publish.js`
-- [ ] 9. 图片工坊 `ecom-image.js` + `POST /assets/process`
-  - 参照 hookshot：主图制作、详情页、短视频带货制作的操作界面与成品（处理器清单、平台规格预设、预览/导出）
+- [ ] 9. 图片工坊 `ecom-image.js` + `POST /assets/process`（参照 HookShot，见 `hookshot-reference.md`）
+  - 主图制作：白底图、卖点图、细节图、尺寸图、使用场景图、场景渲染图、营销海报、商品套图
+  - 详情页：详情长图生成、图片复刻（选长图模板）
+  - 操作流：上传 → 配方/模板 → 平台与分辨率/宽高比（分辨率对照表）→ 批量提交 → 预览/下载
+  - 素材沉淀「我的素材」、任务落「任务中心」
+  - 短视频带货制作归二期「AI 创作」（`ecom-ai`），参照 HookShot `/video-agent`
 - [ ] 10. 批量改价 `ecom-publish.js` + `/price/adjust`
 - [ ] 11. 任务中心 UI `ecom-tasks.js`
 - [ ] 12. 合规检测 `ecom-compliance.js` + `/compliance/check`
