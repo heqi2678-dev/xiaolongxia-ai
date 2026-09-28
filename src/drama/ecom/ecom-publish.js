@@ -38,6 +38,7 @@
     precheck: null, prechecking: false,
     result: null, submitted: false, taskId: "",
     listingOn: true,
+    priceScope: "products", priceTaskId: "",
     records: []
   };
 
@@ -246,6 +247,51 @@
       + "</div></div>";
   }
 
+  function shopPicker() {
+    if (!S.shops.length) return empty("还没有店铺，先去「店铺与授权」添加并授权");
+    return '<div class="ecom-field"><label class="ecom-label">应用店铺</label><div class="ecom-list">'
+      + S.shops.map(function (s) {
+        const checked = S.shopSel[s.id] ? " checked" : "";
+        return '<label class="ecom-choice' + (checked ? " active" : "") + '">'
+          + '<input type="checkbox" data-psid="' + esc(s.id) + '"' + checked + ">"
+          + '<span class="ecom-choice-main"><span class="ecom-cell-t">' + esc(s.name || s.shop_id || s.id) + "</span>"
+          + '<span class="ecom-row-d">' + esc(EC.platformText(s.platform)) + " · " + esc(authText(s.auth_status)) + "</span></span></label>";
+      }).join("") + "</div></div>";
+  }
+
+  function priceBody() {
+    const needShops = S.priceScope === "listings";
+    return '<div class="ecom-panel"><div class="ecom-panel-h"><span>批量改价</span>'
+      + '<button class="ecom-link" data-view="ecomProducts">商品库</button></div>'
+      + '<div class="ecom-panel-b">'
+      + '<div class="ecom-hint">将对 ' + selectedIds().length + " 件商品改价"
+      + (needShops ? "，已选 " + shopIds().length + " 个店铺" : "，仅改商品库价格") + "</div>"
+      + '<div class="ecom-field"><label class="ecom-label">改价范围</label><div class="ecom-tabs">'
+      + '<button class="ecom-tab' + (!needShops ? " active" : "") + '" data-price-scope="products">商品库价格</button>'
+      + '<button class="ecom-tab' + (needShops ? " active" : "") + '" data-price-scope="listings">已上架价格</button></div></div>'
+      + (needShops ? shopPicker() : "")
+      + '<div class="ecom-detail-form">'
+      + '<div class="ecom-field"><label class="ecom-label">目标平台</label><select class="inp" id="ecomPublishPlatform">' + opt(PLATFORMS, S.platform) + "</select></div>"
+      + '<div class="ecom-field"><label class="ecom-label">价格公式</label><select class="inp" id="ecomPriceMode">' + opt(PRICE_MODES, S.priceMode) + "</select></div>"
+      + '<div class="ecom-field"><label class="ecom-label">公式取值（加价额 / 比例）</label><input class="inp" id="ecomPriceValue" type="number" step="0.01" value="' + esc(S.priceValue) + '"></div>'
+      + '<div class="ecom-field"><label class="ecom-label">尾数规则</label><select class="inp" id="ecomPriceRound">' + opt(ROUNDS, S.priceRound) + "</select></div>"
+      + '<div class="ecom-field"><label class="ecom-label">最低售价</label><input class="inp" id="ecomPriceMin" type="number" step="0.01" value="' + esc(S.priceMin) + '"></div>'
+      + '<div class="ecom-field"><label class="ecom-label">执行节奏</label><select class="inp" id="ecomPace">'
+      + '<option value="now"' + (S.pace === "now" ? " selected" : "") + ">立即改价</option>"
+      + '<option value="at"' + (S.pace === "at" ? " selected" : "") + ">定时改价</option>"
+      + '<option value="window"' + (S.pace === "window" ? " selected" : "") + ">分时改价</option></select></div>"
+      + '<div class="ecom-field" id="ecomPaceAtField"' + (S.pace === "at" ? "" : ' style="display:none"') + '><label class="ecom-label">执行时间</label><input class="inp" id="ecomPaceAt" type="datetime-local" value="' + esc(S.at) + '"></div>'
+      + '<div class="ecom-field" id="ecomPaceWinField"' + (S.pace === "window" ? "" : ' style="display:none"') + '><label class="ecom-label">允许时段（小时）</label>'
+      + '<div class="ecom-line"><input class="inp" id="ecomWinStart" type="number" min="0" max="23" value="' + esc(S.winStart) + '">'
+      + '<span class="ecom-hint">至</span><input class="inp" id="ecomWinEnd" type="number" min="0" max="23" value="' + esc(S.winEnd) + '"></div></div>'
+      + "</div>"
+      + '<div class="ecom-hint">价格公式举例：原价 ' + money(59) + "，固定加价 10、尾数 .9 → " + money(69.9) + "；比例 1.5 → " + money(88.5) + "。</div>"
+      + '<div class="ecom-line"><button class="btn primary" id="ecomPriceAdjustSubmit">提交改价任务</button>'
+      + (S.priceTaskId ? '<span class="ecom-hint ecom-mono">任务 ' + esc(S.priceTaskId) + "</span>"
+        + '<button class="ecom-link" data-view="ecomTasks">任务中心</button>' : "")
+      + "</div></div></div>";
+  }
+
   function recordsBody() {
     if (!S.records.length) return '<div class="ecom-panel"><div class="ecom-panel-b">' + empty("还没有铺货记录") + "</div></div>";
     return '<div class="ecom-panel"><div class="ecom-panel-h"><span>铺货记录</span><button class="ecom-link" data-view="ecomTasks">任务中心</button></div>'
@@ -331,10 +377,35 @@
       });
   }
 
+  function submitPrice(el) {
+    const ids = selectedIds();
+    if (!ids.length) return EC.toast("请先选择商品", "err");
+    if (S.priceScope === "listings" && !shopIds().length) return EC.toast("对已上架商品改价需选择店铺", "err");
+    const btn = el.querySelector("#ecomPriceAdjustSubmit");
+    if (btn) btn.disabled = true;
+    const body = Object.assign({
+      product_ids: ids,
+      scope: S.priceScope,
+      platform: S.platform,
+      rule: { mode: S.priceMode, value: Number(S.priceValue) || 0, round: S.priceRound, min_price: Number(S.priceMin) || 0 }
+    }, S.priceScope === "listings" ? { shop_ids: shopIds() } : {}, buildSchedule());
+    EC.api("POST", "/price/adjust", body).then(function (res) {
+      if (btn) btn.disabled = false;
+      S.priceTaskId = res.task && res.task.id || "";
+      EC.toast("已提交 " + (res.item_count || 0) + " 条改价", "ok");
+      loadRecords(el);
+      paint(el);
+    }).catch(function (e) {
+      if (btn) btn.disabled = false;
+      EC.toast(e.message || "提交失败", "err");
+    });
+  }
+
   /* ============================ 渲染与绑定 ============================ */
 
   function contentHtml() {
     if (S.tab === "listing") return listingBody();
+    if (S.tab === "price") return priceBody();
     if (S.tab === "records") return recordsBody();
     return wizardBody();
   }
@@ -435,12 +506,48 @@
     el.querySelectorAll("[data-listing]").forEach(function (n) {
       n.onclick = function () { S.listingOn = n.getAttribute("data-listing") === "on"; paint(el); };
     });
+    if (S.tab === "price") bindPrice(el);
     el.querySelectorAll("[data-task]").forEach(function (n) {
       n.onclick = function () { EC.go("ecomTasks"); };
     });
     el.querySelectorAll("[data-view]").forEach(function (n) {
       n.onclick = function () { EC.go(n.getAttribute("data-view")); };
     });
+  }
+
+  function bindPrice(el) {
+    el.querySelectorAll("[data-price-scope]").forEach(function (n) {
+      n.onclick = function () { S.priceScope = n.getAttribute("data-price-scope"); paint(el); };
+    });
+    el.querySelectorAll("[data-psid]").forEach(function (n) {
+      n.onchange = function () {
+        const id = n.getAttribute("data-psid");
+        if (n.checked) S.shopSel[id] = 1; else delete S.shopSel[id];
+        paint(el);
+      };
+    });
+    const bind = function (id, key, cast) {
+      const n = el.querySelector(id);
+      if (n) n.onchange = function () { S[key] = cast ? cast(n.value) : n.value; };
+    };
+    bind("#ecomPublishPlatform", "platform");
+    bind("#ecomPriceMode", "priceMode");
+    bind("#ecomPriceValue", "priceValue", Number);
+    bind("#ecomPriceRound", "priceRound");
+    bind("#ecomPriceMin", "priceMin", Number);
+    bind("#ecomPaceAt", "at");
+    bind("#ecomWinStart", "winStart", Number);
+    bind("#ecomWinEnd", "winEnd", Number);
+    const pace = el.querySelector("#ecomPace");
+    if (pace) pace.onchange = function () {
+      S.pace = pace.value;
+      const af = el.querySelector("#ecomPaceAtField");
+      const wf = el.querySelector("#ecomPaceWinField");
+      if (af) af.style.display = S.pace === "at" ? "" : "none";
+      if (wf) wf.style.display = S.pace === "window" ? "" : "none";
+    };
+    const submit = el.querySelector("#ecomPriceAdjustSubmit");
+    if (submit) submit.onclick = function () { submitPrice(el); };
   }
 
   function paint(el) {
@@ -458,6 +565,7 @@
     S.submitted = false;
     S.result = null;
     S.taskId = "";
+    S.priceTaskId = "";
     const lib = EC.getSelection("products") || [];
     lib.forEach(function (id) { S.selected[id] = 1; });
     el.innerHTML = '<div class="ecom-wrap">'
@@ -465,6 +573,7 @@
       + '<div class="ecom-tabs">'
       + '<button class="ecom-tab' + (S.tab === "wizard" ? " active" : "") + '" data-tab="wizard">一键铺货</button>'
       + '<button class="ecom-tab' + (S.tab === "listing" ? " active" : "") + '" data-tab="listing">批量上下架</button>'
+      + '<button class="ecom-tab' + (S.tab === "price" ? " active" : "") + '" data-tab="price">批量改价</button>'
       + '<button class="ecom-tab' + (S.tab === "records" ? " active" : "") + '" data-tab="records">铺货记录</button>'
       + "</div>"
       + '<button class="ecom-link" data-view="ecomTasks">任务中心</button></div></div>'

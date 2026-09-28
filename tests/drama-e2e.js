@@ -189,6 +189,7 @@ function boot() {
     if (u.includes("/dian/api/ecom/publish/precheck")) return J({ ok: true, verdict: "pass", platform: "douyin", items: [{ productId: "p1", dimension: "title", level: "pass", message: "标题符合C端表述" }] });
     if (u.includes("/dian/api/ecom/publish")) return J({ ok: true, task: { id: "tp1", status: "queued" }, item_count: 1, deduped: 0 });
     if (u.includes("/dian/api/ecom/listing/batch")) return J({ ok: true, task: { id: "tl1", status: "queued" }, item_count: 1 });
+    if (u.includes("/dian/api/ecom/price/adjust")) return J({ ok: true, task: { id: "tr1", status: "queued" }, item_count: 1 });
     if (u.includes("/dian/api/ecom/tasks")) return J({ ok: true, items: [] });
     if (u.includes("/dian/api/ecom/collect/")) return J({ ok: true, task: { id: "tc1", status: "succeeded", progress: 100, done: 1, failed: 0, total: 1 }, items: [{ seq: 1, ref_type: "product", ref_id: "https://detail.1688.com/offer/1.html", status: "done", result_json: { product_id: "p1", skus: 1, media: 2 } }] });
     if (u.includes("/dian/api/ecom/collect")) return J({ ok: true, task: { id: "tc1", status: "queued", total: 1, done: 0, failed: 0, progress: 0 }, item_count: 1 });
@@ -978,6 +979,13 @@ async function flowEcom(env) {
   pub.querySelector('[data-tab="records"]').click();
   await settle(1);
   has(pub.querySelector("#ecomPublishBody").innerHTML, "铺货记录", "铺货记录页签渲染");
+  pub.querySelector('[data-tab="price"]').click();
+  await settle(2);
+  ok(!!pub.querySelector("#ecomPriceAdjustSubmit"), "批量改价渲染提交按钮");
+  has(pub.querySelector("#ecomPublishBody").innerHTML, "价格公式", "批量改价渲染价格公式");
+  pub.querySelector("#ecomPriceAdjustSubmit").click();
+  await settle(3);
+  has(pub.querySelector("#ecomPublishBody").innerHTML, "tr1", "改价任务号回显");
 
   shell.setZone("drama", { noGo: true });
   await settle(2);

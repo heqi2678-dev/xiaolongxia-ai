@@ -336,6 +336,54 @@ test("搬家铺货：向导五步走完并提交，策略进入请求体", async
   assert.match(doc.querySelector("#ecomStepBody").textContent, /去任务中心/);
 });
 
+test("搬家铺货：批量改价按范围与公式提交", async () => {
+  const bodies = [];
+  const routes = [
+    { method: "GET", match: "/products", json: { ok: true, total: 1, page: 1, page_size: 50, items: [
+      { id: "p1", title: "连衣裙", source_platform: "1688", price: 59, stock: 5, status: "collected", updated_at: 100, main_image: "" }
+    ] } },
+    { method: "GET", match: "/shops", json: { ok: true, items: [
+      { id: "s1", name: "店A", platform: "douyin", auth_status: "normal" }
+    ] } },
+    { method: "GET", match: "/shop-groups", json: { ok: true, items: [] } },
+    { method: "GET", match: "/tasks", json: { ok: true, items: [] } },
+    { method: "POST", match: "/price/adjust", json: (p, opts) => {
+      bodies.push(JSON.parse(opts.body));
+      return { ok: true, task: { id: "tr1", status: "queued" }, item_count: 1 };
+    } }
+  ];
+  const { w, doc, EC } = boot(jsonFetch(routes));
+  EC.setSelection("products", ["p1"]);
+  await EC.render("ecomPublish");
+  await flush();
+  await flush();
+
+  doc.querySelector('[data-tab="price"]').click();
+  await flush();
+  assert.ok(doc.querySelector("#ecomPriceAdjustSubmit"), "批量改价渲染提交按钮");
+
+  doc.querySelector('[data-price-scope="listings"]').click();
+  await flush();
+  const sck = doc.querySelector("[data-psid]");
+  sck.checked = true;
+  sck.dispatchEvent(new w.Event("change"));
+  await flush();
+
+  doc.querySelector("#ecomPriceValue").value = "10";
+  doc.querySelector("#ecomPriceValue").dispatchEvent(new w.Event("change"));
+  doc.querySelector("#ecomPriceRound").value = "end9";
+  doc.querySelector("#ecomPriceRound").dispatchEvent(new w.Event("change"));
+  doc.querySelector("#ecomPriceAdjustSubmit").click();
+  await flush();
+
+  assert.equal(bodies.length, 1);
+  assert.deepEqual(bodies[0].product_ids, ["p1"]);
+  assert.equal(bodies[0].scope, "listings");
+  assert.deepEqual(bodies[0].shop_ids, ["s1"]);
+  assert.equal(bodies[0].rule.value, 10);
+  assert.equal(bodies[0].rule.round, "end9");
+});
+
 test("图片工坊：加载配方表、按配方同步处理并预览结果", async () => {
   const processBodies = [];
   const routes = [

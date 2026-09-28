@@ -57,7 +57,11 @@
   - 后端 `gate/ecom/imaging.py`：配方/处理器/分辨率对照表；`assets_handler` 派生 `edit` 素材（按来源+配方+尺寸哈希幂等）；`POST /assets/process` 支持 `sync` 内联返回；`GET /assets/recipes` 下发配方表
   - 短视频带货制作归二期「AI 创作」（`ecom-ai`），参照 HookShot `/video-agent`
   - 测试：`gate/test_ecom.py` 增 4 项、`tests/ecom.test.js` 增 1 项、e2e 扩图片工坊全流程
-- [ ] 12. 批量改价 `ecom-publish.js` + `/price/adjust`
+- [x] 12. 批量改价 `ecom-publish.js` + `/price/adjust`
+  - 页签：批量改价（商品库价格 / 已上架价格两种范围，后者需选店铺）
+  - 公式：固定加价 / 按比例 + 尾数规则（不处理/向上/向下/尾数 .9）+ 最低售价
+  - 节奏：立即 / 定时（schedule.mode=at）/ 分时（schedule.mode=recurring + window）
+  - 测试：`tests/ecom.test.js` 增 1 项、e2e 扩改价页签与任务号回显
 - [ ] 13. 任务中心 UI `ecom-tasks.js`（`/tasks`、`/tasks/{id}`、`/tasks/{id}/retry`、`/tasks/{id}/pause`）
 - [ ] 14. 店铺与授权 `ecom-shops.js`（`/shops`、`/shops/{id}`、`/shops/auth`、`/shop-groups`）
 - [ ] 15. 合规检测 `ecom-compliance.js` + `/compliance/check`
