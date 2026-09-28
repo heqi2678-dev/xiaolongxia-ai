@@ -62,7 +62,10 @@
   - 公式：固定加价 / 按比例 + 尾数规则（不处理/向上/向下/尾数 .9）+ 最低售价
   - 节奏：立即 / 定时（schedule.mode=at）/ 分时（schedule.mode=recurring + window）
   - 测试：`tests/ecom.test.js` 增 1 项、e2e 扩改价页签与任务号回显
-- [ ] 13. 任务中心 UI `ecom-tasks.js`（`/tasks`、`/tasks/{id}`、`/tasks/{id}/retry`、`/tasks/{id}/pause`）
+- [x] 13. 任务中心 UI `ecom-tasks.js`（`/tasks`、`/tasks/{id}`、`/tasks/{id}/retry`、`/tasks/{id}/pause`）
+  - 类型/状态过滤 + 分页；任务进度条与状态徽标
+  - 详情面板：逐项明细（对象 / 状态 / 尝试次数 / 错误）+ 失败重试 + 执行中暂停
+  - 测试：`tests/ecom.test.js` 增 1 项、e2e 扩任务中心列表/明细/重试
 - [ ] 14. 店铺与授权 `ecom-shops.js`（`/shops`、`/shops/{id}`、`/shops/auth`、`/shop-groups`）
 - [ ] 15. 合规检测 `ecom-compliance.js` + `/compliance/check`
 - [ ] 16. 测试收口（`tests/ecom.test.js`、`tests/ecom-e2e.js`、`gate/test_ecom.py`）

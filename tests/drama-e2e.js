@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js",
-  "ecom/ecom-css.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-collect.js", "ecom/ecom-products.js", "ecom/ecom-publish.js", "ecom/ecom-image.js", "shell.js"
+  "ecom/ecom-css.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-collect.js", "ecom/ecom-products.js", "ecom/ecom-publish.js", "ecom/ecom-image.js", "ecom/ecom-tasks.js", "shell.js"
 ];
 
 let pass = 0;
@@ -190,7 +190,9 @@ function boot() {
     if (u.includes("/dian/api/ecom/publish")) return J({ ok: true, task: { id: "tp1", status: "queued" }, item_count: 1, deduped: 0 });
     if (u.includes("/dian/api/ecom/listing/batch")) return J({ ok: true, task: { id: "tl1", status: "queued" }, item_count: 1 });
     if (u.includes("/dian/api/ecom/price/adjust")) return J({ ok: true, task: { id: "tr1", status: "queued" }, item_count: 1 });
-    if (u.includes("/dian/api/ecom/tasks")) return J({ ok: true, items: [] });
+    if (u.includes("/dian/api/ecom/tasks/t1/retry")) return J({ ok: true, task: { id: "t1", status: "queued" } });
+    if (u.includes("/dian/api/ecom/tasks/t1")) return J({ ok: true, task: { id: "t1", kind: "collect", title: "采集任务", status: "partial", done: 1, failed: 1, total: 2, error: "" }, items: [{ seq: 1, ref_type: "product", ref_id: "p1", status: "done", attempt: 1, error: "" }, { seq: 2, ref_type: "product", ref_id: "p2", status: "failed", attempt: 1, error: "平台限流" }] });
+    if (u.includes("/dian/api/ecom/tasks")) return J({ ok: true, total: 1, page: 1, page_size: 20, items: [{ id: "t1", kind: "collect", title: "采集任务", status: "partial", done: 1, failed: 1, total: 2, created_at: 1 }] });
     if (u.includes("/dian/api/ecom/collect/")) return J({ ok: true, task: { id: "tc1", status: "succeeded", progress: 100, done: 1, failed: 0, total: 1 }, items: [{ seq: 1, ref_type: "product", ref_id: "https://detail.1688.com/offer/1.html", status: "done", result_json: { product_id: "p1", skus: 1, media: 2 } }] });
     if (u.includes("/dian/api/ecom/collect")) return J({ ok: true, task: { id: "tc1", status: "queued", total: 1, done: 0, failed: 0, progress: 0 }, item_count: 1 });
     if (u.includes("/api/v3/contents/generations/tasks")) {
@@ -986,6 +988,19 @@ async function flowEcom(env) {
   pub.querySelector("#ecomPriceAdjustSubmit").click();
   await settle(3);
   has(pub.querySelector("#ecomPublishBody").innerHTML, "tr1", "改价任务号回显");
+
+  const tel = doc.getElementById("ecomTasksView");
+  tel.innerHTML = "";
+  E.render("ecomTasks");
+  await settle(3);
+  has(tel.querySelector("#ecomTasksMain").innerHTML, "采集任务", "任务中心渲染任务行");
+  eq(tel.querySelectorAll("[data-detail]").length, 1, "任务中心渲染详情入口");
+  tel.querySelector('[data-detail="t1"]').click();
+  await settle(3);
+  has(tel.querySelector("#ecomTasksMain").innerHTML, "平台限流", "任务明细显示错误");
+  tel.querySelector('[data-retry="t1"]').click();
+  await settle(4);
+  has(lastToast(env.state) && lastToast(env.state).t, "已提交重试", "重试操作有反馈");
 
   shell.setZone("drama", { noGo: true });
   await settle(2);

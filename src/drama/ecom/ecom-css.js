@@ -144,6 +144,14 @@
 .ecom-ops{display:flex;flex-wrap:wrap;gap:8px 14px}
 .ecom-op{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text2);cursor:pointer}
 
+/* 任务中心 */
+.ecom-chip{font-size:12px;font-weight:700;padding:4px 11px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--text2);cursor:pointer}
+.ecom-chip.active{border-color:var(--accent);color:var(--accent2);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.ecom-bar{height:6px;border-radius:6px;background:color-mix(in srgb,var(--text3) 18%,transparent);overflow:hidden;margin-bottom:5px}
+.ecom-bar span{display:block;height:100%;background:var(--accent);border-radius:6px}
+.ecom-td-act{white-space:nowrap}
+.ecom-alert{padding:8px 10px;border-radius:9px;background:rgba(229,83,61,.12);color:#e5533d;font-size:12.5px}
+
 @media(max-width:760px){.ecom-detail{flex-direction:column}.ecom-detail-form{grid-template-columns:1fr}}
 
 @media(max-width:760px){.ecom-grid2{grid-template-columns:1fr}.ecom-row-prog{display:none}}

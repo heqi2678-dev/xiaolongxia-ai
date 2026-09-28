@@ -20,6 +20,7 @@ function boot(fetchImpl) {
     + '<div id="ecomAssetsView" class="view"></div>'
     + '<div id="ecomImageView" class="view"></div>'
     + '<div id="ecomPublishView" class="view"></div>'
+    + '<div id="ecomTasksView" class="view"></div>'
     + '<div id="toasts"></div></body></html>',
     { runScripts: "outside-only", url: "http://localhost/dian/" });
   const w = dom.window;
@@ -45,6 +46,7 @@ function boot(fetchImpl) {
   w.eval(src("ecom-products.js"));
   w.eval(src("ecom-publish.js"));
   w.eval(src("ecom-image.js"));
+  w.eval(src("ecom-tasks.js"));
   return { w, doc: w.document, EC: w.XLX.drama.ecom };
 }
 
@@ -424,6 +426,51 @@ test("图片工坊：加载配方表、按配方同步处理并预览结果", as
   assert.equal(processBodies[0].sync, true);
   assert.match(doc.querySelector("#ecomImagePreview").textContent, /白底图/);
   assert.ok(doc.querySelector("#ecomImagePreview a[download]"), "结果提供下载入口");
+});
+
+test("任务中心：按类型过滤、查看明细并重试失败项", async () => {
+  const listQueries = [];
+  let retried = 0;
+  const routes = [
+    { method: "GET", match: (p) => p.indexOf("/tasks?") === 0, json: (p) => {
+      listQueries.push(p);
+      return { ok: true, total: 2, page: 1, page_size: 20, items: [
+        { id: "t1", kind: "collect", title: "采集任务", status: "running", done: 2, failed: 0, total: 5, created_at: 100 },
+        { id: "t2", kind: "price_adjust", title: "改价任务", status: "partial", done: 1, failed: 1, total: 2, created_at: 90 }
+      ] };
+    } },
+    { method: "GET", match: "/tasks/t2", json: { ok: true, task: { id: "t2", kind: "price_adjust", title: "改价任务", status: "partial", done: 1, failed: 1, total: 2, error: "" }, items: [
+      { seq: 1, ref_type: "product", ref_id: "p1", status: "done", attempt: 1, error: "" },
+      { seq: 2, ref_type: "product", ref_id: "p2", status: "failed", attempt: 1, error: "平台限流" }
+    ] } },
+    { method: "POST", match: "/tasks/t2/retry", json: () => { retried += 1; return { ok: true, task: { id: "t2", status: "queued" } }; } }
+  ];
+  const { doc, EC } = boot(jsonFetch(routes));
+  await EC.render("ecomTasks");
+  await flush();
+  await flush();
+
+  assert.match(doc.querySelector("#ecomTasksMain").textContent, /采集任务/);
+  assert.match(doc.querySelector("#ecomTasksMain").textContent, /改价任务/);
+  assert.equal(doc.querySelectorAll("[data-detail]").length, 2);
+  assert.equal(doc.querySelector('[data-retry="t2"]').textContent, "重试");
+
+  doc.querySelector('[data-kind="price_adjust"]').click();
+  await flush();
+  await flush();
+  assert.ok(listQueries[listQueries.length - 1].indexOf("kind=price_adjust") >= 0, "类型过滤进入查询");
+
+  doc.querySelector('[data-detail="t2"]').click();
+  await flush();
+  await flush();
+  assert.match(doc.querySelector("#ecomTasksMain").textContent, /平台限流/);
+  assert.equal(doc.querySelectorAll("[data-retry]").length, 2);
+
+  doc.querySelector('[data-retry="t2"]').click();
+  await flush();
+  await flush();
+  await flush();
+  assert.equal(retried, 1, "重试调用后端");
 });
 
 test("共享通道：api 抛错带 code，状态与平台文案映射", async () => {
