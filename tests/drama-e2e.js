@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js",
-  "ecom/ecom-css.js", "ecom/ecom.js", "shell.js"
+  "ecom/ecom-css.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-collect.js", "shell.js"
 ];
 
 let pass = 0;
@@ -173,6 +173,11 @@ function boot() {
     if (u.includes("/dian/api/drama/compose")) return J({ ok: true, url: "https://cdn.test/out/final.mp4" });
     if (u.includes("/dian/api/drama/publishes")) return J({ ok: true });
     if (u.includes("/dian/api/drama/projects")) return J({ ok: true, projects: state.remoteProjects || [], project: state.remoteProject || null });
+    if (u.includes("/dian/api/ecom/stats")) return J({ ok: true, products: 4, media: 6, shops: 2, listings: 3 });
+    if (u.includes("/dian/api/ecom/shops")) return J({ ok: true, items: [{ id: "s1", name: "店A" }] });
+    if (u.includes("/dian/api/ecom/tasks")) return J({ ok: true, items: [] });
+    if (u.includes("/dian/api/ecom/collect/")) return J({ ok: true, task: { id: "tc1", status: "succeeded", progress: 100, done: 1, failed: 0, total: 1 }, items: [{ seq: 1, ref_type: "product", ref_id: "https://detail.1688.com/offer/1.html", status: "done", result_json: { product_id: "p1", skus: 1, media: 2 } }] });
+    if (u.includes("/dian/api/ecom/collect")) return J({ ok: true, task: { id: "tc1", status: "queued", total: 1, done: 0, failed: 0, progress: 0 }, item_count: 1 });
     if (u.includes("/api/v3/contents/generations/tasks")) {
       if (method === "POST") return J({ id: "job-" + (++state.jobs) });
       return J({ status: "succeeded", content: { video_url: "https://cdn.test/vid/job.mp4" } });
@@ -867,11 +872,26 @@ async function flowEcom(env) {
 
   doc.getElementById("ecomHomeView").innerHTML = "";
   E.render("ecomHome");
-  await settle(2);
+  await settle(3);
   const el = doc.getElementById("ecomHomeView");
-  has(el.innerHTML, "电商首页", "首页占位渲染标题");
-  has(el.innerHTML, "ecom-ph", "首页占位容器类名正确");
-  has(el.innerHTML, "建设中", "占位视图标注建设中");
+  eq(el.querySelectorAll(".ecom-card").length, 5, "首页渲染五个能力入口");
+  has(el.innerHTML, "采集下载", "首页含采集下载入口");
+  has(el.innerHTML, "合规检测", "首页含合规检测入口");
+  eq(el.querySelectorAll(".ecom-tile").length, 4, "首页渲染四个概览数字");
+  has(el.querySelector(".ecom-tile-v").textContent, "4", "首页概览取服务端统计");
+
+  const cel = doc.getElementById("ecomCollectView");
+  cel.innerHTML = "";
+  E.render("ecomCollect");
+  await settle(3);
+  ok(!!cel.querySelector("#ecomCollectUrls"), "采集视图渲染链接输入框");
+  ok(!!cel.querySelector("#ecomCollectShopField"), "采集视图渲染整店地址区");
+  ok(!!cel.querySelector("#ecomCollectSubmit"), "采集视图渲染提交按钮");
+  cel.querySelector("#ecomCollectUrls").value = "https://detail.1688.com/offer/1.html";
+  cel.querySelector("#ecomCollectSubmit").click();
+  await settle(4);
+  has(cel.querySelector("#ecomCollectResults").innerHTML, "商品 p1", "采集结果表渲染商品");
+  has(cel.querySelector("#ecomCollectProgress").innerHTML, "已完成", "采集进度显示任务终态");
 
   shell.setZone("drama", { noGo: true });
   await settle(2);

@@ -34,7 +34,11 @@
   - 纯函数路由 `handle(method, path, owner, query, body) -> (status, payload)`，同源 JSON，错误 `{error, code}`；owner 复用 gate 会话
   - `gate/ecom/jobs.py` 注册 collect/publish/price_adjust/listing/assets/generate/compliance 处理器，并安装 mock（真机按 `ECOM_1688_*`/`ECOM_DOUYIN_*` 凭证注册）
   - `store.py` 增 `listings` 表（商品 × 店铺 → remote_id，铺货幂等）；`server.py` 增 do_PATCH/do_DELETE 与 `/api/ecom/*` 挂载
-- [ ] 8. 首页 + 采集视图 `ecom-home.js`、`ecom-collect.js`（`/collect`、`/collect/{taskId}`）
+- [x] 8. 首页 + 采集视图 `ecom-home.js`、`ecom-collect.js`（`/collect`、`/collect/{taskId}`）
+  - 首页：五个能力卡（采集/图片工坊/AI 创作/搬家铺货/合规）、四个概览数字（商品/素材/店铺/已上架）、待办任务、最近采集铺货（读 `/stats`+`/shops`+`/tasks`）
+  - 采集下载：链接采集 / 整店采集切换、源平台选择、提交 collect 任务、进度轮询、采集结果表、失败项重试、最近采集
+  - `ecom.js` 增共享通道与状态：`api`/`toast`/`go`/`fmtTime`、分区级选择集 `STATE`/`setSelection`/`toggleSelection`、任务与平台文案映射
+  - 测试：`tests/ecom.test.js`（5 项）、e2e 链路七扩至电商首页+采集视图
 - [ ] 9. 商品库 + 素材库 UI `ecom-products.js`（`/products`、`/products/{id}`、`/products/batch`）
 - [ ] 10. 一键铺货向导 `ecom-publish.js`（`/publish/precheck`、`/publish`、`/listing/batch`）
 - [ ] 11. 图片工坊 `ecom-image.js` + `POST /assets/process`（参照 HookShot，见 `hookshot-reference.md`）
