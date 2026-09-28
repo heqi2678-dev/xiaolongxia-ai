@@ -39,7 +39,11 @@
   - 采集下载：链接采集 / 整店采集切换、源平台选择、提交 collect 任务、进度轮询、采集结果表、失败项重试、最近采集
   - `ecom.js` 增共享通道与状态：`api`/`toast`/`go`/`fmtTime`、分区级选择集 `STATE`/`setSelection`/`toggleSelection`、任务与平台文案映射
   - 测试：`tests/ecom.test.js`（5 项）、e2e 链路七扩至电商首页+采集视图
-- [ ] 9. 商品库 + 素材库 UI `ecom-products.js`（`/products`、`/products/{id}`、`/products/batch`）
+- [x] 9. 商品库 + 素材库 UI `ecom-products.js`（`/products`、`/products/{id}`、`/products/batch`）
+  - 商品库：关键词/来源/状态/排序筛选、分页列表、全选清空、批量编辑（类目/状态/标签）、详情面板（基本信息编辑、SKU 增删改、素材预览、合规结论、版本记录）
+  - 素材库：类型/来源/关联商品筛选、素材网格（缩略图/尺寸/来源/关联商品）、选择集带入图片工坊批处理
+  - 后端补齐：`GET /assets`（按 kind/product_id/source 筛选分页）、商品详情响应增 `versions`
+  - 测试：`tests/ecom.test.js` 扩到 8 项、e2e 链路七扩至商品库与素材库、`test_ecom` 增 2 项
 - [ ] 10. 一键铺货向导 `ecom-publish.js`（`/publish/precheck`、`/publish`、`/listing/batch`）
 - [ ] 11. 图片工坊 `ecom-image.js` + `POST /assets/process`（参照 HookShot，见 `hookshot-reference.md`）
   - 主图制作：白底图、卖点图、细节图、尺寸图、使用场景图、场景渲染图、营销海报、商品套图

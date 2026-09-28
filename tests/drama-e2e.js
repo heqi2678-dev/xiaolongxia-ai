@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js",
-  "ecom/ecom-css.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-collect.js", "shell.js"
+  "ecom/ecom-css.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-collect.js", "ecom/ecom-products.js", "shell.js"
 ];
 
 let pass = 0;
@@ -174,6 +174,8 @@ function boot() {
     if (u.includes("/dian/api/drama/publishes")) return J({ ok: true });
     if (u.includes("/dian/api/drama/projects")) return J({ ok: true, projects: state.remoteProjects || [], project: state.remoteProject || null });
     if (u.includes("/dian/api/ecom/stats")) return J({ ok: true, products: 4, media: 6, shops: 2, listings: 3 });
+    if (u.includes("/dian/api/ecom/products")) return J({ ok: true, total: 1, page: 1, page_size: 20, items: [{ id: "p1", title: "连衣裙", source_platform: "1688", price: 59, stock: 10, status: "collected", updated_at: 1, main_image: "" }] });
+    if (u.includes("/dian/api/ecom/assets")) return J({ ok: true, total: 1, page: 1, page_size: 20, items: [{ id: "m1", kind: "image", source_type: "collected", product_id: "p1", url: "", meta_json: { width: 800, height: 800 }, created_at: 1 }] });
     if (u.includes("/dian/api/ecom/shops")) return J({ ok: true, items: [{ id: "s1", name: "店A" }] });
     if (u.includes("/dian/api/ecom/tasks")) return J({ ok: true, items: [] });
     if (u.includes("/dian/api/ecom/collect/")) return J({ ok: true, task: { id: "tc1", status: "succeeded", progress: 100, done: 1, failed: 0, total: 1 }, items: [{ seq: 1, ref_type: "product", ref_id: "https://detail.1688.com/offer/1.html", status: "done", result_json: { product_id: "p1", skus: 1, media: 2 } }] });
@@ -892,6 +894,26 @@ async function flowEcom(env) {
   await settle(4);
   has(cel.querySelector("#ecomCollectResults").innerHTML, "商品 p1", "采集结果表渲染商品");
   has(cel.querySelector("#ecomCollectProgress").innerHTML, "已完成", "采集进度显示任务终态");
+
+  const pel = doc.getElementById("ecomProductsView");
+  pel.innerHTML = "";
+  E.render("ecomProducts");
+  await settle(3);
+  eq(pel.querySelectorAll("tr[data-id]").length, 1, "商品库渲染商品行");
+  ok(!!pel.querySelector("#ecomProductKeyword"), "商品库渲染筛选输入框");
+  ok(!!pel.querySelector("#ecomBatchApply"), "商品库渲染批量编辑栏");
+  has(pel.querySelector("#ecomProductTable").innerHTML, "连衣裙", "商品标题进入列表");
+
+  const ael = doc.getElementById("ecomAssetsView");
+  ael.innerHTML = "";
+  E.render("ecomAssets");
+  await settle(3);
+  ok(!!ael.querySelector("#ecomAssetGrid"), "素材库渲染素材网格");
+  eq(ael.querySelectorAll(".ecom-asset").length, 1, "素材库渲染素材卡");
+  has(ael.querySelector(".ecom-asset").innerHTML, "800×800", "素材尺寸进入卡片");
+  ael.querySelector("[data-select-all]").click();
+  ael.querySelector("[data-to-image]").click();
+  ok(E.getSelection("media").indexOf("m1") >= 0, "素材选择集带入图片工坊");
 
   shell.setZone("drama", { noGo: true });
   await settle(2);

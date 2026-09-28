@@ -79,8 +79,11 @@ def _dispatch(method, path, owner, query, body):
             return _product_edit(owner, rest[0], body)
         if len(rest) == 1 and method == "GET":
             return _product_detail(owner, rest[0])
-    elif head == "assets" and rest == ["process"] and method == "POST":
-        return _assets_process(owner, body)
+    elif head == "assets":
+        if not rest and method == "GET":
+            return _assets_list(owner, query)
+        if rest == ["process"] and method == "POST":
+            return _assets_process(owner, body)
     elif head == "generate" and not rest and method == "POST":
         return _generate(owner, body)
     elif head == "publish" and method == "POST":
@@ -257,6 +260,14 @@ def _product_detail(owner, product_id):
         media=store.list_media(owner, product_id),
         listings=store.list_listings(owner, product_id=product_id),
         report=store.latest_report(owner, product_id),
+        versions=store.list_rows(
+            "product_versions",
+            owner,
+            where="product_id=?",
+            params=(product_id,),
+            order="created_at DESC",
+            limit=20,
+        ),
     )
 
 
@@ -295,6 +306,32 @@ def _products_batch(owner, body):
 
 
 # ------------------------------- 素材 / 生成 ------------------------------- #
+
+
+def _assets_list(owner, query):
+    page, size = _page(query)
+    where, params = [], []
+    if query.get("kind"):
+        where.append("kind=?")
+        params.append(query["kind"])
+    if query.get("product_id"):
+        where.append("product_id=?")
+        params.append(query["product_id"])
+    if query.get("source"):
+        where.append("source_type=?")
+        params.append(query["source"])
+    clause = " AND ".join(where)
+    total = store.count("media", owner, clause, tuple(params))
+    items = store.list_rows(
+        "media",
+        owner,
+        where=clause,
+        params=tuple(params),
+        order="created_at DESC",
+        limit=size,
+        offset=(page - 1) * size,
+    )
+    return _ok(items=items, total=total, page=page, page_size=size)
 
 
 def _assets_process(owner, body):

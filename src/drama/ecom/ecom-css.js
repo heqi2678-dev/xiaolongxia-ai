@@ -84,6 +84,34 @@
 .ecom-table td{padding:8px;border-bottom:1px solid var(--border);color:var(--text1);vertical-align:middle}
 .ecom-table tr:last-child td{border-bottom:none}
 
+/* 商品库筛选与批量栏 */
+.ecom-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ecom-filters .inp{max-width:200px}
+.ecom-batchbar{flex-wrap:wrap}
+.ecom-batchbar .inp{max-width:150px}
+.ecom-ck{width:34px;text-align:center}
+.ecom-cell-t{font-weight:700;color:var(--text1);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ecom-thumb{width:42px;height:42px;border-radius:8px;object-fit:cover;background:color-mix(in srgb,var(--text3) 14%,transparent);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text3)}
+.ecom-thumb-ph{font-size:10px}
+.ecom-thumb-lg{width:120px;height:120px}
+.ecom-ptable td .inp{max-width:120px}
+
+/* 商品详情 */
+.ecom-detail{display:flex;gap:14px;align-items:flex-start}
+.ecom-detail-form{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ecom-sub-h{font-size:12.5px;font-weight:800;color:var(--text2);margin-top:6px}
+.ecom-thumbs{display:flex;flex-wrap:wrap;gap:8px}
+
+/* 素材库 */
+.ecom-assets{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.ecom-asset{border:1px solid var(--border);border-radius:11px;overflow:hidden;position:relative;background:var(--panel,rgba(255,255,255,.03))}
+.ecom-asset-ck{position:absolute;top:7px;left:7px;z-index:1;background:rgba(0,0,0,.4);border-radius:6px;padding:2px 4px}
+.ecom-asset-thumb .ecom-thumb{width:100%;height:120px;border-radius:0}
+.ecom-asset-meta{padding:8px 10px}
+.ecom-asset-meta .ecom-row-t{font-size:12.5px}
+
+@media(max-width:760px){.ecom-detail{flex-direction:column}.ecom-detail-form{grid-template-columns:1fr}}
+
 @media(max-width:760px){.ecom-grid2{grid-template-columns:1fr}.ecom-row-prog{display:none}}
 
 @media(max-width:600px){.shell-zones{padding:10px 8px 0}}

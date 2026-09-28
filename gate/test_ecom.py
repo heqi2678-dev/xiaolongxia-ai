@@ -983,6 +983,29 @@ class EcomApiTest(unittest.TestCase):
         self.assertEqual(self.call("POST", "/assets/process", body={})[0], 400)
         self.assertEqual(self.call("POST", "/generate", body={})[0], 400)
 
+    def test_product_detail_returns_versions(self):
+        product_id = self.collect_one()
+        self.call("PATCH", "/products/%s" % product_id, body={"title": "改名后"})
+        detail = self.call("GET", "/products/%s" % product_id)[1]
+        self.assertEqual(detail["product"]["title"], "改名后")
+        self.assertGreaterEqual(len(detail["versions"]), 1)
+        self.assertEqual(detail["versions"][0]["note"], "编辑")
+
+    def test_assets_list_filters(self):
+        product_id = self.collect_one()
+        all_media = self.call("GET", "/assets")[1]
+        self.assertGreaterEqual(all_media["total"], 2)
+        self.assertEqual(len(all_media["items"]), all_media["total"])
+        by_product = self.call("GET", "/assets", query={"product_id": product_id})[1]
+        self.assertEqual(by_product["total"], all_media["total"])
+        images = self.call("GET", "/assets", query={"kind": "image"})[1]
+        self.assertEqual(images["total"], all_media["total"])
+        self.assertEqual(self.call("GET", "/assets", query={"kind": "video"})[1]["total"], 0)
+        self.assertEqual(self.call("GET", "/assets", query={"source": "collected"})[1]["total"], all_media["total"])
+        bounded = self.call("GET", "/assets", query={"page_size": "1"})[1]
+        self.assertEqual(bounded["page_size"], 1)
+        self.assertEqual(len(bounded["items"]), 1)
+
     def test_owner_isolation(self):
         self.collect_one()
         self.assertEqual(self.call("GET", "/products", owner="other")[1]["total"], 0)

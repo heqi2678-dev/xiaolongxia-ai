@@ -16,6 +16,8 @@ function boot(fetchImpl) {
   const dom = new JSDOM('<!doctype html><html><body>'
     + '<div id="ecomHomeView" class="view"></div>'
     + '<div id="ecomCollectView" class="view"></div>'
+    + '<div id="ecomProductsView" class="view"></div>'
+    + '<div id="ecomAssetsView" class="view"></div>'
     + '<div id="toasts"></div></body></html>',
     { runScripts: "outside-only", url: "http://localhost/dian/" });
   const w = dom.window;
@@ -38,6 +40,7 @@ function boot(fetchImpl) {
   w.eval(src("ecom.js"));
   w.eval(src("ecom-home.js"));
   w.eval(src("ecom-collect.js"));
+  w.eval(src("ecom-products.js"));
   return { w, doc: w.document, EC: w.XLX.drama.ecom };
 }
 
@@ -163,6 +166,109 @@ test("采集：整店模式提交 shop_url，结果展示采集件数", async ()
   await flush();
   await flush();
   assert.match(doc.querySelector("#ecomCollectResults").textContent, /采集 12 件/);
+});
+
+test("商品库：列表渲染、批量编辑、翻页", async () => {
+  const batchBodies = [];
+  const routes = [
+    { method: "GET", match: "/products", json: { ok: true, total: 2, page: 1, page_size: 20, items: [
+      { id: "p1", title: "连衣裙", source_platform: "1688", price: 59.8, stock: 12, status: "collected", updated_at: 100, main_image: "" },
+      { id: "p2", title: "T恤", source_platform: "mock", price: 19.9, stock: 3, status: "listed", updated_at: 90, main_image: "" }
+    ] } },
+    { method: "POST", match: "/products/batch", json: (p, opts) => {
+      batchBodies.push(JSON.parse(opts.body));
+      return { ok: true, updated: 2 };
+    } }
+  ];
+  const { doc, EC } = boot(jsonFetch(routes));
+  await EC.render("ecomProducts");
+  await flush();
+
+  const table = doc.querySelector("#ecomProductTable");
+  assert.match(table.textContent, /连衣裙/);
+  assert.match(table.textContent, /已上架/);
+  assert.equal(table.querySelectorAll("tr[data-id]").length, 2);
+
+  doc.querySelector("[data-select-all]").click();
+  assert.match(doc.querySelector("#ecomBatchCount").textContent, /已选 2 件/);
+  doc.querySelector("#ecomBatchCategory").value = "女装";
+  doc.querySelector("#ecomBatchStatus").value = "pending";
+  doc.querySelector("#ecomBatchApply").click();
+  await flush();
+  assert.equal(batchBodies.length, 1, "提交批量编辑");
+  assert.deepEqual(batchBodies[0].ids.sort(), ["p1", "p2"]);
+  assert.equal(batchBodies[0].patch.category, "女装");
+  assert.equal(batchBodies[0].patch.status, "pending");
+});
+
+test("商品库：详情面板展示 SKU 与版本记录，可保存 SKU", async () => {
+  const patched = [];
+  const detail = (price) => ({ ok: true,
+    product: { id: "p1", title: "连衣裙", category: "女装", price: 59.8, stock: 12, source_platform: "1688", source_url: "https://detail.1688.com/offer/1.html", main_image: "" },
+    skus: [{ id: "k1", spec: "红色", price: price, stock: 5, barcode: "111", enabled: 1 }],
+    media: [], listings: [], report: null,
+    versions: [{ id: "v1", note: "编辑", created_at: 50 }] });
+  const routes = [
+    { method: "GET", match: (clean) => clean.indexOf("/products?") === 0, json: { ok: true, total: 1, page: 1, page_size: 20, items: [
+      { id: "p1", title: "连衣裙", source_platform: "1688", price: 59.8, stock: 12, status: "collected", updated_at: 100, main_image: "" }
+    ] } },
+    { method: "GET", match: "/products/p1", json: detail(10) },
+    { method: "PATCH", match: "/products/p1", json: (p, opts) => {
+      const body = JSON.parse(opts.body);
+      patched.push(body);
+      return detail(body.skus ? body.skus[0].price : 10);
+    } }
+  ];
+  const { doc, EC } = boot(jsonFetch(routes));
+  await EC.render("ecomProducts");
+  await flush();
+
+  doc.querySelector("[data-detail]").click();
+  await flush();
+  const panel = doc.querySelector("#ecomProductDetail");
+  assert.match(panel.textContent, /商品详情/);
+  assert.match(panel.textContent, /编辑/, "展示版本记录");
+  assert.equal(panel.querySelector("#ecomEditTitle").value, "连衣裙");
+  const skuRow = panel.querySelector('tr[data-sku="k1"]');
+  assert.ok(skuRow, "渲染 SKU 行");
+  assert.equal(skuRow.querySelector('[data-k="spec"]').value, "红色");
+
+  skuRow.querySelector('[data-k="price"]').value = "12.5";
+  panel.querySelector("[data-save-skus]").click();
+  await flush();
+  assert.equal(patched.length, 1);
+  assert.equal(patched[0].skus.length, 1);
+  assert.equal(patched[0].skus[0].price, 12.5);
+  assert.equal(patched[0].note, "SKU 编辑");
+});
+
+test("素材库：筛选参数、选择后带入图片工坊", async () => {
+  const urls = [];
+  const routes = [
+    { method: "GET", match: "/assets", json: (clean) => {
+      urls.push(clean);
+      return { ok: true, total: 1, page: 1, page_size: 20, items: [
+        { id: "m1", kind: "image", source_type: "collected", product_id: "p1", url: "", meta_json: { width: 800, height: 800 }, created_at: 10 }
+      ] };
+    } }
+  ];
+  const { w, doc, EC } = boot(jsonFetch(routes));
+  await EC.render("ecomAssets");
+  await flush();
+
+  assert.equal(doc.querySelectorAll(".ecom-asset").length, 1);
+  assert.match(doc.querySelector(".ecom-asset").textContent, /商品 p1/);
+  assert.match(doc.querySelector(".ecom-asset").textContent, /800×800/);
+
+  doc.querySelector("#ecomAssetKind").value = "video";
+  doc.querySelector("#ecomAssetSearch").click();
+  await flush();
+  assert.ok(urls.some(u => u.indexOf("kind=video") >= 0), "筛选参数进入请求");
+
+  doc.querySelector("[data-select-all]").click();
+  doc.querySelector("[data-to-image]").click();
+  assert.deepEqual(EC.getSelection("media"), ["m1"]);
+  assert.equal(w.__go, "ecomImage");
 });
 
 test("共享通道：api 抛错带 code，状态与平台文案映射", async () => {
