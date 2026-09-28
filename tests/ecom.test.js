@@ -21,6 +21,7 @@ function boot(fetchImpl) {
     + '<div id="ecomImageView" class="view"></div>'
     + '<div id="ecomPublishView" class="view"></div>'
     + '<div id="ecomTasksView" class="view"></div>'
+    + '<div id="ecomShopsView" class="view"></div>'
     + '<div id="toasts"></div></body></html>',
     { runScripts: "outside-only", url: "http://localhost/dian/" });
   const w = dom.window;
@@ -47,6 +48,7 @@ function boot(fetchImpl) {
   w.eval(src("ecom-publish.js"));
   w.eval(src("ecom-image.js"));
   w.eval(src("ecom-tasks.js"));
+  w.eval(src("ecom-shops.js"));
   return { w, doc: w.document, EC: w.XLX.drama.ecom };
 }
 
@@ -471,6 +473,47 @@ test("任务中心：按类型过滤、查看明细并重试失败项", async ()
   await flush();
   await flush();
   assert.equal(retried, 1, "重试调用后端");
+});
+
+test("店铺与授权：渲染店铺与分组、提交授权与新增", async () => {
+  const posted = [];
+  const routes = [
+    { method: "GET", match: "/shops", json: { ok: true, items: [
+      { id: "s1", name: "店A", platform: "douyin", shop_id: "D1", group_id: "g1", auth_status: "unauthorized" }
+    ] } },
+    { method: "GET", match: "/shop-groups", json: { ok: true, items: [{ id: "g1", name: "一组" }] } },
+    { method: "POST", match: "/shops/auth", json: (p, opts) => { posted.push(["auth", JSON.parse(opts.body)]); return { ok: true, shop: { id: "s1", auth_status: "normal" } }; } },
+    { method: "POST", match: "/shops", json: (p, opts) => { posted.push(["shop", JSON.parse(opts.body)]); return { ok: true, shop: { id: "s2" } }; } },
+    { method: "POST", match: "/shop-groups", json: (p, opts) => { posted.push(["group", JSON.parse(opts.body)]); return { ok: true, group: { id: "g2" } }; } }
+  ];
+  const { doc, EC } = boot(jsonFetch(routes));
+  await EC.render("ecomShops");
+  await flush();
+  await flush();
+
+  const main = doc.querySelector("#ecomShopsMain");
+  assert.match(main.textContent, /店A/);
+  assert.match(main.textContent, /未授权/);
+  assert.match(main.textContent, /一组/);
+
+  doc.querySelector('[data-auth="s1"]').click();
+  await flush();
+  const token = doc.querySelector("#ecomShopToken");
+  assert.ok(token, "点授权后出现令牌输入");
+  token.value = "tk-123";
+  token.dispatchEvent(new (doc.defaultView.Event)("input"));
+  doc.querySelector("#ecomShopAuth").click();
+  await flush();
+  await flush();
+  assert.deepEqual(posted[0], ["auth", { id: "s1", access_token: "tk-123" }]);
+
+  const gname = doc.querySelector("#ecomGroupName");
+  gname.value = "二组";
+  gname.dispatchEvent(new (doc.defaultView.Event)("input"));
+  doc.querySelector("#ecomGroupCreate").click();
+  await flush();
+  await flush();
+  assert.deepEqual(posted[1], ["group", { name: "二组" }]);
 });
 
 test("共享通道：api 抛错带 code，状态与平台文案映射", async () => {

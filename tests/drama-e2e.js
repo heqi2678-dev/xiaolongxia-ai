@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js",
-  "ecom/ecom-css.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-collect.js", "ecom/ecom-products.js", "ecom/ecom-publish.js", "ecom/ecom-image.js", "ecom/ecom-tasks.js", "shell.js"
+  "ecom/ecom-css.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-collect.js", "ecom/ecom-products.js", "ecom/ecom-publish.js", "ecom/ecom-image.js", "ecom/ecom-tasks.js", "ecom/ecom-shops.js", "shell.js"
 ];
 
 let pass = 0;
@@ -1001,6 +1001,16 @@ async function flowEcom(env) {
   tel.querySelector('[data-retry="t1"]').click();
   await settle(4);
   has(lastToast(env.state) && lastToast(env.state).t, "已提交重试", "重试操作有反馈");
+
+  const sel = doc.getElementById("ecomShopsView");
+  sel.innerHTML = "";
+  E.render("ecomShops");
+  await settle(3);
+  has(sel.querySelector("#ecomShopsMain").innerHTML, "店A", "店铺列表渲染店铺");
+  has(sel.querySelector("#ecomShopsMain").innerHTML, "一组", "店铺分组渲染分组");
+  sel.querySelector('[data-auth="s1"]').click();
+  await settle(1);
+  ok(!!sel.querySelector("#ecomShopToken"), "授权面板出现令牌输入");
 
   shell.setZone("drama", { noGo: true });
   await settle(2);

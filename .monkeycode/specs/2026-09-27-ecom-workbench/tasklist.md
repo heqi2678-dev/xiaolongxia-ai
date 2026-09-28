@@ -66,7 +66,10 @@
   - 类型/状态过滤 + 分页；任务进度条与状态徽标
   - 详情面板：逐项明细（对象 / 状态 / 尝试次数 / 错误）+ 失败重试 + 执行中暂停
   - 测试：`tests/ecom.test.js` 增 1 项、e2e 扩任务中心列表/明细/重试
-- [ ] 14. 店铺与授权 `ecom-shops.js`（`/shops`、`/shops/{id}`、`/shops/auth`、`/shop-groups`）
+- [x] 14. 店铺与授权 `ecom-shops.js`（`/shops`、`/shops/{id}`、`/shops/auth`、`/shop-groups`）
+  - 分组列表 + 新建分组；店铺列表（平台 / 分组 / 授权状态徽标）按分组筛选
+  - 接入店铺表单；粘贴 access_token 提交授权；删除店铺
+  - 测试：`tests/ecom.test.js` 增 1 项、e2e 扩店铺/分组/授权面板
 - [ ] 15. 合规检测 `ecom-compliance.js` + `/compliance/check`
 - [ ] 16. 测试收口（`tests/ecom.test.js`、`tests/ecom-e2e.js`、`gate/test_ecom.py`）
 
