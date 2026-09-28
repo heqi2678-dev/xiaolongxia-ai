@@ -21,7 +21,9 @@
   - `registry.py`：`Registry` 可注入注册/取用、`EcomError` 归一化（8 类 + 可重试判定）、`RateLimiter`（QPS + 日配额）
   - `adapters/base.py`：`SourceAdapter`/`TargetAdapter` 基类 + `assert_source_contract`/`assert_target_contract` 契约自检
   - `adapters/mock.py`：确定性 mock 源/目标适配器，可注入失败验证错误归一化
-- [ ] 5. 1688 源适配器 `adapters/source_1688.py`（单商品 + 整店）
+- [x] 5. 1688 源适配器 `adapters/source_1688.py`（单商品 + 整店）
+  - AOP 签名、offerId 解析、商品/SKU/主图/详情映射、整店分页、错误归一化
+  - 凭证走 `ECOM_1688_*` 环境变量；transport 可注入，真机待 appkey 冒烟
 - [ ] 6. 抖音小店目标适配器 `adapters/target_douyin.py`（类目树/字段映射/发布/改价/上下架）
 - [ ] 7. 商品库 + 素材库 UI `ecom-products.js`
 - [ ] 8. 一键铺货向导 `ecom-publish.js`

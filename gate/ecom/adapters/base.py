@@ -53,14 +53,16 @@ class TargetAdapter:
         raise NotImplementedError
 
 
-def assert_source_contract(adapter):
+def assert_source_contract(adapter, sample_id="sample-1", shop_url=None, shop_opts=None):
     """校验源适配器是否满足统一契约，返回样例 RawProduct。"""
     if not isinstance(adapter, SourceAdapter):
         raise AssertionError("不是 SourceAdapter: %r" % (adapter,))
     ctx = _mock_ctx()
-    product = adapter.fetch_product("sample-1", ctx)
+    product = adapter.fetch_product(sample_id, ctx)
     _check_product(product)
-    shop = list(adapter.fetch_shop("https://shop.example.com", {"limit": 2}, ctx))
+    shop = list(
+        adapter.fetch_shop(shop_url or "https://shop.example.com", shop_opts or {"limit": 2}, ctx)
+    )
     if not shop:
         raise AssertionError("fetch_shop 应至少返回一个商品")
     for item in shop:

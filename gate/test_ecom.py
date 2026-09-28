@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 
 from ecom import queue, registry, store
-from ecom.adapters import base, mock
+from ecom.adapters import base, mock, source_1688
 
 
 class StoreTest(unittest.TestCase):
@@ -442,6 +442,120 @@ class AdapterTest(unittest.TestCase):
         self.assertEqual(result["status"], "succeeded")
         items = store.list_rows("task_items", "u1", where="task_id=?", params=(task["id"],))
         self.assertTrue(all(it["result_json"]["remote_id"] for it in items))
+
+
+class Source1688Test(unittest.TestCase):
+    """1688 源适配器：签名、链接解析、字段映射、整店分页与错误归一化。"""
+
+    OFFER = {
+        "offerId": "123456",
+        "subject": "女装连衣裙 碎花",
+        "image": "https://img.example.com/1.jpg;https://img.example.com/2.jpg",
+        "detailUrl": "https://detail.1688.com/offer/123456.html",
+        "categoryName": "女装",
+        "attributes": {"材质": "棉"},
+        "skuInfos": [
+            {"skuId": "s1", "price": "39.9", "amount": "5", "attributes": {"颜色": "红"}},
+            {"skuId": "s2", "price": "45.0", "amount": "7", "attributes": {"颜色": "蓝"}},
+        ],
+    }
+
+    class FakeTransport:
+        def __init__(self, responses=None):
+            self.calls = []
+            self.responses = responses or {}
+
+        def post(self, url, params):
+            self.calls.append((url, dict(params)))
+            for key, value in self.responses.items():
+                if key in url:
+                    return value(params) if callable(value) else value
+            return {}
+
+    def _adapter(self, responses=None):
+        return source_1688.Source1688Adapter(
+            appkey="app", secret="sec", access_token="tok", transport=self.FakeTransport(responses)
+        )
+
+    def test_extract_offer_id(self):
+        self.assertEqual(source_1688.extract_offer_id("123456"), "123456")
+        self.assertEqual(
+            source_1688.extract_offer_id("https://detail.1688.com/offer/98765.html"), "98765"
+        )
+        self.assertEqual(
+            source_1688.extract_offer_id("https://m.1688.com/detail.htm?offerId=5566"), "5566"
+        )
+        with self.assertRaises(registry.EcomError):
+            source_1688.extract_offer_id("")
+
+    def test_aop_signature_deterministic(self):
+        sig1 = source_1688.aop_signature({"b": "2", "a": "1"}, "secret")
+        sig2 = source_1688.aop_signature({"a": "1", "b": "2"}, "secret")
+        self.assertEqual(sig1, sig2, "签名与参数顺序无关")
+        self.assertEqual(sig1, sig1.upper())
+        self.assertNotEqual(sig1, source_1688.aop_signature({"a": "1", "b": "2"}, "other"))
+
+    def test_fetch_product_maps_raw_product(self):
+        adapter = self._adapter({"alibaba.product.get": {"offer": self.OFFER}})
+        product = adapter.fetch_product("https://detail.1688.com/offer/123456.html")
+        base._check_product(product)
+        self.assertEqual(product["source_id"], "123456")
+        self.assertEqual(product["title"], "女装连衣裙 碎花")
+        self.assertEqual(product["price"], 39.9, "取 SKU 最低价")
+        self.assertEqual(product["stock"], 12, "SKU 库存合计")
+        self.assertEqual(len(product["images"]), 2)
+        self.assertEqual(product["skus"][0]["spec"], "颜色:红")
+        self.assertEqual(product["attrs"], {"材质": "棉"})
+        url, params = adapter.transport.calls[0]
+        self.assertIn("alibaba.product.get", url)
+        self.assertIn("app", url)
+        self.assertEqual(params["offerId"], "123456")
+        self.assertTrue(params["_aop_signature"])
+
+    def test_fetch_shop_paginates(self):
+        pages = {
+            1: {"offerList": [dict(self.OFFER, offerId="1"), dict(self.OFFER, offerId="2")]},
+            2: {"offerList": [dict(self.OFFER, offerId="3")]},
+        }
+
+        def responder(params):
+            return pages[int(params["pageNo"])]
+
+        adapter = self._adapter({"alibaba.offer.list": responder})
+        products = list(adapter.fetch_shop("https://shop123.1688.com", {"limit": 2}))
+        self.assertEqual([p["source_id"] for p in products], ["1", "2", "3"], "应按页拉全")
+        self.assertEqual(len(adapter.transport.calls), 2, "第二页不足一页即结束")
+
+    def test_missing_credentials(self):
+        adapter = source_1688.Source1688Adapter(transport=self.FakeTransport())
+        with self.assertRaises(registry.EcomError) as ctx:
+            adapter.fetch_product("123456")
+        self.assertEqual(ctx.exception.code, registry.AUTH_EXPIRED)
+
+    def test_error_response_normalized(self):
+        adapter = self._adapter(
+            {
+                "alibaba.product.get": {
+                    "error_response": {"code": "429", "msg": "too many requests"}
+                }
+            }
+        )
+        with self.assertRaises(registry.EcomError) as ctx:
+            adapter.fetch_product("123456")
+        self.assertEqual(ctx.exception.code, registry.RATE_LIMITED)
+        self.assertTrue(ctx.exception.retryable)
+
+    def test_contract_selfcheck(self):
+        adapter = self._adapter(
+            {
+                "alibaba.product.get": {"offer": self.OFFER},
+                "alibaba.offer.list": {"offerList": [self.OFFER]},
+            }
+        )
+        product = base.assert_source_contract(
+            adapter, sample_id="123456", shop_url="https://shop123.1688.com"
+        )
+        self.assertTrue(product["skus"])
 
 
 if __name__ == "__main__":
