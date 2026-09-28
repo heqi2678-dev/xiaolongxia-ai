@@ -110,6 +110,28 @@
 .ecom-asset-meta{padding:8px 10px}
 .ecom-asset-meta .ecom-row-t{font-size:12.5px}
 
+/* 一键铺货向导 */
+.ecom-steps{display:flex;gap:6px;flex-wrap:wrap}
+.ecom-stepchip{display:flex;align-items:center;gap:7px;border:1px solid var(--border);background:transparent;border-radius:20px;padding:5px 13px;font-size:12.5px;font-weight:700;color:var(--text3);cursor:pointer}
+.ecom-stepchip .n{width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;background:color-mix(in srgb,var(--text3) 18%,transparent)}
+.ecom-stepchip.active{border-color:var(--accent);color:var(--text1)}
+.ecom-stepchip.active .n{background:var(--accent-grad);color:var(--accent-ink)}
+.ecom-stepchip.done{color:var(--accent2)}
+.ecom-choice{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid var(--border);border-radius:10px;cursor:pointer}
+.ecom-choice.active{border-color:var(--accent)}
+.ecom-choice.disabled{opacity:.5;cursor:not-allowed}
+.ecom-choice-main{min-width:0;display:flex;flex-direction:column;gap:2px}
+.ecom-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:8px;max-height:360px;overflow:auto;padding:2px}
+.ecom-lv{font-size:11.5px;font-weight:800;border-radius:7px;padding:2px 8px;white-space:nowrap}
+.ecom-lv-pass{background:rgba(46,160,90,.16);color:#2ea05a}
+.ecom-lv-warn{background:rgba(214,158,46,.18);color:#d69e2e}
+.ecom-lv-fail{background:rgba(229,83,61,.16);color:#e5533d}
+.ecom-pre{display:flex;flex-direction:column;gap:10px}
+.ecom-pre-item{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:var(--text1)}
+.ecom-kv{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--text2);border-bottom:1px dashed var(--border);padding:6px 0}
+.ecom-kv b{color:var(--text1)}
+.ecom-kv:last-child{border-bottom:none}
+
 @media(max-width:760px){.ecom-detail{flex-direction:column}.ecom-detail-form{grid-template-columns:1fr}}
 
 @media(max-width:760px){.ecom-grid2{grid-template-columns:1fr}.ecom-row-prog{display:none}}

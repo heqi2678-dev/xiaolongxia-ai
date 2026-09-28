@@ -44,7 +44,11 @@
   - 素材库：类型/来源/关联商品筛选、素材网格（缩略图/尺寸/来源/关联商品）、选择集带入图片工坊批处理
   - 后端补齐：`GET /assets`（按 kind/product_id/source 筛选分页）、商品详情响应增 `versions`
   - 测试：`tests/ecom.test.js` 扩到 8 项、e2e 链路七扩至商品库与素材库、`test_ecom` 增 2 项
-- [ ] 10. 一键铺货向导 `ecom-publish.js`（`/publish/precheck`、`/publish`、`/listing/batch`）
+- [x] 10. 一键铺货向导 `ecom-publish.js`（`/publish/precheck`、`/publish`、`/listing/batch`）
+  - 五步向导：选品（商品筛选/选择集带入）→ 选店（授权校验/店群标签）→ 策略（类目/标题前后缀/价格公式/上架节奏）→ 预检（类目/标题/主图/价格/合规四维结论）→ 提交（商品×店铺去重回执）
+  - 上架节奏：立即 / 定时（schedule.mode=at）/ 分时（schedule.mode=recurring + window）
+  - 批量上下架页签（`/listing/batch`）与铺货记录页签（`/tasks?kind=publish`）
+  - 测试：`tests/ecom.test.js` 增 1 项、e2e 扩铺货向导全流程
 - [ ] 11. 图片工坊 `ecom-image.js` + `POST /assets/process`（参照 HookShot，见 `hookshot-reference.md`）
   - 主图制作：白底图、卖点图、细节图、尺寸图、使用场景图、场景渲染图、营销海报、商品套图
   - 详情页：详情长图生成、图片复刻（选长图模板）

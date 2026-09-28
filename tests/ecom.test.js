@@ -18,6 +18,7 @@ function boot(fetchImpl) {
     + '<div id="ecomCollectView" class="view"></div>'
     + '<div id="ecomProductsView" class="view"></div>'
     + '<div id="ecomAssetsView" class="view"></div>'
+    + '<div id="ecomPublishView" class="view"></div>'
     + '<div id="toasts"></div></body></html>',
     { runScripts: "outside-only", url: "http://localhost/dian/" });
   const w = dom.window;
@@ -41,6 +42,7 @@ function boot(fetchImpl) {
   w.eval(src("ecom-home.js"));
   w.eval(src("ecom-collect.js"));
   w.eval(src("ecom-products.js"));
+  w.eval(src("ecom-publish.js"));
   return { w, doc: w.document, EC: w.XLX.drama.ecom };
 }
 
@@ -269,6 +271,67 @@ test("素材库：筛选参数、选择后带入图片工坊", async () => {
   doc.querySelector("[data-to-image]").click();
   assert.deepEqual(EC.getSelection("media"), ["m1"]);
   assert.equal(w.__go, "ecomImage");
+});
+
+test("搬家铺货：向导五步走完并提交，策略进入请求体", async () => {
+  const precheckBodies = [];
+  const publishBodies = [];
+  const routes = [
+    { method: "GET", match: "/products", json: { ok: true, total: 1, page: 1, page_size: 50, items: [
+      { id: "p1", title: "连衣裙", source_platform: "1688", price: 59, stock: 5, status: "collected", updated_at: 100, main_image: "" }
+    ] } },
+    { method: "GET", match: "/shops", json: { ok: true, items: [
+      { id: "s1", name: "店A", platform: "douyin", auth_status: "normal", group_id: "g1" }
+    ] } },
+    { method: "GET", match: "/shop-groups", json: { ok: true, items: [{ id: "g1", name: "一组" }] } },
+    { method: "POST", match: "/publish/precheck", json: (p, opts) => {
+      precheckBodies.push(JSON.parse(opts.body));
+      return { ok: true, verdict: "pass", items: [{ productId: "p1", dimension: "title", level: "pass", message: "标题符合C端表述" }] };
+    } },
+    { method: "POST", match: "/publish", json: (p, opts) => {
+      publishBodies.push(JSON.parse(opts.body));
+      return { ok: true, task: { id: "tp9", status: "queued" }, item_count: 1, deduped: 0 };
+    } },
+    { method: "GET", match: "/tasks", json: { ok: true, items: [] } }
+  ];
+  const { w, doc, EC } = boot(jsonFetch(routes));
+  await EC.render("ecomPublish");
+  await flush();
+  await flush();
+
+  assert.equal(doc.querySelectorAll("[data-step]").length, 5, "五步向导");
+  const pck = doc.querySelector("[data-pid]");
+  pck.checked = true;
+  pck.dispatchEvent(new w.Event("change"));
+  doc.querySelector("[data-next]").click();
+  await flush();
+
+  assert.ok(doc.querySelector("[data-sid]"), "第二步展示店铺");
+  const sck = doc.querySelector("[data-sid]");
+  sck.checked = true;
+  sck.dispatchEvent(new w.Event("change"));
+  doc.querySelector("[data-next]").click();
+
+  assert.equal(doc.querySelector("#ecomPublishPlatform").value, "douyin");
+  doc.querySelector("#ecomPriceValue").value = "30";
+  doc.querySelector("#ecomPriceValue").dispatchEvent(new w.Event("change"));
+  doc.querySelector("[data-next]").click();
+
+  doc.querySelector("#ecomPrecheckRun").click();
+  await flush();
+  assert.match(doc.querySelector("#ecomStepBody").textContent, /标题符合C端表述/);
+
+  doc.querySelector("[data-next]").click();
+  doc.querySelector("#ecomPublishSubmit").click();
+  await flush();
+
+  assert.equal(precheckBodies.length, 1);
+  assert.deepEqual(precheckBodies[0].product_ids, ["p1"]);
+  assert.equal(publishBodies.length, 1);
+  assert.deepEqual(publishBodies[0].shop_ids, ["s1"]);
+  assert.equal(publishBodies[0].strategy.price_rule.value, 30);
+  assert.match(doc.querySelector("#ecomStepBody").textContent, /tp9/);
+  assert.match(doc.querySelector("#ecomStepBody").textContent, /去任务中心/);
 });
 
 test("共享通道：api 抛错带 code，状态与平台文案映射", async () => {

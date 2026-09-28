@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js",
-  "ecom/ecom-css.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-collect.js", "ecom/ecom-products.js", "shell.js"
+  "ecom/ecom-css.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-collect.js", "ecom/ecom-products.js", "ecom/ecom-publish.js", "shell.js"
 ];
 
 let pass = 0;
@@ -176,7 +176,11 @@ function boot() {
     if (u.includes("/dian/api/ecom/stats")) return J({ ok: true, products: 4, media: 6, shops: 2, listings: 3 });
     if (u.includes("/dian/api/ecom/products")) return J({ ok: true, total: 1, page: 1, page_size: 20, items: [{ id: "p1", title: "连衣裙", source_platform: "1688", price: 59, stock: 10, status: "collected", updated_at: 1, main_image: "" }] });
     if (u.includes("/dian/api/ecom/assets")) return J({ ok: true, total: 1, page: 1, page_size: 20, items: [{ id: "m1", kind: "image", source_type: "collected", product_id: "p1", url: "", meta_json: { width: 800, height: 800 }, created_at: 1 }] });
-    if (u.includes("/dian/api/ecom/shops")) return J({ ok: true, items: [{ id: "s1", name: "店A" }] });
+    if (u.includes("/dian/api/ecom/shops")) return J({ ok: true, items: [{ id: "s1", name: "店A", platform: "douyin", auth_status: "normal" }] });
+    if (u.includes("/dian/api/ecom/shop-groups")) return J({ ok: true, items: [{ id: "g1", name: "一组" }] });
+    if (u.includes("/dian/api/ecom/publish/precheck")) return J({ ok: true, verdict: "pass", platform: "douyin", items: [{ productId: "p1", dimension: "title", level: "pass", message: "标题符合C端表述" }] });
+    if (u.includes("/dian/api/ecom/publish")) return J({ ok: true, task: { id: "tp1", status: "queued" }, item_count: 1, deduped: 0 });
+    if (u.includes("/dian/api/ecom/listing/batch")) return J({ ok: true, task: { id: "tl1", status: "queued" }, item_count: 1 });
     if (u.includes("/dian/api/ecom/tasks")) return J({ ok: true, items: [] });
     if (u.includes("/dian/api/ecom/collect/")) return J({ ok: true, task: { id: "tc1", status: "succeeded", progress: 100, done: 1, failed: 0, total: 1 }, items: [{ seq: 1, ref_type: "product", ref_id: "https://detail.1688.com/offer/1.html", status: "done", result_json: { product_id: "p1", skus: 1, media: 2 } }] });
     if (u.includes("/dian/api/ecom/collect")) return J({ ok: true, task: { id: "tc1", status: "queued", total: 1, done: 0, failed: 0, progress: 0 }, item_count: 1 });
@@ -914,6 +918,42 @@ async function flowEcom(env) {
   ael.querySelector("[data-select-all]").click();
   ael.querySelector("[data-to-image]").click();
   ok(E.getSelection("media").indexOf("m1") >= 0, "素材选择集带入图片工坊");
+
+  const pub = doc.getElementById("ecomPublishView");
+  pub.innerHTML = "";
+  E.render("ecomPublish");
+  await settle(3);
+  ok(!!pub.querySelector("#ecomPublishBody"), "铺货视图渲染向导容器");
+  eq(pub.querySelectorAll("[data-step]").length, 5, "铺货向导五个步骤");
+  ok(!!pub.querySelector("[data-pid]"), "铺货向导渲染商品选择");
+  pub.querySelector("[data-pid]").click();
+  await settle(1);
+  pub.querySelector("[data-next]").click();
+  await settle(2);
+  ok(!!pub.querySelector("[data-sid]"), "铺货向导渲染店铺选择");
+  pub.querySelector("[data-sid]").click();
+  await settle(1);
+  pub.querySelector("[data-next]").click();
+  await settle(1);
+  ok(!!pub.querySelector("#ecomPublishPlatform"), "铺货向导渲染策略表单");
+  pub.querySelector("[data-next]").click();
+  await settle(1);
+  ok(!!pub.querySelector("#ecomPrecheckRun"), "预检步骤渲染预检按钮");
+  pub.querySelector("#ecomPrecheckRun").click();
+  await settle(3);
+  has(pub.querySelector("#ecomStepBody").innerHTML, "标题符合C端表述", "预检结果渲染");
+  pub.querySelector("[data-next]").click();
+  await settle(2);
+  ok(!!pub.querySelector("#ecomPublishSubmit"), "提交步骤渲染确认按钮");
+  pub.querySelector("#ecomPublishSubmit").click();
+  await settle(3);
+  has(pub.querySelector("#ecomStepBody").innerHTML, "tp1", "提交流水显示任务号");
+  pub.querySelector('[data-tab="listing"]').click();
+  await settle(1);
+  ok(!!pub.querySelector("#ecomListingSubmit"), "批量上下架渲染提交按钮");
+  pub.querySelector('[data-tab="records"]').click();
+  await settle(1);
+  has(pub.querySelector("#ecomPublishBody").innerHTML, "铺货记录", "铺货记录页签渲染");
 
   shell.setZone("drama", { noGo: true });
   await settle(2);
