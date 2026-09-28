@@ -135,6 +135,23 @@ SCHEMA = {
         "json": ["rules_json"],
         "ts": ["created_at", "updated_at"],
     },
+    "listings": {
+        "cols": [
+            _col("id", "TEXT PRIMARY KEY"),
+            _col("owner", "TEXT NOT NULL"),
+            _col("platform", "TEXT NOT NULL DEFAULT 'douyin'"),
+            _col("shop_id", "TEXT NOT NULL DEFAULT ''"),
+            _col("product_id", "TEXT NOT NULL DEFAULT ''"),
+            _col("remote_id", "TEXT NOT NULL DEFAULT ''"),
+            _col("status", "TEXT NOT NULL DEFAULT 'on'"),
+            _col("price", "REAL NOT NULL DEFAULT 0"),
+            _col("error", "TEXT NOT NULL DEFAULT ''"),
+            _col("created_at", "REAL NOT NULL"),
+            _col("updated_at", "REAL NOT NULL"),
+        ],
+        "json": [],
+        "ts": ["created_at", "updated_at"],
+    },
     "price_rules": {
         "cols": [
             _col("id", "TEXT PRIMARY KEY"),
@@ -245,6 +262,7 @@ INDEXES = [
     ("idx_ecom_media_owner", "media(owner, product_id, kind)"),
     ("idx_ecom_media_hash", "media(owner, hash)"),
     ("idx_ecom_mappings_owner", "mappings(owner, platform, source_category)"),
+    ("idx_ecom_listings_key", "listings(owner, platform, shop_id, product_id)"),
     ("idx_ecom_tasks_owner", "tasks(owner, status, created_at)"),
     ("idx_ecom_task_items_task", "task_items(owner, task_id, seq)"),
     ("idx_ecom_reports_owner", "compliance_reports(owner, product_id)"),
@@ -367,7 +385,7 @@ def get(table, owner, rid):
     return _dec_row(meta, row)
 
 
-def list_rows(table, owner, where="", params=(), order="", limit=None):
+def list_rows(table, owner, where="", params=(), order="", limit=None, offset=None):
     meta = _meta(table)
     names = _names(meta)
     if not order:
@@ -380,6 +398,8 @@ def list_rows(table, owner, where="", params=(), order="", limit=None):
     sql += " ORDER BY " + order
     if limit:
         sql += " LIMIT %d" % int(limit)
+        if offset:
+            sql += " OFFSET %d" % int(offset)
     with db() as conn:
         rows = conn.execute(sql, args).fetchall()
     return [_dec_row(meta, r) for r in rows]
@@ -500,6 +520,40 @@ def find_media_by_hash(owner, digest):
     return rows[0] if rows else None
 
 
+def find_listing(owner, platform, shop_id, product_id):
+    """按「商品 × 店铺」键取铺货绑定，用于幂等判断（设计稿 7.3 第 59/64 条）。"""
+    rows = list_rows(
+        "listings",
+        owner,
+        where="platform=? AND shop_id=? AND product_id=?",
+        params=(platform, shop_id, product_id),
+        limit=1,
+    )
+    return rows[0] if rows else None
+
+
+def upsert_listing(owner, platform, shop_id, product_id, data):
+    """存在则更新，否则按「商品 × 店铺」键插入一条铺货绑定。"""
+    existing = find_listing(owner, platform, shop_id, product_id)
+    payload = dict(data or {})
+    payload.update(
+        {"platform": platform, "shop_id": shop_id, "product_id": product_id}
+    )
+    if existing:
+        return update("listings", owner, existing["id"], payload)
+    return insert("listings", owner, payload)
+
+
+def list_listings(owner, product_id=None, shop_id=None, platform=None):
+    clauses = []
+    params = []
+    for col, value in (("product_id", product_id), ("shop_id", shop_id), ("platform", platform)):
+        if value:
+            clauses.append("%s=?" % col)
+            params.append(value)
+    return list_rows("listings", owner, where=" AND ".join(clauses), params=tuple(params))
+
+
 def latest_report(owner, product_id, target_platform=None):
     clauses = ["product_id=?"]
     params = [product_id]
@@ -524,6 +578,7 @@ def stats(owner):
         "media": count("media", owner),
         "shops": count("shops", owner),
         "shop_groups": count("shop_groups", owner),
+        "listings": count("listings", owner),
         "tasks_active": count(
             "tasks", owner, "status IN ('scheduled','queued','running','paused')"
         ),

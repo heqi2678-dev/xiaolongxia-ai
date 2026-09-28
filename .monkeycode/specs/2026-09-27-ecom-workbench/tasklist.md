@@ -27,18 +27,27 @@
 - [x] 6. 抖音小店目标适配器 `adapters/target_douyin.py`（类目树/字段映射/发布/改价/上下架）
   - 类目级联树、关键词匹配取叶子、价格转分、发布/改价/上下架/列表、签名与限流接入
   - 凭证走 `ECOM_DOUYIN_*`，店铺 token 经 `shop_auth`；真机待资质，接口名与签名待冒烟校准
-- [ ] 7. 商品库 + 素材库 UI `ecom-products.js`
-- [ ] 8. 一键铺货向导 `ecom-publish.js`
-- [ ] 9. 图片工坊 `ecom-image.js` + `POST /assets/process`（参照 HookShot，见 `hookshot-reference.md`）
+- [x] 7. 电商后端 API 路由层 `gate/ecom/api.py` + `server.py` 挂载（设计稿 8 · `/dian/api/ecom/*`）
+  - `/collect`、`/collect/{taskId}`、`/products`、`/products/{id}`（GET/PATCH）、`/products/batch`、`/assets/process`
+  - `/generate`、`/publish/precheck`、`/publish`、`/price/adjust`、`/listing/batch`、`/compliance/check`
+  - `/shops`、`/shops/{id}`、`/shops/auth`、`/shop-groups`、`/tasks`、`/tasks/{id}`、`/tasks/{id}/retry`、`/tasks/{id}/pause`、`/stats`
+  - 纯函数路由 `handle(method, path, owner, query, body) -> (status, payload)`，同源 JSON，错误 `{error, code}`；owner 复用 gate 会话
+  - `gate/ecom/jobs.py` 注册 collect/publish/price_adjust/listing/assets/generate/compliance 处理器，并安装 mock（真机按 `ECOM_1688_*`/`ECOM_DOUYIN_*` 凭证注册）
+  - `store.py` 增 `listings` 表（商品 × 店铺 → remote_id，铺货幂等）；`server.py` 增 do_PATCH/do_DELETE 与 `/api/ecom/*` 挂载
+- [ ] 8. 首页 + 采集视图 `ecom-home.js`、`ecom-collect.js`（`/collect`、`/collect/{taskId}`）
+- [ ] 9. 商品库 + 素材库 UI `ecom-products.js`（`/products`、`/products/{id}`、`/products/batch`）
+- [ ] 10. 一键铺货向导 `ecom-publish.js`（`/publish/precheck`、`/publish`、`/listing/batch`）
+- [ ] 11. 图片工坊 `ecom-image.js` + `POST /assets/process`（参照 HookShot，见 `hookshot-reference.md`）
   - 主图制作：白底图、卖点图、细节图、尺寸图、使用场景图、场景渲染图、营销海报、商品套图
   - 详情页：详情长图生成、图片复刻（选长图模板）
   - 操作流：上传 → 配方/模板 → 平台与分辨率/宽高比（分辨率对照表）→ 批量提交 → 预览/下载
   - 素材沉淀「我的素材」、任务落「任务中心」
   - 短视频带货制作归二期「AI 创作」（`ecom-ai`），参照 HookShot `/video-agent`
-- [ ] 10. 批量改价 `ecom-publish.js` + `/price/adjust`
-- [ ] 11. 任务中心 UI `ecom-tasks.js`
-- [ ] 12. 合规检测 `ecom-compliance.js` + `/compliance/check`
-- [ ] 13. 测试收口（`tests/ecom.test.js`、`tests/ecom-e2e.js`、`gate/test_ecom.py`）
+- [ ] 12. 批量改价 `ecom-publish.js` + `/price/adjust`
+- [ ] 13. 任务中心 UI `ecom-tasks.js`（`/tasks`、`/tasks/{id}`、`/tasks/{id}/retry`、`/tasks/{id}/pause`）
+- [ ] 14. 店铺与授权 `ecom-shops.js`（`/shops`、`/shops/{id}`、`/shops/auth`、`/shop-groups`）
+- [ ] 15. 合规检测 `ecom-compliance.js` + `/compliance/check`
+- [ ] 16. 测试收口（`tests/ecom.test.js`、`tests/ecom-e2e.js`、`gate/test_ecom.py`）
 
 ## 二期（暂缓）
 
@@ -53,4 +62,4 @@
 - [ ] 电商数据归属（仅 owner / 按房间）
 - [ ] 后端形态（并入 gate / 独立服务）
 - [ ] 平台 appkey 到位时间（决定适配器先 mock 还是真机）
-- [ ] 图片工坊参照物 hookshot：仓库/文档/截图来源（当前工作区与服务器均未找到该参照物）
+- [x] 图片工坊参照物 hookshot：`https://www.hkshot.com/`（HookShot 霍客引擎，路由与工具清单见 `hookshot-reference.md`）

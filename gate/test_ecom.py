@@ -11,7 +11,7 @@ import time
 import unittest
 from pathlib import Path
 
-from ecom import queue, registry, store
+from ecom import api, jobs, queue, registry, store
 from ecom.adapters import base, mock, source_1688, target_douyin
 
 
@@ -716,6 +716,334 @@ class DouyinTargetTest(unittest.TestCase):
         adapter = self._default()
         remote_id = base.assert_target_contract(adapter)
         self.assertEqual(remote_id, "9001")
+
+
+class EcomApiTest(unittest.TestCase):
+    owner = "api-user"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        store.configure(Path(self.tmp.name) / "ecom.db")
+        store.ensure()
+        registry.reset()
+        jobs.install()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def call(self, method, path, owner=None, **kw):
+        return api.handle(method, path, owner or self.owner, **kw)
+
+    def collect_one(self, source_id="10001"):
+        status, payload = self.call(
+            "POST", "/collect", body={"platform": "mock", "urls": [source_id]}
+        )
+        self.assertEqual(status, 200)
+        queue.run_task(self.owner, payload["task"]["id"])
+        _, listing = self.call("GET", "/products")
+        return listing["items"][0]["id"]
+
+    def authorized_shop(self, shop_id="s1"):
+        shop = self.call("POST", "/shops", body={"platform": "mock", "name": "店", "shop_id": shop_id})[1]["shop"]
+        shop = self.call("POST", "/shops/auth", body={"id": shop["id"], "access_token": "tok"})[1]["shop"]
+        return shop
+
+    def test_stats_default(self):
+        status, payload = self.call("GET", "/stats")
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["products"], 0)
+
+    def test_unknown_route_and_missing_product(self):
+        self.assertEqual(self.call("GET", "/nope")[0], 404)
+        self.assertEqual(self.call("GET", "/products/missing")[0], 404)
+        self.assertEqual(self.call("GET", "/collect/missing")[0], 404)
+        payload = self.call("GET", "/nope")[1]
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["code"], "not_found")
+
+    def test_collect_saves_product_skus_media(self):
+        product_id = self.collect_one()
+        product = self.call("GET", "/products/%s" % product_id)[1]
+        self.assertEqual(product["product"]["title"], "女装连衣裙 碎花")
+        self.assertEqual(len(product["skus"]), 2)
+        self.assertGreaterEqual(len(product["media"]), 2)
+        self.assertEqual(self.call("GET", "/products", query={"keyword": "连衣裙"})[1]["total"], 1)
+
+    def test_collect_validates_input(self):
+        self.assertEqual(self.call("POST", "/collect", body={})[0], 400)
+        self.assertEqual(self.call("POST", "/collect", body={"mode": "shop"})[0], 400)
+
+    def test_collect_shop_mode_counts(self):
+        payload = self.call(
+            "POST", "/collect", body={"platform": "mock", "shop_url": "https://shop.example.com", "mode": "shop"}
+        )[1]
+        queue.run_task(self.owner, payload["task"]["id"])
+        task = self.call("GET", "/tasks/%s" % payload["task"]["id"])[1]["task"]
+        self.assertEqual(task["status"], "succeeded")
+        self.assertEqual(self.call("GET", "/products")[1]["total"], 3)
+
+    def test_scheduled_task_status(self):
+        future = time.time() + 3600
+        payload = self.call(
+            "POST", "/collect", body={"platform": "mock", "urls": ["10002"], "schedule": {"mode": "at", "at": future}}
+        )[1]
+        self.assertEqual(payload["task"]["status"], "scheduled")
+
+    def test_products_pagination_bounds(self):
+        for i in range(3):
+            store.insert("products", self.owner, {"title": "商品%d" % i})
+        payload = self.call("GET", "/products", query={"page": "1", "page_size": "500"})[1]
+        self.assertEqual(payload["page_size"], 100)
+        self.assertEqual(payload["total"], 3)
+
+    def test_product_edit_and_batch_snapshot(self):
+        product_id = self.collect_one()
+        edited = self.call("PATCH", "/products/%s" % product_id, body={"title": "新标题", "price": 12.5})[1]
+        self.assertEqual(edited["product"]["title"], "新标题")
+        self.assertEqual(edited["product"]["price"], 12.5)
+        versions = store.list_rows("product_versions", self.owner, where="product_id=?", params=(product_id,))
+        self.assertEqual(len(versions), 1)
+        batch = self.call("POST", "/products/batch", body={"ids": [product_id], "patch": {"subtitle": "批发"}})[1]
+        self.assertEqual(batch["updated"], 1)
+        self.assertEqual(store.get("products", self.owner, product_id)["subtitle"], "批发")
+
+    def test_products_batch_requires_payload(self):
+        product_id = self.collect_one()
+        self.assertEqual(self.call("POST", "/products/batch", body={"ids": []})[0], 400)
+        self.assertEqual(self.call("POST", "/products/batch", body={"ids": [product_id]})[0], 400)
+
+    def test_shop_crud_and_auth(self):
+        shop = self.call("POST", "/shops", body={"platform": "mock", "name": "A", "shop_id": "s1"})[1]["shop"]
+        self.assertEqual(shop["auth_status"], "unauthorized")
+        authed = self.call("POST", "/shops/auth", body={"id": shop["id"], "access_token": "tok"})[1]["shop"]
+        self.assertEqual(authed["auth_status"], "normal")
+        self.assertEqual(self.call("GET", "/shops")[1]["total"], 1)
+        self.assertEqual(self.call("DELETE", "/shops/%s" % shop["id"])[1]["removed"], True)
+        self.assertEqual(self.call("DELETE", "/shops/%s" % shop["id"])[0], 404)
+
+    def test_shop_auth_creates_when_missing(self):
+        shop = self.call(
+            "POST", "/shops/auth", body={"name": "新店", "shop_id": "s9", "access_token": "tok"}
+        )[1]["shop"]
+        self.assertEqual(shop["auth_status"], "normal")
+
+    def test_shop_groups(self):
+        self.assertEqual(self.call("POST", "/shop-groups", body={"name": "女装群"})[0], 200)
+        self.assertEqual(self.call("GET", "/shop-groups")[1]["total"], 1)
+
+    def test_publish_flow_idempotent(self):
+        product_id = self.collect_one()
+        shop = self.authorized_shop()
+        payload = self.call(
+            "POST",
+            "/publish",
+            body={
+                "product_ids": [product_id],
+                "shop_ids": [shop["id"]],
+                "platform": "mock",
+                "strategy": {"price_rule": {"mode": "ratio", "value": 1.5}},
+            },
+        )[1]
+        self.assertEqual(payload["item_count"], 1)
+        queue.run_task(self.owner, payload["task"]["id"])
+        detail = self.call("GET", "/products/%s" % product_id)[1]
+        self.assertEqual(len(detail["listings"]), 1)
+        self.assertTrue(detail["listings"][0]["remote_id"].startswith("mock-"))
+        self.assertEqual(detail["listings"][0]["price"], 88.5)
+        again = self.call(
+            "POST",
+            "/publish",
+            body={"product_ids": [product_id], "shop_ids": [shop["id"]], "platform": "mock"},
+        )[1]
+        self.assertEqual(again["deduped"], 1)
+        self.assertEqual(again["item_count"], 0)
+
+    def test_publish_requires_shop_and_products(self):
+        self.assertEqual(self.call("POST", "/publish", body={"product_ids": ["x"]})[0], 400)
+        self.assertEqual(self.call("POST", "/publish", body={"shop_ids": ["s"]})[0], 400)
+
+    def test_publish_fails_without_auth(self):
+        product_id = self.collect_one()
+        shop = self.call("POST", "/shops", body={"platform": "mock", "shop_id": "s2"})[1]["shop"]
+        payload = self.call(
+            "POST",
+            "/publish",
+            body={"product_ids": [product_id], "shop_ids": [shop["id"]], "platform": "mock"},
+        )[1]
+        task = queue.run_task(self.owner, payload["task"]["id"])
+        self.assertEqual(task["status"], "failed")
+        detail = self.call("GET", "/tasks/%s" % payload["task"]["id"])[1]
+        self.assertEqual(detail["items"][0]["status"], "failed")
+        self.assertIn("授权", detail["items"][0]["error"])
+
+    def test_price_adjust_listings(self):
+        product_id = self.collect_one()
+        shop = self.authorized_shop()
+        pub = self.call(
+            "POST",
+            "/publish",
+            body={"product_ids": [product_id], "shop_ids": [shop["id"]], "platform": "mock"},
+        )[1]
+        queue.run_task(self.owner, pub["task"]["id"])
+        task = self.call(
+            "POST",
+            "/price/adjust",
+            body={
+                "product_ids": [product_id],
+                "scope": "listings",
+                "shop_ids": [shop["id"]],
+                "platform": "mock",
+                "rule": {"mode": "fixed", "value": 10, "round": "end9"},
+            },
+        )[1]
+        queue.run_task(self.owner, task["task"]["id"])
+        listing = self.call("GET", "/products/%s" % product_id)[1]["listings"][0]
+        self.assertEqual(listing["price"], 69.9)
+
+    def test_price_adjust_products_scope(self):
+        product_id = self.collect_one()
+        task = self.call(
+            "POST",
+            "/price/adjust",
+            body={"product_ids": [product_id], "rule": {"mode": "fixed", "value": 1.1}},
+        )[1]
+        queue.run_task(self.owner, task["task"]["id"])
+        self.assertEqual(store.get("products", self.owner, product_id)["price"], 60.1)
+
+    def test_listing_batch_toggles(self):
+        product_id = self.collect_one()
+        shop = self.authorized_shop()
+        pub = self.call(
+            "POST",
+            "/publish",
+            body={"product_ids": [product_id], "shop_ids": [shop["id"]], "platform": "mock"},
+        )[1]
+        queue.run_task(self.owner, pub["task"]["id"])
+        task = self.call(
+            "POST",
+            "/listing/batch",
+            body={"product_ids": [product_id], "shop_ids": [shop["id"]], "platform": "mock", "on": False},
+        )[1]
+        queue.run_task(self.owner, task["task"]["id"])
+        self.assertEqual(self.call("GET", "/products/%s" % product_id)[1]["listings"][0]["status"], "off")
+
+    def test_compliance_check_sync(self):
+        product_id = self.collect_one()
+        self.call("PATCH", "/products/%s" % product_id, body={"title": "厂家直供 连衣裙"})
+        payload = self.call("POST", "/compliance/check", body={"product_ids": [product_id]})[1]
+        self.assertEqual(payload["verdict"], "warn")
+        self.assertEqual(payload["reports"][0]["verdict"], "warn")
+        self.call("PATCH", "/products/%s" % product_id, body={"title": "国家级 最佳 连衣裙"})
+        blocked = self.call("POST", "/compliance/check", body={"product_ids": [product_id]})[1]
+        self.assertEqual(blocked["verdict"], "block")
+
+    def test_publish_precheck_dimensions(self):
+        product_id = self.collect_one()
+        payload = self.call(
+            "POST", "/publish/precheck", body={"product_ids": [product_id], "platform": "mock"}
+        )[1]
+        self.assertEqual(payload["verdict"], "pass")
+        dims = {i["dimension"]: i for i in payload["items"]}
+        self.assertEqual(set(dims), {"category", "title", "image", "price", "compliance"})
+        self.call("PATCH", "/products/%s" % product_id, body={"title": "厂家直供 连衣裙"})
+        warned = self.call(
+            "POST", "/publish/precheck", body={"product_ids": [product_id], "platform": "mock"}
+        )[1]
+        self.assertEqual(warned["verdict"], "warn")
+        self.call("PATCH", "/products/%s" % product_id, body={"main_image": "", "images": []})
+        failed = self.call(
+            "POST", "/publish/precheck", body={"product_ids": [product_id], "platform": "mock"}
+        )[1]
+        self.assertEqual(failed["verdict"], "fail")
+
+    def test_tasks_list_detail_retry_pause(self):
+        product_id = self.collect_one()
+        payload = self.call("GET", "/tasks")[1]
+        self.assertEqual(payload["total"], 1)
+        task_id = payload["items"][0]["id"]
+        detail = self.call("GET", "/tasks/%s" % task_id)[1]
+        self.assertEqual(detail["task"]["kind"], "collect")
+        self.assertEqual(len(detail["items"]), 1)
+        self.assertEqual(self.call("POST", "/tasks/%s/pause" % task_id)[1]["task"]["status"], "paused")
+        self.assertEqual(self.call("POST", "/tasks/%s/retry" % task_id)[0], 200)
+        self.assertEqual(self.call("POST", "/tasks/missing/pause")[0], 404)
+
+    def test_assets_and_generate_tasks(self):
+        product_id = self.collect_one()
+        assets = self.call(
+            "POST", "/assets/process", body={"product_ids": [product_id], "recipe": "白底", "ops": ["matte"]}
+        )[1]
+        queue.run_task(self.owner, assets["task"]["id"])
+        self.assertEqual(self.call("GET", "/tasks/%s" % assets["task"]["id"])[1]["task"]["status"], "succeeded")
+        gen = self.call("POST", "/generate", body={"product_ids": [product_id], "types": ["main", "scene"]})[1]
+        self.assertEqual(gen["item_count"], 2)
+
+    def test_assets_requires_target(self):
+        self.assertEqual(self.call("POST", "/assets/process", body={})[0], 400)
+        self.assertEqual(self.call("POST", "/generate", body={})[0], 400)
+
+    def test_owner_isolation(self):
+        self.collect_one()
+        self.assertEqual(self.call("GET", "/products", owner="other")[1]["total"], 0)
+
+    def test_unregistered_platform_fails_task(self):
+        payload = self.call(
+            "POST", "/collect", body={"platform": "not-registered", "urls": ["10001"]}
+        )[1]
+        task = queue.run_task(self.owner, payload["task"]["id"])
+        self.assertEqual(task["status"], "failed")
+        detail = self.call("GET", "/tasks/%s" % payload["task"]["id"])[1]
+        self.assertIn("未注册", detail["items"][0]["error"])
+
+
+class JobsTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        store.configure(Path(self.tmp.name) / "ecom.db")
+        store.ensure()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_compute_price_modes(self):
+        self.assertEqual(jobs.compute_price(50, {"mode": "fixed", "value": 10}), 60.0)
+        self.assertEqual(jobs.compute_price(50, {"mode": "ratio", "value": 1.5}), 75.0)
+        self.assertEqual(jobs.compute_price(50, {"mode": "fixed", "value": 5, "round": "up"}), 55.0)
+        self.assertEqual(jobs.compute_price(50, {"mode": "fixed", "value": 10, "round": "end9"}), 60.9)
+        self.assertEqual(jobs.compute_price(50, {"mode": "fixed", "value": -80, "min_price": 19.9}), 19.9)
+
+    def test_title_rules_and_b_end_words(self):
+        self.assertEqual(jobs.apply_title_rules("厂家直供 连衣裙", {}), "品质优选 连衣裙")
+        self.assertEqual(
+            jobs.apply_title_rules("连衣裙", {"prefix": "【新款】", "suffix": " 包邮"}),
+            "【新款】连衣裙 包邮",
+        )
+        self.assertEqual(jobs.apply_title_rules("一件代发 批发", {"map": {"批发": "热卖"}}), "急速发货 热卖")
+
+    def test_check_compliance_levels(self):
+        verdict, hits = jobs.check_compliance("普通连衣裙")
+        self.assertEqual(verdict, "pass")
+        self.assertEqual(hits, [])
+        verdict, _ = jobs.check_compliance("nike 连衣裙")
+        self.assertEqual(verdict, "block")
+        verdict, _ = jobs.check_compliance("厂家直供 连衣裙")
+        self.assertEqual(verdict, "warn")
+
+    def test_shop_auth_requires_token(self):
+        owner = "j1"
+        shop = store.insert(
+            "shops", owner, {"name": "x", "shop_id": "s1", "auth_status": "expired"}
+        )
+        with self.assertRaises(registry.EcomError) as ctx:
+            jobs._shop_auth(owner, shop["id"])
+        self.assertEqual(ctx.exception.code, registry.AUTH_EXPIRED)
+
+    def test_ensure_adapters_registers_mock(self):
+        registry.reset()
+        jobs.ensure_adapters()
+        self.assertIn("mock", registry.REGISTRY.sources())
+        self.assertIn("mock", registry.REGISTRY.targets())
 
 
 if __name__ == "__main__":

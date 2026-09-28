@@ -38,9 +38,13 @@ GATE_DIR = Path(__file__).resolve().parent
 try:
     from ecom import store as ecom_store
     from ecom import queue as ecom_queue
+    from ecom import api as ecom_api
+    from ecom import jobs as ecom_jobs
 except Exception:  # 数据层缺失时网关仍可启动（电商接口再降级报错）
     ecom_store = None
     ecom_queue = None
+    ecom_api = None
+    ecom_jobs = None
 ALLOWED_BRAINS = set(["deepseek", "qwen", "doubao", "custom"])
 CLERK_BRAINS = [
     {
@@ -1440,8 +1444,43 @@ class Handler(BaseHTTPRequestHandler):
             path = "/" + path
         return path
 
+    def _handle_ecom(self, method, path):
+        me = self._current()
+        if not me:
+            self._json(401, {"ok": False, "error": "未登录", "code": "unauthorized"})
+            return
+        if ecom_api is None:
+            self._json(503, {"ok": False, "error": "电商模块未安装", "code": "unavailable"})
+            return
+        parsed = urlparse(self.path)
+        query = {k: v[-1] for k, v in parse_qs(parsed.query).items()}
+        body = {}
+        raw = self._read_body()
+        if raw:
+            try:
+                body = json.loads(raw.decode("utf-8"))
+            except ValueError:
+                body = {}
+        sub = path[len("/api/ecom"):] or "/"
+        status, payload = ecom_api.handle(method, sub, me["name"], query=query, body=body)
+        self._json(status, payload)
+
     def do_HEAD(self):
         self.do_GET()
+
+    def do_PATCH(self):
+        path = self._route()
+        if path == "/api/ecom" or path.startswith("/api/ecom/"):
+            self._handle_ecom("PATCH", path)
+            return
+        self._json(404, {"ok": False, "error": "没有这个接口"})
+
+    def do_DELETE(self):
+        path = self._route()
+        if path == "/api/ecom" or path.startswith("/api/ecom/"):
+            self._handle_ecom("DELETE", path)
+            return
+        self._json(404, {"ok": False, "error": "没有这个接口"})
 
     def do_GET(self):
         path = self._route()
@@ -1509,6 +1548,9 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/api/drama/out/"):
             self._handle_drama_out(path[len("/api/drama/out/"):])
             return
+        if path == "/api/ecom" or path.startswith("/api/ecom/"):
+            self._handle_ecom("GET", path)
+            return
         if path.startswith("/api/"):
             self._json(404, {"ok": False, "error": "没有这个接口"})
             return
@@ -1573,6 +1615,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path.startswith("/api/drama/blender/"):
             self._handle_blender_post(path[len("/api/drama/blender/"):])
+            return
+        if path == "/api/ecom" or path.startswith("/api/ecom/"):
+            self._handle_ecom("POST", path)
             return
         self._json(404, {"ok": False, "error": "没有这个接口"})
 
@@ -2419,6 +2464,8 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     ensure_data()
     if ecom_queue is not None:
+        if ecom_jobs is not None:
+            ecom_jobs.install()
         ecom_queue.start(workers=int(os.environ.get("ECOM_WORKERS", "2")))
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
     print("xiaolongxia-gate listening on %s:%s" % (HOST, PORT), flush=True)

@@ -854,6 +854,32 @@ class GateTests(unittest.TestCase):
         only_en = gate._drama_srt([{"seq": 1, "lineEn": "Solo", "duration": 3}], True)
         self.assertIn("Solo", only_en)
 
+    def test_ecom_api_requires_login(self):
+        opener, _ = self.opener()
+        code, body, _ = self.req(opener, "/api/ecom/stats")
+        self.assertEqual(code, 401)
+        self.assertFalse(json.loads(body.decode("utf-8"))["ok"])
+
+    def test_ecom_routes_mounted(self):
+        from ecom import jobs
+        jobs.install()
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "zhuren", "password": "owner-pass"})
+        code, body, _ = self.req(opener, "/api/ecom/stats")
+        self.assertEqual(code, 200)
+        self.assertTrue(json.loads(body.decode("utf-8"))["ok"])
+        code, _, _ = self.req(opener, "/api/ecom/nope")
+        self.assertEqual(code, 404)
+        code, body, _ = self.req(opener, "/api/ecom/shop-groups", method="POST", json_body={"name": "群A"})
+        self.assertEqual(code, 200)
+        code, body, _ = self.req(opener, "/api/ecom/shop-groups")
+        self.assertEqual(json.loads(body.decode("utf-8"))["total"], 1)
+        code, body, _ = self.req(opener, "/api/ecom/shops", method="POST", json_body={"name": "店A", "shop_id": "s1"})
+        shop_id = json.loads(body.decode("utf-8"))["shop"]["id"]
+        code, body, _ = self.req(opener, "/api/ecom/shops/%s" % shop_id, method="DELETE")
+        self.assertEqual(code, 200)
+        self.assertTrue(json.loads(body.decode("utf-8"))["removed"])
+
 
 if __name__ == "__main__":
     unittest.main()
