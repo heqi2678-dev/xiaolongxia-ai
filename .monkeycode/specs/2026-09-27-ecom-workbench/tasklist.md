@@ -12,7 +12,7 @@
   - [x] 1.4 `index.html` 追加 10 个 ecom 视图键、容器、脚本注册、顶栏文案、移动导航按分区取项
   - [x] 1.5 10 个视图占位空态
   - [x] 1.6 e2e 断言可分区分切换
-- [ ] 2. 后端数据层 `gate/ecom/store.py`（建表 + DAO：products/skus/media/shops/shop_groups/tasks/task_items/mappings/price_rules/pacing/compliance_reports）
+- [x] 2. 后端数据层 `gate/ecom/store.py`（建表 + DAO：products/skus/media/shops/shop_groups/tasks/task_items/mappings/price_rules/pacing/compliance_reports）
 - [ ] 3. 任务队列与调度器 `gate/ecom/queue.py`（状态机 + Worker + 定时/分时）
 - [ ] 4. 适配器框架 `gate/ecom/registry.py` + `adapters/base.py` + `adapters/mock.py`（统一契约 + 注册表 + 限流 + 错误归一化）
 - [ ] 5. 1688 源适配器 `adapters/source_1688.py`（单商品 + 整店）

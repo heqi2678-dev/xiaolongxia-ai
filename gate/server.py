@@ -35,6 +35,10 @@ PUBLISH_ROOT = Path(os.environ.get("PUBLISH_ROOT", "/home/admin/work/zuopin"))
 PUBLISH_BASE = os.environ.get("PUBLISH_BASE", "http://47.108.14.206/zuopin")
 CLERK_URL = os.environ.get("CLERK_URL", "http://127.0.0.1:9130/api/chat")
 GATE_DIR = Path(__file__).resolve().parent
+try:
+    from ecom import store as ecom_store
+except Exception:  # 数据层缺失时网关仍可启动（电商接口再降级报错）
+    ecom_store = None
 ALLOWED_BRAINS = set(["deepseek", "qwen", "doubao", "custom"])
 CLERK_BRAINS = [
     {
@@ -226,6 +230,8 @@ def ensure_data():
         if not p.exists():
             p.write_text("{}\n", encoding="utf-8")
     ensure_invite()
+    if ecom_store is not None:
+        ecom_store.ensure()
 
 
 def ensure_invite():
