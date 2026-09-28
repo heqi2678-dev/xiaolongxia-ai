@@ -74,7 +74,11 @@
   - 目标平台选择、同步/异步运行；verdict 汇总（通过/警告/拦截）
   - 报告按商品展示命中词（违禁词/品牌词/B 端词），可跳任务中心
   - 测试：`tests/ecom.test.js` 增 1 项、e2e 扩检测运行与命中明细
-- [ ] 16. 测试收口（`tests/ecom.test.js`、`tests/ecom-e2e.js`、`gate/test_ecom.py`）
+- [x] 16. 测试收口（`tests/ecom.test.js`、`tests/drama-e2e.js`、`gate/test_ecom.py`）
+  - 前端单测：电商视图 15 项（含「10 视图均可渲染 + 导航/标题对齐」收口用例），全量 `tests/*.test.js` 214 项
+  - e2e：`tests/drama-e2e.js` 链路七覆盖 10 视图（含 AI 创作占位），全量 363 项
+  - 网关单测：`gate/test_ecom.py` 95 项 + `gate/test_gate.py` 56 项
+  - 注：电商 e2e 已并入 `tests/drama-e2e.js`（未单独新建 `tests/ecom-e2e.js`）
 
 ## 二期（暂缓）
 

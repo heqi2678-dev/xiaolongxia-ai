@@ -20,6 +20,7 @@ function boot(fetchImpl) {
     + '<div id="ecomAssetsView" class="view"></div>'
     + '<div id="ecomImageView" class="view"></div>'
     + '<div id="ecomPublishView" class="view"></div>'
+    + '<div id="ecomAiView" class="view"></div>'
     + '<div id="ecomTasksView" class="view"></div>'
     + '<div id="ecomShopsView" class="view"></div>'
     + '<div id="ecomComplianceView" class="view"></div>'
@@ -544,6 +545,26 @@ test("合规检测：运行检测并渲染命中明细", async () => {
   assert.match(main.textContent, /违禁词：最/);
   assert.match(main.textContent, /B 端词：批发/);
   assert.match(main.textContent, /tcp1/);
+});
+
+test("收口：10 个视图均可渲染，导航与标题对齐", async () => {
+  const routes = [
+    { method: "GET", match: () => true, json: { ok: true, items: [], total: 0, page: 1, page_size: 20, recipes: [], processors: [], sizes: [], platforms: [] } },
+    { method: "POST", match: () => true, json: { ok: true, task: { id: "tk", status: "queued" }, item_count: 0 } }
+  ];
+  const { doc, EC } = boot(jsonFetch(routes));
+  assert.equal(EC.VIEWS.length, 10, "电商视图 10 个");
+  assert.equal(EC.NAV.length, 10, "电商导航 10 项");
+  assert.deepEqual(EC.VIEWS, EC.NAV.map(n => n.id), "视图键与导航一致");
+  for (const v of EC.VIEWS) {
+    const el = doc.getElementById(v + "View");
+    assert.ok(el, "容器存在 " + v);
+    await EC.render(v);
+    await flush();
+    assert.ok(el.innerHTML.length > 0, v + " 渲染非空");
+    assert.ok(EC.TITLES[v], v + " 有标题文案");
+  }
+  assert.ok(doc.querySelector("#ecomAiView .ecom-ph"), "未开发视图显示占位空态");
 });
 
 test("共享通道：api 抛错带 code，状态与平台文案映射", async () => {

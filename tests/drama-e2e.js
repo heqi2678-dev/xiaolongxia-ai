@@ -1024,6 +1024,12 @@ async function flowEcom(env) {
   has(cml.querySelector("#ecomComplianceMain").innerHTML, "拦截", "合规检测显示拦截结论");
   has(cml.querySelector("#ecomComplianceMain").innerHTML, "违禁词：最", "合规检测显示命中明细");
 
+  const aiEl = doc.getElementById("ecomAiView");
+  aiEl.innerHTML = "";
+  E.render("ecomAi");
+  await settle(1);
+  has(aiEl.innerHTML, "建设中", "AI 创作视图显示占位空态");
+
   shell.setZone("drama", { noGo: true });
   await settle(2);
   eq(nav.querySelectorAll(".shell-nav-item").length, shell.NAV.length - 2, "切回短剧分区导航恢复");
