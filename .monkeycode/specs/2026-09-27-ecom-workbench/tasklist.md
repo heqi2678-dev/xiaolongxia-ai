@@ -13,13 +13,17 @@
   - [x] 1.5 10 个视图占位空态
   - [x] 1.6 e2e 断言可分区分切换
 - [x] 2. 后端数据层 `gate/ecom/store.py`（建表 + DAO：products/skus/media/shops/shop_groups/tasks/task_items/mappings/price_rules/pacing/compliance_reports）
-- [ ] 3. 任务队列与调度器 `gate/ecom/queue.py`（状态机 + Worker + 定时/分时）
+- [x] 3. 任务队列与调度器 `gate/ecom/queue.py`（状态机 + Worker + 定时/分时）
+  - 状态机对齐设计稿 7.1：`scheduled → queued → running → paused / succeeded / partial / failed`（取消为 `canceled`）
+  - 定时（`schedule.at` / `run_after` / `schedule.window`）与分时（`pacing` 日限 / 间隔 / 时段）
+  - 重试仅重置失败项，已成功项不重复执行（7.3 / 7.5）
 - [ ] 4. 适配器框架 `gate/ecom/registry.py` + `adapters/base.py` + `adapters/mock.py`（统一契约 + 注册表 + 限流 + 错误归一化）
 - [ ] 5. 1688 源适配器 `adapters/source_1688.py`（单商品 + 整店）
 - [ ] 6. 抖音小店目标适配器 `adapters/target_douyin.py`（类目树/字段映射/发布/改价/上下架）
 - [ ] 7. 商品库 + 素材库 UI `ecom-products.js`
 - [ ] 8. 一键铺货向导 `ecom-publish.js`
-- [ ] 9. 图片工坊基础 `ecom-image.js` + `POST /assets/process`
+- [ ] 9. 图片工坊 `ecom-image.js` + `POST /assets/process`
+  - 参照 hookshot：主图制作、详情页、短视频带货制作的操作界面与成品（处理器清单、平台规格预设、预览/导出）
 - [ ] 10. 批量改价 `ecom-publish.js` + `/price/adjust`
 - [ ] 11. 任务中心 UI `ecom-tasks.js`
 - [ ] 12. 合规检测 `ecom-compliance.js` + `/compliance/check`
@@ -38,3 +42,4 @@
 - [ ] 电商数据归属（仅 owner / 按房间）
 - [ ] 后端形态（并入 gate / 独立服务）
 - [ ] 平台 appkey 到位时间（决定适配器先 mock 还是真机）
+- [ ] 图片工坊参照物 hookshot：仓库/文档/截图来源（当前工作区与服务器均未找到该参照物）

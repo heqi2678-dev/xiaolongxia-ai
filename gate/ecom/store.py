@@ -94,8 +94,10 @@ SCHEMA = {
             _col("source_sku_id", "TEXT NOT NULL DEFAULT ''"),
             _col("price", "REAL NOT NULL DEFAULT 0"),
             _col("stock", "INTEGER NOT NULL DEFAULT 0"),
+            _col("barcode", "TEXT NOT NULL DEFAULT ''"),
             _col("image", "TEXT NOT NULL DEFAULT ''"),
             _col("attrs_json", _J),
+            _col("enabled", "INTEGER NOT NULL DEFAULT 1"),
         ],
         "json": ["attrs_json"],
         "ts": [],
@@ -140,7 +142,9 @@ SCHEMA = {
             _col("name", "TEXT NOT NULL DEFAULT ''"),
             _col("scope_json", _J),
             _col("mode", "TEXT NOT NULL DEFAULT 'ratio'"),
+            _col("base", "TEXT NOT NULL DEFAULT 'cost'"),
             _col("value", "REAL NOT NULL DEFAULT 0"),
+            _col("round", "TEXT NOT NULL DEFAULT 'none'"),
             _col("min_price", "REAL NOT NULL DEFAULT 0"),
             _col("enabled", "INTEGER NOT NULL DEFAULT 1"),
             _col("created_at", "REAL NOT NULL"),
@@ -170,7 +174,7 @@ SCHEMA = {
             _col("owner", "TEXT NOT NULL"),
             _col("kind", "TEXT NOT NULL DEFAULT ''"),
             _col("title", "TEXT NOT NULL DEFAULT ''"),
-            _col("status", "TEXT NOT NULL DEFAULT 'pending'"),
+            _col("status", "TEXT NOT NULL DEFAULT 'queued'"),
             _col("progress", "INTEGER NOT NULL DEFAULT 0"),
             _col("total", "INTEGER NOT NULL DEFAULT 0"),
             _col("done", "INTEGER NOT NULL DEFAULT 0"),
@@ -209,12 +213,24 @@ SCHEMA = {
             _col("owner", "TEXT NOT NULL"),
             _col("product_id", "TEXT NOT NULL DEFAULT ''"),
             _col("target_platform", "TEXT NOT NULL DEFAULT ''"),
-            _col("risk_level", "TEXT NOT NULL DEFAULT 'pass'"),
-            _col("issues_json", _A),
+            _col("verdict", "TEXT NOT NULL DEFAULT 'pass'"),
+            _col("hits_json", _A),
             _col("checked_at", "REAL NOT NULL"),
         ],
-        "json": ["issues_json"],
+        "json": ["hits_json"],
         "ts": ["checked_at"],
+    },
+    "product_versions": {
+        "cols": [
+            _col("id", "TEXT PRIMARY KEY"),
+            _col("owner", "TEXT NOT NULL"),
+            _col("product_id", "TEXT NOT NULL"),
+            _col("note", "TEXT NOT NULL DEFAULT ''"),
+            _col("snapshot_json", _J),
+            _col("created_at", "REAL NOT NULL"),
+        ],
+        "json": ["snapshot_json"],
+        "ts": ["created_at"],
     },
 }
 
@@ -232,6 +248,7 @@ INDEXES = [
     ("idx_ecom_tasks_owner", "tasks(owner, status, created_at)"),
     ("idx_ecom_task_items_task", "task_items(owner, task_id, seq)"),
     ("idx_ecom_reports_owner", "compliance_reports(owner, product_id)"),
+    ("idx_ecom_versions_product", "product_versions(owner, product_id)"),
 ]
 
 
@@ -507,7 +524,10 @@ def stats(owner):
         "media": count("media", owner),
         "shops": count("shops", owner),
         "shop_groups": count("shop_groups", owner),
-        "tasks_pending": count("tasks", owner, "status IN ('pending','running','paused')"),
-        "tasks_done": count("tasks", owner, "status='done'"),
+        "tasks_active": count(
+            "tasks", owner, "status IN ('scheduled','queued','running','paused')"
+        ),
+        "tasks_succeeded": count("tasks", owner, "status='succeeded'"),
+        "tasks_partial": count("tasks", owner, "status='partial'"),
         "tasks_failed": count("tasks", owner, "status='failed'"),
     }

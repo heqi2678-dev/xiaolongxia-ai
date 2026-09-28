@@ -37,8 +37,10 @@ CLERK_URL = os.environ.get("CLERK_URL", "http://127.0.0.1:9130/api/chat")
 GATE_DIR = Path(__file__).resolve().parent
 try:
     from ecom import store as ecom_store
+    from ecom import queue as ecom_queue
 except Exception:  # 数据层缺失时网关仍可启动（电商接口再降级报错）
     ecom_store = None
+    ecom_queue = None
 ALLOWED_BRAINS = set(["deepseek", "qwen", "doubao", "custom"])
 CLERK_BRAINS = [
     {
@@ -2416,6 +2418,8 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     ensure_data()
+    if ecom_queue is not None:
+        ecom_queue.start(workers=int(os.environ.get("ECOM_WORKERS", "2")))
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
     print("xiaolongxia-gate listening on %s:%s" % (HOST, PORT), flush=True)
     httpd.serve_forever()
