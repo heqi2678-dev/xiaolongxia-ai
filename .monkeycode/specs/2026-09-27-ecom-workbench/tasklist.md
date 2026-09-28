@@ -90,7 +90,68 @@
 ## 待确认（开工前拍板）
 
 - [x] 切换器形态（顶部 Tab / 侧栏下拉）→ 定为侧栏品牌下方分区切换器（短剧/电商两枚按钮）
-- [ ] 电商数据归属（仅 owner / 按房间）
-- [ ] 后端形态（并入 gate / 独立服务）
-- [ ] 平台 appkey 到位时间（决定适配器先 mock 还是真机）
+- [x] 电商数据归属（仅 owner / 按房间）→ 定为仅按 owner 隔离（维持现状，13 表均带 owner 列）
+- [x] 后端形态（并入 gate / 独立服务）→ 定为并入 gate（`gate/ecom/` 包 + `/api/ecom/*`，随 `xiaolongxia-gate.service` 启停）
+- [x] 平台 appkey 到位时间（决定适配器先 mock 还是真机）→ 用户自行对接；mock 始终可用，真机按凭证存在与否自动启用（操作指引见下）
 - [x] 图片工坊参照物 hookshot：`https://www.hkshot.com/`（HookShot 霍客引擎，路由与工具清单见 `hookshot-reference.md`）
+
+## 真机对接指引（1688 / 抖音小店）
+
+目标：拿到 appkey/secret 后，让适配器从 mock 切到真机，无需改代码。
+
+### 1. 需要的凭证（共 6 个环境变量）
+
+| 平台 | 变量 | 说明 |
+|------|------|------|
+| 1688 | `ECOM_1688_APPKEY` | 开放平台应用 AppKey |
+| 1688 | `ECOM_1688_APPSECRET` | 应用 AppSecret（签名用） |
+| 1688 | `ECOM_1688_ACCESS_TOKEN` | 店铺/用户授权令牌 |
+| 抖音小店 | `ECOM_DOUYIN_APPKEY` | 抖店应用 AppKey |
+| 抖音小店 | `ECOM_DOUYIN_APPSECRET` | 抖店应用 AppSecret |
+| 抖音小店 | `ECOM_DOUYIN_BASE_URL`（可选） | 默认抖店开放平台网关，一般不用改 |
+
+### 2. 申请入口
+
+- 1688 开放平台：注册企业开发者 → 创建应用 → 申请「商品/店铺」API 权限 → 审核通过后拿到 AppKey/AppSecret。
+- 抖音开放平台（抖店）：入驻抖店 → 创建自用型应用 → 申请「商品/订单/物流」等权限 → 拿到 AppKey/AppSecret。
+
+### 3. 配置到服务（在服务器执行）
+
+在 systemd 单元里加 Environment 行，然后重载重启：
+
+```bash
+sudo systemctl edit --full xiaolongxia-gate.service
+```
+
+在 `[Service]` 段追加（示例占位，替换为你的真实值）：
+
+```ini
+Environment=ECOM_1688_APPKEY=your-1688-appkey
+Environment=ECOM_1688_APPSECRET=your-1688-appsecret
+Environment=ECOM_1688_ACCESS_TOKEN=your-1688-token
+Environment=ECOM_DOUYIN_APPKEY=your-douyin-appkey
+Environment=ECOM_DOUYIN_APPSECRET=your-douyin-appsecret
+```
+
+保存后重载并重启：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart xiaolongxia-gate.service
+sudo systemctl status xiaolongxia-gate.service
+```
+
+### 4. 验证是否启用真机
+
+`jobs.ensure_adapters()` 会按凭证存在与否注册：只要 `ECOM_1688_APPKEY` / `ECOM_DOUYIN_APPKEY` 存在，对应平台适配器即自动启用，未配置的平台继续走 mock。
+
+- 可用 collector 选择平台 `1688` 做一次单商品采集冒烟，观察是否返回真实数据；
+- 抖店目标侧在「店铺与授权」里提交 access_token 后再铺货冒烟。
+
+### 5. 校准点（真机链路已知待校准）
+
+- 1688 AOP 签名拼接顺序与请求头格式；
+- 抖店接口名、参数名与价格单位（分/元）、类目树层级；
+- 各平台限流阈值（QPS / 日配额）与错误码映射到现有 8 类错误。
+
+真机接口名与签名规则待冒烟时按官方文档校准；校准只改 `gate/ecom/adapters/source_1688.py` 与 `target_douyin.py`，API 层与前端无需改动。
