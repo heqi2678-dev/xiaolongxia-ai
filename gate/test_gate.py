@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import base64
+import hashlib
 import json
 import os
 import tempfile
@@ -879,6 +880,48 @@ class GateTests(unittest.TestCase):
         code, body, _ = self.req(opener, "/api/ecom/shops/%s" % shop_id, method="DELETE")
         self.assertEqual(code, 200)
         self.assertTrue(json.loads(body.decode("utf-8"))["removed"])
+
+    def test_ecom_plugin_token_auth(self):
+        """插件口令：无 Cookie 时凭 X-Ecom-Token 识别 owner；坏口令 401。"""
+        from ecom import jobs, tokens
+        jobs.install()
+        token = tokens.mint("zhuren")
+        opener, _ = self.opener()
+        code, _, _ = self.req(opener, "/api/ecom/stats")
+        self.assertEqual(code, 401)
+        code, body, _ = self.req(opener, "/api/ecom/stats", headers={"X-Ecom-Token": token})
+        self.assertEqual(code, 200)
+        self.assertTrue(json.loads(body.decode("utf-8"))["ok"])
+        code, _, _ = self.req(opener, "/api/ecom/stats", headers={"X-Ecom-Token": "xlx_bad"})
+        self.assertEqual(code, 401)
+        # 撤销后口令失效
+        tokens.revoke("zhuren")
+        code, _, _ = self.req(opener, "/api/ecom/stats", headers={"X-Ecom-Token": token})
+        self.assertEqual(code, 401)
+
+    def test_ecom_media_public_route(self):
+        """公开图片路由：无登录可取已缓存图片；未缓存 404。"""
+        from ecom import jobs
+        from ecom import media as ecom_media, store as ecom_store
+        jobs.install()
+        owner = "zhuren"
+        row = ecom_store.insert(
+            "media", owner,
+            {"kind": "image", "url": "https://cbu01.alicdn.com/img/b.jpg",
+             "source_url": "https://cbu01.alicdn.com/img/b.jpg", "source_type": "main"},
+        )
+        body = b"gate-fake-png"
+        path = ecom_media.MEDIA_DIR / owner / (hashlib.sha1(body).hexdigest() + ".png")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(body)
+        ecom_store.update("media", owner, row["id"], {"local_path": str(path)})
+        opener, _ = self.opener()
+        code, data, headers = self.req(opener, "/api/ecom/media/%s" % row["id"])
+        self.assertEqual(code, 200)
+        self.assertEqual(data, body)
+        self.assertIn("image/png", headers.get("Content-Type", ""))
+        code, _, _ = self.req(opener, "/api/ecom/media/no-such-id")
+        self.assertEqual(code, 404)
 
 
 if __name__ == "__main__":

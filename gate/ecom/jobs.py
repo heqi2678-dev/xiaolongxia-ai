@@ -17,7 +17,7 @@ import hashlib
 import math
 import os
 
-from ecom import imaging, queue, registry, store
+from ecom import imaging, media, queue, registry, store, tokens
 from ecom.adapters import mock
 from ecom.registry import EcomError, AUTH_EXPIRED, UNKNOWN
 
@@ -194,6 +194,22 @@ def collect_handler(task, item):
         "skus": skus,
         "media": media,
     }
+
+
+# ------------------------------- 图片转存 ------------------------------- #
+
+
+def media_fetch_handler(task, item):
+    """把商品素材图片带来源头转存到本地并刷新商品图片地址。"""
+    owner = task["owner"]
+    params = task.get("params_json") or {}
+    item = item or {}
+    payload = item.get("payload_json") or {}
+    product_id = item.get("ref_id") or payload.get("product_id") or ""
+    if not product_id:
+        raise EcomError("图片转存缺少商品 id", UNKNOWN)
+    platform = payload.get("platform") or params.get("platform") or ""
+    return media.cache_product_media(owner, product_id, platform)
 
 
 # ------------------------------- 铺货 ------------------------------- #
@@ -393,6 +409,7 @@ def compliance_handler(task, item):
 
 _HANDLERS = {
     "collect": collect_handler,
+    "media_fetch": media_fetch_handler,
     "publish": publish_handler,
     "price_adjust": price_adjust_handler,
     "listing": listing_handler,
@@ -423,6 +440,8 @@ def ensure_adapters():
 def install():
     """注册全部任务处理器并安装适配器（幂等）。"""
     store.ensure()
+    tokens.configure(store.DATA_DIR / "ecom_tokens.json")
+    media.configure(media_dir=store.DATA_DIR / "media")
     ensure_adapters()
     for kind, handler in _HANDLERS.items():
         queue.register(kind, handler)

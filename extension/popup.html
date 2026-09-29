@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>小龙虾采集</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="hd">
+    <span class="logo">小龙虾 · 1688 采集</span>
+    <span class="ver">v1.0.0</span>
+  </div>
+
+  <div class="field">
+    <label>站点地址</label>
+    <input id="endpoint" type="text" placeholder="http://47.108.14.206/dian/api/ecom" />
+  </div>
+
+  <div class="field">
+    <label>插件口令</label>
+    <input id="token" type="text" placeholder="在小龙虾「采集下载 → 插件采集」生成" />
+  </div>
+
+  <div class="field">
+    <label>批量间隔（毫秒）</label>
+    <input id="interval" type="number" min="200" step="100" value="800" />
+  </div>
+
+  <div class="row">
+    <button id="save" class="primary">保存</button>
+    <button id="test">测试连接</button>
+  </div>
+  <div id="msg" class="msg"></div>
+
+  <div class="sub">
+    <span>最近采集</span>
+    <button id="clear" class="link">清空</button>
+  </div>
+  <div id="recent" class="recent"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

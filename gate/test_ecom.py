@@ -6,13 +6,14 @@
 
 运行：cd gate && python3 -m unittest test_ecom
 """
+import hashlib
 import os
 import tempfile
 import time
 import unittest
 from pathlib import Path
 
-from ecom import api, jobs, queue, registry, store
+from ecom import api, jobs, media, queue, registry, store, tokens
 from ecom.adapters import base, mock, source_1688, target_douyin, target_taobao
 
 
@@ -1245,6 +1246,187 @@ class EcomApiTest(unittest.TestCase):
         self.assertEqual(task["status"], "failed")
         detail = self.call("GET", "/tasks/%s" % payload["task"]["id"])[1]
         self.assertIn("未注册", detail["items"][0]["error"])
+
+
+class PluginCollectTest(unittest.TestCase):
+    """插件采集：口令、collect/ingest、图片转存与 SSRF 防护。"""
+
+    owner = "plugin-user"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        store.configure(Path(self.tmp.name) / "ecom.db")
+        store.ensure()
+        tokens.configure(Path(self.tmp.name) / "ecom_tokens.json")
+        media.configure(media_dir=Path(self.tmp.name) / "media", base="http://test.local")
+        registry.reset()
+        jobs.install()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def call(self, method, path, owner=None, **kw):
+        return api.handle(method, path, owner or self.owner, **kw)
+
+    def raw_item(self, source_id="10001", **over):
+        item = {
+            "source_id": source_id,
+            "source_url": "https://detail.1688.com/offer/%s.html" % source_id,
+            "title": "插件采集 连衣裙",
+            "price": 12.5,
+            "main_image": "https://cbu01.alicdn.com/img/a.jpg",
+            "images": ["https://cbu01.alicdn.com/img/a.jpg"],
+            "skus": [{"spec": "红色", "price": 12.5, "stock": 5}],
+        }
+        item.update(over)
+        return item
+
+    def test_token_lifecycle(self):
+        self.assertIsNone(tokens.info(self.owner))
+        token = tokens.mint(self.owner, note="测试")
+        self.assertTrue(token.startswith("xlx_"))
+        self.assertEqual(tokens.owner_of(token), self.owner)
+        self.assertIsNone(tokens.owner_of("xlx_bad"))
+        info = tokens.info(self.owner)
+        self.assertEqual(info["owner"], self.owner)
+        self.assertEqual(info["prefix"], token[:8])
+        # 重复 mint 覆盖旧口令
+        second = tokens.mint(self.owner)
+        self.assertIsNone(tokens.owner_of(token))
+        self.assertEqual(tokens.owner_of(second), self.owner)
+        # 撤销后失效
+        self.assertTrue(tokens.revoke(self.owner))
+        self.assertFalse(tokens.revoke(self.owner))
+        self.assertIsNone(tokens.owner_of(second))
+
+    def test_plugin_token_api(self):
+        status, payload = self.call("POST", "/plugin/token", body={"note": ""})
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["token"].startswith("xlx_"))
+        self.assertTrue(payload["active"])
+        status, payload = self.call("GET", "/plugin/token")
+        self.assertTrue(payload["active"])
+        self.assertNotIn("token", payload, "状态接口不得回明文")
+        status, payload = self.call("DELETE", "/plugin/token")
+        self.assertTrue(payload["removed"])
+        self.assertFalse(self.call("GET", "/plugin/token")[1]["active"])
+
+    def test_ingest_saves_and_enqueues_media(self):
+        token = tokens.mint(self.owner)
+        self.assertIsNotNone(tokens.owner_of(token))
+        status, payload = self.call(
+            "POST", "/collect/ingest",
+            body={"platform": "1688", "items": [self.raw_item(), self.raw_item("10002")]},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual((payload["count"], payload["saved"], payload["failed"]), (2, 2, 0))
+        self.assertTrue(payload["media_task_id"], "入库后应入队图片转存任务")
+        task = self.call("GET", "/tasks/%s" % payload["media_task_id"])[1]["task"]
+        self.assertEqual(task["kind"], "media_fetch")
+        listing = self.call("GET", "/products", query={"platform": "1688"})[1]
+        self.assertEqual(listing["total"], 2)
+
+    def test_ingest_partial_failure_keeps_good_items(self):
+        status, payload = self.call(
+            "POST", "/collect/ingest",
+            body={
+                "platform": "1688",
+                "items": [
+                    self.raw_item(),
+                    {"source_id": "", "title": "缺 id"},
+                    {"source_id": "10003", "title": ""},
+                    "not-a-dict",
+                ],
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual((payload["saved"], payload["failed"]), (1, 3))
+        self.assertEqual(len(payload["errors"]), 3)
+        self.assertEqual(self.call("GET", "/products")[1]["total"], 1, "坏条目不落库")
+
+    def test_ingest_idempotent(self):
+        item = self.raw_item()
+        first = self.call("POST", "/collect/ingest", body={"platform": "1688", "items": [item]})[1]
+        second = self.call("POST", "/collect/ingest", body={"platform": "1688", "items": [dict(item, title="改标题")]})[1]
+        self.assertEqual(first["results"][0]["product_id"], second["results"][0]["product_id"])
+        self.assertEqual(self.call("GET", "/products")[1]["total"], 1)
+
+    def test_ingest_validates(self):
+        self.assertEqual(self.call("POST", "/collect/ingest", body={})[0], 400)
+        self.assertEqual(self.call("POST", "/collect/ingest", body={"platform": "1688"})[0], 400)
+        self.assertEqual(
+            self.call("POST", "/collect/ingest", body={"platform": "pdd", "items": [self.raw_item()]})[0], 400
+        )
+        self.assertEqual(
+            self.call(
+                "POST", "/collect/ingest",
+                body={"platform": "1688", "items": [self.raw_item(i) for i in range(201)]},
+            )[0], 400,
+        )
+
+    def test_media_ssrf_guard(self):
+        for bad in [
+            "http://127.0.0.1/x.jpg",
+            "http://localhost/x.jpg",
+            "http://192.168.1.1/x.jpg",
+            "http://10.0.0.1/x.jpg",
+            "file:///etc/passwd",
+            "ftp://example.com/x.jpg",
+            "http://[fd00::1]/x.jpg",
+            "not a url",
+        ]:
+            self.assertFalse(media.is_safe_url(bad), bad)
+
+    def test_media_cache_and_public_route_shape(self):
+        product = store.insert(
+            "products", self.owner,
+            {"title": "图", "main_image": "https://cbu01.alicdn.com/img/a.jpg"},
+        )
+        row = store.insert(
+            "media", self.owner,
+            {
+                "product_id": product["id"],
+                "kind": "image",
+                "url": "https://cbu01.alicdn.com/img/a.jpg",
+                "source_url": "https://cbu01.alicdn.com/img/a.jpg",
+                "source_type": "main",
+            },
+        )
+        # 不安全地址直接拒绝且不落盘
+        bad = media.cache_image(self.owner, dict(row, source_url="http://127.0.0.1/a.jpg"))
+        self.assertIn("error", bad)
+        # 本地文件缓存 + 公开地址改写
+        body = b"fake-jpeg-bytes"
+        digest = hashlib.sha1(body).hexdigest()
+        path = media.MEDIA_DIR / self.owner / (digest + ".jpg")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(body)
+        got = media.serve(row["id"])
+        self.assertIsNone(got, "local_path 未写时应 404")
+        store.update(
+            "media", self.owner, row["id"],
+            {"local_path": str(path), "url": media.public_url(row["id"])},
+        )
+        ctype, data = media.serve(row["id"])
+        self.assertEqual(ctype, "image/jpeg")
+        self.assertEqual(data, body)
+        self.assertEqual(media.public_url(row["id"]), "http://test.local/dian/api/ecom/media/%s" % row["id"])
+        result = media.cache_product_media(self.owner, product["id"], "1688")
+        self.assertEqual(result["ok"], 1, "已缓存文件应跳过下载")
+        refreshed = store.get("products", self.owner, product["id"])
+        self.assertEqual(refreshed["main_image"], media.public_url(row["id"]))
+
+    def test_media_fetch_handler_runs(self):
+        product = store.insert("products", self.owner, {"title": "任务"})
+        payload = self.call(
+            "POST", "/collect/ingest",
+            body={"platform": "1688", "items": [self.raw_item()]},
+        )[1]
+        pid = payload["results"][0]["product_id"]
+        task = queue.run_task(self.owner, payload["media_task_id"])
+        self.assertEqual(task["status"], "succeeded")
+        self.assertGreaterEqual(task["done"], 1)
+        self.assertTrue(store.get("products", self.owner, pid)["id"])
 
 
 class JobsTest(unittest.TestCase):

@@ -158,6 +158,111 @@
     }).catch(function () {});
   }
 
+  /* ---------------- 插件采集（浏览器扩展） ---------------- */
+  const P = { loaded: false, active: false, prefix: "", created_at: 0, token: "" };
+  const EXT_ZIP = "/dian/ecom-collect-extension.zip";
+
+  function copyText(text, msg) {
+    const fn = (XLX.util && XLX.util.copyText) || function () { return Promise.resolve(false); };
+    Promise.resolve(fn(text)).then(function (ok) {
+      EC.toast(ok ? (msg || "已复制") : "复制失败，请手动复制", ok ? "ok" : "err");
+    });
+  }
+
+  function pluginStatusHtml() {
+    if (!P.loaded) return '<div class="ecom-empty">加载中…</div>';
+    if (!P.active) return '<div class="ecom-empty">还没有插件口令，先点「生成口令」</div>';
+    return '<div class="ecom-row ecom-task-row"><div class="ecom-row-main">'
+      + '<div class="ecom-row-t">口令 ' + esc(P.prefix) + "…</div>"
+      + '<div class="ecom-row-d">生成于 ' + esc(EC.fmtTime(P.created_at)) + " · 完整口令仅生成时显示一次</div></div>"
+      + '<span class="ecom-badge st-succeeded">已启用</span></div>'
+      + (P.token
+        ? '<div class="ecom-field"><label class="ecom-label">完整口令（请立即复制，离开后不再显示）</label>'
+          + '<div class="ecom-line"><input class="inp ecom-mono" id="ecomPluginToken" readonly value="' + esc(P.token) + '">'
+          + '<button class="btn" data-plugin-copy>复制口令</button></div></div>'
+        : "");
+  }
+
+  function pluginButtonsHtml() {
+    if (!P.loaded) return "";
+    if (!P.active) return '<button class="btn primary" data-plugin-mint>生成口令</button>';
+    return (P.token ? '<button class="btn primary" data-plugin-copy>复制口令</button>' : "")
+      + '<button class="btn" data-plugin-revoke>撤销口令</button>';
+  }
+
+  function pluginHtml() {
+    const steps = [
+      "下载扩展包并解压到任意目录：<a class=\"ecom-link\" href=\"" + EXT_ZIP + "\" download>ecom-collect-extension.zip</a>",
+      "浏览器打开 <span class=\"ecom-mono\">chrome://extensions</span>（Edge 为 <span class=\"ecom-mono\">edge://extensions</span>），右上角开启「开发者模式」",
+      "点「加载已解压的扩展程序」，选择解压后的目录",
+      "点扩展图标，把上面的口令粘贴进去保存",
+      "打开 1688 商品页或搜索结果页，点插件「采集本页」即可"
+    ];
+    return '<div class="ecom-panel"><div class="ecom-panel-h"><span>插件采集（1688 页面一键采集）</span>'
+      + '<button class="ecom-link" data-plugin-refresh>刷新</button></div>'
+      + '<div class="ecom-panel-b">'
+      + '<div class="ecom-hint">在 1688 页面用浏览器插件直接抓取，无需申请 1688 应用凭证；采集结果写入商品库，并自动把图片转存到本机。</div>'
+      + '<div class="ecom-line"><span class="ecom-label">插件口令</span></div>'
+      + '<div id="ecomPluginStatus">' + pluginStatusHtml() + "</div>"
+      + '<div class="ecom-line" id="ecomPluginButtons">' + pluginButtonsHtml() + "</div>"
+      + '<div class="ecom-sub-h">安装步骤</div>'
+      + '<div class="ecom-pre">' + steps.map(function (t, i) {
+        return '<div class="ecom-pre-item"><span class="ecom-badge">' + (i + 1) + "</span><span>" + t + "</span></div>";
+      }).join("") + "</div>"
+      + "</div></div>";
+  }
+
+  function loadPlugin(host) {
+    EC.api("GET", "/plugin/token").then(function (res) {
+      P.loaded = true;
+      P.active = !!res.active;
+      P.prefix = res.prefix || "";
+      P.created_at = res.created_at || 0;
+      repaintPlugin(host);
+    }).catch(function () {
+      P.loaded = true;
+      repaintPlugin(host);
+    });
+  }
+
+  function repaintPlugin(host) {
+    const box = host.querySelector("#ecomPluginStatus");
+    if (box) box.innerHTML = pluginStatusHtml();
+    const btns = host.querySelector("#ecomPluginButtons");
+    if (btns) btns.innerHTML = pluginButtonsHtml();
+    bindPlugin(host);
+  }
+
+  function mintPlugin(host) {
+    EC.api("POST", "/plugin/token", {}).then(function (res) {
+      P.loaded = true; P.active = true;
+      P.prefix = res.prefix || ""; P.created_at = res.created_at || 0;
+      P.token = res.token || "";
+      repaintPlugin(host);
+      EC.toast("已生成插件口令，请立即复制", "ok");
+    }).catch(function (e) { EC.toast(e.message || "生成失败", "err"); });
+  }
+
+  function revokePlugin(host) {
+    EC.api("DELETE", "/plugin/token").then(function () {
+      P.active = false; P.token = ""; P.prefix = ""; P.created_at = 0;
+      repaintPlugin(host);
+      EC.toast("已撤销插件口令", "ok");
+    }).catch(function (e) { EC.toast(e.message || "撤销失败", "err"); });
+  }
+
+  function bindPlugin(host) {
+    const mint = host.querySelector("[data-plugin-mint]");
+    if (mint) mint.onclick = function () { mintPlugin(host); };
+    const revoke = host.querySelector("[data-plugin-revoke]");
+    if (revoke) revoke.onclick = function () { revokePlugin(host); };
+    const copy = host.querySelector("[data-plugin-copy]");
+    if (copy) copy.onclick = function () {
+      const input = host.querySelector("#ecomPluginToken");
+      copyText((input && input.value) || P.token, "口令已复制");
+    };
+  }
+
   function formHtml() {
     const sourceOpts = SOURCES.map(function (s) {
       return '<option value="' + s.id + '"' + (s.id === S.platform ? " selected" : "") + ">" + esc(s.label) + "</option>";
@@ -183,6 +288,7 @@
     stopPoll();
     el.innerHTML = '<div class="ecom-wrap">'
       + formHtml()
+      + pluginHtml()
       + '<div id="ecomCollectProgress"></div>'
       + '<div class="ecom-grid2">'
       + '<div class="ecom-panel"><div class="ecom-panel-h"><span>采集结果</span><button class="ecom-link" data-refresh>刷新</button></div>'
@@ -208,7 +314,10 @@
     if (submitBtn) submitBtn.onclick = function () { submit(el); };
     const refresh = el.querySelector("[data-refresh]");
     if (refresh) refresh.onclick = function () { if (S.taskId) openTask(el, S.taskId); else loadRecent(el); };
+    const pluginRefresh = el.querySelector("[data-plugin-refresh]");
+    if (pluginRefresh) pluginRefresh.onclick = function () { loadPlugin(el); };
 
+    loadPlugin(el);
     loadRecent(el);
     if (S.taskId) openTask(el, S.taskId);
   }

@@ -8,8 +8,12 @@
 - 成功返回 ``{"ok": true, ...}``；失败返回 ``{"ok": false, "error", "code"}``。
 - 写操作落任务（``ecom.queue``），由处理器异步执行；合规检测默认同步执行。
 """
-from ecom import jobs, queue, registry, store
+import os
+
+from ecom import jobs, queue, registry, store, tokens
 from ecom.registry import EcomError
+
+INGEST_PLATFORMS = ("1688", "taobao", "douyin")
 
 PRODUCT_PATCH_FIELDS = ("title", "subtitle", "category", "price", "stock", "main_image")
 PRODUCT_JSON_FIELDS = {
@@ -68,8 +72,17 @@ def _dispatch(method, path, owner, query, body):
     if head == "collect":
         if method == "POST" and not rest:
             return _collect_submit(owner, body)
+        if method == "POST" and rest == ["ingest"]:
+            return _collect_ingest(owner, body)
         if method == "GET" and len(rest) == 1:
             return _collect_progress(owner, rest[0])
+    elif head == "plugin" and rest == ["token"]:
+        if method == "POST":
+            return _plugin_token_mint(owner, body)
+        if method == "GET":
+            return _plugin_token_status(owner)
+        if method == "DELETE":
+            return _plugin_token_revoke(owner)
     elif head == "products":
         if method == "GET" and not rest:
             return _products_list(owner, query)
@@ -218,6 +231,122 @@ def _collect_progress(owner, task_id):
         "task_items", owner, where="task_id=?", params=(task_id,), order="seq ASC"
     )
     return _ok(task=task, items=items)
+
+
+def _ingest_max():
+    try:
+        return max(1, int(os.environ.get("INGEST_MAX_ITEMS") or 200))
+    except (TypeError, ValueError):
+        return 200
+
+
+def _normalize_raw(raw):
+    """校验并规整插件提交的单条 RawProduct。"""
+    if not isinstance(raw, dict):
+        raise ValueError("商品数据格式不正确")
+    source_id = str(raw.get("source_id") or "").strip()
+    title = str(raw.get("title") or "").strip()
+    if not source_id:
+        raise ValueError("缺少 source_id")
+    if not title:
+        raise ValueError("缺少 title")
+    data = dict(raw)
+    data["source_id"] = source_id
+    data["title"] = title
+    data["images"] = [str(u) for u in (raw.get("images") or []) if u]
+    data["skus"] = [s for s in (raw.get("skus") or []) if isinstance(s, dict)]
+    return data
+
+
+def _collect_ingest(owner, body):
+    """接收浏览器插件提交的商品数据，落库并异步转存图片（设计：插件采集）。"""
+    platform = str(body.get("platform") or "1688").strip()
+    if platform not in INGEST_PLATFORMS:
+        raise ValueError("不支持的平台: %s" % platform)
+    items = body.get("items")
+    if not isinstance(items, list) or not items:
+        raise ValueError("采集需要 items")
+    limit = _ingest_max()
+    if len(items) > limit:
+        raise ValueError("单次采集最多 %d 条" % limit)
+
+    results = []
+    errors = []
+    product_ids = []
+    for index, raw in enumerate(items):
+        source_id = str(raw.get("source_id") or "") if isinstance(raw, dict) else ""
+        try:
+            data = _normalize_raw(raw)
+            product, skus, media_count = jobs.save_raw_product(owner, platform, data)
+            results.append(
+                {
+                    "index": index,
+                    "source_id": data["source_id"],
+                    "product_id": product["id"],
+                    "skus": skus,
+                    "media": media_count,
+                    "error": None,
+                }
+            )
+            product_ids.append(product["id"])
+        except (ValueError, TypeError, KeyError) as exc:
+            errors.append({"index": index, "source_id": source_id, "error": str(exc)})
+            results.append(
+                {
+                    "index": index,
+                    "source_id": source_id,
+                    "product_id": "",
+                    "skus": 0,
+                    "media": 0,
+                    "error": str(exc),
+                }
+            )
+
+    media_task_id = ""
+    if product_ids:
+        task = queue.create_task(
+            owner,
+            "media_fetch",
+            title="图片转存",
+            items=[
+                {"ref_type": "product", "ref_id": pid, "platform": platform}
+                for pid in product_ids
+            ],
+            params={"platform": platform},
+        )
+        media_task_id = task["id"]
+
+    return _ok(
+        platform=platform,
+        count=len(items),
+        saved=len(product_ids),
+        failed=len(errors),
+        results=results,
+        errors=errors,
+        media_task_id=media_task_id,
+    )
+
+
+# ------------------------------- 插件口令 ------------------------------- #
+
+
+def _plugin_token_mint(owner, body):
+    token = tokens.mint(owner, note=(body or {}).get("note") or "")
+    info = tokens.info(owner) or {}
+    info["active"] = True
+    return _ok(token=token, **info)
+
+
+def _plugin_token_status(owner):
+    info = tokens.info(owner)
+    if not info:
+        return _ok(active=False)
+    info["active"] = True
+    return _ok(**info)
+
+
+def _plugin_token_revoke(owner):
+    return _ok(removed=tokens.revoke(owner))
 
 
 # ------------------------------- 商品 ------------------------------- #
