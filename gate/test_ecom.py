@@ -13,6 +13,9 @@ import time
 import unittest
 from pathlib import Path
 
+# 测试绝不能碰默认 DATA_DIR（服务器上是生产目录）：先指向临时目录再导入 ecom。
+os.environ["DATA_DIR"] = tempfile.mkdtemp(prefix="ecom-test-")
+
 from ecom import api, jobs, media, queue, registry, store, tokens
 from ecom.adapters import base, mock, source_1688, target_douyin, target_taobao
 
@@ -1257,10 +1260,11 @@ class PluginCollectTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         store.configure(Path(self.tmp.name) / "ecom.db")
         store.ensure()
-        tokens.configure(Path(self.tmp.name) / "ecom_tokens.json")
-        media.configure(media_dir=Path(self.tmp.name) / "media", base="http://test.local")
         registry.reset()
         jobs.install()
+        # install() 会按 store.DATA_DIR 重设口令/媒体路径，必须放在它之后
+        tokens.configure(Path(self.tmp.name) / "ecom_tokens.json")
+        media.configure(media_dir=Path(self.tmp.name) / "media", base="http://test.local")
 
     def tearDown(self):
         self.tmp.cleanup()
