@@ -55,24 +55,24 @@ a{color:var(--blue);text-decoration:none}
 /* ===== Sidebar · LibTV 外壳 ===== */
 #sidebar{width:240px;min-width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:20}
 #shellNav{display:flex;flex-direction:column;height:100%;min-height:0}
-.shell-brand{display:flex;align-items:center;gap:10px;padding:18px 16px 12px}
-.shell-logo{width:34px;height:34px;border-radius:10px;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;color:var(--accent-ink);flex-shrink:0}
-.shell-logo svg{width:20px;height:20px}
+.shell-brand{display:flex;align-items:center;gap:11px;padding:20px 16px 14px}
+.shell-logo{width:38px;height:38px;border-radius:11px;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;color:var(--accent-ink);flex-shrink:0}
+.shell-logo svg{width:22px;height:22px}
 .shell-brand-t{display:flex;flex-direction:column;line-height:1.25;min-width:0}
-.shell-brand-t b{font-size:15px;font-weight:700;letter-spacing:.3px}
+.shell-brand-t b{font-size:16px;font-weight:700;letter-spacing:.3px}
 .shell-brand-t i{font-style:normal;font-size:10.5px;color:var(--text3)}
-.shell-create{display:flex;align-items:center;justify-content:center;gap:8px;margin:6px 12px 12px;padding:10px 12px;border-radius:999px;background:var(--accent-grad);color:var(--accent-ink);font-size:13.5px;font-weight:700;transition:.15s;box-shadow:0 4px 14px rgba(28,100,244,.30)}
+.shell-create{display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 12px 14px;padding:12px 12px;border-radius:999px;background:var(--accent-grad);color:var(--accent-ink);font-size:14px;font-weight:700;transition:.15s;box-shadow:0 4px 14px rgba(28,100,244,.30)}
 .shell-create:hover{filter:brightness(1.08)}
-.shell-create svg{width:16px;height:16px}
-.shell-nav{flex:1;overflow-y:auto;padding:2px 10px 10px;display:flex;flex-direction:column;gap:2px}
-.shell-nav-item{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;color:var(--text2);font-size:13.5px;cursor:pointer;transition:.15s;text-align:left;width:100%}
+.shell-create svg{width:18px;height:18px}
+.shell-nav{flex:1;overflow-y:auto;padding:4px 10px 14px;display:flex;flex-direction:column;gap:5px}
+.shell-nav-item{display:flex;align-items:center;gap:12px;padding:12px 13px;border-radius:12px;color:var(--text2);font-size:14.5px;cursor:pointer;transition:.15s;text-align:left;width:100%}
 .shell-nav-item:hover{background:var(--panel);color:var(--text)}
 .shell-nav-item.active{background:var(--accent-grad);color:var(--accent-ink);font-weight:700}
-.shell-nav-item svg{width:17px;height:17px;flex-shrink:0}
+.shell-nav-item svg{width:20px;height:20px;flex-shrink:0}
 .shell-nav-item>span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.shell-badge{font-style:normal;font-size:10px;padding:1px 7px;border-radius:999px;background:var(--panel2);color:var(--text3);border:1px solid var(--border);flex-shrink:0}
+.shell-badge{font-style:normal;font-size:10.5px;padding:2px 8px;border-radius:999px;background:var(--panel2);color:var(--text3);border:1px solid var(--border);flex-shrink:0}
 .shell-nav-item.active .shell-badge{background:rgba(0,0,0,.18);color:var(--accent-ink);border-color:transparent}
-.shell-nav-sep{height:1px;background:var(--border);margin:8px 6px;flex-shrink:0}
+.shell-nav-sep{height:1px;background:var(--border);margin:10px 6px;flex-shrink:0}
 .shell-status{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer;white-space:nowrap}
 .shell-status:hover{border-color:var(--accent)}
 .shell-status svg{width:14px;height:14px;color:var(--text3);flex-shrink:0}
@@ -93,8 +93,8 @@ a{color:var(--blue);text-decoration:none}
 .shell-menu-item{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border-radius:8px;font-size:13px;color:var(--text2);text-align:left}
 .shell-menu-item:hover{background:var(--panel2);color:var(--text)}
 .shell-menu-item svg{width:16px;height:16px;flex-shrink:0}
-.shell-nav-txt{display:flex;flex-direction:column;line-height:1.2;white-space:normal}
-.shell-nav-sub{font-style:normal;font-size:10px;color:var(--text3)}
+.shell-nav-txt{display:flex;flex-direction:column;line-height:1.25;white-space:normal}
+.shell-nav-sub{font-style:normal;font-size:10.5px;color:var(--text3)}
 .shell-nav-item.active .shell-nav-sub{color:var(--accent-ink);opacity:.8}
 .shell-actions{display:flex;align-items:center;gap:6px}
 .shell-top-btn{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--text2);transition:.15s;white-space:nowrap}
@@ -1223,7 +1223,7 @@ XLX.ICONS = {
   translate: '<path d="M4 5h9M8 3v2c0 4-2 6-4 7"/><path d="M3 9c3 0 5 1 6 3"/><path d="M14 21l4-11 4 11M15.5 17h5"/>',
   regex: '<path d="M17 3v18M3 17h14M3 5h14"/><path d="M7 3c-1.5 1-1.5 2 0 3M7 21c-1.5-1-1.5-2 0-3"/>',
   terminal: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 9l3 3-3 3M13 15h4"/>',
-  palette: '<circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16" cy="10" r="1"/><path d="M12 21a9 9 0 0 1 0-18c4 0 5 3 5 4s-3 1-3 3 2 2 3 2 3-1 4-1 2 1 2 4a9 9 0 0 1-9 6z"/>',
+  palette: '<path d="M12 3a9 9 0 0 0 0 18c1.1 0 2-.9 2-2 0-.5-.2-.9-.5-1.3-.3-.3-.5-.7-.5-1.2 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-3.9-4-7-9-7z"/><circle cx="7.8" cy="11.5" r="1"/><circle cx="10" cy="7.8" r="1"/><circle cx="14.5" cy="7.8" r="1"/>',
   logo: '<circle cx="12" cy="12" r="9"/><path d="M8 16V8h5a3 3 0 0 1 0 6H8"/>',
   poster: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 8h10M7 12h6M7 16h9"/>',
   sparkle: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/>',
@@ -1233,8 +1233,8 @@ XLX.ICONS = {
   folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   folderplus: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/>',
   play: '<circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z"/>',
-  trophy: '<path d="M8 21h8M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 5H4a0 0 0 0 0 0 0v1a3 3 0 0 0 3 3M17 5h3a0 0 0 0 1 0 0v1a3 3 0 0 1-3 3"/>',
-  brain: '<path d="M9 3a3 3 0 0 0-3 3v.5A3 3 0 0 0 4 9v.5a3 3 0 0 0 1 6v.5a3 3 0 0 0 3 3.5A3 3 0 0 0 12 20v-4a3 3 0 0 0 0-6 3 3 0 0 0 0-6z"/><path d="M12 2v18M15 4a3 3 0 0 1 3 3v.5a3 3 0 0 1 2 5.5V13a3 3 0 0 1-2 3.5V20"/>',
+  trophy: '<path d="M8 21h8M12 17v4"/><path d="M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 5H4v1.5A3.5 3.5 0 0 0 7.5 10M17 5h3v1.5A3.5 3.5 0 0 1 16.5 10"/>',
+  brain: '<path d="M12 5.5a3 3 0 0 0-5.5 1.6A3 3 0 0 0 4.5 11a3 3 0 0 0 1 4.4A3 3 0 0 0 12 18z"/><path d="M12 5.5a3 3 0 0 1 5.5 1.6A3 3 0 0 1 19.5 11a3 3 0 0 1-1 4.4A3 3 0 0 1 12 18z"/><path d="M12 5.5v12.5"/>',
   shopping: '<path d="M6 7h12l1 14H5z"/><path d="M9 7a3 3 0 0 1 6 0"/>',
   scan: '<path d="M3 7V4a1 1 0 0 1 1-1h3M17 3h3a1 1 0 0 1 1 1v3M21 17v3a1 1 0 0 1-1 1h-3M7 21H4a1 1 0 0 1-1-1v-3"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
@@ -1263,7 +1263,7 @@ XLX.ICONS = {
   layers: '<path d="M12 2l9 5-9 5-9-5z"/><path d="M3 12l9 5 9-5M3 17l9 5 9-5"/>',
   wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.8 2.8-2.8-2.8z"/>',
   grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
-  home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+  home: '<path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/><path d="M9.5 21v-6h5v6"/>',
   history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 3"/>',
   message: '<path d="M4 5h16v11H9l-5 4z"/>',
   bell: '<path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 19a2 2 0 0 0 4 0"/>',

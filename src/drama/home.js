@@ -58,15 +58,15 @@
 .hx-sec-h h2{font-size:16px;font-weight:800;margin:0}
 .hx-sec-h .hx-more{margin-left:auto;font-size:12px;color:var(--text3);cursor:pointer}
 .hx-sec-h .hx-more:hover{color:var(--accent2)}
-.hx-tools{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
-.hx-tool{flex:0 0 186px;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:border-color .15s,transform .15s}
-@media(max-width:560px){.hx-tool{flex-basis:156px}}
+.hx-tools{display:flex;gap:14px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:thin}
+.hx-tool{flex:0 0 238px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:border-color .15s,transform .15s}
+@media(max-width:560px){.hx-tool{flex-basis:200px;padding:15px}}
 .hx-tool:hover{border-color:var(--accent);transform:translateY(-3px)}
-.hx-tool .hx-tic{width:38px;height:38px;border-radius:11px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent2);display:flex;align-items:center;justify-content:center;flex:none}
-.hx-tool .hx-tic svg{width:20px;height:20px}
-.hx-tool .hx-tinfo{display:flex;flex-direction:column;gap:2px;min-width:0}
-.hx-tool .hx-tn{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hx-tool .hx-ts{font-size:10.5px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hx-tool .hx-tic{width:50px;height:50px;border-radius:14px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent2);display:flex;align-items:center;justify-content:center;flex:none}
+.hx-tool .hx-tic svg{width:25px;height:25px}
+.hx-tool .hx-tinfo{display:flex;flex-direction:column;gap:3px;min-width:0}
+.hx-tool .hx-tn{font-size:14.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hx-tool .hx-ts{font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hx-projs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 @media(max-width:820px){.hx-projs{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .hx-proj{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .15s}
