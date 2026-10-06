@@ -1,5 +1,5 @@
 /* 铜龙电商 Service Worker：离线缓存 + 语音模型断线续传 */
-const CACHE = "xiaolongxia-v81";
+const CACHE = "xiaolongxia-v82";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./src/config.js", "./src/util.js", "./src/settings.js"];
 const MODEL_CACHE = "xiaolongxia-models-v2";
 const MODEL_PATTERN = /Xenova\/whisper/i;
@@ -81,15 +81,12 @@ self.addEventListener("fetch", (e) => {
     return;
   }
   e.respondWith(
-    caches.match(e.request).then((hit) => {
-      const fetched = fetch(e.request).then((res) => {
-        if (res && res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, clone));
-        }
-        return res;
-      }).catch(() => hit);
-      return hit || fetched;
-    })
+    fetch(e.request).then((res) => {
+      if (res && res.ok) {
+        const clone = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, clone));
+      }
+      return res;
+    }).catch(() => caches.match(e.request))
   );
 });
