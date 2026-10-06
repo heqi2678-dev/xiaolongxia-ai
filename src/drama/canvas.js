@@ -494,7 +494,7 @@
 .cv-node-body{padding:8px;display:flex;flex-direction:column;gap:6px}
 .cv-ta{min-height:52px;resize:vertical;font-size:11px;line-height:1.5}
 .cv-row{display:flex;align-items:center;gap:6px}
-.cv-out{margin-top:2px;border:1px solid var(--border);border-radius:9px;background:#0d1017;aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.cv-out{margin-top:2px;border:1px solid var(--border);border-radius:9px;background:#f1f4f8;aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .cv-out img,.cv-out video{width:100%;height:100%;object-fit:cover}
 .cv-out audio{width:100%}
 .cv-ph{color:var(--text3);font-size:10px;text-align:center;padding:6px}

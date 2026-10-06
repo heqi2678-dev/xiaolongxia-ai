@@ -24,7 +24,7 @@
 .dw-badge.bad{background:rgba(255,95,109,.15);color:var(--red)}
 .dw-badge.stale{background:rgba(245,196,81,.15);color:var(--yellow)}
 .dw-shot-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.dw-thumb{width:84px;height:148px;border-radius:8px;object-fit:cover;background:#0d1420;border:1px solid var(--border);cursor:pointer}
+.dw-thumb{width:84px;height:148px;border-radius:8px;object-fit:cover;background:#f1f4f8;border:1px solid var(--border);cursor:pointer}
 .dw-thumb.wide{width:148px;height:84px}
 .dw-role-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .dw-chip{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--border);background:var(--bg);cursor:pointer;user-select:none}
@@ -49,7 +49,7 @@
 /* ===== 专业创作台：三区布局 ===== */
 .dw-console{display:grid;grid-template-columns:132px minmax(0,1fr) 320px;gap:12px;align-items:start}
 .dw-rail{display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 200px);overflow-y:auto;padding-right:2px}
-.dw-rail-item{position:relative;flex:0 0 auto;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#0d1420;cursor:pointer;transition:border-color .15s,transform .15s}
+.dw-rail-item{position:relative;flex:0 0 auto;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#f1f4f8;cursor:pointer;transition:border-color .15s,transform .15s}
 .dw-rail-item:hover{transform:translateY(-1px);border-color:var(--border2,#3a4a63)}
 .dw-rail-item.on{border-color:var(--accent)}
 .dw-rail-item img,.dw-rail-item video{width:100%;aspect-ratio:9/16;object-fit:cover;display:block}
@@ -89,7 +89,7 @@
 .dw-grid-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
 .dw-pcard{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .15s;display:flex;flex-direction:column}
 .dw-pcard:hover{border-color:var(--accent);transform:translateY(-2px)}
-.dw-pcard-cover{width:100%;aspect-ratio:9/16;background:#0d1420;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px;overflow:hidden}
+.dw-pcard-cover{width:100%;aspect-ratio:9/16;background:#f1f4f8;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px;overflow:hidden}
 .dw-pcard-cover img{width:100%;height:100%;object-fit:cover}
 .dw-pcard-body{padding:8px 10px;display:flex;flex-direction:column;gap:4px}
 .dw-pcard-title{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

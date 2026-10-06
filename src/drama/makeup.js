@@ -33,20 +33,20 @@
 .mk-char-head .mk-ap{font-size:11px;color:var(--text3);flex:1;min-width:120px;line-height:1.6}
 .mk-viewgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .mk-slot{border:1px solid var(--border);border-radius:10px;background:var(--card);overflow:hidden;display:flex;flex-direction:column}
-.mk-slot-body{position:relative;aspect-ratio:3/4;background:#0d1017;display:flex;align-items:center;justify-content:center}
+.mk-slot-body{position:relative;aspect-ratio:3/4;background:#f1f4f8;display:flex;align-items:center;justify-content:center}
 .mk-slot-body img{width:100%;height:100%;object-fit:cover}
 .mk-slot-ph{color:var(--text3);font-size:11px;text-align:center;padding:8px}
 .mk-slot-foot{display:flex;align-items:center;gap:6px;padding:6px 8px;border-top:1px solid var(--border);font-size:11px;color:var(--text2)}
 .mk-slot-foot b{color:var(--text)}
 .mk-slot-foot .mk-sp{margin-left:auto}
 .mk-scene{border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--bg);display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px}
-.mk-scene-anchor{width:120px;aspect-ratio:3/4;border-radius:10px;border:1px solid var(--border);background:#0d1017;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.mk-scene-anchor{width:120px;aspect-ratio:3/4;border-radius:10px;border:1px solid var(--border);background:#f1f4f8;overflow:hidden;display:flex;align-items:center;justify-content:center}
 .mk-scene-anchor img{width:100%;height:100%;object-fit:cover}
 .mk-scene-anchor span{color:var(--text3);font-size:11px;text-align:center;padding:8px}
 .mk-scene-main{display:flex;flex-direction:column;gap:8px;min-width:0}
 .mk-reflist{display:flex;flex-wrap:wrap;gap:8px}
 .mk-ref{border:1px solid var(--border);border-radius:10px;background:var(--card);overflow:hidden;width:96px;display:flex;flex-direction:column}
-.mk-ref-body{aspect-ratio:3/4;background:#0d1017;display:flex;align-items:center;justify-content:center}
+.mk-ref-body{aspect-ratio:3/4;background:#f1f4f8;display:flex;align-items:center;justify-content:center}
 .mk-ref-body img{width:100%;height:100%;object-fit:cover}
 .mk-ref-body span{font-size:10px;color:var(--text3);padding:6px;text-align:center}
 .mk-ref-foot{display:flex;align-items:center;justify-content:center;padding:4px;border-top:1px solid var(--border)}
