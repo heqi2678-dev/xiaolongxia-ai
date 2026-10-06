@@ -1,5 +1,5 @@
-/* 铜龙电商 · 电商工作台 · 分区注册、导航与视图骨架 */
-/* 与短剧工作台并列的第二分区：导航、视图键、标题在此注册；各视图渲染器随后按 register 挂入。 */
+/* 小龙虾AI · 电商工作台 · 分区注册、导航与视图骨架 */
+/* 第二分区「电商工作台」：7 页创作工作台。NAV/VIEWS/TITLES 在此注册，各视图渲染器随后按 register 挂入。 */
 (function () {
   const D = XLX.drama || (XLX.drama = {});
   const U = XLX.util || {};
@@ -7,33 +7,27 @@
   const ZONE = "ecom";
   const DEFAULT_VIEW = "ecomHome";
 
-  /* 电商分区左侧导航（自上而下） */
+  /* 电商分区左侧导航（自上而下，7 项） */
   const NAV = [
-    { id: "ecomHome", label: "首页", icon: "home" },
-    { id: "ecomCollect", label: "采集下载", icon: "download" },
-    { id: "ecomProducts", label: "商品库", icon: "cart" },
-    { id: "ecomAssets", label: "素材库", icon: "palette" },
-    { id: "ecomImage", label: "图片工坊", icon: "image" },
-    { id: "ecomAi", label: "AI 创作", icon: "sparkle" },
-    { id: "ecomPublish", label: "搬家铺货", icon: "send" },
-    { id: "ecomCompliance", label: "合规检测", icon: "scan" },
-    { id: "ecomShops", label: "店铺与授权", icon: "shopping" },
-    { id: "ecomTasks", label: "任务中心", icon: "clock" }
+    { id: "ecomHome", label: "工作台", icon: "home" },
+    { id: "ecomDraw", label: "AI 作图", icon: "wand" },
+    { id: "ecomDetail", label: "AI 详情图", icon: "poster" },
+    { id: "ecomMainEdit", label: "主图编辑", icon: "crop" },
+    { id: "ecomDetailEdit", label: "详情页编辑", icon: "layers" },
+    { id: "ecomLocalize", label: "跨境本地化", icon: "translate" },
+    { id: "ecomGallery", label: "作品库", icon: "grid" }
   ];
   const VIEWS = NAV.map(n => n.id);
 
   /* 视图标题与副标题（顶栏文案） */
   const TITLES = {
-    ecomHome: ["电商首页", "能力入口 · 店铺概览 · 待办任务"],
-    ecomCollect: ["采集下载", "链接采集 · 整店采集 · 采集结果"],
-    ecomProducts: ["商品库", "商品列表 · SKU · 版本记录"],
-    ecomAssets: ["素材库", "图片视频 · 来源标注 · 关联商品"],
-    ecomImage: ["图片工坊", "主图制作 · 详情页 · 抠图白底 · 尺寸"],
-    ecomAi: ["AI 创作", "商品图 · 场景图 · 详情页 · 模特图"],
-    ecomPublish: ["搬家铺货", "一键铺货 · 批量改价 · 上架节奏"],
-    ecomCompliance: ["合规检测", "违禁词 · 侵权 · 重复铺货 · 水印"],
-    ecomShops: ["店铺与授权", "店铺列表 · 店群分组 · 授权管理"],
-    ecomTasks: ["任务中心", "采集 / 处理 / 生成 / 铺货任务跟踪"]
+    ecomHome: ["工作台", "能力入口 · 数据概览 · 最近项目"],
+    ecomDraw: ["AI 作图", "万能修图间 · 12 工具 · 大白话出图"],
+    ecomDetail: ["AI 详情图", "上传商品图 · 一键生成整套详情"],
+    ecomMainEdit: ["主图编辑", "元素精修 · 列表 / 画布双模式"],
+    ecomDetailEdit: ["详情页编辑", "模块排版 · 长图导出"],
+    ecomLocalize: ["跨境本地化", "换语言 · 换模特 · 平台适配"],
+    ecomGallery: ["作品库", "搜索 · 筛选 · 再编辑 · 批量下载"]
   };
 
   /* 已注册的视图渲染器：view → fn(el, view) */
@@ -53,10 +47,10 @@
 
   function placeholder(view) {
     const m = TITLES[view] || ["电商工作台", "建设中"];
-    return '<div class="ecom-ph">'
-      + '<div class="ecom-ph-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + icon(view) + "</svg></div>"
-      + '<div class="ecom-ph-t">' + esc(m[0]) + "</div>"
-      + '<div class="ecom-ph-d">' + esc(m[1]) + "（建设中）</div>"
+    return '<div class="ecom-ph" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;color:var(--text2)">'
+      + '<div style="width:56px;height:56px;border-radius:16px;background:rgba(255,90,60,.12);color:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:14px"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + icon(view) + "</svg></div>"
+      + '<div style="font-weight:800;font-size:16px;margin-bottom:6px">' + esc(m[0]) + "</div>"
+      + '<div style="font-size:13px;color:var(--text3)">' + esc(m[1]) + "（建设中）</div>"
       + "</div>";
   }
 
@@ -70,28 +64,6 @@
   }
 
   function register(view, fn) { RENDERERS[view] = fn; }
-
-  /* ---------------- 共享状态（设计稿 9.3：跨视图选择集） ---------------- */
-  const STATE = {
-    products: [],
-    shops: [],
-    params: {}
-  };
-
-  function setSelection(kind, ids) {
-    STATE[kind] = Array.from(new Set((ids || []).map(String)));
-    return STATE[kind];
-  }
-
-  function toggleSelection(kind, id) {
-    id = String(id);
-    const list = STATE[kind] || (STATE[kind] = []);
-    const i = list.indexOf(id);
-    if (i >= 0) list.splice(i, 1); else list.push(id);
-    return list.slice();
-  }
-
-  function getSelection(kind) { return (STATE[kind] || []).slice(); }
 
   /* ---------------- 后端通道（统一 /dian/api/ecom/*，同源 JSON） ---------------- */
   function api(method, path, body) {
@@ -126,37 +98,79 @@
     if (XLX.app && XLX.app.go) XLX.app.go(view);
   }
 
-  /* ---------------- 常量 ---------------- */
-  const TERMINAL = { succeeded: 1, partial: 1, failed: 1, canceled: 1 };
-  const TASK_STATUS = {
-    scheduled: "待执行", queued: "排队中", running: "执行中", paused: "已暂停",
-    succeeded: "已完成", partial: "部分完成", failed: "失败", canceled: "已取消"
-  };
-  const TASK_KIND = {
-    collect: "采集", publish: "铺货", price_adjust: "改价", listing: "上下架",
-    assets: "图片处理", generate: "AI 生成", compliance: "合规检测"
-  };
-  const ITEM_STATUS = { pending: "待处理", done: "已完成", failed: "失败", canceled: "已取消" };
-  const PLATFORM = {
-    "1688": "1688", mock: "测试（mock）", taobao: "淘宝", pinduoduo: "拼多多",
-    douyin: "抖音小店", kuaishou: "快手小店", tiktok: "TikTok Shop"
-  };
-
-  function statusText(s) { return TASK_STATUS[s] || ITEM_STATUS[s] || s || ""; }
-  function kindText(k) { return TASK_KIND[k] || k || ""; }
-  function platformText(p) { return PLATFORM[p] || p || ""; }
-  function isTerminal(s) { return !!TERMINAL[s]; }
-
   function fmtTime(ts) {
     if (!ts) return "-";
     if (U.fmtTime) return U.fmtTime(ts);
     return new Date(ts * 1000).toLocaleString();
   }
 
+  /* ---------------- 原型交互（作用域 .ecom-ui，事件委托） ---------------- */
+  function bindInteractions() {
+    if (window._ecomBound) return;
+    window._ecomBound = true;
+    document.addEventListener("click", function (e) {
+      const root = e.target.closest ? e.target.closest(".ecom-ui") : null;
+      if (!root) return;
+
+      /* 工具卡：同组单选 */
+      const tool = e.target.closest(".tool-card");
+      if (tool && root.contains(tool)) {
+        const grid = tool.parentElement;
+        grid.querySelectorAll(".tool-card").forEach(x => x.classList.remove("on"));
+        tool.classList.add("on");
+        return;
+      }
+
+      /* chips：同组单选（与原型一致：已有选中则先清空） */
+      const chip = e.target.closest(".chip");
+      if (chip) {
+        const g = chip.closest(".chips") || chip.parentElement;
+        g.querySelectorAll(".chip").forEach(x => x.classList.remove("on"));
+        chip.classList.add("on");
+        return;
+      }
+
+      /* 色板：同组单选 */
+      const sw = e.target.closest(".sw");
+      if (sw) {
+        const g = sw.closest(".swatches") || sw.parentElement;
+        g.querySelectorAll(".sw").forEach(x => x.classList.remove("on"));
+        sw.classList.add("on");
+        return;
+      }
+
+      /* 开关 */
+      const swt = e.target.closest(".switch");
+      if (swt) { swt.classList.toggle("off"); return; }
+
+      /* 列表 / 画布模式切换 */
+      const modeBtn = e.target.closest("[data-mode-group] button");
+      if (modeBtn) {
+        const seg = modeBtn.closest("[data-mode-group]");
+        const wrap = seg.closest(".editor-wrap") || root;
+        seg.querySelectorAll("button").forEach(x => x.classList.remove("on"));
+        modeBtn.classList.add("on");
+        const mode = modeBtn.getAttribute("data-mode");
+        const vl = wrap.querySelector(".view-list");
+        const vc = wrap.querySelector(".view-canvas");
+        if (vl) vl.hidden = mode !== "list";
+        if (vc) vc.hidden = mode !== "canvas";
+        return;
+      }
+
+      /* 灵感卡：填入最近的输入框 */
+      const insp = e.target.closest(".insp-card");
+      if (insp) {
+        const ta = root.querySelector(".prompt-box textarea, textarea");
+        if (ta) { ta.value = insp.textContent.trim(); ta.focus(); }
+        return;
+      }
+    });
+  }
+  bindInteractions();
+
   D.ecom = {
     ZONE, NAV, VIEWS, DEFAULT_VIEW, TITLES, render, register, host, esc, icon,
-    api, toast, go, fmtTime,
-    STATE, setSelection, toggleSelection, getSelection,
-    TERMINAL, TASK_STATUS, ITEM_STATUS, statusText, kindText, platformText, isTerminal
+    api, toast, go, fmtTime
   };
 })();

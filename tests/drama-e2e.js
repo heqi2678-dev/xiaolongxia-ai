@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js",
-  "ecom/ecom-css.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-collect.js", "ecom/ecom-products.js", "ecom/ecom-publish.js", "ecom/ecom-image.js", "ecom/ecom-tasks.js", "ecom/ecom-shops.js", "ecom/ecom-compliance.js", "shell.js"
+  "ecom/ecom-css.js", "ecom/ecom-sprite.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-draw.js", "ecom/ecom-detail.js", "ecom/ecom-mainedit.js", "ecom/ecom-detailedit.js", "ecom/ecom-localize.js", "ecom/ecom-gallery.js", "shell.js"
 ];
 
 let pass = 0;
@@ -40,15 +40,12 @@ const HTML = `<!doctype html><html><head><title>t</title></head><body>
 <div id="toolkitView" class="view"><div id="dramaToolkit"></div></div>
 <div id="dramaView" class="view"><div id="dwManual"></div></div>
 <div id="ecomHomeView" class="view"></div>
-<div id="ecomCollectView" class="view"></div>
-<div id="ecomProductsView" class="view"></div>
-<div id="ecomAssetsView" class="view"></div>
-<div id="ecomImageView" class="view"></div>
-<div id="ecomAiView" class="view"></div>
-<div id="ecomPublishView" class="view"></div>
-<div id="ecomComplianceView" class="view"></div>
-<div id="ecomShopsView" class="view"></div>
-<div id="ecomTasksView" class="view"></div>
+<div id="ecomDrawView" class="view"></div>
+<div id="ecomDetailView" class="view"></div>
+<div id="ecomMainEditView" class="view"></div>
+<div id="ecomDetailEditView" class="view"></div>
+<div id="ecomLocalizeView" class="view"></div>
+<div id="ecomGalleryView" class="view"></div>
 <div id="modal"></div>
 </body></html>`;
 
@@ -223,7 +220,7 @@ function boot() {
     currentProvider: () => ({ name: "x" }), currentModel: () => "m"
   };
   /* LibTV 外壳 / 首页 Skill 墙依赖（最小桩） */
-  window.XLX.ICONS = { plus: "", sparkle: "", book: "", palette: "", arrow: "", search: "", film: "", chat: "", home: "", clapper: "", trophy: "", box: "", hammer: "", key: "", user: "", settings: "", brain: "", download: "", history: "", grid: "", cart: "", image: "", send: "", scan: "", shopping: "", clock: "" };
+  window.XLX.ICONS = { plus: "", sparkle: "", book: "", palette: "", arrow: "", search: "", film: "", chat: "", home: "", clapper: "", trophy: "", box: "", hammer: "", key: "", user: "", settings: "", brain: "", download: "", history: "", grid: "", cart: "", image: "", send: "", scan: "", shopping: "", clock: "", wand: "", poster: "", crop: "", layers: "", translate: "" };
   window.XLX.CATS = [{ id: "video", name: "视频", color: "#38d9e6" }, { id: "design", name: "设计", color: "#a78bfa" }];
   window.XLX.SKILLS = [
     { id: "sk-video", name: "品牌短片", desc: "一句话出片", icon: "film", cat: "video", prompt: "为{input}拍一条短片" },
@@ -868,173 +865,125 @@ async function flowBox3d(env) {
 }
 
 /* ============================ 链路七：电商工作台 · 分区骨架 ============================ */
+/* ============================ 链路七：电商工作台 · 创作工作台 7 页 ============================ */
 async function flowEcom(env) {
   const { doc, D } = env;
-  console.log("\n链路七：电商工作台（分区切换 → 导航 → 视图占位渲染）");
+  console.log("\n链路七：电商工作台（分区切换 → 7 页导航 → 原型渲染与交互）");
   const E = D.ecom;
   ok(!!E, "电商模块已注册 XLX.drama.ecom");
-  eq(E.NAV.length, 10, "电商导航 10 项");
-  eq(E.VIEWS.length, 10, "电商视图键 10 个");
-  eq(E.DEFAULT_VIEW, "ecomHome", "电商默认视图为首页");
+  eq(E.NAV.length, 7, "电商导航 7 项");
+  eq(E.VIEWS.length, 7, "电商视图键 7 个");
+  eq(E.DEFAULT_VIEW, "ecomHome", "电商默认视图为工作台");
   E.VIEWS.forEach(v => ok(!!doc.getElementById(v + "View"), "存在电商视图容器 #" + v + "View"));
 
   const shell = env.window.XLX.dramaShell;
   const nav = doc.getElementById("shellNav");
   shell.setZone("ecom", { noGo: true });
   await settle(2);
-  eq(nav.querySelectorAll(".shell-nav-item").length, 10, "电商分区渲染 10 个导航项");
+  eq(nav.querySelectorAll(".shell-nav-item").length, 7, "电商分区渲染 7 个导航项");
   eq(nav.querySelectorAll(".shell-zone").length, 2, "渲染短剧/电商两个分区切换按钮");
   ok(!!nav.querySelector('.shell-zone.active[data-zone="ecom"]'), "电商分区按钮高亮");
-  ok(!!nav.querySelector('.shell-nav-item[data-view="ecomHome"]'), "电商导航含首页项");
+  ok(!!nav.querySelector('.shell-nav-item[data-view="ecomDraw"]'), "电商导航含 AI 作图项");
   ok(!nav.querySelector("#shellCreate"), "电商分区隐藏「新建项目」按钮");
 
-  doc.getElementById("ecomHomeView").innerHTML = "";
+  /* 工作台 */
+  const home = doc.getElementById("ecomHomeView");
+  home.innerHTML = "";
   E.render("ecomHome");
-  await settle(3);
-  const el = doc.getElementById("ecomHomeView");
-  eq(el.querySelectorAll(".ecom-card").length, 5, "首页渲染五个能力入口");
-  has(el.innerHTML, "采集下载", "首页含采集下载入口");
-  has(el.innerHTML, "合规检测", "首页含合规检测入口");
-  eq(el.querySelectorAll(".ecom-tile").length, 4, "首页渲染四个概览数字");
-  has(el.querySelector(".ecom-tile-v").textContent, "4", "首页概览取服务端统计");
-
-  const cel = doc.getElementById("ecomCollectView");
-  cel.innerHTML = "";
-  E.render("ecomCollect");
-  await settle(3);
-  ok(!!cel.querySelector("#ecomCollectUrls"), "采集视图渲染链接输入框");
-  ok(!!cel.querySelector("#ecomCollectShopField"), "采集视图渲染整店地址区");
-  ok(!!cel.querySelector("#ecomCollectSubmit"), "采集视图渲染提交按钮");
-  cel.querySelector("#ecomCollectUrls").value = "https://detail.1688.com/offer/1.html";
-  cel.querySelector("#ecomCollectSubmit").click();
-  await settle(4);
-  has(cel.querySelector("#ecomCollectResults").innerHTML, "商品 p1", "采集结果表渲染商品");
-  has(cel.querySelector("#ecomCollectProgress").innerHTML, "已完成", "采集进度显示任务终态");
-
-  const pel = doc.getElementById("ecomProductsView");
-  pel.innerHTML = "";
-  E.render("ecomProducts");
-  await settle(3);
-  eq(pel.querySelectorAll("tr[data-id]").length, 1, "商品库渲染商品行");
-  ok(!!pel.querySelector("#ecomProductKeyword"), "商品库渲染筛选输入框");
-  ok(!!pel.querySelector("#ecomBatchApply"), "商品库渲染批量编辑栏");
-  has(pel.querySelector("#ecomProductTable").innerHTML, "连衣裙", "商品标题进入列表");
-
-  const ael = doc.getElementById("ecomAssetsView");
-  ael.innerHTML = "";
-  E.render("ecomAssets");
-  await settle(3);
-  ok(!!ael.querySelector("#ecomAssetGrid"), "素材库渲染素材网格");
-  eq(ael.querySelectorAll(".ecom-asset").length, 1, "素材库渲染素材卡");
-  has(ael.querySelector(".ecom-asset").innerHTML, "800×800", "素材尺寸进入卡片");
-  ael.querySelector("[data-select-all]").click();
-  ael.querySelector("[data-to-image]").click();
-  ok(E.getSelection("media").indexOf("m1") >= 0, "素材选择集带入图片工坊");
-
-  const iel = doc.getElementById("ecomImageView");
-  iel.innerHTML = "";
-  E.render("ecomImage");
-  await settle(3);
-  ok(!!iel.querySelector("#ecomImageMain"), "图片工坊渲染配方区");
-  eq(iel.querySelectorAll("[data-recipe]").length, 8, "主图制作渲染八个配方");
-  eq(iel.querySelectorAll("[data-spec]").length, 1, "分辨率对照表渲染规格");
-  has(iel.querySelector("#ecomImageMain").innerHTML, "已选素材", "来源选择集数量展示");
-  iel.querySelector("#ecomImageSubmit").click();
-  await settle(4);
-  has(iel.querySelector("#ecomImagePreview").innerHTML, "白底图", "处理结果渲染配方名");
-  ok(!!iel.querySelector("#ecomImagePreview a[download]"), "处理结果提供下载");
-  iel.querySelector('[data-tab="detail"]').click();
-  await settle(1);
-  has(iel.querySelector("#ecomImageMain").innerHTML, "详情长图", "切到详情页渲染详情配方");
-
-  const pub = doc.getElementById("ecomPublishView");
-  pub.innerHTML = "";
-  E.render("ecomPublish");
-  await settle(3);
-  ok(!!pub.querySelector("#ecomPublishBody"), "铺货视图渲染向导容器");
-  eq(pub.querySelectorAll("[data-step]").length, 5, "铺货向导五个步骤");
-  ok(!!pub.querySelector("[data-pid]"), "铺货向导渲染商品选择");
-  pub.querySelector("[data-pid]").click();
-  await settle(1);
-  pub.querySelector("[data-next]").click();
   await settle(2);
-  ok(!!pub.querySelector("[data-sid]"), "铺货向导渲染店铺选择");
-  pub.querySelector("[data-sid]").click();
-  await settle(1);
-  pub.querySelector("[data-next]").click();
-  await settle(1);
-  ok(!!pub.querySelector("#ecomPublishPlatform"), "铺货向导渲染策略表单");
-  pub.querySelector("[data-next]").click();
-  await settle(1);
-  ok(!!pub.querySelector("#ecomPrecheckRun"), "预检步骤渲染预检按钮");
-  pub.querySelector("#ecomPrecheckRun").click();
-  await settle(3);
-  has(pub.querySelector("#ecomStepBody").innerHTML, "标题符合C端表述", "预检结果渲染");
-  pub.querySelector("[data-next]").click();
+  eq(home.querySelectorAll(".feature").length, 4, "工作台 4 大入口");
+  eq(home.querySelectorAll(".stat").length, 4, "工作台 4 数据块");
+  has(home.textContent, "跨境本地化", "工作台含跨境本地化入口");
+  ok(!!home.querySelector(".proj-grid"), "工作台最近项目区");
+
+  /* AI 作图 */
+  const draw = doc.getElementById("ecomDrawView");
+  draw.innerHTML = "";
+  E.render("ecomDraw");
   await settle(2);
-  ok(!!pub.querySelector("#ecomPublishSubmit"), "提交步骤渲染确认按钮");
-  pub.querySelector("#ecomPublishSubmit").click();
-  await settle(3);
-  has(pub.querySelector("#ecomStepBody").innerHTML, "tp1", "提交流水显示任务号");
-  pub.querySelector('[data-tab="listing"]').click();
+  eq(draw.querySelectorAll(".tool-card").length, 12, "AI 作图 12 工具卡");
+  eq(draw.querySelectorAll(".tool-card.on").length, 1, "默认选中 1 个工具");
+  eq(draw.querySelectorAll(".insp-card").length, 6, "AI 作图 6 条灵感");
+  ok(!!draw.querySelector(".prompt-box textarea"), "大白话输入框");
+  const drawCards = draw.querySelectorAll(".tool-card");
+  drawCards[3].click();
   await settle(1);
-  ok(!!pub.querySelector("#ecomListingSubmit"), "批量上下架渲染提交按钮");
-  pub.querySelector('[data-tab="records"]').click();
+  eq(draw.querySelectorAll(".tool-card.on").length, 1, "工具卡同组单选");
+  ok(drawCards[3].classList.contains("on"), "点击的工具卡被选中");
+  const drawTa = draw.querySelector("textarea");
+  draw.querySelector(".insp-card").click();
   await settle(1);
-  has(pub.querySelector("#ecomPublishBody").innerHTML, "铺货记录", "铺货记录页签渲染");
-  pub.querySelector('[data-tab="price"]').click();
+  ok(drawTa.value.length > 0, "灵感卡回填 prompt");
+
+  /* AI 详情图 */
+  const det = doc.getElementById("ecomDetailView");
+  det.innerHTML = "";
+  E.render("ecomDetail");
   await settle(2);
-  ok(!!pub.querySelector("#ecomPriceAdjustSubmit"), "批量改价渲染提交按钮");
-  has(pub.querySelector("#ecomPublishBody").innerHTML, "价格公式", "批量改价渲染价格公式");
-  pub.querySelector("#ecomPriceAdjustSubmit").click();
-  await settle(3);
-  has(pub.querySelector("#ecomPublishBody").innerHTML, "tr1", "改价任务号回显");
+  ok(!!det.querySelector(".dropzone"), "详情图上传槽");
+  ok(!!det.querySelector("textarea"), "详情图要求框");
+  ok(det.querySelectorAll(".chip").length >= 4, "详情图风格 chips");
+  ok(!!det.querySelector(".gen-side"), "详情图右侧说明");
 
-  const tel = doc.getElementById("ecomTasksView");
-  tel.innerHTML = "";
-  E.render("ecomTasks");
-  await settle(3);
-  has(tel.querySelector("#ecomTasksMain").innerHTML, "采集任务", "任务中心渲染任务行");
-  eq(tel.querySelectorAll("[data-detail]").length, 1, "任务中心渲染详情入口");
-  tel.querySelector('[data-detail="t1"]').click();
-  await settle(3);
-  has(tel.querySelector("#ecomTasksMain").innerHTML, "平台限流", "任务明细显示错误");
-  tel.querySelector('[data-retry="t1"]').click();
-  await settle(4);
-  has(lastToast(env.state) && lastToast(env.state).t, "已提交重试", "重试操作有反馈");
-
-  const sel = doc.getElementById("ecomShopsView");
-  sel.innerHTML = "";
-  E.render("ecomShops");
-  await settle(3);
-  has(sel.querySelector("#ecomShopsMain").innerHTML, "店A", "店铺列表渲染店铺");
-  has(sel.querySelector("#ecomShopsMain").innerHTML, "一组", "店铺分组渲染分组");
-  sel.querySelector('[data-auth="s1"]').click();
-  await settle(1);
-  ok(!!sel.querySelector("#ecomShopToken"), "授权面板出现令牌输入");
-
-  const cml = doc.getElementById("ecomComplianceView");
-  cml.innerHTML = "";
-  E.setSelection("products", ["p1"]);
-  E.render("ecomCompliance");
+  /* 主图编辑 */
+  const me = doc.getElementById("ecomMainEditView");
+  me.innerHTML = "";
+  E.render("ecomMainEdit");
   await settle(2);
-  ok(!!cml.querySelector("#ecomComplianceRun"), "合规检测渲染运行按钮");
-  cml.querySelector("#ecomComplianceRun").click();
-  await settle(3);
-  has(cml.querySelector("#ecomComplianceMain").innerHTML, "拦截", "合规检测显示拦截结论");
-  has(cml.querySelector("#ecomComplianceMain").innerHTML, "违禁词：最", "合规检测显示命中明细");
-
-  const aiEl = doc.getElementById("ecomAiView");
-  aiEl.innerHTML = "";
-  E.render("ecomAi");
+  const mseg = me.querySelector("[data-mode-group]");
+  ok(!!mseg, "主图编辑模式段");
+  eq(mseg.querySelectorAll("button").length, 2, "列表/画布两个按钮");
+  eq(me.querySelector(".view-list").hidden, false, "默认列表可见");
+  eq(me.querySelector(".view-canvas").hidden, true, "默认画布隐藏");
+  ok(me.querySelectorAll(".module-row").length >= 4, "主图元素行");
+  mseg.querySelector('[data-mode="canvas"]').click();
   await settle(1);
-  has(aiEl.innerHTML, "建设中", "AI 创作视图显示占位空态");
+  eq(me.querySelector(".view-list").hidden, true, "切画布后列表隐藏");
+  eq(me.querySelector(".view-canvas").hidden, false, "切画布后画布可见");
+  ok(!!me.querySelector(".view-canvas .sq-el"), "画布元素已渲染");
+
+  /* 详情页编辑 */
+  const de = doc.getElementById("ecomDetailEditView");
+  de.innerHTML = "";
+  E.render("ecomDetailEdit");
+  await settle(2);
+  ok(!!de.querySelector("[data-mode-group]"), "详情页编辑模式段");
+  ok(de.querySelectorAll(".module-row").length >= 4, "详情页模块行");
+  ok(!!de.querySelector(".view-canvas .ab-block"), "详情页画布模块");
+  de.querySelector('[data-mode="canvas"]').click();
+  await settle(1);
+  eq(de.querySelector(".view-canvas").hidden, false, "详情页切到画布");
+
+  /* 跨境本地化 */
+  const loc = doc.getElementById("ecomLocalizeView");
+  loc.innerHTML = "";
+  E.render("ecomLocalize");
+  await settle(2);
+  ok(loc.querySelectorAll(".chips").length >= 2, "本地化市场/语言 chips");
+  eq(loc.querySelectorAll(".avchip").length, 4, "4 个模特族裔");
+  const locSw = loc.querySelector(".switch");
+  ok(!!locSw, "本地化配音开关");
+  ok(!!loc.querySelector(".phone"), "本地化手机预览");
+  const offBefore = locSw.classList.contains("off");
+  locSw.click();
+  await settle(1);
+  eq(locSw.classList.contains("off"), !offBefore, "配音开关可切换");
+
+  /* 作品库 */
+  const gal = doc.getElementById("ecomGalleryView");
+  gal.innerHTML = "";
+  E.render("ecomGallery");
+  await settle(2);
+  eq(gal.querySelectorAll(".g-item").length, 8, "作品库 8 个作品");
+  ok(gal.querySelectorAll(".chips .chip").length >= 4, "作品库类型筛选");
+  ok(!!gal.querySelector(".search"), "作品库搜索框");
+  ok(!!gal.querySelector(".pager"), "作品库分页");
 
   shell.setZone("drama", { noGo: true });
   await settle(2);
   eq(nav.querySelectorAll(".shell-nav-item").length, shell.NAV.length - 2, "切回短剧分区导航恢复");
   ok(!!nav.querySelector("#shellCreate"), "短剧分区恢复「新建项目」按钮");
-  eq(shell.zoneOfView("ecomProducts"), "ecom", "电商视图归属电商分区");
+  eq(shell.zoneOfView("ecomGallery"), "ecom", "电商视图归属电商分区");
   eq(shell.zoneOfView("home"), "drama", "短剧视图归属短剧分区");
 }
 

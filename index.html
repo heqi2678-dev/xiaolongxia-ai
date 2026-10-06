@@ -746,17 +746,14 @@ select.inp{padding-right:34px}
     <!-- 画布工作台 -->
     <div id="dramaView" class="view"><div id="dwManual"></div></div>
 
-    <!-- ===== 电商工作台（第二分区） ===== -->
+    <!-- ===== 电商工作台（第二分区 · 创作工作台 7 页） ===== -->
     <div id="ecomHomeView" class="view"></div>
-    <div id="ecomCollectView" class="view"></div>
-    <div id="ecomProductsView" class="view"></div>
-    <div id="ecomAssetsView" class="view"></div>
-    <div id="ecomImageView" class="view"></div>
-    <div id="ecomAiView" class="view"></div>
-    <div id="ecomPublishView" class="view"></div>
-    <div id="ecomComplianceView" class="view"></div>
-    <div id="ecomShopsView" class="view"></div>
-    <div id="ecomTasksView" class="view"></div>
+    <div id="ecomDrawView" class="view"></div>
+    <div id="ecomDetailView" class="view"></div>
+    <div id="ecomMainEditView" class="view"></div>
+    <div id="ecomDetailEditView" class="view"></div>
+    <div id="ecomLocalizeView" class="view"></div>
+    <div id="ecomGalleryView" class="view"></div>
 
     <!-- 记忆习惯 -->
     <div id="memoryView" class="view">
@@ -4264,15 +4261,15 @@ XLX.studio = (function () {
 <script src="src/drama/box3dview.js"></script>
 <script src="src/drama/toolkit.js"></script>
 <script src="src/drama/ecom/ecom-css.js"></script>
+<script src="src/drama/ecom/ecom-sprite.js"></script>
 <script src="src/drama/ecom/ecom.js"></script>
 <script src="src/drama/ecom/ecom-home.js"></script>
-<script src="src/drama/ecom/ecom-collect.js"></script>
-<script src="src/drama/ecom/ecom-products.js"></script>
-<script src="src/drama/ecom/ecom-publish.js"></script>
-<script src="src/drama/ecom/ecom-image.js"></script>
-<script src="src/drama/ecom/ecom-tasks.js"></script>
-<script src="src/drama/ecom/ecom-shops.js"></script>
-<script src="src/drama/ecom/ecom-compliance.js"></script>
+<script src="src/drama/ecom/ecom-draw.js"></script>
+<script src="src/drama/ecom/ecom-detail.js"></script>
+<script src="src/drama/ecom/ecom-mainedit.js"></script>
+<script src="src/drama/ecom/ecom-detailedit.js"></script>
+<script src="src/drama/ecom/ecom-localize.js"></script>
+<script src="src/drama/ecom/ecom-gallery.js"></script>
 <script src="src/drama/shell.js"></script>
 <script>
 /* ===== 记忆习惯视图 & 客户端下载视图 ===== */
@@ -4491,7 +4488,7 @@ XLX.app = (function () {
     const zone = SH.zone ? SH.zone() : "drama";
     const list = (SH.navForZone ? SH.navForZone(zone) : SH.NAV) || [];
     const pick = (String(currentView).indexOf("ecom") === 0)
-      ? ["ecomHome", "ecomCollect", "ecomProducts", "ecomPublish", "ecomTasks"]
+      ? ["ecomHome", "ecomDraw", "ecomDetail", "ecomMainEdit", "ecomGallery"]
       : ["agent", "home", "projects", "box3d", "toolkit"];
     mn.innerHTML = pick
       .map(id => list.find(x => x.id === id))

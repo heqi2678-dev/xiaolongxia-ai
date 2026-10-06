@@ -35,20 +35,6 @@ PUBLISH_ROOT = Path(os.environ.get("PUBLISH_ROOT", "/home/admin/work/zuopin"))
 PUBLISH_BASE = os.environ.get("PUBLISH_BASE", "http://47.108.14.206/zuopin")
 CLERK_URL = os.environ.get("CLERK_URL", "http://127.0.0.1:9130/api/chat")
 GATE_DIR = Path(__file__).resolve().parent
-try:
-    from ecom import store as ecom_store
-    from ecom import queue as ecom_queue
-    from ecom import api as ecom_api
-    from ecom import jobs as ecom_jobs
-    from ecom import media as ecom_media
-    from ecom import tokens as ecom_tokens
-except Exception:  # 数据层缺失时网关仍可启动（电商接口再降级报错）
-    ecom_store = None
-    ecom_queue = None
-    ecom_api = None
-    ecom_jobs = None
-    ecom_media = None
-    ecom_tokens = None
 ALLOWED_BRAINS = set(["deepseek", "qwen", "doubao", "custom"])
 CLERK_BRAINS = [
     {
@@ -240,8 +226,6 @@ def ensure_data():
         if not p.exists():
             p.write_text("{}\n", encoding="utf-8")
     ensure_invite()
-    if ecom_store is not None:
-        ecom_store.ensure()
 
 
 def ensure_invite():
@@ -1448,73 +1432,8 @@ class Handler(BaseHTTPRequestHandler):
             path = "/" + path
         return path
 
-    def _ecom_token_owner(self):
-        """没有会话 Cookie 时，用插件口令（X-Ecom-Token）识别 owner。"""
-        if ecom_tokens is None:
-            return ""
-        token = self.headers.get("X-Ecom-Token") or ""
-        if not token:
-            return ""
-        try:
-            return ecom_tokens.owner_of(token) or ""
-        except Exception:  # noqa: BLE001 - 鉴权异常按未登录处理
-            return ""
-
-    def _handle_ecom(self, method, path):
-        me = self._current()
-        owner = me["name"] if me else self._ecom_token_owner()
-        if not owner:
-            self._json(401, {"ok": False, "error": "未登录", "code": "unauthorized"})
-            return
-        if ecom_api is None:
-            self._json(503, {"ok": False, "error": "电商模块未安装", "code": "unavailable"})
-            return
-        parsed = urlparse(self.path)
-        query = {k: v[-1] for k, v in parse_qs(parsed.query).items()}
-        body = {}
-        raw = self._read_body()
-        if raw:
-            try:
-                body = json.loads(raw.decode("utf-8"))
-            except ValueError:
-                body = {}
-        sub = path[len("/api/ecom"):] or "/"
-        status, payload = ecom_api.handle(method, sub, owner, query=query, body=body)
-        self._json(status, payload)
-
-    def _handle_ecom_media(self, media_id):
-        """公开的图片访问路由（目标平台服务器来取，不需要登录）。"""
-        if ecom_media is None:
-            self._json(503, {"ok": False, "error": "电商模块未安装", "code": "unavailable"})
-            return
-        media_id = (media_id or "").split("?", 1)[0]
-        got = None
-        try:
-            got = ecom_media.serve(media_id)
-        except Exception:  # noqa: BLE001 - 读取失败按不存在处理
-            got = None
-        if not got:
-            self._send(404, b"", "text/plain; charset=utf-8", raw=True)
-            return
-        ctype, body = got
-        self._send(200, body, ctype, raw=True)
-
     def do_HEAD(self):
         self.do_GET()
-
-    def do_PATCH(self):
-        path = self._route()
-        if path == "/api/ecom" or path.startswith("/api/ecom/"):
-            self._handle_ecom("PATCH", path)
-            return
-        self._json(404, {"ok": False, "error": "没有这个接口"})
-
-    def do_DELETE(self):
-        path = self._route()
-        if path == "/api/ecom" or path.startswith("/api/ecom/"):
-            self._handle_ecom("DELETE", path)
-            return
-        self._json(404, {"ok": False, "error": "没有这个接口"})
 
     def do_GET(self):
         path = self._route()
@@ -1556,12 +1475,6 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path.startswith("/api/drama/blender/"):
             self._handle_blender_get(path[len("/api/drama/blender/"):])
-            return
-        if path.startswith("/api/ecom/media/"):
-            self._handle_ecom_media(path[len("/api/ecom/media/"):])
-            return
-        if path == "/api/ecom" or path.startswith("/api/ecom/"):
-            self._handle_ecom("GET", path)
             return
         me = self._current()
         if not me:
@@ -1652,9 +1565,6 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path.startswith("/api/drama/blender/"):
             self._handle_blender_post(path[len("/api/drama/blender/"):])
-            return
-        if path == "/api/ecom" or path.startswith("/api/ecom/"):
-            self._handle_ecom("POST", path)
             return
         self._json(404, {"ok": False, "error": "没有这个接口"})
 
@@ -2500,10 +2410,6 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     ensure_data()
-    if ecom_queue is not None:
-        if ecom_jobs is not None:
-            ecom_jobs.install()
-        ecom_queue.start(workers=int(os.environ.get("ECOM_WORKERS", "2")))
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
     print("xiaolongxia-gate listening on %s:%s" % (HOST, PORT), flush=True)
     httpd.serve_forever()
