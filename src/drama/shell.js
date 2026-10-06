@@ -208,6 +208,8 @@
   function renderNav(container) {
     const el = container || document.getElementById("shellNav");
     if (!el) return null;
+    const sb = document.getElementById("sidebar");
+    if (sb) sb.setAttribute("data-zone", zone());
     el.innerHTML = sidebarHtml();
     const create = el.querySelector("#shellCreate");
     if (create) create.addEventListener("click", () => {
