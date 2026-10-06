@@ -1,4 +1,4 @@
-/* 小龙虾AI · 电商工作台 · 分区注册、导航与视图骨架 */
+/* 铜龙AI · 电商工作台 · 分区注册、导航与视图骨架 */
 /* 第二分区「电商工作台」：7 页创作工作台。NAV/VIEWS/TITLES 在此注册，各视图渲染器随后按 register 挂入。 */
 (function () {
   const D = XLX.drama || (XLX.drama = {});
