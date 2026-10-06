@@ -1417,7 +1417,14 @@ class Handler(BaseHTTPRequestHandler):
             html = self._inject_index(html, me)
             html = html.replace(
                 'navigator.serviceWorker.register("./sw.js").catch(() => {});',
-                'if (!window.__xlxSkipSW) navigator.serviceWorker.register("./sw.js").catch(() => {});',
+                'if (!window.__xlxSkipSW) { '
+                'navigator.serviceWorker.register("./sw.js").then(function(r){ if (r && r.update) r.update(); }).catch(function(){}); '
+                '} '
+                'if (navigator.serviceWorker) { '
+                'var __xlxHadSW = !!navigator.serviceWorker.controller, __xlxRefreshing = false; '
+                'navigator.serviceWorker.addEventListener("controllerchange", function(){ '
+                'if (__xlxRefreshing) return; __xlxRefreshing = true; if (__xlxHadSW) location.reload(); }); '
+                '}',
             )
             self._send(200, html, "text/html; charset=utf-8", extra)
             return
