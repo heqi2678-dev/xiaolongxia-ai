@@ -381,7 +381,7 @@
     const m = document.getElementById("modal");
     if (!m) return;
     m.innerHTML = '<div class="modal-box">' +
-      '<div class="modal-head"><div class="mic" style="background:#22d3ee22;border:1px solid #22d3ee44">' + svg("sparkle", 22) + "</div>" +
+      '<div class="modal-head"><div class="mic" style="background:#1c64f422;border:1px solid #1c64f444">' + svg("sparkle", 22) + "</div>" +
         '<div><div class="mt">创建 Skill</div><div class="ms">上传 md 文档或粘贴内容，沉淀成可复用 Skill</div></div></div>' +
       '<div class="modal-body">' +
         '<label class="label">Skill 名称</label>' +
