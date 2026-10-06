@@ -12,6 +12,17 @@
     { id: "more", name: "更多功能", node: "", icon: "grid" }
   ];
 
+  /* 模型卡品牌徽标：每个服务商一个专属字标 + 品牌色，替代原来千篇一律的 image/video 线性图标 */
+  const BRAND = {
+    seedream: { mark: "豆", color: "#3370ff" },
+    seedance: { mark: "火", color: "#3370ff" },
+    wanx: { mark: "通", color: "#ff6a3d" },
+    kling: { mark: "可", color: "#ff6a3d" },
+    pollinations: { mark: "P", color: "#7c8aa5" },
+    "custom-image": { mark: "自", color: "#10b981" },
+    "custom-video": { mark: "自", color: "#10b981" }
+  };
+
   /* 模型卡：从短剧服务目录（config.js 的 IMAGE/VIDEO_PROVIDERS）读取，点哪张卡就把该模型写进新工程并切换服务 */
   function modelTools() {
     const out = [];
@@ -22,6 +33,7 @@
         if (!def || !def.id || def.id.indexOf("custom") === 0) return;
         const models = (def.models && def.models.length) ? def.models : (def.model ? [def.model] : []);
         if (!models.length && def.free) { models.push(""); }
+        const brand = BRAND[def.id] || {};
         models.forEach(m => out.push({
           id: def.id + "::" + m,
           name: m || def.name,
@@ -30,7 +42,9 @@
           provider: def.id,
           model: m || "",
           node: kind,
-          icon: kind === "image" ? "image" : "video"
+          icon: kind === "image" ? "image" : "video",
+          mark: brand.mark || (def.name || def.id || "?").slice(0, 1),
+          color: def.color || brand.color || ""
         }));
       });
     });
@@ -64,6 +78,7 @@
 .hx-tool:hover{border-color:var(--accent);transform:translateY(-3px)}
 .hx-tool .hx-tic{width:50px;height:50px;border-radius:14px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent2);display:flex;align-items:center;justify-content:center;flex:none}
 .hx-tool .hx-tic svg{width:25px;height:25px}
+.hx-tool .hx-tic-brand{color:#fff;font-size:21px;font-weight:800;line-height:1;box-shadow:0 4px 10px rgba(17,24,39,.14)}
 .hx-tool .hx-tinfo{display:flex;flex-direction:column;gap:3px;min-width:0}
 .hx-tool .hx-tn{font-size:14.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hx-tool .hx-ts{font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -136,7 +151,9 @@
       '<div class="hx-tools">' + tools().map(t =>
         '<div class="hx-tool" data-hx-tool="' + D.ui.esc(t.id) + '" data-hx-node="' + D.ui.esc(t.node) + '" data-hx-name="' + D.ui.esc(t.name) + '"'
         + (t.kind ? ' data-hx-kind="' + D.ui.esc(t.kind) + '" data-hx-provider="' + D.ui.esc(t.provider) + '" data-hx-model="' + D.ui.esc(t.model) + '"' : "") + '>' +
-          '<span class="hx-tic">' + svg(t.icon, 20) + "</span>" +
+          (t.mark
+            ? '<span class="hx-tic hx-tic-brand" style="background:' + D.ui.esc(t.color || "var(--accent)") + '">' + D.ui.esc(t.mark) + "</span>"
+            : '<span class="hx-tic">' + svg(t.icon, 20) + "</span>") +
           '<span class="hx-tinfo"><span class="hx-tn">' + D.ui.esc(t.name) + "</span>" +
             (t.sub ? '<span class="hx-ts">' + D.ui.esc(t.sub) + "</span>" : "") + "</span>" +
         "</div>"
