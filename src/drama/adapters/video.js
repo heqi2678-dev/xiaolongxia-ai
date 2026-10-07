@@ -1,4 +1,4 @@
-/* 铜龙电商 · AI 短剧工作台 · 视频适配器（仿真人） */
+/* 铜龙电商ai助手 · AI 短剧工作台 · 视频适配器（仿真人） */
 (function () {
   const D = XLX.drama;
   const U = D.adapterUtil;

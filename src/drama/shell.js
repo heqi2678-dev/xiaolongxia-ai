@@ -1,18 +1,18 @@
-/* 铜龙电商 · LibTV 风格外壳 */
+/* 铜龙电商ai助手 · LibTV 风格外壳 */
 /* 左侧统一导航 + 顶部状态条 + 账号菜单；视图切换统一走 XLX.app.go */
 (function () {
   /* 主导航（LibTV 左侧）。newProject 为主按钮，sep 为分组分隔线，其余为视图入口 */
   const NAV = [
     { id: "newProject", label: "新建项目", icon: "plus", primary: true },
-    { id: "agent", label: "铜龙电商 Agent", icon: "chat" },
+    { id: "agent", label: "铜龙电商ai助手 Agent", icon: "chat" },
     { id: "home", label: "首页", icon: "home" },
     { id: "projects", label: "项目", icon: "film" },
     { id: "assets", label: "资产", icon: "palette" },
     { id: "tvshow", label: "TV Show", icon: "clapper", badge: "全网爆款" },
     { id: "ranking", label: "创作者挑战赛", icon: "trophy", badge: "王者大赛" },
     { sep: true },
-    { id: "box3d", label: "铜龙电商 3D-BOX", icon: "box" },
-    { id: "plugin", label: "Blender 插件", sub: "铜龙电商 Plugin", icon: "hammer" },
+    { id: "box3d", label: "铜龙电商ai助手 3D-BOX", icon: "box" },
+    { id: "plugin", label: "Blender 插件", sub: "铜龙电商ai助手 Plugin", icon: "hammer" },
     { id: "changelog", label: "版本更新记录", icon: "history" },
     { id: "toolkit", label: "工具包", icon: "grid" }
   ];
@@ -95,7 +95,7 @@
     return ''
       + '<div class="shell-brand">'
       +   '<div class="shell-logo">' + icon("sparkle") + '</div>'
-      +   '<div class="shell-brand-t"><b>铜龙电商</b></div>'
+      +   '<div class="shell-brand-t"><b>铜龙电商ai助手</b></div>'
       + '</div>'
       + zoneSwitchHtml()
       + (z === "ecom" ? "" : '<button class="shell-create" id="shellCreate">' + icon("plus") + '<span>新建项目</span></button>')

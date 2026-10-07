@@ -1,4 +1,4 @@
-/* 铜龙电商 · AI 短剧工作台 · 共用界面部件 */
+/* 铜龙电商ai助手 · AI 短剧工作台 · 共用界面部件 */
 (function () {
   const D = XLX.drama;
   const U = XLX.util;

@@ -89,10 +89,10 @@ test("外壳：侧栏文案对齐 LibTV（品牌前缀 + 插件两行）", () =>
   const { doc, shell } = bootShell();
   shell.mount();
   const txt = id => doc.querySelector('.shell-nav-item[data-view="' + id + '"] .shell-nav-txt');
-  assert.equal(txt("agent").textContent, "铜龙电商 Agent");
-  assert.equal(txt("box3d").textContent, "铜龙电商 3D-BOX");
+  assert.equal(txt("agent").textContent, "铜龙电商ai助手 Agent");
+  assert.equal(txt("box3d").textContent, "铜龙电商ai助手 3D-BOX");
   const plugin = doc.querySelector('.shell-nav-item[data-view="plugin"]');
-  assert.equal(plugin.querySelector(".shell-nav-sub").textContent, "铜龙电商 Plugin", "插件占两行");
+  assert.equal(plugin.querySelector(".shell-nav-sub").textContent, "铜龙电商ai助手 Plugin", "插件占两行");
   assert.equal(doc.querySelectorAll(".shell-nav-sub").length, 1, "只有插件是两行");
   assert.equal(txt("toolkit").textContent, "工具包", "工具包入口存在");
 });

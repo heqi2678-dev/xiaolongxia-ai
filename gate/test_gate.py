@@ -380,7 +380,7 @@ class GateTests(unittest.TestCase):
         self.assertEqual(code, 200)
         data = json.loads(body.decode("utf-8"))
         self.assertTrue(data["ok"])
-        self.assertIn("铜龙电商 · 店说明书", data["shop"])
+        self.assertIn("铜龙电商ai助手 · 店说明书", data["shop"])
         self.assertIn("liyu 的房间说明书", data["mine"])
         other = self.gate.ROOM_ROOT / "haike" / "shuoming" / "guide.md"
         other.parent.mkdir(parents=True, exist_ok=True)
@@ -532,7 +532,7 @@ class GateTests(unittest.TestCase):
             "id": "pub-test-1",
             "projectId": "x-proj-crud",
             "title": "外卖小哥逆袭",
-            "meta": {"generator": "铜龙电商 AI 短剧工作台", "aigc": True},
+            "meta": {"generator": "铜龙电商ai助手 AI 短剧工作台", "aigc": True},
             "consentIds": ["consent-test-1"],
             "at": 1700000000,
         }

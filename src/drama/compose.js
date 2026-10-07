@@ -1,4 +1,4 @@
-/* 铜龙电商 · AI 短剧工作台 · 合成器与素材包导出 */
+/* 铜龙电商ai助手 · AI 短剧工作台 · 合成器与素材包导出 */
 /* 浏览器合成：Canvas + WebAudio + MediaRecorder，输出 WebM（本地资源可用）。 */
 /* 服务端合成：全部素材为公网 http(s) 时交给 ffmpeg，输出 mp4。 */
 (function () {

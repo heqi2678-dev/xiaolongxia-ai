@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
-# 铜龙电商 × Blender 插件
+# 铜龙电商ai助手 × Blender 插件
 # 在 Blender 内完成白模视频，一键导出到铜龙创作成片。
 # 方向一：从铜龙拉取分镜，作为白模搭建参考。
 # 方向二：把当前场景导出为 GLB 白模 + 视口预览，回传铜龙 3D-BOX。
 bl_info = {
-    "name": "铜龙电商 Blender 插件",
-    "author": "铜龙电商",
+    "name": "铜龙电商ai助手 Blender 插件",
+    "author": "铜龙电商ai助手",
     "version": (1, 0, 0),
     "blender": (4, 5, 0),
     "location": "3D 视图 > 侧栏 > 铜龙",

@@ -1,4 +1,4 @@
-/* 铜龙电商 · 设置视图（从 index.html 拆出的第 3 块） */
+/* 铜龙电商ai助手 · 设置视图（从 index.html 拆出的第 3 块） */
 /* ===== 设置视图：多平台 Key 管理与参数 ===== */
 
 XLX.settings = (function () {
@@ -14,7 +14,7 @@ XLX.settings = (function () {
     box.innerHTML = ''
       + '<div class="set-card">'
       + '<h3><span class="hic">' + svg("grid", 15) + '</span>功能配置总览</h3>'
-      + '<p class="sd">铜龙电商 的每个功能对应一个配置板块，按下方对照去填即可：</p>'
+      + '<p class="sd">铜龙电商ai助手 的每个功能对应一个配置板块，按下方对照去填即可：</p>'
       + '<div class="feat-map">'
       + '<div class="fm"><span class="fm-ic" style="background:rgba(74,168,255,.15);color:var(--blue)">' + svg("chat", 15) + '</span><div><b>智能对话 / AI帮写 / 软件工坊 / 技能市场</b><span>用「语言模型」板块的 Key（下方第一个）</span></div></div>'
       + '<div class="fm"><span class="fm-ic" style="background:rgba(245,196,81,.15);color:var(--yellow)">' + svg("search", 15) + '</span><div><b>联网搜索</b><span>用「联网搜索」板块（默认免费内置，可自行增强）</span></div></div>'

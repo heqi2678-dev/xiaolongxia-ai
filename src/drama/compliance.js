@@ -1,4 +1,4 @@
-/* 铜龙电商 · AI 短剧工作台 · 合规层 */
+/* 铜龙电商ai助手 · AI 短剧工作台 · 合规层 */
 /* 显式角标、隐式元数据、肖像授权、真人素材拦截、生成留档。导出与发布必经此处。 */
 (function () {
   const D = XLX.drama;
@@ -106,7 +106,7 @@
   /* ============ 隐式标注：产物元数据 ============ */
   function metadata(project, extra) {
     return {
-      generator: "铜龙电商 AI 短剧工作台",
+      generator: "铜龙电商ai助手 AI 短剧工作台",
       aigc: true,
       aigcMarked: true,
       title: project.title,

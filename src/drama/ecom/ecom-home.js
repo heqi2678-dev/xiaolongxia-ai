@@ -48,7 +48,7 @@
   const HTML = `<div class="inner">
           <div class="page-head hero">
             <div class="hero-copy">
-              <div class="hero-eyebrow">铜龙电商 · 领先的电商 AI 生成技术</div>
+              <div class="hero-eyebrow">铜龙电商ai助手 · 领先的电商 AI 生成技术</div>
               <h1>下午好，何齐</h1>
               <p>上传商品图，轻松生成高质量商品图、详情页与爆款视频，提升转化率与效率。</p>
               <div class="hero-cta">

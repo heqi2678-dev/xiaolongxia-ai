@@ -1,4 +1,4 @@
-/* 铜龙电商 · AI 短剧工作台 · 工程数据模型与存储 */
+/* 铜龙电商ai助手 · AI 短剧工作台 · 工程数据模型与存储 */
 /* 草稿存 localStorage；图片/音频/视频等大块走 IndexedDB，工程里只留 asset:<id> 引用。 */
 (function () {
   const D = XLX.drama;

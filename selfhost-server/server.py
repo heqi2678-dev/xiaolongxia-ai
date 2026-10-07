@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""铜龙电商 自托管视频生成服务（同步式）。
+"""铜龙电商ai助手 自托管视频生成服务（同步式）。
 
 协议与前端 videogen.js custom 同步式对齐：
   POST {base}/api/video
@@ -41,7 +41,7 @@ class VideoRequest(BaseModel):
     duration: int = 5
 
 
-app = FastAPI(title="铜龙电商 SelfHost Video Server")
+app = FastAPI(title="铜龙电商ai助手 SelfHost Video Server")
 
 # 允许前端（GitHub Pages）跨域直连：调用 /api/video 与拉取 /videos/* 直链（用于链接式视频文案转写）
 app.add_middleware(

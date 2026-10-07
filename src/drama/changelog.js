@@ -1,4 +1,4 @@
-/* 铜龙电商 · AI 短剧工作台 · 版本更新记录 */
+/* 铜龙电商ai助手 · AI 短剧工作台 · 版本更新记录 */
 /* 对齐 LibTV：时间线式更新日志，展示每次迭代的新功能与修复。 */
 (function () {
   const D = XLX.drama;
@@ -91,7 +91,7 @@
     if (!v) return;
     v.innerHTML = '<div class="cl-wrap">'
       + '<div class="cl-head"><h1>版本更新记录</h1>'
-      + "<p>铜龙电商 AI 短剧工作台的每次迭代记录。新功能、体验优化与问题修复都会更新在这里。</p></div>"
+      + "<p>铜龙电商ai助手 AI 短剧工作台的每次迭代记录。新功能、体验优化与问题修复都会更新在这里。</p></div>"
       + '<div class="cl-tl">' + RELEASES.map(itemHtml).join("") + "</div>"
       + "</div>";
   }

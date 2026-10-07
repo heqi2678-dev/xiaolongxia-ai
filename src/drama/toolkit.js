@@ -1,4 +1,4 @@
-/* 铜龙电商 · AI 短剧工作台 · 工具包 */
+/* 铜龙电商ai助手 · AI 短剧工作台 · 工具包 */
 /* 短剧之外的能力都收在这里：软件工坊 / 工具箱 / 客户端下载三个入口 + 全部技能墙。
  * 技能按类型分流：工具进工具箱，对话/搜索进 Agent 对话，生成类才建工程进画布。 */
 (function () {
@@ -214,7 +214,7 @@
       '<div class="hs-cbody">' +
         '<div class="hs-cname">' + D.ui.esc(s.name) + "</div>" +
         '<div class="hs-cdesc">' + D.ui.esc(s.desc || "") + "</div>" +
-        '<div class="hs-cfoot"><span class="hs-avatar"></span><span>' + D.ui.esc(s.author || "铜龙电商官方") + "</span></div>" +
+        '<div class="hs-cfoot"><span class="hs-avatar"></span><span>' + D.ui.esc(s.author || "铜龙电商ai助手官方") + "</span></div>" +
       "</div>" +
     "</div>";
   }

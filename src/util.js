@@ -1,10 +1,10 @@
-/* 铜龙电商 · 通用工具（从 index.html 拆出的第 2 块） */
+/* 铜龙电商ai助手 · 通用工具（从 index.html 拆出的第 2 块） */
 /* ===== 通用工具：渲染、DOM、Toast、Logo ===== */
 
 XLX.util = (function () {
-  /* 铜龙电商 Logo SVG（满月 + 星星 + 铜龙电商） */
+  /* 铜龙电商ai助手 Logo SVG（满月 + 星星 + 铜龙电商ai助手） */
   function logo(size) {
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none"><defs><linearGradient id="lgx" x1="0" y1="0" x2="96" y2="96"><stop offset="0" stop-color="#eef4fc"/><stop offset="1" stop-color="#f9e9c8"/></linearGradient></defs><rect width="96" height="96" rx="22" fill="url(#lgx)"/><circle cx="16" cy="22" r="2.2" fill="#e8a13c"/><circle cx="30" cy="14" r="1.6" fill="#e8a13c"/><circle cx="74" cy="14" r="2" fill="#e8a13c"/><circle cx="84" cy="30" r="1.5" fill="#e8a13c"/><circle cx="18" cy="44" r="1.5" fill="#e8a13c"/><path d="M66 30l1.4 2.8 2.8 1.4-2.8 1.4L66 38.4l-1.4-2.8-2.8-1.4 2.8-1.4z" fill="#e8a13c"/><circle cx="48" cy="40" r="25" fill="#f6c453" stroke="#e8a13c" stroke-width="1.5"/><circle cx="40" cy="34" r="4" fill="#edb648" opacity="0.6"/><circle cx="55" cy="46" r="6" fill="#edb648" opacity="0.6"/><circle cx="42" cy="50" r="3" fill="#edb648" opacity="0.6"/><circle cx="58" cy="30" r="2.5" fill="#edb648" opacity="0.6"/><text x="48" y="89" text-anchor="middle" font-size="23" font-weight="800" fill="#b3270f" stroke="#f2c25c" stroke-width="1" paint-order="stroke" font-family="KaiTi,STKaiti,serif">铜龙电商</text></svg>';
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none"><defs><linearGradient id="lgx" x1="0" y1="0" x2="96" y2="96"><stop offset="0" stop-color="#eef4fc"/><stop offset="1" stop-color="#f9e9c8"/></linearGradient></defs><rect width="96" height="96" rx="22" fill="url(#lgx)"/><circle cx="16" cy="22" r="2.2" fill="#e8a13c"/><circle cx="30" cy="14" r="1.6" fill="#e8a13c"/><circle cx="74" cy="14" r="2" fill="#e8a13c"/><circle cx="84" cy="30" r="1.5" fill="#e8a13c"/><circle cx="18" cy="44" r="1.5" fill="#e8a13c"/><path d="M66 30l1.4 2.8 2.8 1.4-2.8 1.4L66 38.4l-1.4-2.8-2.8-1.4 2.8-1.4z" fill="#e8a13c"/><circle cx="48" cy="40" r="25" fill="#f6c453" stroke="#e8a13c" stroke-width="1.5"/><circle cx="40" cy="34" r="4" fill="#edb648" opacity="0.6"/><circle cx="55" cy="46" r="6" fill="#edb648" opacity="0.6"/><circle cx="42" cy="50" r="3" fill="#edb648" opacity="0.6"/><circle cx="58" cy="30" r="2.5" fill="#edb648" opacity="0.6"/><text x="48" y="89" text-anchor="middle" font-size="13" font-weight="800" fill="#b3270f" stroke="#f2c25c" stroke-width="1" paint-order="stroke" font-family="KaiTi,STKaiti,serif">铜龙电商ai助手</text></svg>';
   }
 
   /* 简单安全的 Markdown 渲染（无依赖，足够快） */

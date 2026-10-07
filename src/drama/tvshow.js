@@ -1,4 +1,4 @@
-/* 铜龙电商 · AI 短剧工作台 · 成片库（TV Show） */
+/* 铜龙电商ai助手 · AI 短剧工作台 · 成片库（TV Show） */
 /* 已出片的工程卡片网格；空态给「去画布创作」入口。 */
 (function () {
   const D = XLX.drama;

@@ -1,4 +1,4 @@
-/* 铜龙电商 Service Worker：离线缓存 + 语音模型断线续传 */
+/* 铜龙电商ai助手 Service Worker：离线缓存 + 语音模型断线续传 */
 const CACHE = "xiaolongxia-v87";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./src/config.js", "./src/util.js", "./src/settings.js"];
 const MODEL_CACHE = "xiaolongxia-models-v2";

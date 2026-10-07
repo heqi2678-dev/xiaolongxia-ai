@@ -32,7 +32,7 @@
 | LibTV | 实站细节 | 小龙虾现状 | 处置 |
 |---|---|---|---|
 | 新建项目 | 主按钮 | `shell.js:6` `shellCreate` → `projects.newProject` | 保留，已对齐 |
-| Agent | LibTV Agent | `shell.js:7` label「铜龙电商 Agent」 | 保留，已对齐 |
+| Agent | LibTV Agent | `shell.js:7` label「铜龙电商ai助手 Agent」 | 保留，已对齐 |
 | 首页 | 见首页分区 | `home.js`：hero + 工具行(8) + 最近项目 + 最近上新(1) | 部分对齐，见下 |
 | 项目 | 工程网格 | `projects.js` | 保留，已对齐 |
 | 资产 | 角色/主体/场景/风格资产 | `assets.js` 委托 `makeup`（三视图/场景卡/多参考） | 保留；分类条待补（见问题 4） |
@@ -56,7 +56,7 @@
 | D4 | `guide.js` 新手引导 | `src/drama/guide.js`(264行)；入口 `auto.js:127`、`manual.js:658`、`settings.js:157` | LibTV 无独立引导浮层 | 低 |
 | D5 | 首页旧「全网爆款成片库」单卡 | `home.js:114-121` | 被新 5 卡替换 | 低 |
 | D6 | Agent 空态失效建议卡 | `index.html:4544-4554`（含「生成分镜脚本」指向 storyboard） | 非短剧，但失效项要清；其余属 agent 空态，保留 | 低 |
-| D7 | 品牌命名 | 全仓「铜龙电商」，LibTV 对应「LibTV」 | 短剧工作台品牌名待定 | 待定 |
+| D7 | 品牌命名 | 全仓「铜龙电商ai助手」，LibTV 对应「LibTV」 | 短剧工作台品牌名待定 | 待定 |
 
 非短剧、**保留不动**：`studio.js`(软件工坊)、`tools`(工具箱)、`memory`、`download`、`toolkit.js`(工具包)、Agent 对话、`compliance.js`(合规，LibTV 亦有)、`takes.js`(Take/分段引擎，被 engine/compose/project 依赖)、`character.js`/`makeup.js`/`engine.js` 等核心链路。
 
@@ -67,13 +67,13 @@
 3. 「版本更新记录」是否需要？数据源可用 git log 或静态 changelog。
 4. 资产页是否需要补 LibTV 式分类（角色 / 主体 / 场景 / 风格）？
 5. Blender 插件页是否改为纯插件落地页，把软件工坊/工具箱/客户端下载移回账号菜单或工具包？
-6. 品牌名统一为「铜龙电商」还是改回短剧向命名？
+6. 品牌名统一为「铜龙电商ai助手」还是改回短剧向命名？
 
 确认以上后按批次开工，每批测试全绿再回推提交。
 
 ## 五、决策与落实进度（2026-09-23）
 
-用户拍板：D1 移除、D2 下线、Q3 新增（静态 changelog）、Q4 补齐、Q5 保持现状（用户认为插件页已对齐 LibTV）、Q6 统一「铜龙电商」。
+用户拍板：D1 移除、D2 下线、Q3 新增（静态 changelog）、Q4 补齐、Q5 保持现状（用户认为插件页已对齐 LibTV）、Q6 统一「铜龙电商ai助手」。
 
 已完成（单测 188 全绿 / e2e 271 全绿）：
 

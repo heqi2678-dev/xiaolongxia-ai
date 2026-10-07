@@ -1,4 +1,4 @@
-/* 铜龙电商 · AI 短剧工作台 · 模型选择器 */
+/* 铜龙电商ai助手 · AI 短剧工作台 · 模型选择器 */
 /* 四类模型（图像/视频/语音/口型）的统一选择条，配置写入 settings.adapters，Key 只存本地。 */
 (function () {
   const D = XLX.drama;
