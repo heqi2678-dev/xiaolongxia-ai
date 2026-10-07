@@ -68,13 +68,15 @@ test("工作台：4 大入口 + 4 数据块 + 最近项目", async () => {
   assert.ok(el.querySelector(".proj-grid, .proj-list, .project"), "最近项目区已渲染");
 });
 
-test("AI 作图：12 工具卡 + 灵感卡回填 prompt", async () => {
+test("AI 作图：12 工具卡 + prompt + 示例作品照片", async () => {
   const { doc, EC } = boot();
   await EC.render("ecomDraw");
   const el = doc.getElementById("ecomDrawView");
   assert.equal(el.querySelectorAll(".tool-card").length, 12, "12 个工具卡");
   assert.equal(el.querySelectorAll(".tool-card.on").length, 1, "默认选中 1 个工具");
-  assert.equal(el.querySelectorAll(".insp-card").length, 6, "6 条灵感");
+  assert.equal(el.querySelectorAll(".insp-card").length, 0, "旧灵感卡已移除");
+  assert.ok(el.querySelectorAll(".draw-item").length >= 4, "示例作品已配图");
+  assert.ok(el.querySelector(".draw-item img"), "示例作品为真实照片");
   assert.ok(el.querySelector(".prompt-box textarea"), "大白话输入框");
   assert.match(el.textContent, /Agent 模式/, "含 Agent 模式工具卡");
 
@@ -82,10 +84,6 @@ test("AI 作图：12 工具卡 + 灵感卡回填 prompt", async () => {
   cards[3].click();
   assert.equal(cards[3].classList.contains("on"), true, "点击工具卡选中");
   assert.equal(el.querySelectorAll(".tool-card.on").length, 1, "工具卡同组单选");
-
-  const ta = el.querySelector("textarea");
-  el.querySelector(".insp-card").click();
-  assert.ok(ta.value.length > 0, "灵感卡回填 prompt");
 });
 
 test("AI 详情图：上传槽 + 要求框 + 风格 chips", async () => {
@@ -99,7 +97,7 @@ test("AI 详情图：上传槽 + 要求框 + 风格 chips", async () => {
   assert.ok(el.querySelector(".gen-side"), "右侧空态说明");
 });
 
-test("主图编辑：列表/画布双模式切换 + 色板 + 开关", async () => {
+test("主图编辑：列表/画布双模式切换 + 色板 + 示例元素", async () => {
   const { doc, EC } = boot();
   await EC.render("ecomMainEdit");
   const el = doc.getElementById("ecomMainEditView");
@@ -108,13 +106,16 @@ test("主图编辑：列表/画布双模式切换 + 色板 + 开关", async () =
   assert.equal(seg.querySelectorAll("button").length, 2, "列表/画布两个按钮");
   assert.equal(el.querySelector(".view-list").hidden, false, "默认列表可见");
   assert.equal(el.querySelector(".view-canvas").hidden, true, "默认画布隐藏");
-  assert.ok(el.querySelectorAll(".module-row").length >= 4, "列表元素行");
+  assert.ok(el.querySelectorAll(".module-row").length >= 3, "列表含元素示例");
+  assert.equal(el.querySelector(".module-empty"), null, "空态已移除");
+  assert.ok(el.querySelector(".module-row .m-thumb img"), "元素缩略图为真实照片");
   assert.ok(el.querySelector(".swatches .sw"), "色板");
 
   seg.querySelector('[data-mode="canvas"]').click();
   assert.equal(el.querySelector(".view-list").hidden, true, "切画布后列表隐藏");
   assert.equal(el.querySelector(".view-canvas").hidden, false, "切画布后画布可见");
-  assert.ok(el.querySelector(".view-canvas .sq-el"), "画布元素已渲染");
+  assert.ok(el.querySelector(".view-canvas .sq-art"), "画布含示例");
+  assert.ok(el.querySelector(".view-canvas .sq-prod img"), "画布商品为真实照片");
 });
 
 test("详情页编辑：模块库 + 双模式", async () => {
@@ -122,8 +123,10 @@ test("详情页编辑：模块库 + 双模式", async () => {
   await EC.render("ecomDetailEdit");
   const el = doc.getElementById("ecomDetailEditView");
   assert.ok(el.querySelector("[data-mode-group]"), "模式切换段");
-  assert.ok(el.querySelectorAll(".module-row").length >= 4, "模块行");
-  assert.ok(el.querySelector(".view-canvas .ab-block"), "画布模块");
+  assert.ok(el.querySelectorAll(".module-row").length >= 3, "模块示例");
+  assert.equal(el.querySelector(".module-empty"), null, "空态已移除");
+  assert.ok(el.querySelector(".view-canvas .artboard .ab-block"), "画布含模块");
+  assert.ok(el.querySelector(".ab-img img"), "画布图片为真实照片");
   el.querySelector('[data-mode="canvas"]').click();
   assert.equal(el.querySelector(".view-canvas").hidden, false, "切到画布");
 });
@@ -143,14 +146,16 @@ test("跨境本地化：市场/语言 chips + 模特 + 配音开关 + 手机预�
   assert.equal(sw.classList.contains("off"), !before, "开关可切换");
 });
 
-test("作品库：筛选 chips + 瀑布流 8 项 + 分页", async () => {
+test("作品库：筛选 chips + 示例作品照片", async () => {
   const { doc, EC } = boot();
   await EC.render("ecomGallery");
   const el = doc.getElementById("ecomGalleryView");
-  assert.equal(el.querySelectorAll(".g-item").length, 8, "8 个作品");
+  assert.ok(el.querySelectorAll(".g-item").length >= 4, "作品示例已配图");
+  assert.equal(el.querySelector(".g-empty"), null, "空态已移除");
+  assert.ok(el.querySelector(".g-item .ph img"), "作品为真实照片");
   assert.ok(el.querySelectorAll(".chips .chip").length >= 4, "类型筛选");
   assert.ok(el.querySelector(".search"), "搜索框");
-  assert.ok(el.querySelector(".pager"), "分页");
+  assert.equal(el.querySelector(".pager"), null, "分页已移除");
 });
 
 test("通道：api 走 /dian/api/ecom 且 go 委托 XLX.app", async () => {

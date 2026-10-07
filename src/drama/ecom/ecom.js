@@ -104,6 +104,37 @@
     return new Date(ts * 1000).toLocaleString();
   }
 
+  /* ---------------- 用量累计（本地起算，默认全 0） ---------------- */
+  const USAGE_KEY = "xlx_ecom_usage";
+  function readUsage() {
+    try {
+      const raw = localStorage.getItem(USAGE_KEY);
+      const u = raw ? JSON.parse(raw) : null;
+      return (u && typeof u === "object") ? u : {};
+    } catch (e) { return {}; }
+  }
+  function writeUsage(u) {
+    try { localStorage.setItem(USAGE_KEY, JSON.stringify(u || {})); } catch (e) {}
+  }
+  function addUsage(patch) {
+    const u = readUsage();
+    Object.keys(patch || {}).forEach(function (k) {
+      const n = Number(patch[k]) || 0;
+      if (n) u[k] = (Number(u[k]) || 0) + n;
+    });
+    writeUsage(u);
+    return u;
+  }
+  function stats() {
+    const u = readUsage();
+    return {
+      generated: Number(u.generated) || 0,
+      exported: Number(u.exported) || 0,
+      tokens: Number(u.tokens) || 0,
+      projects: Number(u.projects) || 0
+    };
+  }
+
   /* ---------------- 原型交互（作用域 .ecom-ui，事件委托） ---------------- */
   function bindInteractions() {
     if (window._ecomBound) return;
@@ -171,6 +202,6 @@
 
   D.ecom = {
     ZONE, NAV, VIEWS, DEFAULT_VIEW, TITLES, render, register, host, esc, icon,
-    api, toast, go, fmtTime
+    api, toast, go, fmtTime, USAGE_KEY, stats, addUsage
   };
 })();

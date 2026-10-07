@@ -903,17 +903,15 @@ async function flowEcom(env) {
   await settle(2);
   eq(draw.querySelectorAll(".tool-card").length, 12, "AI 作图 12 工具卡");
   eq(draw.querySelectorAll(".tool-card.on").length, 1, "默认选中 1 个工具");
-  eq(draw.querySelectorAll(".insp-card").length, 6, "AI 作图 6 条灵感");
+  eq(draw.querySelectorAll(".insp-card").length, 0, "AI 作图旧灵感卡已移除");
+  ok(draw.querySelectorAll(".draw-item").length >= 4, "AI 作图示例作品已配图");
+  ok(!!draw.querySelector(".draw-item img"), "AI 作图示例为真实照片");
   ok(!!draw.querySelector(".prompt-box textarea"), "大白话输入框");
   const drawCards = draw.querySelectorAll(".tool-card");
   drawCards[3].click();
   await settle(1);
   eq(draw.querySelectorAll(".tool-card.on").length, 1, "工具卡同组单选");
   ok(drawCards[3].classList.contains("on"), "点击的工具卡被选中");
-  const drawTa = draw.querySelector("textarea");
-  draw.querySelector(".insp-card").click();
-  await settle(1);
-  ok(drawTa.value.length > 0, "灵感卡回填 prompt");
 
   /* AI 详情图 */
   const det = doc.getElementById("ecomDetailView");
@@ -935,12 +933,15 @@ async function flowEcom(env) {
   eq(mseg.querySelectorAll("button").length, 2, "列表/画布两个按钮");
   eq(me.querySelector(".view-list").hidden, false, "默认列表可见");
   eq(me.querySelector(".view-canvas").hidden, true, "默认画布隐藏");
-  ok(me.querySelectorAll(".module-row").length >= 4, "主图元素行");
+  ok(me.querySelectorAll(".module-row").length >= 3, "主图列表含元素示例");
+  eq(me.querySelector(".module-empty"), null, "主图空态已移除");
+  ok(!!me.querySelector(".module-row .m-thumb img"), "主图缩略图为真实照片");
   mseg.querySelector('[data-mode="canvas"]').click();
   await settle(1);
   eq(me.querySelector(".view-list").hidden, true, "切画布后列表隐藏");
   eq(me.querySelector(".view-canvas").hidden, false, "切画布后画布可见");
-  ok(!!me.querySelector(".view-canvas .sq-el"), "画布元素已渲染");
+  ok(!!me.querySelector(".view-canvas .sq-art"), "主图画布含示例");
+  ok(!!me.querySelector(".view-canvas .sq-prod img"), "主图画布商品为真实照片");
 
   /* 详情页编辑 */
   const de = doc.getElementById("ecomDetailEditView");
@@ -948,8 +949,10 @@ async function flowEcom(env) {
   E.render("ecomDetailEdit");
   await settle(2);
   ok(!!de.querySelector("[data-mode-group]"), "详情页编辑模式段");
-  ok(de.querySelectorAll(".module-row").length >= 4, "详情页模块行");
-  ok(!!de.querySelector(".view-canvas .ab-block"), "详情页画布模块");
+  ok(de.querySelectorAll(".module-row").length >= 3, "详情页模块示例");
+  eq(de.querySelector(".module-empty"), null, "详情页空态已移除");
+  ok(!!de.querySelector(".view-canvas .artboard .ab-block"), "详情页画布含模块");
+  ok(!!de.querySelector(".ab-img img"), "详情页画布图片为真实照片");
   de.querySelector('[data-mode="canvas"]').click();
   await settle(1);
   eq(de.querySelector(".view-canvas").hidden, false, "详情页切到画布");
@@ -974,10 +977,12 @@ async function flowEcom(env) {
   gal.innerHTML = "";
   E.render("ecomGallery");
   await settle(2);
-  eq(gal.querySelectorAll(".g-item").length, 8, "作品库 8 个作品");
+  ok(gal.querySelectorAll(".g-item").length >= 4, "作品库示例已配图");
+  eq(gal.querySelector(".g-empty"), null, "作品库空态已移除");
+  ok(!!gal.querySelector(".g-item .ph img"), "作品库作品为真实照片");
   ok(gal.querySelectorAll(".chips .chip").length >= 4, "作品库类型筛选");
   ok(!!gal.querySelector(".search"), "作品库搜索框");
-  ok(!!gal.querySelector(".pager"), "作品库分页");
+  eq(gal.querySelector(".pager"), null, "作品库分页已移除");
 
   shell.setZone("drama", { noGo: true });
   await settle(2);
