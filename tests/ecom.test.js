@@ -11,6 +11,7 @@ const ROOT = path.resolve(__dirname, "..");
 function src(file) { return fs.readFileSync(path.join(ROOT, "src/drama/ecom", file), "utf8"); }
 
 const VIEW_FILES = ["ecom-home.js", "ecom-draw.js", "ecom-detail.js", "ecom-mainedit.js", "ecom-detailedit.js", "ecom-localize.js", "ecom-gallery.js"];
+const STORE_FILE = "ecom-store.js";
 const ICON_IDS = ["home", "wand", "poster", "crop", "layers", "translate", "grid"];
 
 function boot(fetchImpl) {
@@ -40,6 +41,7 @@ function boot(fetchImpl) {
   w.fetch = fetchImpl || (() => Promise.resolve({ ok: false, status: 404, json: async () => ({ ok: false }) }));
   w.eval(src("ecom-sprite.js"));
   w.eval(src("ecom.js"));
+  w.eval(src(STORE_FILE));
   VIEW_FILES.forEach(f => w.eval(src(f)));
   return { w, doc: w.document, EC: w.XLX.drama.ecom };
 }
@@ -196,4 +198,78 @@ test("占位：未注册渲染器输出空态", () => {
   w.document.body.insertAdjacentHTML("beforeend", '<div id="ecomGhostView" class="view"></div>');
   w.XLX.drama.ecom.render("ecomGhost");
   assert.match(doc.getElementById("ecomGhostView").textContent, /建设中/, "未注册视图显示空态");
+});
+
+test("存储层：资产 CRUD（IndexedDB 不可用时内存兜底）", async () => {
+  const { EC } = boot();
+  assert.ok(EC.store && EC.gen && EC.ui, "store/gen/ui 已挂载");
+  const a = await EC.store.addDataUrl("data:image/png;base64,AAAA", { kind: "image", name: "测试图" });
+  assert.ok(a.id, "新增返回资产 id");
+  assert.equal((await EC.store.get(a.id)).name, "测试图", "get 命中记录");
+  assert.equal((await EC.store.list()).length, 1, "list 返回全部");
+  assert.equal((await EC.store.list({ kind: "image" })).length, 1, "按 kind 命中");
+  assert.equal((await EC.store.list({ kind: "upload" })).length, 0, "kind 不匹配为空");
+  await EC.store.remove(a.id);
+  assert.equal(await EC.store.get(a.id), null, "remove 生效");
+});
+
+test("存储层：项目保存 / 读取 / 删除", async () => {
+  const { EC } = boot();
+  const p = await EC.store.saveProject({ name: "主图项目", view: "ecomMainEdit" });
+  assert.ok(p.id && p.updatedAt, "项目含 id/updatedAt");
+  const list = await EC.store.listProjects();
+  assert.equal(list[0].name, "主图项目", "项目可读回");
+  await EC.store.removeProject(p.id);
+  assert.equal((await EC.store.listProjects()).length, 0, "项目可删除");
+});
+
+test("生成桥接：比例换算 + 未配置时 Pollinations 兜底", async () => {
+  const { EC } = boot();
+  assert.deepEqual(EC.gen.ratioWH("1:1"), [1024, 1024]);
+  assert.deepEqual(EC.gen.ratioWH("16:9"), [1280, 720]);
+  assert.deepEqual(EC.gen.ratioWH("3:4"), [768, 1024]);
+  assert.deepEqual(EC.gen.ratioWH("乱写"), [1024, 1024], "未知比例回退 1:1");
+  assert.equal(EC.gen.configured(), false, "未配置图像服务");
+  assert.equal(EC.gen.providerName(), "Pollinations 免费", "兜底服务名");
+  const u = EC.gen.pollinationsUrl("一只小龙虾", "1:1");
+  assert.match(u, /^https:\/\/image\.pollinations\.ai\/prompt\//, "Pollinations 接口");
+  assert.match(u, /width=1024&height=1024/, "按比例传宽高");
+  assert.match(u, /model=flux/, "flux 模型");
+  const r = await EC.gen.image({ prompt: "红色连衣裙", ratio: "3:4" });
+  assert.equal(r.provider, "pollinations", "未配置走免费兜底");
+  assert.match(r.url, /width=768&height=1024/, "兜底出图按比例");
+});
+
+test("生成桥接：extractJson 解析围栏 / 混排 / 数组 / 空值", () => {
+  const { EC } = boot();
+  assert.deepEqual(EC.gen.extractJson('```json\n{"a":1}\n```'), { a: 1 }, "剥离代码围栏");
+  assert.deepEqual(EC.gen.extractJson('前缀 {"b":[1,2]} 后缀'), { b: [1, 2] }, "混排取对象");
+  assert.deepEqual(EC.gen.extractJson('[{"c":3}]'), [{ c: 3 }], "数组根");
+  assert.equal(EC.gen.extractJson("无 json"), null, "非 JSON 为 null");
+  assert.equal(EC.gen.extractJson(""), null, "空串为 null");
+});
+
+test("通用 UI：modal 结构 / menu 构建 / el 生成 / uid 唯一", () => {
+  const { doc, EC } = boot();
+  const m = EC.ui.modal({ title: "标题<X>", body: "<p>hi</p>", wide: true });
+  assert.ok(doc.querySelector(".modal-mask .modal.modal-wide"), "弹窗挂载且宽体");
+  assert.equal(m.body.innerHTML, "<p>hi</p>", "body 注入");
+  assert.ok(doc.querySelector(".modal-head h3").textContent.indexOf("<X>") >= 0, "标题 HTML 已转义");
+  m.close();
+  assert.equal(doc.querySelector(".modal-mask"), null, "close 移除弹窗");
+
+  const anchor = doc.createElement("button");
+  doc.body.appendChild(anchor);
+  let picked = false;
+  EC.ui.menu(anchor, [{ label: "下载", pick: () => { picked = true; } }, { sep: true }, { label: "删除", on: true }]);
+  assert.equal(doc.querySelectorAll(".ecmenu .ecmenu-mi").length, 2, "两个可选菜单项");
+  assert.ok(doc.querySelector(".ecmenu .ecmenu-sep"), "含分隔线");
+  doc.querySelector(".ecmenu .ecmenu-mi").click();
+  assert.equal(picked, true, "菜单项回调触发");
+  assert.equal(doc.querySelector(".ecmenu"), null, "点击后关闭菜单");
+
+  const n = EC.ui.el("span", "tag on", "<b>x</b>");
+  assert.equal(n.tagName, "SPAN", "el 按标签创建");
+  assert.equal(n.className, "tag on", "el 设置类名");
+  assert.notEqual(EC.ui.uid("as"), EC.ui.uid("as"), "uid 唯一");
 });

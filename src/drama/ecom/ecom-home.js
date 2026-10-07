@@ -3,6 +3,7 @@
   const D = XLX.drama || (XLX.drama = {});
   const EC = D.ecom;
   if (!EC) return;
+  const esc = EC.esc;
 
   const HERO_ART = `<svg viewBox="0 0 320 180" fill="none" xmlns="http://www.w3.org/2000/svg">
           <ellipse cx="160" cy="160" rx="118" ry="13" fill="#e3edff"/>
@@ -50,6 +51,10 @@
               <div class="hero-eyebrow">铜龙电商 · 领先的电商 AI 生成技术</div>
               <h1>下午好，何齐</h1>
               <p>上传商品图，轻松生成高质量商品图、详情页与爆款视频，提升转化率与效率。</p>
+              <div class="hero-cta">
+                <button class="btn btn-primary" data-go="ecomDraw" style="width:auto;padding:10px 20px"><svg class="ic sm"><use href="#i-wand"/></svg>开始创作</button>
+                <button class="btn btn-ghost" data-go="ecomGallery" style="width:auto;padding:10px 20px"><svg class="ic sm"><use href="#i-lib"/></svg>我的作品</button>
+              </div>
             </div>
             <div class="hero-art">${HERO_ART}</div>
           </div>
@@ -82,13 +87,13 @@
           </div>
 
           <div class="stat-row">
-            <div class="stat"><span>本月生成</span><b data-stat="generated">0</b><div class="trend">较上月 0%</div></div>
-            <div class="stat"><span>导出素材</span><b data-stat="exported">0</b><div class="trend">较上月 0%</div></div>
+            <div class="stat"><span>本月生成</span><b data-stat="generated">0</b><div class="trend">本地累计</div></div>
+            <div class="stat"><span>导出素材</span><b data-stat="exported">0</b><div class="trend">本地累计</div></div>
             <div class="stat"><span>Token 消耗</span><b data-stat="tokens">0</b><div class="trend">累计消耗</div></div>
-            <div class="stat"><span>累计项目</span><b data-stat="projects">0</b><div class="trend">本周新增 0</div></div>
+            <div class="stat"><span>累计项目</span><b data-stat="projects">0</b><div class="trend">作品库素材</div></div>
           </div>
 
-          <div class="sec-title"><h2>最近项目</h2><a>查看全部</a></div>
+          <div class="sec-title"><h2>最近项目</h2><a data-go="ecomGallery">查看全部</a></div>
           <div class="proj-grid">
             <div class="proj-empty">还没有项目。从上方任选一个入口，开始你的第一个电商创作。</div>
           </div>
@@ -98,6 +103,41 @@
     const v = Number(n) || 0;
     try { return v.toLocaleString("en-US"); } catch (e) { return String(v); }
   }
+  function ago(ts) {
+    if (!ts) return "";
+    const d = Math.floor((Date.now() - ts) / 1000);
+    if (d < 60) return "刚刚";
+    if (d < 3600) return Math.floor(d / 60) + " 分钟前";
+    if (d < 86400) return Math.floor(d / 3600) + " 小时前";
+    return Math.floor(d / 86400) + " 天前";
+  }
+
+  function projCard(a) {
+    const src = EC.store ? EC.store.src(a) : (a.url || "");
+    const img = src ? '<img src="' + esc(src) + '" alt="">' : '<svg class="ic sm"><use href="#i-image"/></svg>';
+    const kindMap = { image: "AI 作图", detail: "详情页", localize: "本地化素材", upload: "本地上传", edit: "主图编辑" };
+    return '<div class="project" data-id="' + esc(a.id) + '">'
+      + '<div class="proj-thumb">' + img + '</div>'
+      + '<div class="proj-meta"><b>' + esc(a.name || "未命名作品") + '</b>'
+      + '<span>' + esc(kindMap[a.kind] || "素材") + ' · ' + esc(ago(a.createdAt)) + '</span></div></div>';
+  }
+
+  function hydrate(el) {
+    const s = (EC.stats ? EC.stats() : {}) || {};
+    ["generated", "exported", "tokens"].forEach(function (k) {
+      const node = el.querySelector('[data-stat="' + k + '"]');
+      if (node) node.textContent = fmtNum(s[k]);
+    });
+    if (!EC.store) return;
+    EC.store.list().then(function (items) {
+      const grid = el.querySelector(".proj-grid");
+      if (!grid) return;
+      if (!items.length) return;
+      grid.innerHTML = items.slice(0, 6).map(projCard).join("");
+      const pnode = el.querySelector('[data-stat="projects"]');
+      if (pnode) pnode.textContent = fmtNum(items.length);
+    }).catch(function () {});
+  }
 
   EC.register("ecomHome", function (el) {
     el.innerHTML = '<div class="ecom-ui">' + HTML + '</div>';
@@ -105,6 +145,15 @@
     ["generated", "exported", "tokens", "projects"].forEach(function (k) {
       const node = el.querySelector('[data-stat="' + k + '"]');
       if (node) node.textContent = fmtNum(s[k]);
+    });
+    hydrate(el);
+    if (el.__ecomHomeBound) return;
+    el.__ecomHomeBound = true;
+    el.addEventListener("click", function (e) {
+      const goEl = e.target.closest("[data-go]");
+      if (goEl && el.contains(goEl)) { EC.go(goEl.getAttribute("data-go")); return; }
+      const proj = e.target.closest(".project");
+      if (proj && EC.go) EC.go("ecomGallery");
     });
   });
 })();

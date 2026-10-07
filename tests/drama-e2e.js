@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js",
-  "ecom/ecom-css.js", "ecom/ecom-sprite.js", "ecom/ecom.js", "ecom/ecom-home.js", "ecom/ecom-draw.js", "ecom/ecom-detail.js", "ecom/ecom-mainedit.js", "ecom/ecom-detailedit.js", "ecom/ecom-localize.js", "ecom/ecom-gallery.js", "shell.js"
+  "ecom/ecom-css.js", "ecom/ecom-sprite.js", "ecom/ecom.js", "ecom/ecom-store.js", "ecom/ecom-home.js", "ecom/ecom-draw.js", "ecom/ecom-detail.js", "ecom/ecom-mainedit.js", "ecom/ecom-detailedit.js", "ecom/ecom-localize.js", "ecom/ecom-gallery.js", "shell.js"
 ];
 
 let pass = 0;
@@ -55,7 +55,11 @@ function makeIndexedDB() {
     const tx = { oncomplete: null, onerror: null };
     tx.objectStore = () => ({
       put(rec) { data[rec.id] = rec; setTimeout(() => tx.oncomplete && tx.oncomplete(), 0); },
-      get(id) { const rq = { result: data[id] || null, onsuccess: null, onerror: null }; setTimeout(() => rq.onsuccess && rq.onsuccess(), 0); return rq; }
+      get(id) { const rq = { result: data[id] || null, onsuccess: null, onerror: null }; setTimeout(() => rq.onsuccess && rq.onsuccess(), 0); return rq; },
+      getAll() { const rq = { result: Object.keys(data).map(k => data[k]), onsuccess: null, onerror: null }; setTimeout(() => rq.onsuccess && rq.onsuccess(), 0); return rq; },
+      delete(id) { delete data[id]; setTimeout(() => tx.oncomplete && tx.oncomplete(), 0); },
+      clear() { Object.keys(data).forEach(k => delete data[k]); setTimeout(() => tx.oncomplete && tx.oncomplete(), 0); },
+      createIndex() {}
     });
     return tx;
   }
@@ -983,6 +987,32 @@ async function flowEcom(env) {
   ok(gal.querySelectorAll(".chips .chip").length >= 4, "作品库类型筛选");
   ok(!!gal.querySelector(".search"), "作品库搜索框");
   eq(gal.querySelector(".pager"), null, "作品库分页已移除");
+
+  /* 真实能力层：本地资产/项目存储 + 生图桥接 */
+  ok(!!E.store && !!E.gen && !!E.ui, "电商 store/gen/ui 已挂载");
+  const asset = await E.store.addDataUrl("data:image/png;base64,AAAA", { kind: "image", name: "e2e 素材" });
+  ok(!!asset.id, "本地资产可写入");
+  const listed = await E.store.list({ kind: "image" });
+  ok(listed.some(a => a.id === asset.id), "本地资产可读回");
+  const pj = await E.store.saveProject({ name: "e2e 项目", view: "ecomMainEdit" });
+  ok((await E.store.listProjects()).some(p => p.id === pj.id), "本地项目可读回");
+  ok(typeof E.gen.configured() === "boolean", "图像服务配置状态可读");
+  ok(!!E.gen.providerName(), "生图服务名可读");
+  has(E.gen.pollinationsUrl("测试", "1:1"), "image.pollinations.ai", "Pollinations 出图地址");
+  const gen = await E.gen.image({ prompt: "电商主图", ratio: "1:1" });
+  ok(!!(gen && gen.url), "生图返回可访问地址");
+
+  /* 本地素材进入作品库（真实项带 data-id） */
+  gal.innerHTML = "";
+  E.render("ecomGallery");
+  await settle(2);
+  ok(!!gal.querySelector('.g-item[data-id="' + asset.id + '"]'), "本地素材渲染为真实作品项");
+  ok(!!gal.querySelector('.g-item[data-id] [data-act="del"]'), "真实作品项带删除按钮");
+
+  await E.store.remove(asset.id);
+  await E.store.removeProject(pj.id);
+  ok(!(await E.store.list()).some(a => a.id === asset.id), "本地资产可删除");
+  ok(!(await E.store.listProjects()).some(p => p.id === pj.id), "本地项目可删除");
 
   shell.setZone("drama", { noGo: true });
   await settle(2);
