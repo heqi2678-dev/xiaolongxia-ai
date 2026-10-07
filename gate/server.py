@@ -119,7 +119,7 @@ DRAMA_PUB_DIR = DATA_DIR / "pub"
 DRAMA_PUB_EXT = {
     "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png", "image/webp": ".webp",
     "audio/mpeg": ".mp3", "audio/mp3": ".mp3", "audio/wav": ".wav", "audio/x-wav": ".wav",
-    "audio/mp4": ".m4a", "audio/aac": ".aac", "video/mp4": ".mp4",
+    "audio/mp4": ".m4a", "audio/aac": ".aac", "video/mp4": ".mp4", "video/webm": ".webm",
     "model/gltf-binary": ".glb",
 }
 DRAMA_PUB_NAME = re.compile(r"^[A-Za-z0-9_-]{16,64}\.(mp4|mp3|wav|m4a|aac|jpg|jpeg|png|webp|glb)$")
@@ -801,6 +801,7 @@ def drama_list_publishes(owner):
 
 
 DRAMA_FFMPEG = os.environ.get("DRAMA_FFMPEG", "ffmpeg")
+DRAMA_FFPROBE = os.environ.get("DRAMA_FFPROBE", "ffprobe")
 DRAMA_COMPOSE_TIMEOUT = int(os.environ.get("DRAMA_COMPOSE_TIMEOUT", "900"))
 DRAMA_ASSET_MAX = 200 * 1024 * 1024
 
@@ -1363,6 +1364,163 @@ def drama_compose(owner, project):
         shutil.rmtree(str(work), ignore_errors=True)
 
 
+def _probe_video(path, fallback=(720, 1280)):
+    try:
+        r = subprocess.run(
+            [DRAMA_FFPROBE, "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x", str(path)],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30,
+        )
+        line = (r.stdout or b"").decode("utf-8", "ignore").strip().splitlines()
+        if line:
+            parts = line[0].strip().split("x")
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                w, h = int(parts[0]), int(parts[1])
+                if w > 0 and h > 0:
+                    return w, h
+    except Exception:
+        pass
+    return fallback
+
+
+SUBTITLE_STYLES = {
+    "简洁白": {"color": "white", "box": True, "boxcolor": "black@0.45", "borderw": 0, "bordercolor": "black"},
+    "描边黑": {"color": "white", "box": False, "boxcolor": "black@0.45", "borderw": 3, "bordercolor": "black"},
+    "醒目黄": {"color": "0xFFD400", "box": True, "boxcolor": "black@0.4", "borderw": 2, "bordercolor": "black"},
+    "艺术字": {"color": "0xFF66CC", "box": False, "boxcolor": "black@0.45", "borderw": 4, "bordercolor": "0x222222"},
+}
+
+
+def _wrap_caption(text, max_chars):
+    max_chars = max(1, int(max_chars or 1))
+    lines = []
+    for para in str(text or "").split("\n"):
+        para = para.strip()
+        if not para:
+            continue
+        cur = ""
+        for ch in para:
+            cur += ch
+            if len(cur) >= max_chars:
+                lines.append(cur)
+                cur = ""
+        if cur:
+            lines.append(cur)
+    return (lines or [""])[:6]
+
+
+def drama_subtitle(owner, spec):
+    """把目标语言字幕与画面文字译文烧制进单条视频，返回可播放的成片地址。"""
+    if not shutil.which(DRAMA_FFMPEG):
+        raise RuntimeError("服务器未安装 ffmpeg，无法烧制字幕")
+    spec = spec if isinstance(spec, dict) else {}
+    video = str(spec.get("video") or "").strip()
+    if not video:
+        raise ValueError("缺少原视频")
+    cues = [c for c in (spec.get("cues") or []) if isinstance(c, dict)]
+    overlays = [o for o in (spec.get("overlays") or []) if isinstance(o, dict)]
+    if not cues and not overlays:
+        raise ValueError("没有需要合成的字幕或画面文字")
+    style = spec.get("style") if isinstance(spec.get("style"), dict) else {}
+    out_dir = _drama_out_dir(owner)
+    work = out_dir / ("sub" + secrets.token_hex(6))
+    work.mkdir(parents=True, exist_ok=True)
+    try:
+        ext = "webm" if video.lower().split("?")[0].endswith(".webm") else "mp4"
+        src = work / ("src." + ext)
+        _download_asset(video, src)
+
+        w = h = 0
+        try:
+            w = int(spec.get("width")); h = int(spec.get("height"))
+        except (TypeError, ValueError):
+            w = h = 0
+        if w <= 0 or h <= 0:
+            w, h = _probe_video(src)
+
+        font = _drama_font()
+        if not font:
+            raise RuntimeError("服务器缺少中文字体，无法烧制字幕")
+
+        size = max(0.02, min(0.12, float(style.get("size") or 0.045)))
+        fontsize = max(16, int(round(h * size)))
+        lh = max(1.0, min(2.5, float(style.get("lineHeight") or 1.3)))
+        spacing = int(round(fontsize * (lh - 1)))
+        pos = str(style.get("pos") or "bottom")
+        st = SUBTITLE_STYLES.get(str(style.get("preset") or "简洁白"), SUBTITLE_STYLES["简洁白"])
+        margin = int(round(h * 0.055))
+        max_chars = max(8, int(round(w * 0.92 / fontsize)))
+        filters = []
+
+        ov_size = max(14, int(round(h * 0.038)))
+        ov_wrap = max(8, int(round(w * 0.9 / ov_size)))
+        oy = margin
+        for k, ov in enumerate(overlays[:8]):
+            text = str(ov.get("text") or "").strip()
+            if not text:
+                continue
+            lines = _wrap_caption(text, ov_wrap)
+            tf = work / ("ov%d.txt" % k)
+            tf.write_text("\n".join(lines), encoding="utf-8")
+            filters.append(
+                "drawtext=fontfile='%s':textfile='%s':expansion=none:fontsize=%d:line_spacing=%d:"
+                "fontcolor=white:box=1:boxcolor=black@0.55:boxborderw=%d:"
+                "x=(w-text_w)/2:y=%d"
+                % (font, tf, ov_size, int(ov_size * 0.3), int(ov_size * 0.5), oy)
+            )
+            oy += len(lines) * ov_size + int(ov_size * 0.6) + 6
+
+        for i, cue in enumerate(cues[:400]):
+            text = str(cue.get("text") or "").strip()
+            if not text:
+                continue
+            try:
+                start = max(0.0, float(cue.get("start") or 0.0))
+                end = float(cue["end"]) if cue.get("end") is not None else start + 3.0
+            except (TypeError, ValueError):
+                start, end = 0.0, 3.0
+            if end <= start:
+                end = start + 2.0
+            lines = _wrap_caption(text, max_chars)
+            tf = work / ("cue%d.txt" % i)
+            tf.write_text("\n".join(lines), encoding="utf-8")
+            block = len(lines) * fontsize + (len(lines) - 1) * spacing
+            if pos == "top":
+                y = margin
+            elif pos == "middle":
+                y = max(margin, (h - block) // 2)
+            else:
+                y = max(margin, h - margin - block)
+            filters.append(
+                "drawtext=fontfile='%s':textfile='%s':expansion=none:fontsize=%d:line_spacing=%d:"
+                "fontcolor=%s:box=%d:boxcolor=%s:borderw=%d:bordercolor=%s:"
+                "x=(w-text_w)/2:y=%d:enable='between(t,%.3f,%.3f)'"
+                % (font, tf, fontsize, spacing, st["color"], 1 if st.get("box") else 0,
+                   st.get("boxcolor", "black@0.45"), int(st.get("borderw", 0)),
+                   st.get("bordercolor", "black"), y, start, end)
+            )
+        if not filters:
+            raise ValueError("字幕内容为空")
+
+        graph = "[0:v]" + ",".join(filters) + ",format=yuv420p[v]"
+        pid = re.sub(r"[^\w-]", "", str(spec.get("id") or "translate"))[:32] or "translate"
+        final = out_dir / (pid + "-" + secrets.token_hex(3) + ".mp4")
+        r = _ff_run([
+            DRAMA_FFMPEG, "-y", "-i", str(src),
+            "-filter_complex", graph,
+            "-map", "[v]", "-map", "0:a?",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "128k",
+            "-movflags", "+faststart", str(final),
+        ])
+        if r.returncode != 0 or not final.is_file():
+            tail = (r.stdout or b"").decode("utf-8", "ignore")[-300:]
+            raise RuntimeError("字幕合成失败：" + tail.strip())
+        return {"file": final.name, "url": "/dian/api/drama/out/" + final.name}
+    finally:
+        shutil.rmtree(str(work), ignore_errors=True)
+
+
 def hash_password(password, salt=None):
     if salt is None:
         salt = secrets.token_hex(16)
@@ -1721,6 +1879,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/drama/ocr":
             self._handle_drama_ocr()
+            return
+        if path == "/api/drama/subtitle":
+            self._handle_drama_subtitle()
             return
         if path == "/api/drama/asset":
             self._handle_drama_asset()
@@ -2089,6 +2250,30 @@ class Handler(BaseHTTPRequestHandler):
             self._json(502, {"ok": False, "error": "文字识别失败，请检查 Key 与网络"})
             return
         self._json(200, {"ok": True, "data": data})
+
+    def _handle_drama_subtitle(self):
+        me = self._drama_me()
+        if not me:
+            return
+        obj = self._drama_body()
+        if not obj:
+            self._json(400, {"ok": False, "error": "请求读不懂"})
+            return
+        try:
+            out = drama_subtitle(me["name"], obj)
+        except ValueError as exc:
+            self._json(400, {"ok": False, "error": str(exc)})
+            return
+        except RuntimeError as exc:
+            self._json(501, {"ok": False, "error": str(exc)})
+            return
+        except subprocess.TimeoutExpired:
+            self._json(504, {"ok": False, "error": "字幕合成超时，请缩短视频或降低清晰度"})
+            return
+        except Exception:
+            self._json(500, {"ok": False, "error": "字幕合成失败，请稍后再试"})
+            return
+        self._json(200, {"ok": True, "output": out, "url": out["url"], "file": out["file"]})
 
     # ---------- 火山数字人只收公网 URL：/dian/pub/<token>.<ext> 免登录只读 ----------
     def _public_base(self):

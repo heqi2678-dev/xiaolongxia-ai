@@ -243,6 +243,8 @@ test("视频翻译：原视频上传 + 模式/语言 chips + 字幕开关 + 阶�
   assert.ok(el.querySelector("[data-stage]"), "阶段进度");
   assert.ok(el.querySelector("[data-log]"), "运行日志");
   assert.ok(el.querySelector("[data-run]"), "开始翻译按钮");
+  assert.equal(el.querySelectorAll('[data-group="subfont"] .chip').length, 3, "字幕字号三档");
+  assert.equal(el.querySelectorAll('[data-group="subline"] .chip').length, 3, "字幕行间距三档");
 });
 
 test("AI 工具箱：16 工具 + 画布 + 应用/撤销", async () => {
@@ -329,6 +331,24 @@ test("生成桥接：OCR 未配置时 ocrConfigured 为 false 且拒绝", async 
   const { EC } = boot();
   assert.equal(EC.gen.ocrConfigured(), false, "未配置文字识别");
   await assert.rejects(() => EC.gen.ocr({ imageBase64: "x" }), /NO_OCR|文字识别/);
+});
+
+test("生成桥接：字幕烧制走 /dian/api/drama/subtitle", async () => {
+  let seen = null;
+  const { EC } = boot((url, opts) => {
+    seen = { url, opts };
+    return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, url: "/dian/api/drama/out/x.mp4", file: "x.mp4" }) });
+  });
+  const r = await EC.gen.subtitle({
+    video: "https://x.test/a.mp4",
+    cues: [{ start: 0, end: 1, text: "你好" }],
+    style: { preset: "醒目黄", pos: "bottom", size: 0.05, lineHeight: 1.5 }
+  });
+  assert.equal(seen.url, "/dian/api/drama/subtitle", "字幕接口");
+  const body = JSON.parse(seen.opts.body);
+  assert.equal(body.cues[0].text, "你好", "字幕透传");
+  assert.equal(body.style.size, 0.05, "样式透传");
+  assert.equal(r.url, "/dian/api/drama/out/x.mp4", "返回成片地址");
 });
 
 test("通用 UI：modal 结构 / menu 构建 / el 生成 / uid 唯一", () => {

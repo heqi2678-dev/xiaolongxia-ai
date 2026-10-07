@@ -280,6 +280,21 @@
     }
     return Promise.resolve(D.adapters.ocr.recognize(opts || {}));
   }
+  /* 字幕/画面文字烧制：由网关用 ffmpeg 合成（服务端能力，无需本地配置）。 */
+  function subtitle(opts) {
+    return fetch("/dian/api/drama/subtitle", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(opts || {})
+    }).then(function (r) {
+      return r.json().catch(function () { return null; }).then(function (j) { return { r: r, j: j }; });
+    }).then(function (o) {
+      if (!o.r.ok || !o.j || !o.j.ok || !o.j.url) {
+        throw err("SUB_FAIL", (o.j && o.j.error) || "字幕合成失败，请稍后再试");
+      }
+      return { url: o.j.url, file: o.j.file };
+    });
+  }
   function extractJson(text) {
     if (!text) return null;
     let s = String(text).trim();
@@ -397,6 +412,6 @@
     src: srcOf, download, downloadBlob, canvasToBlob, loadImage, dataUrlToBlob, blobToDataUrl, publicUrl,
     saveProject, listProjects, removeProject
   };
-  EC.gen = { image: generate, configured: kindConfigured, providerName, ratioWH, pollinationsUrl, llmConfigured, ask, extractJson, stt: transcribe, sttConfigured, ocr: recognizeText, ocrConfigured, video, videoConfigured, tts: synth, ttsConfigured, lipsync, lipsyncConfigured };
+  EC.gen = { image: generate, configured: kindConfigured, providerName, ratioWH, pollinationsUrl, llmConfigured, ask, extractJson, stt: transcribe, sttConfigured, ocr: recognizeText, ocrConfigured, video, videoConfigured, tts: synth, ttsConfigured, lipsync, lipsyncConfigured, subtitle };
   EC.ui = { pickFiles, menu, closeMenus, modal, toast, busy, el, uid, err };
 })();

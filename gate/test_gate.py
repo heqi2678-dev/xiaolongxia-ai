@@ -950,6 +950,108 @@ class GateTests(unittest.TestCase):
         self.assertEqual(code, 400)
         self.assertIn("AccessKey", json.loads(body.decode("utf-8"))["error"])
 
+    def _mock_subtitle_ff(self, captured):
+        import types
+
+        def fake_download(url, dest):
+            dest.write_bytes(b"x")
+            return dest
+
+        def fake_ff(args, timeout=None):
+            captured.append(list(args))
+            if "-filter_complex" in args:
+                captured.append(("script", args[args.index("-filter_complex") + 1]))
+            Path(args[-1]).write_bytes(b"v")
+            return types.SimpleNamespace(returncode=0, stdout=b"")
+
+        self.addCleanup(self._restore(self.gate, "_download_asset", self.gate._download_asset))
+        self.addCleanup(self._restore(self.gate, "_ff_run", self.gate._ff_run))
+        self.addCleanup(self._restore(self.gate, "_probe_video", self.gate._probe_video))
+        self.addCleanup(self._restore(self.gate.shutil, "which", self.gate.shutil.which))
+        self.addCleanup(self._restore(self.gate, "_drama_font", self.gate._drama_font))
+        self.gate._download_asset = fake_download
+        self.gate._ff_run = fake_ff
+        self.gate._probe_video = lambda path, fallback=(720, 1280): (720, 1280)
+        self.gate.shutil.which = lambda name: "/usr/bin/" + name
+        self.gate._drama_font = lambda: "/usr/share/fonts/NotoSansCJK-Regular.ttc"
+
+    def _subtitle_script(self, captured):
+        scripts = [c for c in captured if isinstance(c, tuple) and c[0] == "script"]
+        self.assertTrue(scripts, "已生成 drawtext 滤镜脚本")
+        return scripts[0][1]
+
+    def test_drama_subtitle_builds_drawtext_filters(self):
+        captured = []
+        self._mock_subtitle_ff(captured)
+        out = self.gate.drama_subtitle("liyu", {
+            "video": "http://x.test/a.mp4",
+            "style": {"preset": "醒目黄", "pos": "middle", "size": 0.05, "lineHeight": 1.5},
+            "cues": [{"start": 0, "end": 2, "text": "你好世界限时五折"}],
+            "overlays": [{"text": "SALE HALF PRICE"}],
+        })
+        self.assertTrue(out["file"].endswith(".mp4"))
+        self.assertTrue(out["url"].startswith("/dian/api/drama/out/"))
+        script = self._subtitle_script(captured)
+        self.assertTrue(script.startswith("[0:v]"))
+        self.assertIn("drawtext", script)
+        self.assertIn("line_spacing=", script)
+        self.assertIn("textfile=", script)
+        self.assertIn("expansion=none", script)
+        self.assertIn("fontcolor=0xFFD400", script)
+        self.assertIn("enable='between(t,0.000,2.000)'", script)
+        self.assertIn(",format=yuv420p[v]", script)
+        self.assertIn("box=1", script)
+
+    def test_drama_subtitle_requires_content(self):
+        captured = []
+        self._mock_subtitle_ff(captured)
+        with self.assertRaises(ValueError):
+            self.gate.drama_subtitle("liyu", {"cues": [{"text": "x"}]})
+        with self.assertRaises(ValueError):
+            self.gate.drama_subtitle("liyu", {"video": "http://x.test/a.mp4"})
+
+    def test_drama_subtitle_without_ffmpeg_is_runtime_error(self):
+        self.addCleanup(self._restore(self.gate.shutil, "which", self.gate.shutil.which))
+        self.gate.shutil.which = lambda name: None
+        with self.assertRaises(RuntimeError):
+            self.gate.drama_subtitle("liyu", {
+                "video": "http://x.test/a.mp4",
+                "cues": [{"start": 0, "end": 1, "text": "hi"}],
+            })
+
+    def test_drama_subtitle_endpoint_returns_url(self):
+        captured = []
+        self._mock_subtitle_ff(captured)
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        code, body, _ = self.req(opener, "/api/drama/subtitle", method="POST", json_body={
+            "video": "http://x.test/a.mp4", "width": 720, "height": 1280,
+            "cues": [{"start": 0, "end": 1, "text": "你好"}],
+        })
+        self.assertEqual(code, 200)
+        obj = json.loads(body.decode("utf-8"))
+        self.assertTrue(obj["ok"])
+        self.assertTrue(obj["url"].startswith("/dian/api/drama/out/"))
+
+    def test_drama_subtitle_endpoint_requires_login(self):
+        opener, _ = self.opener()
+        code, _, _ = self.req(opener, "/api/drama/subtitle", method="POST", json_body={
+            "video": "http://x.test/a.mp4", "cues": [{"text": "x"}],
+        })
+        self.assertEqual(code, 401)
+
+    def test_drama_subtitle_endpoint_guards(self):
+        captured = []
+        self._mock_subtitle_ff(captured)
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        code, body, _ = self.req(opener, "/api/drama/subtitle", method="POST", json_body={"cues": [{"text": "x"}]})
+        self.assertEqual(code, 400)
+        self.assertIn("原视频", json.loads(body.decode("utf-8"))["error"])
+        code, body, _ = self.req(opener, "/api/drama/subtitle", method="POST", json_body={"video": "http://x/a.mp4"})
+        self.assertEqual(code, 400)
+        self.assertIn("字幕", json.loads(body.decode("utf-8"))["error"])
+
     def test_drama_asset_upload_then_public_read_without_login(self):
         opener, _ = self.opener()
         code, _, _ = self.req(opener, "/api/drama/asset", method="POST",

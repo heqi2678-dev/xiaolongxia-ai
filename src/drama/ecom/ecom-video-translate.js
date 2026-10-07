@@ -13,6 +13,9 @@
     "हिन्दी": "hi", "Bahasa Indonesia": "id", "Bahasa Melayu": "ms", "Tiếng Việt": "vi", "Türkçe": "tr", "繁體中文": "zh-TW" };
   const SUB_STYLES = ["简洁白", "描边黑", "醒目黄", "艺术字"];
   const SUB_POS = ["底部", "中部", "顶部"];
+  const SUB_POS_EN = { "底部": "bottom", "中部": "middle", "顶部": "top" };
+  const SUB_SIZE = { "小": 0.035, "中": 0.046, "大": 0.062 };
+  const SUB_LINE = { "紧凑": 1.08, "标准": 1.3, "宽松": 1.62 };
   const MAX_MB = 100;
 
   const HTML = `<div class="inner">
@@ -97,6 +100,18 @@
               <div class="chip">中部</div>
               <div class="chip">顶部</div>
             </div>
+            <label style="margin-top:10px;display:block">字号</label>
+            <div class="chips" data-group="subfont">
+              <div class="chip">小</div>
+              <div class="chip on">中</div>
+              <div class="chip">大</div>
+            </div>
+            <label style="margin-top:10px;display:block">行间距</label>
+            <div class="chips" data-group="subline">
+              <div class="chip">紧凑</div>
+              <div class="chip on">标准</div>
+              <div class="chip">宽松</div>
+            </div>
           </div>
 
           <div class="field" data-fallback hidden>
@@ -173,6 +188,28 @@
         res(cv.toDataURL("image/jpeg", 0.88).split(",")[1]);
       } catch (e) { rej(e); }
     });
+  }
+  function seekTo(video, t) {
+    return new Promise(function (res) {
+      var done = false;
+      function fin() { if (done) return; done = true; video.removeEventListener("seeked", fin); res(); }
+      video.addEventListener("seeked", fin);
+      try { video.currentTime = t; } catch (e) { fin(); }
+      setTimeout(fin, 1500);
+    });
+  }
+  /* 沿时间轴均匀抽帧，用于画面文字识别（最多 4 帧，去重后翻译） */
+  async function grabFrames(video, n) {
+    const dur = Number(video.duration);
+    const count = Math.max(1, Math.min(4, n || 4));
+    const out = [];
+    if (!isFinite(dur) || dur <= 0) { out.push(await grabFrame(video)); return out; }
+    for (let i = 0; i < count; i++) {
+      const t = Math.min(Math.max(0.1, dur * (i + 0.5) / count), Math.max(0.1, dur - 0.1));
+      await seekTo(video, t);
+      try { out.push(await grabFrame(video)); } catch (e) {}
+    }
+    return out;
   }
   async function translateLines(lines, lang) {
     const out = [];
@@ -262,17 +299,52 @@
 
       let textTranslate = [];
       if (ocrOn && EC.gen.ocrConfigured() && video) {
-        bar(el, 90, "识别画面文字（OCR）…");
+        bar(el, 86, "识别画面文字（OCR）…");
         try {
-          const b64 = await grabFrame(video);
-          const ocr = await EC.gen.ocr({ imageBase64: b64 });
-          const items = (ocr.items && ocr.items.length ? ocr.items : (ocr.text ? [ocr.text] : [])).filter(Boolean);
+          const frames = await grabFrames(video, 4);
+          const seen = {}, items = [];
+          for (let fi = 0; fi < frames.length; fi++) {
+            let ocr;
+            try { ocr = await EC.gen.ocr({ imageBase64: frames[fi] }); } catch (e) { continue; }
+            const list = (ocr.items && ocr.items.length ? ocr.items : (ocr.text ? String(ocr.text).split(/\n+/) : []))
+              .map(function (s) { return String(s || "").trim(); }).filter(Boolean);
+            list.forEach(function (s) { if (!seen[s]) { seen[s] = 1; items.push(s); } });
+          }
           if (items.length) {
-            const outs = await translateLines(items, lang);
-            textTranslate = items.map((s, i) => ({ src: s, dst: outs[i] || "" }));
-            log(el, "画面文字翻译：" + items.length + " 条");
+            const picks = items.slice(0, 12);
+            const outs = await translateLines(picks, lang);
+            textTranslate = picks.map((s, i) => ({ src: s, dst: outs[i] || "" }));
+            log(el, "画面文字翻译：" + textTranslate.length + " 条（抽帧 " + frames.length + " 张）");
           } else { log(el, "画面未识别到文字"); }
         } catch (e) { log(el, "画面文字翻译失败：" + ((e && e.message) || e)); }
+      }
+
+      const subStyle = {
+        preset: pickChip(el, "substyle"),
+        pos: SUB_POS_EN[pickChip(el, "subpos")] || "bottom",
+        size: SUB_SIZE[pickChip(el, "subfont")] || 0.046,
+        lineHeight: SUB_LINE[pickChip(el, "subline")] || 1.3
+      };
+      let cues = [];
+      if (subOn) {
+        if (utterances.length) {
+          cues = utterances.map(function (u) {
+            return { start: Number(u.start) || 0, end: Number(u.end) || 0, text: u.target || u.text || "" };
+          }).filter(function (c) { return c.text; });
+        } else if (translated) {
+          const dur = (video && isFinite(video.duration) && video.duration > 0) ? video.duration : 8;
+          cues = [{ start: 0, end: dur, text: translated }];
+        }
+      }
+      const overlays = textTranslate.map(function (t) { return { text: t.dst || "" }; }).filter(function (o) { return o.text; });
+
+      let burned = false;
+      if (outUrl && (cues.length || overlays.length)) {
+        bar(el, 94, "烧制字幕与画面文字…");
+        try {
+          const r = await EC.gen.subtitle({ video: outUrl, cues: cues, overlays: overlays, style: subStyle, id: "translate" });
+          if (r && r.url) { outUrl = r.url; burned = true; log(el, "字幕烧制完成"); }
+        } catch (e) { log(el, "字幕烧制失败：" + ((e && e.message) || e)); }
       }
 
       bar(el, 100, "完成");
@@ -280,7 +352,12 @@
         name: "视频翻译 · " + lang, kind: "video",
         meta: {
           mode: "translate", mode2: mode, lang: lang, source: url, audio: audioUrl,
-          utterances: utterances, subtitle: subOn ? { style: pickChip(el, "substyle"), pos: pickChip(el, "subpos"), text: translated } : null,
+          utterances: utterances,
+          subtitle: subOn ? {
+            style: subStyle.preset, pos: pickChip(el, "subpos"), font: pickChip(el, "subfont"),
+            line: pickChip(el, "subline"), size: subStyle.size, lineHeight: subStyle.lineHeight,
+            burned: burned, text: translated
+          } : null,
           textTranslate: textTranslate, provider: "translate"
         }
       });
