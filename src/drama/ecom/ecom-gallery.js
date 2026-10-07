@@ -15,8 +15,9 @@
     { f: "toothbrush.jpg", h: "h1", t: "海报设计", c: "图片" },
     { f: "dress.jpg", h: "h4", t: "本地化素材", c: "图片" }
   ];
-  const CATS = ["全部", "图片", "视频", "详情页"];
-  const KIND_CAT = { image: "图片", upload: "图片", edit: "图片", detail: "详情页", video: "视频", localize: "图片" };
+  const CATS = ["全部", "图片", "视频", "详情页", "工具箱"];
+  const KIND_CAT = { image: "图片", upload: "图片", edit: "图片", detail: "详情页", video: "视频", localize: "图片", style: "图片", toolbox: "工具箱" };
+  const EDIT_GO = { image: "ecomDraw", upload: "ecomMainEdit", edit: "ecomMainEdit", detail: "ecomDetail", localize: "ecomLocalize", style: "ecomStyle", video: "ecomVideoHome", toolbox: "ecomToolbox" };
 
   function card(it) {
     const img = it.src
@@ -43,6 +44,7 @@
               <div class="chip">图片</div>
               <div class="chip">视频</div>
               <div class="chip">详情页</div>
+              <div class="chip">工具箱</div>
             </div>
             <div class="search" style="width:220px;margin-left:auto">
               <svg class="ic"><use href="#i-search"/></svg><input placeholder="搜索素材">
@@ -158,7 +160,7 @@
               el.__gal.real = el.__gal.real.filter(function (x) { return x.id !== id; });
               apply(el); EC.toast("已删除");
             });
-          } else if (what === "edit") { EC.go("ecomMainEdit"); }
+          } else if (what === "edit") { EC.go(EDIT_GO[a.kind] || "ecomMainEdit"); }
           else { EC.store.download(a); if (EC.addUsage) EC.addUsage({ exported: 1 }); }
         });
         return;

@@ -9,13 +9,13 @@ const { JSDOM, VirtualConsole } = require("./dom-env.js");
 const ROOT = path.resolve(__dirname, "..");
 const DRAMA_FILES = [
   "config.js", "adapters.js", "adapters/image.js", "adapters/video.js",
-  "adapters/tts.js", "adapters/lipsync.js", "project.js", "character.js",
+  "adapters/tts.js", "adapters/stt.js", "adapters/ocr.js", "adapters/lipsync.js", "project.js", "character.js",
   "takes.js",
   "engine.js", "compliance.js", "compose.js", "ui.js",
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js",
-  "ecom/ecom-css.js", "ecom/ecom-sprite.js", "ecom/ecom.js", "ecom/ecom-store.js", "ecom/ecom-home.js", "ecom/ecom-draw.js", "ecom/ecom-detail.js", "ecom/ecom-mainedit.js", "ecom/ecom-detailedit.js", "ecom/ecom-localize.js", "ecom/ecom-gallery.js", "shell.js"
+  "ecom/ecom-css.js", "ecom/ecom-sprite.js", "ecom/ecom.js", "ecom/ecom-store.js", "ecom/ecom-home.js", "ecom/ecom-draw.js", "ecom/ecom-detail.js", "ecom/ecom-style.js", "ecom/ecom-video-i2v.js", "ecom/ecom-video-copy.js", "ecom/ecom-video-translate.js", "ecom/ecom-video.js", "ecom/ecom-toolbox.js", "ecom/ecom-mainedit.js", "ecom/ecom-detailedit.js", "ecom/ecom-localize.js", "ecom/ecom-gallery.js", "shell.js"
 ];
 
 let pass = 0;
@@ -42,6 +42,12 @@ const HTML = `<!doctype html><html><head><title>t</title></head><body>
 <div id="ecomHomeView" class="view"></div>
 <div id="ecomDrawView" class="view"></div>
 <div id="ecomDetailView" class="view"></div>
+<div id="ecomStyleView" class="view"></div>
+<div id="ecomVideoI2VView" class="view"></div>
+<div id="ecomVideoCopyView" class="view"></div>
+<div id="ecomVideoTranslateView" class="view"></div>
+<div id="ecomVideoHomeView" class="view"></div>
+<div id="ecomToolboxView" class="view"></div>
 <div id="ecomMainEditView" class="view"></div>
 <div id="ecomDetailEditView" class="view"></div>
 <div id="ecomLocalizeView" class="view"></div>
@@ -872,11 +878,11 @@ async function flowBox3d(env) {
 /* ============================ 链路七：电商工作台 · 创作工作台 7 页 ============================ */
 async function flowEcom(env) {
   const { doc, D } = env;
-  console.log("\n链路七：电商工作台（分区切换 → 7 页导航 → 原型渲染与交互）");
+  console.log("\n链路七：电商工作台（分区切换 → 13 页导航 → 原型渲染与交互）");
   const E = D.ecom;
   ok(!!E, "电商模块已注册 XLX.drama.ecom");
-  eq(E.NAV.length, 7, "电商导航 7 项");
-  eq(E.VIEWS.length, 7, "电商视图键 7 个");
+  eq(E.NAV.length, 13, "电商导航 13 项");
+  eq(E.VIEWS.length, 13, "电商视图键 13 个");
   eq(E.DEFAULT_VIEW, "ecomHome", "电商默认视图为工作台");
   E.VIEWS.forEach(v => ok(!!doc.getElementById(v + "View"), "存在电商视图容器 #" + v + "View"));
 
@@ -884,7 +890,7 @@ async function flowEcom(env) {
   const nav = doc.getElementById("shellNav");
   shell.setZone("ecom", { noGo: true });
   await settle(2);
-  eq(nav.querySelectorAll(".shell-nav-item").length, 7, "电商分区渲染 7 个导航项");
+  eq(nav.querySelectorAll(".shell-nav-item").length, 13, "电商分区渲染 13 个导航项");
   eq(nav.querySelectorAll(".shell-zone").length, 2, "渲染短剧/电商两个分区切换按钮");
   ok(!!nav.querySelector('.shell-zone.active[data-zone="ecom"]'), "电商分区按钮高亮");
   ok(!!nav.querySelector('.shell-nav-item[data-view="ecomDraw"]'), "电商导航含 AI 作图项");
@@ -895,7 +901,7 @@ async function flowEcom(env) {
   home.innerHTML = "";
   E.render("ecomHome");
   await settle(2);
-  eq(home.querySelectorAll(".feature").length, 4, "工作台 4 大入口");
+  eq(home.querySelectorAll(".feature").length, 10, "工作台 10 大入口");
   eq(home.querySelectorAll(".stat").length, 4, "工作台 4 数据块");
   has(home.textContent, "跨境本地化", "工作台含跨境本地化入口");
   ok(!!home.querySelector(".proj-grid"), "工作台最近项目区");
@@ -987,6 +993,46 @@ async function flowEcom(env) {
   ok(gal.querySelectorAll(".chips .chip").length >= 4, "作品库类型筛选");
   ok(!!gal.querySelector(".search"), "作品库搜索框");
   eq(gal.querySelector(".pager"), null, "作品库分页已移除");
+
+  /* 风格复刻 */
+  const sty = doc.getElementById("ecomStyleView");
+  sty.innerHTML = ""; E.render("ecomStyle"); await settle(2);
+  ok(!!sty.querySelector('[data-add-style]'), "风格复刻参考设计图上传槽");
+  ok(!!sty.querySelector('[data-add-product]'), "风格复刻商品图上传槽");
+  ok(!!sty.querySelector("[data-run]"), "风格复刻生成按钮");
+
+  /* AI 视频入口 */
+  const vh = doc.getElementById("ecomVideoHomeView");
+  vh.innerHTML = ""; E.render("ecomVideoHome"); await settle(2);
+  eq(vh.querySelectorAll(".feature[data-go]").length, 3, "AI 视频 3 个子入口");
+
+  /* 图生视频 */
+  const i2v = doc.getElementById("ecomVideoI2VView");
+  i2v.innerHTML = ""; E.render("ecomVideoI2V"); await settle(2);
+  ok(!!i2v.querySelector(".dropzone"), "图生视频参考图上传槽");
+  ok(!!i2v.querySelector("[data-ai-write]"), "图生视频 AI 帮写");
+  ok(!!i2v.querySelector(".phone"), "图生视频手机预览");
+
+  /* 视频复刻 */
+  const vc = doc.getElementById("ecomVideoCopyView");
+  vc.innerHTML = ""; E.render("ecomVideoCopy"); await settle(2);
+  ok(vc.querySelectorAll(".dropzone").length >= 2, "视频复刻参考视频与产品图上传槽");
+  ok(!!vc.querySelector("[data-run]"), "视频复刻生成按钮");
+
+  /* 视频翻译 */
+  const vt = doc.getElementById("ecomVideoTranslateView");
+  vt.innerHTML = ""; E.render("ecomVideoTranslate"); await settle(2);
+  ok(!!vt.querySelector(".dropzone"), "视频翻译原视频上传槽");
+  ok(!!vt.querySelector(".switch"), "视频翻译字幕开关");
+  ok(!!vt.querySelector("[data-stage]"), "视频翻译阶段进度");
+  ok(!!vt.querySelector("[data-run]"), "视频翻译开始按钮");
+
+  /* AI 工具箱 */
+  const tb = doc.getElementById("ecomToolboxView");
+  tb.innerHTML = ""; E.render("ecomToolbox"); await settle(2);
+  ok(tb.querySelectorAll("[data-tools] .tool-card").length >= 16, "AI 工具箱 16 项工具");
+  ok(!!tb.querySelector("[data-canvas]"), "AI 工具箱画布");
+  ok(!!tb.querySelector("[data-apply]"), "AI 工具箱应用按钮");
 
   /* 真实能力层：本地资产/项目存储 + 生图桥接 */
   ok(!!E.store && !!E.gen && !!E.ui, "电商 store/gen/ui 已挂载");

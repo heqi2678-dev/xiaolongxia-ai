@@ -34,6 +34,11 @@
   const ICON_VIDEO = `<svg class="fi-art" viewBox="0 0 24 24"><rect class="t2" x="3" y="5" width="18" height="14" rx="3"/><path class="t1" d="M10.4 9.1v5.8a.7.7 0 0 0 1.06.6l4.5-2.9a.7.7 0 0 0 0-1.2l-4.5-2.9a.7.7 0 0 0-1.06.6z"/></svg>`;
   const ICON_DETAIL = `<svg class="fi-art" viewBox="0 0 24 24"><rect class="t2" x="5" y="3" width="14" height="18" rx="2.6"/><rect class="t1" x="8" y="7" width="8" height="1.9" rx=".95"/><rect class="t1" x="8" y="11" width="8" height="1.9" rx=".95"/><rect class="t1" x="8" y="15" width="5" height="1.9" rx=".95"/></svg>`;
   const ICON_LOCAL = `<svg class="fi-art" viewBox="0 0 24 24"><circle class="t2" cx="12" cy="12" r="9"/><path class="t1" d="M12 3.2c2.6 2.3 4 5.4 4 8.8s-1.4 6.5-4 8.8c-2.6-2.3-4-5.4-4-8.8s1.4-6.5 4-8.8z"/><rect class="t1" x="3.2" y="11" width="17.6" height="2" rx="1"/></svg>`;
+  const ICON_STYLE = `<svg class="fi-art" viewBox="0 0 24 24"><path class="t2" d="M12 3a9 9 0 0 0 0 18c1.1 0 2-.9 2-2 0-.5-.2-.9-.5-1.3-.3-.3-.5-.7-.5-1.2 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-3.9-4-7-9-7z"/><circle class="t1" cx="7.8" cy="11.5" r="1"/><circle class="t1" cx="10" cy="7.8" r="1"/><circle class="t1" cx="14.5" cy="7.8" r="1"/></svg>`;
+  const ICON_I2V = `<svg class="fi-art" viewBox="0 0 24 24"><rect class="t2" x="3" y="4" width="11" height="16" rx="2.6"/><circle class="t1" cx="8.5" cy="9" r="1.7"/><path class="t1" d="M5 17l2.8-3.2a1 1 0 0 1 1.5 0L11 16v1.2a.8.8 0 0 1-.8.8H5z"/><path class="t1" d="M17 8.5v7l5-3.5z"/></svg>`;
+  const ICON_COPY = `<svg class="fi-art" viewBox="0 0 24 24"><rect class="t2" x="3" y="6" width="12" height="12" rx="2.4"/><path class="t1" d="M7.5 11v3l3-1.5z"/><rect class="t1" x="9" y="3" width="12" height="12" rx="2.4" fill="none"/></svg>`;
+  const ICON_TRANS = `<svg class="fi-art" viewBox="0 0 24 24"><circle class="t2" cx="12" cy="12" r="9"/><path class="t1" d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>`;
+  const ICON_TOOLBOX = `<svg class="fi-art" viewBox="0 0 24 24"><path class="t2" d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path class="t1" d="M19 14l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>`;
 
   const ARROW = `<svg class="fi-arrow" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 32C16 32 30 26 33 12" stroke="#b7c8e8" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 4"/><path d="M28 10l7 1-3 7" stroke="#b7c8e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
@@ -66,10 +71,46 @@
               <p>上传商品图，一键生成多平台主图与场景图</p>
               <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
             </div>
-            <div class="feature" data-go="ecomDraw">
+            <div class="feature" data-go="ecomVideoHome">
               ${scene("assets/ecom/dress.jpg")}
               <div class="feat-head"><div class="fi b">${ICON_VIDEO}</div><h3>AI 生成视频</h3></div>
               <p>图生视频，自动加字幕与配音，适配短视频</p>
+              <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
+            </div>
+            <div class="feature" data-go="ecomStyle">
+              ${scene("assets/ecom/pot.jpg")}
+              <div class="feat-head"><div class="fi a">${ICON_STYLE}</div><h3>风格复刻</h3></div>
+              <p>参考设计图定风格，批量套用到你的产品图</p>
+              <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
+            </div>
+            <div class="feature" data-go="ecomVideoI2V">
+              ${scene("assets/ecom/dress.jpg")}
+              <div class="feat-head"><div class="fi b">${ICON_I2V}</div><h3>图生视频</h3></div>
+              <p>参考图 + AI 脚本，生成商品讲解视频</p>
+              <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
+            </div>
+            <div class="feature" data-go="ecomVideoCopy">
+              ${scene("assets/ecom/detergent.jpg")}
+              <div class="feat-head"><div class="fi c">${ICON_COPY}</div><h3>视频复刻</h3></div>
+              <p>上传爆款参考视频，生成同款带货视频</p>
+              <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
+            </div>
+            <div class="feature" data-go="ecomVideoTranslate">
+              ${scene("assets/ecom/toothbrush.jpg")}
+              <div class="feat-head"><div class="fi d">${ICON_TRANS}</div><h3>视频翻译</h3></div>
+              <p>语音 / 字幕 / 画面文字多语言出海</p>
+              <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
+            </div>
+            <div class="feature" data-go="ecomToolbox">
+              ${scene("assets/ecom/pot.jpg")}
+              <div class="feat-head"><div class="fi a">${ICON_TOOLBOX}</div><h3>AI 工具箱</h3></div>
+              <p>16 项图片编辑，本地即改即存 + AI 生成</p>
+              <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
+            </div>
+            <div class="feature" data-go="ecomDetailEdit">
+              ${scene("assets/ecom/detergent.jpg")}
+              <div class="feat-head"><div class="fi c">${ICON_DETAIL}</div><h3>详情页编辑</h3></div>
+              <p>模块库自由排版，长图整页导出</p>
               <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
             </div>
             <div class="feature" data-go="ecomDetail">

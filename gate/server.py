@@ -19,6 +19,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 import zipfile
 from datetime import datetime, timedelta, timezone
 from http.cookies import SimpleCookie
@@ -972,6 +973,116 @@ def drama_tts(api_key, resource, text, speaker, speed=1.0, fmt=None, sample_rate
     return bytes(out)
 
 
+VOLC_STT_SUBMIT_URL = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit"
+VOLC_STT_QUERY_URL = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/query"
+VOLC_STT_RESOURCE = "volc.bigasr.auc"
+VOLC_STT_DONE = "20000000"
+VOLC_STT_PENDING = ("20000001", "20000002")
+
+
+def _stt_audio_format(url, fmt=None):
+    fmt = str(fmt or "").strip().lower().lstrip(".")
+    if fmt:
+        return "m4a" if fmt == "mp4a" else fmt
+    path = urllib.parse.urlparse(str(url or "")).path
+    return os.path.splitext(path)[1].lower().lstrip(".") or "mp3"
+
+
+def _volc_stt_call(url, api_key, resource, request_id, body):
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "X-Api-Key": api_key,
+            "X-Api-Resource-Id": resource,
+            "X-Api-Request-Id": request_id,
+            "X-Api-Sequence": "-1",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as res:
+            raw = res.read().decode("utf-8", "replace")
+            code = res.headers.get("X-Api-Status-Code") or ""
+            msg = res.headers.get("X-Api-Message") or ""
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", "replace")
+        code = exc.headers.get("X-Api-Status-Code") or ""
+        msg = exc.headers.get("X-Api-Message") or ""
+    except urllib.error.URLError as exc:
+        raise RuntimeError("连不上语音识别服务，请检查网络：" + str(exc.reason))
+    try:
+        data = json.loads(raw) if raw.strip() else {}
+    except json.JSONDecodeError:
+        data = {}
+    return code, msg, data
+
+
+def _parse_stt(data):
+    result = data.get("result") if isinstance(data, dict) else None
+    if not isinstance(result, dict):
+        result = data if isinstance(data, dict) else {}
+    text = str(result.get("text") or "").strip()
+    utterances = []
+    for item in result.get("utterances") or []:
+        if not isinstance(item, dict):
+            continue
+        body = str(item.get("text") or "").strip()
+        if not body:
+            continue
+        start = item.get("start_time", item.get("start"))
+        end = item.get("end_time", item.get("end"))
+        try:
+            start = round(float(start) / 1000.0, 3)
+        except (TypeError, ValueError):
+            start = 0.0
+        try:
+            end = round(float(end) / 1000.0, 3)
+        except (TypeError, ValueError):
+            end = start
+        utterances.append({"text": body, "start": start, "end": end})
+    language = str(result.get("language") or data.get("language") or "").strip()
+    return {"text": text, "language": language, "utterances": utterances}
+
+
+def drama_stt(api_key, resource, url, fmt=None, language=None,
+              poll_interval=2.0, timeout=90.0):
+    api_key = str(api_key or "").strip()
+    resource = str(resource or "").strip() or VOLC_STT_RESOURCE
+    url = str(url or "").strip()
+    if not api_key:
+        raise ValueError("缺少语音识别 API Key，请先到设置里填好")
+    if not url:
+        raise ValueError("缺少待识别的音视频文件")
+    if not url.lower().startswith(("http://", "https://")):
+        raise ValueError("语音识别需要公网可访问的音视频地址")
+    request_id = uuid.uuid4().hex
+    submit = {
+        "user": {"uid": "xlx-drama"},
+        "audio": {"url": url, "format": _stt_audio_format(url, fmt)},
+        "request": {"model_name": "bigmodel"},
+    }
+    if language:
+        submit["request"]["language"] = str(language).strip()
+    code, msg, _data = _volc_stt_call(
+        VOLC_STT_SUBMIT_URL, api_key, resource, request_id, submit)
+    if code and code != VOLC_STT_DONE and code not in VOLC_STT_PENDING:
+        raise RuntimeError("语音识别提交失败：" + (msg or ("code " + code)))
+    deadline = time.time() + max(5.0, float(timeout))
+    interval = max(0.5, float(poll_interval))
+    while time.time() < deadline:
+        time.sleep(interval)
+        code, msg, data = _volc_stt_call(
+            VOLC_STT_QUERY_URL, api_key, resource, request_id, {})
+        if not code or code == VOLC_STT_DONE:
+            return _parse_stt(data)
+        if code in VOLC_STT_PENDING:
+            continue
+        raise RuntimeError("语音识别失败：" + (msg or ("code " + code)))
+    raise RuntimeError("语音识别超时，请稍后再试")
+
+
 VOLC_VISUAL_HOST = "visual.volcengineapi.com"
 VOLC_VISUAL_REGION = "cn-north-1"
 VOLC_VISUAL_SERVICE = "cv"
@@ -1092,6 +1203,44 @@ def drama_visual(ak, sk, action, body, region=None, service=None,
         msg = err.get("Message") or err.get("Code") or "调用失败"
         raise RuntimeError("火山智能视觉报错：" + str(msg))
     return data
+
+
+def _ocr_extract(data):
+    """从火山智能视觉文字识别结果里稳妥地抽出文字行。"""
+    lines = []
+    if isinstance(data, dict):
+        result = data.get("Result") if isinstance(data.get("Result"), dict) else data
+        for key in ("LineTexts", "line_texts", "Texts", "texts"):
+            v = result.get(key)
+            if isinstance(v, list):
+                got = [str(x).strip() for x in v if isinstance(x, (str, int, float)) and str(x).strip()]
+                if got:
+                    lines = got
+                    break
+        if not lines:
+            v = result.get("Text") or result.get("text")
+            if isinstance(v, str) and v.strip():
+                lines = [v.strip()]
+        if not lines:
+            rows = result.get("Data") or result.get("data") or result.get("WordsResult") or []
+            if isinstance(rows, list):
+                for it in rows:
+                    if isinstance(it, dict):
+                        t = it.get("text") or it.get("Text") or it.get("words")
+                        if t:
+                            lines.append(str(t))
+                    elif isinstance(it, str) and it.strip():
+                        lines.append(it.strip())
+    return "\n".join(lines), lines
+
+
+def drama_ocr(ak, sk, action, body, region=None, service=None,
+              version=None, timeout=60, token=None):
+    """调用火山智能视觉文字识别，返回按行文本与结构化项。"""
+    data = drama_visual(ak, sk, action or "OCRNormal", body, region=region,
+                        service=service, version=version, timeout=timeout, token=token)
+    text, items = _ocr_extract(data)
+    return {"text": text, "items": items, "raw": data}
 
 
 def drama_compose(owner, project):
@@ -1564,8 +1713,14 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/drama/tts":
             self._handle_drama_tts()
             return
+        if path == "/api/drama/stt":
+            self._handle_drama_stt()
+            return
         if path == "/api/drama/visual":
             self._handle_drama_visual()
+            return
+        if path == "/api/drama/ocr":
+            self._handle_drama_ocr()
             return
         if path == "/api/drama/asset":
             self._handle_drama_asset()
@@ -1839,6 +1994,33 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send(200, audio, "audio/mpeg", raw=True)
 
+    def _handle_drama_stt(self):
+        me = self._drama_me()
+        if not me:
+            return
+        obj = self._drama_body()
+        if not obj:
+            self._json(400, {"ok": False, "error": "请求读不懂"})
+            return
+        try:
+            data = drama_stt(
+                obj.get("key"),
+                obj.get("resource"),
+                obj.get("url"),
+                obj.get("format"),
+                obj.get("language"),
+            )
+        except ValueError as exc:
+            self._json(400, {"ok": False, "error": str(exc)})
+            return
+        except RuntimeError as exc:
+            self._json(502, {"ok": False, "error": str(exc)})
+            return
+        except Exception:
+            self._json(502, {"ok": False, "error": "语音识别失败，请检查 Key 与网络"})
+            return
+        self._json(200, {"ok": True, "data": data})
+
     def _handle_drama_visual(self):
         me = self._drama_me()
         if not me:
@@ -1866,6 +2048,45 @@ class Handler(BaseHTTPRequestHandler):
             return
         except Exception:
             self._json(502, {"ok": False, "error": "火山智能视觉调用失败，请检查 Key 与网络"})
+            return
+        self._json(200, {"ok": True, "data": data})
+
+    def _handle_drama_ocr(self):
+        me = self._drama_me()
+        if not me:
+            return
+        obj = self._drama_body()
+        if not obj:
+            self._json(400, {"ok": False, "error": "请求读不懂"})
+            return
+        body = obj.get("body")
+        if not isinstance(body, dict):
+            body = {}
+        img = str(obj.get("image") or "").strip()
+        if img and not body.get("image_base64") and not body.get("image_url"):
+            if img.lower().startswith(("http://", "https://")):
+                body["image_url"] = img
+            else:
+                body["image_base64"] = img
+        try:
+            data = drama_ocr(
+                obj.get("key"),
+                obj.get("secret"),
+                obj.get("action") or "OCRNormal",
+                body,
+                obj.get("region"),
+                obj.get("service"),
+                obj.get("version"),
+                token=obj.get("token"),
+            )
+        except ValueError as exc:
+            self._json(400, {"ok": False, "error": str(exc)})
+            return
+        except RuntimeError as exc:
+            self._json(502, {"ok": False, "error": str(exc)})
+            return
+        except Exception:
+            self._json(502, {"ok": False, "error": "文字识别失败，请检查 Key 与网络"})
             return
         self._json(200, {"ok": True, "data": data})
 

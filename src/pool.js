@@ -4,7 +4,7 @@
  * pool 负责登记与按 kind + id 派发；模型清单统一从 XLX.catalog 取。
  * 现有四类短剧适配器与对话能力原样保留，通过 syncDrama() / registerLlm() 接入，不重写实现。 */
 (function () {
-  const KINDS = ["llm", "image", "video", "tts", "lipsync"];
+  const KINDS = ["llm", "image", "video", "tts", "stt", "ocr", "lipsync"];
   const reg = {};
 
   function bucket(kind) {
@@ -68,13 +68,15 @@
     const A = XLX.drama.adapters[kind];
     if (kind === "image") return A.generate(opts);
     if (kind === "tts") return A.synth(opts);
+    if (kind === "stt") return A.transcribe(opts);
+    if (kind === "ocr") return A.recognize(opts);
     return A.generate(opts, ctx.onProgress, ctx.signal);
   }
 
   function syncDrama() {
     const D = XLX.drama;
     if (!D || !D.adapters || !D.adapterList) return;
-    ["image", "video", "tts", "lipsync"].forEach(kind => {
+    ["image", "video", "tts", "stt", "ocr", "lipsync"].forEach(kind => {
       D.adapterList(kind).forEach(def => {
         register({
           kind: kind,

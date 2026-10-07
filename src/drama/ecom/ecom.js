@@ -7,11 +7,17 @@
   const ZONE = "ecom";
   const DEFAULT_VIEW = "ecomHome";
 
-  /* 电商分区左侧导航（自上而下，7 项） */
+  /* 电商分区左侧导航（自上而下，13 项；前 9 项与 51aic 同序） */
   const NAV = [
     { id: "ecomHome", label: "工作台", icon: "home" },
     { id: "ecomDraw", label: "AI 作图", icon: "wand" },
     { id: "ecomDetail", label: "AI 详情图", icon: "poster" },
+    { id: "ecomStyle", label: "风格复刻", icon: "palette" },
+    { id: "ecomVideoI2V", label: "图生视频", icon: "video" },
+    { id: "ecomVideoCopy", label: "视频复刻", icon: "film" },
+    { id: "ecomVideoTranslate", label: "视频翻译", icon: "globe" },
+    { id: "ecomVideoHome", label: "AI 视频", icon: "play" },
+    { id: "ecomToolbox", label: "AI 工具箱", icon: "spark" },
     { id: "ecomMainEdit", label: "主图编辑", icon: "crop" },
     { id: "ecomDetailEdit", label: "详情页编辑", icon: "layers" },
     { id: "ecomLocalize", label: "跨境本地化", icon: "translate" },
@@ -24,6 +30,12 @@
     ecomHome: ["工作台", "能力入口 · 数据概览 · 最近项目"],
     ecomDraw: ["AI 作图", "万能修图间 · 12 工具 · 大白话出图"],
     ecomDetail: ["AI 详情图", "上传商品图 · 一键生成整套详情"],
+    ecomStyle: ["风格复刻", "参考设计图定风格 · 结合产品属性"],
+    ecomVideoI2V: ["图生视频", "参考图 · AI 帮写脚本 · 商品讲解视频"],
+    ecomVideoCopy: ["视频复刻", "爆款参考视频 · 同款带货视频"],
+    ecomVideoTranslate: ["视频翻译", "语音/字幕/画面文字 · 多语言出海"],
+    ecomVideoHome: ["AI 视频", "图生视频 · 视频复刻 · 视频翻译"],
+    ecomToolbox: ["AI 工具箱", "16 项编辑 · 本地即改即存 + AI 生成"],
     ecomMainEdit: ["主图编辑", "元素精修 · 列表 / 画布双模式"],
     ecomDetailEdit: ["详情页编辑", "模块排版 · 长图导出"],
     ecomLocalize: ["跨境本地化", "换语言 · 换模特 · 平台适配"],

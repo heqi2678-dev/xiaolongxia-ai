@@ -157,6 +157,52 @@
     }
   ];
 
+  /* ===== 语音识别适配器目录 ===== */
+  XLX.drama.STT_PROVIDERS = [
+    {
+      id: "volc",
+      name: "火山引擎录音文件识别大模型",
+      base: "https://openspeech.bytedance.com/api/v3/auc/bigmodel",
+      cluster: "volc.bigasr.auc",
+      keyHint: "火山语音 API Key（新版控制台，需先开通「录音文件识别」）",
+      keyLink: "https://console.volcengine.com/speech/new/setting/apikeys",
+      resourceHint: "资源 ID，如 volc.bigasr.auc",
+      color: "#3370ff"
+    },
+    {
+      id: "custom-stt",
+      name: "自定义语音识别接口",
+      base: "",
+      cluster: "",
+      keyHint: "POST 返回 { text, utterances } 或 { data }",
+      keyLink: "",
+      color: "#10b981"
+    }
+  ];
+
+  /* ===== 文字识别适配器目录（画面文字翻译）===== */
+  XLX.drama.OCR_PROVIDERS = [
+    {
+      id: "volc",
+      name: "火山智能视觉文字识别",
+      base: "https://visual.volcengineapi.com",
+      action: "OCRNormal",
+      version: "2022-08-31",
+      keyHint: "AccessKey ID",
+      secretHint: "Secret Access Key",
+      keyLink: "https://console.volcengine.com/iam/keymanage/",
+      color: "#3370ff"
+    },
+    {
+      id: "custom-ocr",
+      name: "自定义文字识别接口",
+      base: "",
+      keyHint: "POST 返回 { text, items } 或 { data }",
+      keyLink: "",
+      color: "#10b981"
+    }
+  ];
+
   /* ===== 口型适配器目录 ===== */
   XLX.drama.LIPSYNC_PROVIDERS = [
     {
@@ -220,7 +266,7 @@
 
   /* ===== 适配器注册表与解析 ===== */
   XLX.drama.adapterList = function (kind) {
-    return { image: XLX.drama.IMAGE_PROVIDERS, video: XLX.drama.VIDEO_PROVIDERS, tts: XLX.drama.TTS_PROVIDERS, lipsync: XLX.drama.LIPSYNC_PROVIDERS }[kind] || [];
+    return { image: XLX.drama.IMAGE_PROVIDERS, video: XLX.drama.VIDEO_PROVIDERS, tts: XLX.drama.TTS_PROVIDERS, stt: XLX.drama.STT_PROVIDERS, ocr: XLX.drama.OCR_PROVIDERS, lipsync: XLX.drama.LIPSYNC_PROVIDERS }[kind] || [];
   };
 
   XLX.drama.adapterDef = function (kind, id) {

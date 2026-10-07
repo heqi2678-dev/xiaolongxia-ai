@@ -168,6 +168,8 @@ XLX.settings = (function () {
     { id: "image", name: "文生图（漫剧画面）", desc: "生成每个分镜的画面，漫剧的核心。" },
     { id: "video", name: "图生视频（仿真人剧）", desc: "用首帧生成视频，仿真人剧的核心。推荐火山方舟 Seedance。" },
     { id: "tts", name: "语音合成（配音）", desc: "把台词转成自然的配音。推荐火山语音。" },
+    { id: "stt", name: "语音识别（视频翻译）", desc: "把视频/音频里的语音转成文字与时间轴，视频翻译用。推荐火山引擎录音文件识别大模型。" },
+    { id: "ocr", name: "文字识别（画面文字）", desc: "识别视频画面里的文字，视频翻译用。火山智能视觉需填 AccessKey ID + Secret Access Key。" },
     { id: "lipsync", name: "口型驱动（对口型）", desc: "让画面嘴型与配音对齐，仿真人剧用。火山即梦需填 AccessKey ID + Secret Access Key，并先在控制台开通对应模型。" }
   ];
 
@@ -218,6 +220,8 @@ XLX.settings = (function () {
     const cfg = XLX.drama.getAdapterConfig(meta.id);
     const list = XLX.drama.adapterList(meta.id);
     const isTts = meta.id === "tts";
+    const isStt = meta.id === "stt";
+    const isKeyed = isTts || isStt;
     const def = XLX.drama.adapterDef(meta.id, cfg.provider);
     const voices = (def && def.voices) || [];
     return ''
@@ -230,10 +234,10 @@ XLX.settings = (function () {
       + '<input class="inp" id="ds-' + meta.id + '-base" placeholder="Base URL（选平台自动填）" style="flex:2;min-width:180px" value="' + XLX.util.esc(cfg.base) + '">'
       + '</div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
-      + (isTts
+      + (isKeyed
         ? '<input class="inp" id="ds-' + meta.id + '-secret" type="password" placeholder="API Key" style="flex:2;min-width:150px" value="' + XLX.util.esc(cfg.secret || cfg.key) + '">'
           + ((def && def.id === "volc")
-            ? '<input class="inp" id="ds-' + meta.id + '-cluster" placeholder="资源 ID，如 seed-tts-2.0" style="flex:2;min-width:160px" value="' + XLX.util.esc(cfg.cluster) + '">'
+            ? '<input class="inp" id="ds-' + meta.id + '-cluster" placeholder="' + XLX.util.esc((def && def.resourceHint) || "资源 ID，如 seed-tts-2.0") + '" style="flex:2;min-width:160px" value="' + XLX.util.esc(cfg.cluster) + '">'
             : '')
         : '<input class="inp" id="ds-' + meta.id + '-key" type="password" placeholder="' + XLX.util.esc((def && def.keyHint) || "API Key") + '" style="flex:2;min-width:140px" value="' + XLX.util.esc(cfg.key) + '">'
           + ((def && def.secretHint)
@@ -252,7 +256,7 @@ XLX.settings = (function () {
     return ''
       + '<div class="set-card">'
       + '<h3><span class="hic">' + svg("film", 15) + '</span>短剧服务（导演台）</h3>'
-      + '<p class="sd">AI 短剧工作台用这里的四类服务。<b>漫剧</b>只需「文生图 + 语音」；<b>仿真人剧</b>还需「图生视频 + 口型」。所有 Key 只保存在浏览器本地，不会上传。填之前可先在导演台里体验。<b style="color:var(--green)">没有 API Key 也能先出剧本与分镜</b>，但生成画面/配音必须配置对应服务。</p>'
+      + '<p class="sd">AI 短剧工作台用这里的六类服务。<b>漫剧</b>只需「文生图 + 语音」；<b>仿真人剧</b>还需「图生视频 + 口型」。所有 Key 只保存在浏览器本地，不会上传。填之前可先在导演台里体验。<b style="color:var(--green)">没有 API Key 也能先出剧本与分镜</b>，但生成画面/配音必须配置对应服务。</p>'
       + DRAMA_KINDS.map(dramaKindBlock).join("")
       + '<div class="set-row"><div class="lab"><div class="t">保存短剧服务</div><div class="d">保存后立即在短剧工作台生效</div></div>'
       + '<div class="val"><button class="btn primary small" id="dramaSave">保存</button></div></div>'

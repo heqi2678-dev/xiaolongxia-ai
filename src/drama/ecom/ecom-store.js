@@ -236,6 +236,50 @@
     if (!llmConfigured()) return Promise.reject(err("NO_LLM", "尚未配置语言模型，请到「设置」填写 API Key"));
     return XLX.llm.ask(sys, user, opts || {});
   }
+  /* 视频 / 配音 / 对口型桥接：均无免费兜底，未配置时抛 NOT_CONFIGURED。 */
+  function videoConfigured() { try { return !!D.isConfigured("video"); } catch (e) { return false; } }
+  function video(opts, onProgress, signal) {
+    if (!videoConfigured() || !D.adapters || !D.adapters.video || !D.adapters.video.generate) {
+      return Promise.reject(err("NOT_CONFIGURED", "尚未配置视频模型，请到「设置 → 短剧服务」填写"));
+    }
+    return Promise.resolve(D.adapters.video.generate(opts || {}, onProgress, signal));
+  }
+  function ttsConfigured() { try { return !!D.isConfigured("tts"); } catch (e) { return false; } }
+  function synth(opts) {
+    if (!ttsConfigured() || !D.adapters || !D.adapters.tts || !D.adapters.tts.synth) {
+      return Promise.reject(err("NOT_CONFIGURED", "尚未配置语音合成服务，请到「设置 → 短剧服务」填写"));
+    }
+    return Promise.resolve(D.adapters.tts.synth(opts || {}));
+  }
+  function lipsyncConfigured() { try { return !!D.isConfigured("lipsync"); } catch (e) { return false; } }
+  function lipsync(opts, onProgress, signal) {
+    if (!lipsyncConfigured() || !D.adapters || !D.adapters.lipsync || !D.adapters.lipsync.generate) {
+      return Promise.reject(err("NOT_CONFIGURED", "尚未配置对口型服务，请到「设置 → 短剧服务」填写"));
+    }
+    return Promise.resolve(D.adapters.lipsync.generate(opts || {}, onProgress, signal));
+  }
+  function kindConfigured(kind) {
+    const fns = {
+      image: imageConfigured, video: videoConfigured, tts: ttsConfigured,
+      lipsync: lipsyncConfigured, stt: sttConfigured, ocr: ocrConfigured
+    };
+    const fn = fns[kind || "image"];
+    return fn ? !!fn() : false;
+  }
+  function sttConfigured() { try { return !!D.isConfigured("stt"); } catch (e) { return false; } }
+  function transcribe(opts) {
+    if (!sttConfigured() || !D.adapters || !D.adapters.stt || !D.adapters.stt.transcribe) {
+      return Promise.reject(err("NO_STT", "尚未配置语音识别服务，请到「设置 → 短剧服务」填写"));
+    }
+    return Promise.resolve(D.adapters.stt.transcribe(opts || {}));
+  }
+  function ocrConfigured() { try { return !!D.isConfigured("ocr"); } catch (e) { return false; } }
+  function recognizeText(opts) {
+    if (!ocrConfigured() || !D.adapters || !D.adapters.ocr || !D.adapters.ocr.recognize) {
+      return Promise.reject(err("NO_OCR", "尚未配置文字识别服务，请到「设置 → 短剧服务」填写"));
+    }
+    return Promise.resolve(D.adapters.ocr.recognize(opts || {}));
+  }
   function extractJson(text) {
     if (!text) return null;
     let s = String(text).trim();
@@ -248,6 +292,26 @@
     }
     if (a >= 0 && b > a) { try { return JSON.parse(s.slice(a, b + 1)); } catch (e) {} }
     try { return JSON.parse(s); } catch (e) { return null; }
+  }
+
+  /* 云端模型只收公网 URL：把本地资产上传到网关 /dian/api/drama/asset 换回公网地址。 */
+  async function publicUrl(asset) {
+    if (!asset) throw err("NO_ASSET", "缺少素材");
+    if (asset.url && /^https?:\/\//i.test(asset.url)) return asset.url;
+    let blob = asset.blob;
+    if (!blob && asset.dataUrl) blob = dataUrlToBlob(asset.dataUrl);
+    if (!blob) {
+      const u = srcOf(asset);
+      if (u) blob = await fetch(u).then(r => r.blob()).catch(() => null);
+    }
+    if (!blob) throw err("NO_ASSET", "本地素材读不到，请重新上传或生成");
+    const r = await fetch("/dian/api/drama/asset", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": blob.type || "application/octet-stream" }, body: blob
+    });
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j || !j.ok || !j.url) throw err("UPLOAD_FAIL", (j && j.error) || "素材上传到公网失败，请稍后再试");
+    return j.url;
   }
 
   /* ---------------- 通用 UI ---------------- */
@@ -330,9 +394,9 @@
     ready: openDB,
     addAsset, addFile, addFromUrl, addDataUrl,
     list: listAssets, get: (id) => dbGet("assets", id), remove: removeAsset, clear: clearAssets,
-    src: srcOf, download, downloadBlob, canvasToBlob, loadImage, dataUrlToBlob, blobToDataUrl,
+    src: srcOf, download, downloadBlob, canvasToBlob, loadImage, dataUrlToBlob, blobToDataUrl, publicUrl,
     saveProject, listProjects, removeProject
   };
-  EC.gen = { image: generate, configured: imageConfigured, providerName, ratioWH, pollinationsUrl, llmConfigured, ask, extractJson };
+  EC.gen = { image: generate, configured: kindConfigured, providerName, ratioWH, pollinationsUrl, llmConfigured, ask, extractJson, stt: transcribe, sttConfigured, ocr: recognizeText, ocrConfigured, video, videoConfigured, tts: synth, ttsConfigured, lipsync, lipsyncConfigured };
   EC.ui = { pickFiles, menu, closeMenus, modal, toast, busy, el, uid, err };
 })();

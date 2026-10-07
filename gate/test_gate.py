@@ -720,6 +720,111 @@ class GateTests(unittest.TestCase):
         self.assertEqual(code, 400)
         self.assertFalse(json.loads(body.decode("utf-8"))["ok"])
 
+    def _mock_stt_urlopen(self, responses):
+        captured = []
+
+        class FakeResp:
+            def __init__(self, body, headers):
+                self._body = body
+                self.headers = headers
+
+            def read(self, *args):
+                return self._body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        seq = list(responses)
+
+        def fake(req, timeout=None):
+            captured.append({
+                "url": req.full_url,
+                "headers": {k.lower(): v for k, v in req.header_items()},
+                "body": json.loads(req.data.decode("utf-8")),
+            })
+            body, headers = seq.pop(0)
+            return FakeResp(body.encode("utf-8"), headers)
+
+        old = self.gate.urllib.request.urlopen
+        self.gate.urllib.request.urlopen = fake
+        self.addCleanup(lambda: setattr(self.gate.urllib.request, "urlopen", old))
+        return captured
+
+    def test_drama_stt_polls_until_done_and_parses_utterances(self):
+        done = {
+            "result": {
+                "text": "你好世界",
+                "language": "zh",
+                "utterances": [
+                    {"text": "你好", "start_time": 0, "end_time": 1200},
+                    {"text": "世界", "start_time": 1200, "end_time": 2500},
+                ],
+            }
+        }
+        captured = self._mock_stt_urlopen([
+            (json.dumps({}), {"X-Api-Status-Code": "20000001"}),
+            (json.dumps({}), {"X-Api-Status-Code": "20000002"}),
+            (json.dumps(done), {"X-Api-Status-Code": "20000000"}),
+        ])
+        out = self.gate.drama_stt("tok", "volc.bigasr.auc", "https://cdn.x/a.mp4", poll_interval=0.5)
+        self.assertEqual(out["text"], "你好世界")
+        self.assertEqual(out["language"], "zh")
+        self.assertEqual(out["utterances"][0], {"text": "你好", "start": 0.0, "end": 1.2})
+        self.assertEqual(out["utterances"][1]["end"], 2.5)
+        self.assertEqual(captured[0]["url"], self.gate.VOLC_STT_SUBMIT_URL)
+        self.assertEqual(captured[-1]["url"], self.gate.VOLC_STT_QUERY_URL)
+        self.assertEqual(captured[0]["headers"]["x-api-key"], "tok")
+        self.assertEqual(captured[0]["headers"]["x-api-resource-id"], "volc.bigasr.auc")
+        self.assertEqual(captured[0]["headers"]["x-api-sequence"], "-1")
+        self.assertEqual(captured[0]["body"]["audio"]["format"], "mp4")
+        self.assertEqual(captured[0]["body"]["request"]["model_name"], "bigmodel")
+        rid = captured[0]["headers"]["x-api-request-id"]
+        self.assertTrue(rid)
+        self.assertEqual(captured[1]["headers"]["x-api-request-id"], rid)
+        self.assertEqual(captured[2]["headers"]["x-api-request-id"], rid)
+
+    def test_drama_stt_surfaces_submit_error(self):
+        self._mock_stt_urlopen([
+            (json.dumps({"message": "bad"}), {"X-Api-Status-Code": "45000001", "X-Api-Message": "invalid key"}),
+        ])
+        with self.assertRaises(RuntimeError) as ctx:
+            self.gate.drama_stt("tok", "", "https://cdn.x/a.mp3")
+        self.assertIn("invalid key", str(ctx.exception))
+
+    def test_drama_stt_requires_key_and_public_url(self):
+        with self.assertRaises(ValueError):
+            self.gate.drama_stt("", "", "https://cdn.x/a.mp3")
+        with self.assertRaises(ValueError):
+            self.gate.drama_stt("tok", "", "")
+        with self.assertRaises(ValueError):
+            self.gate.drama_stt("tok", "", "/local/a.mp3")
+
+    def test_drama_stt_endpoint_returns_transcript(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        done = {"result": {"text": "hi", "utterances": [{"text": "hi", "start_time": 0, "end_time": 500}]}}
+        captured = self._mock_stt_urlopen([
+            (json.dumps({}), {"X-Api-Status-Code": "20000000"}),
+            (json.dumps(done), {"X-Api-Status-Code": "20000000"}),
+        ])
+        code, body, _ = self.req(opener, "/api/drama/stt", method="POST", json_body={
+            "key": "tok", "resource": "volc.bigasr.auc", "url": "https://cdn.x/a.mp4",
+        })
+        self.assertEqual(code, 200)
+        payload = json.loads(body.decode("utf-8"))
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["data"]["text"], "hi")
+        self.assertEqual(payload["data"]["utterances"][0]["end"], 0.5)
+        self.assertEqual(captured[0]["body"]["audio"]["url"], "https://cdn.x/a.mp4")
+
+    def test_drama_stt_endpoint_requires_login(self):
+        opener, _ = self.opener()
+        code, _, _ = self.req(opener, "/api/drama/stt", method="POST", json_body={"key": "tok", "url": "https://cdn.x/a.mp4"})
+        self.assertEqual(code, 401)
+
     def test_volc_sign_matches_reference_vector(self):
         from datetime import datetime, timezone
         url, headers, payload = self.gate.volc_sign(
@@ -801,6 +906,47 @@ class GateTests(unittest.TestCase):
         code, body, _ = self.req(opener, "/api/drama/visual", method="POST", json_body={})
         self.assertEqual(code, 400)
         code, body, _ = self.req(opener, "/api/drama/visual", method="POST", json_body={"action": "CVSubmitTask"})
+        self.assertEqual(code, 400)
+        self.assertIn("AccessKey", json.loads(body.decode("utf-8"))["error"])
+
+    def test_drama_ocr_extracts_lines_and_posts_signed_body(self):
+        captured = self._mock_urlopen(json.dumps({
+            "Result": {"LineTexts": ["限时五折", "包邮到家"]},
+            "ResponseMetadata": {},
+        }))
+        out = self.gate.drama_ocr("AK", "SK", "OCRNormal", {"image_base64": "QUJD"})
+        self.assertEqual(out["text"], "限时五折\n包邮到家")
+        self.assertEqual(out["items"], ["限时五折", "包邮到家"])
+        self.assertEqual(captured["url"], "https://visual.volcengineapi.com/?Action=OCRNormal&Version=2022-08-31")
+        self.assertTrue(captured["headers"]["authorization"].startswith("HMAC-SHA256 Credential=AK/"))
+        self.assertEqual(captured["body"], {"image_base64": "QUJD"})
+
+    def test_drama_ocr_surfaces_upstream_error(self):
+        self._mock_urlopen(json.dumps({
+            "ResponseMetadata": {"Error": {"Code": "InvalidAccessKey", "Message": "bad key"}},
+        }))
+        with self.assertRaises(RuntimeError) as ctx:
+            self.gate.drama_ocr("AK", "SK", "OCRNormal", {})
+        self.assertIn("bad key", str(ctx.exception))
+
+    def test_drama_ocr_endpoint_returns_text(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        self._mock_urlopen(json.dumps({"Result": {"LineTexts": ["你好世界"]}, "ResponseMetadata": {}}))
+        code, body, _ = self.req(opener, "/api/drama/ocr", method="POST", json_body={
+            "key": "AK", "secret": "SK", "image": "https://x/frame.jpg",
+        })
+        self.assertEqual(code, 200)
+        obj = json.loads(body.decode("utf-8"))
+        self.assertTrue(obj["ok"])
+        self.assertEqual(obj["data"]["text"], "你好世界")
+
+    def test_drama_ocr_endpoint_guards(self):
+        opener, _ = self.opener()
+        code, _, _ = self.req(opener, "/api/drama/ocr", method="POST", json_body={"key": "AK"})
+        self.assertEqual(code, 401)
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        code, body, _ = self.req(opener, "/api/drama/ocr", method="POST", json_body={"action": "OCRNormal"})
         self.assertEqual(code, 400)
         self.assertIn("AccessKey", json.loads(body.decode("utf-8"))["error"])
 

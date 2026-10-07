@@ -1,6 +1,6 @@
-/* 铜龙AI · 电商工作台（创作工作台 7 页）· 前端视图测试
+/* 铜龙AI · 电商工作台（创作工作台 13 页）· 前端视图测试
  * 运行：node --test tests/ecom.test.js
- * 覆盖：导航/视图注册、7 页渲染结构、原型交互（卡片/chips/色板/开关/列表-画布切换）、共享通道。 */
+ * 覆盖：导航/视图注册、13 页渲染结构、原型交互（卡片/chips/色板/开关/列表-画布切换）、共享通道。 */
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
@@ -10,15 +10,21 @@ const { JSDOM } = require("./dom-env.js");
 const ROOT = path.resolve(__dirname, "..");
 function src(file) { return fs.readFileSync(path.join(ROOT, "src/drama/ecom", file), "utf8"); }
 
-const VIEW_FILES = ["ecom-home.js", "ecom-draw.js", "ecom-detail.js", "ecom-mainedit.js", "ecom-detailedit.js", "ecom-localize.js", "ecom-gallery.js"];
+const VIEW_FILES = ["ecom-home.js", "ecom-draw.js", "ecom-detail.js", "ecom-style.js", "ecom-video-i2v.js", "ecom-video-copy.js", "ecom-video-translate.js", "ecom-video.js", "ecom-toolbox.js", "ecom-mainedit.js", "ecom-detailedit.js", "ecom-localize.js", "ecom-gallery.js"];
 const STORE_FILE = "ecom-store.js";
-const ICON_IDS = ["home", "wand", "poster", "crop", "layers", "translate", "grid"];
+const ICON_IDS = ["home", "wand", "poster", "crop", "layers", "translate", "grid", "palette", "video", "film", "globe", "play", "spark", "rotate"];
 
 function boot(fetchImpl) {
   const dom = new JSDOM('<!doctype html><html><body>'
     + '<div id="ecomHomeView" class="view"></div>'
     + '<div id="ecomDrawView" class="view"></div>'
     + '<div id="ecomDetailView" class="view"></div>'
+    + '<div id="ecomStyleView" class="view"></div>'
+    + '<div id="ecomVideoI2VView" class="view"></div>'
+    + '<div id="ecomVideoCopyView" class="view"></div>'
+    + '<div id="ecomVideoTranslateView" class="view"></div>'
+    + '<div id="ecomVideoHomeView" class="view"></div>'
+    + '<div id="ecomToolboxView" class="view"></div>'
     + '<div id="ecomMainEditView" class="view"></div>'
     + '<div id="ecomDetailEditView" class="view"></div>'
     + '<div id="ecomLocalizeView" class="view"></div>'
@@ -46,24 +52,24 @@ function boot(fetchImpl) {
   return { w, doc: w.document, EC: w.XLX.drama.ecom };
 }
 
-test("注册：导航 7 项、默认视图、视图容器齐备", () => {
+test("注册：导航 13 项、默认视图、视图容器齐备", () => {
   const { doc, EC } = boot();
-  assert.equal(EC.NAV.length, 7, "导航 7 项");
+  assert.equal(EC.NAV.length, 13, "导航 13 项");
   assert.deepEqual(EC.NAV.map(n => n.id),
-    ["ecomHome", "ecomDraw", "ecomDetail", "ecomMainEdit", "ecomDetailEdit", "ecomLocalize", "ecomGallery"]);
-  assert.equal(EC.VIEWS.length, 7, "视图键 7 个");
+    ["ecomHome", "ecomDraw", "ecomDetail", "ecomStyle", "ecomVideoI2V", "ecomVideoCopy", "ecomVideoTranslate", "ecomVideoHome", "ecomToolbox", "ecomMainEdit", "ecomDetailEdit", "ecomLocalize", "ecomGallery"]);
+  assert.equal(EC.VIEWS.length, 13, "视图键 13 个");
   assert.equal(EC.DEFAULT_VIEW, "ecomHome", "默认视图为工作台");
   assert.equal(EC.ZONE, "ecom", "分区键 ecom");
   EC.VIEWS.forEach(v => assert.ok(doc.getElementById(v + "View"), "存在容器 #" + v + "View"));
   assert.ok(EC.TITLES.ecomDraw, "顶栏标题已注册");
 });
 
-test("工作台：4 大入口 + 4 数据块 + 最近项目 + 入口卡跳转", async () => {
+test("工作台：10 大入口 + 4 数据块 + 最近项目 + 入口卡跳转", async () => {
   const { w, doc, EC } = boot();
   await EC.render("ecomHome");
   const el = doc.getElementById("ecomHomeView");
-  assert.equal(el.querySelectorAll(".feature").length, 4, "4 个功能入口");
-  assert.equal(el.querySelectorAll(".feature[data-go]").length, 4, "每个入口卡带 data-go");
+  assert.equal(el.querySelectorAll(".feature").length, 10, "10 个功能入口");
+  assert.equal(el.querySelectorAll(".feature[data-go]").length, 10, "每个入口卡带 data-go");
   assert.equal(el.querySelectorAll(".stat").length, 4, "4 个数据块");
   assert.match(el.querySelector(".page-head h1").textContent, /下午好|你好|早上好/, "问候语");
   assert.match(el.textContent, /AI 作图/, "含 AI 作图入口");
@@ -74,6 +80,10 @@ test("工作台：4 大入口 + 4 数据块 + 最近项目 + 入口卡跳转", a
   assert.equal(w.__go, "ecomDetail", "点击 AI 详情页入口卡跳转 ecomDetail");
   el.querySelector('.feature[data-go="ecomLocalize"]').click();
   assert.equal(w.__go, "ecomLocalize", "点击跨境本地化入口卡跳转 ecomLocalize");
+  el.querySelector('.feature[data-go="ecomStyle"]').click();
+  assert.equal(w.__go, "ecomStyle", "点击风格复刻入口卡跳转 ecomStyle");
+  el.querySelector('.feature[data-go="ecomToolbox"]').click();
+  assert.equal(w.__go, "ecomToolbox", "点击 AI 工具箱入口卡跳转 ecomToolbox");
 });
 
 test("AI 作图：12 工具卡 + prompt + 示例作品照片", async () => {
@@ -180,6 +190,72 @@ test("作品库：筛选 chips + 示例作品照片", async () => {
   assert.equal(el.querySelector(".pager"), null, "分页已移除");
 });
 
+test("风格复刻：参考设计图/商品图上传槽 + 尺寸/组数 chips + 生成条", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomStyle");
+  const el = doc.getElementById("ecomStyleView");
+  assert.ok(el.querySelector('[data-add-style]'), "参考设计图上传槽");
+  assert.ok(el.querySelector('[data-add-product]'), "商品图上传槽");
+  assert.ok(el.querySelectorAll(".chips .chip").length >= 4, "尺寸/组数 chips");
+  assert.ok(el.querySelector("[data-run]"), "生成按钮");
+  assert.ok(el.querySelector("[data-bar]"), "进度条");
+  assert.ok(el.querySelector(".result-grid"), "结果区");
+});
+
+test("AI 视频（入口）：3 个子页卡 + 点击跳转", async () => {
+  const { w, doc, EC } = boot();
+  await EC.render("ecomVideoHome");
+  const el = doc.getElementById("ecomVideoHomeView");
+  assert.equal(el.querySelectorAll(".feature[data-go]").length, 3, "3 个视频子入口");
+  el.querySelector('.feature[data-go="ecomVideoI2V"]').click();
+  assert.equal(w.__go, "ecomVideoI2V", "图生视频入口跳转");
+  el.querySelector('.feature[data-go="ecomVideoTranslate"]').click();
+  assert.equal(w.__go, "ecomVideoTranslate", "视频翻译入口跳转");
+});
+
+test("图生视频：参考图上传 + AI 帮写 + 时长/比例 chips + 手机预览", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomVideoI2V");
+  const el = doc.getElementById("ecomVideoI2VView");
+  assert.ok(el.querySelector(".dropzone"), "参考图上传槽");
+  assert.ok(el.querySelector("[data-ai-write]"), "AI 帮写按钮");
+  assert.ok(el.querySelectorAll(".chips .chip").length >= 3, "时长/比例 chips");
+  assert.ok(el.querySelector(".phone"), "手机预览");
+  assert.ok(el.querySelector("[data-run]"), "生成按钮");
+});
+
+test("视频复刻：参考视频/产品图上传 + 生成按钮", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomVideoCopy");
+  const el = doc.getElementById("ecomVideoCopyView");
+  assert.ok(el.querySelectorAll(".dropzone").length >= 2, "参考视频与产品图上传槽");
+  assert.ok(el.querySelector("[data-video]"), "参考视频选择");
+  assert.ok(el.querySelector("[data-run]"), "生成按钮");
+});
+
+test("视频翻译：原视频上传 + 模式/语言 chips + 字幕开关 + 阶段日志", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomVideoTranslate");
+  const el = doc.getElementById("ecomVideoTranslateView");
+  assert.ok(el.querySelector(".dropzone"), "原视频上传槽");
+  assert.ok(el.querySelectorAll("[data-mode] .chip").length >= 2 || el.querySelectorAll(".chips .chip").length >= 4, "模式/语言 chips");
+  assert.ok(el.querySelector(".switch"), "字幕/开关项");
+  assert.ok(el.querySelector("[data-stage]"), "阶段进度");
+  assert.ok(el.querySelector("[data-log]"), "运行日志");
+  assert.ok(el.querySelector("[data-run]"), "开始翻译按钮");
+});
+
+test("AI 工具箱：16 工具 + 画布 + 应用/撤销", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomToolbox");
+  const el = doc.getElementById("ecomToolboxView");
+  assert.ok(el.querySelector("[data-tools]"), "工具列表容器");
+  assert.ok(el.querySelectorAll("[data-tools] .tool-card").length >= 16, "16 项工具");
+  assert.ok(el.querySelector("[data-canvas]"), "画布");
+  assert.ok(el.querySelector("[data-apply]"), "应用按钮");
+  assert.ok(el.querySelector("[data-undo]"), "撤销按钮");
+});
+
 test("通道：api 走 /dian/api/ecom 且 go 委托 XLX.app", async () => {
   let seen = null;
   const { w, EC } = boot((url, opts) => {
@@ -247,6 +323,12 @@ test("生成桥接：extractJson 解析围栏 / 混排 / 数组 / 空值", () =>
   assert.deepEqual(EC.gen.extractJson('[{"c":3}]'), [{ c: 3 }], "数组根");
   assert.equal(EC.gen.extractJson("无 json"), null, "非 JSON 为 null");
   assert.equal(EC.gen.extractJson(""), null, "空串为 null");
+});
+
+test("生成桥接：OCR 未配置时 ocrConfigured 为 false 且拒绝", async () => {
+  const { EC } = boot();
+  assert.equal(EC.gen.ocrConfigured(), false, "未配置文字识别");
+  await assert.rejects(() => EC.gen.ocr({ imageBase64: "x" }), /NO_OCR|文字识别/);
 });
 
 test("通用 UI：modal 结构 / menu 构建 / el 生成 / uid 唯一", () => {

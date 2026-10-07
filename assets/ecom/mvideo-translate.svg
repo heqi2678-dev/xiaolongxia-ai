@@ -1,0 +1,16 @@
+<svg viewBox="0 0 320 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="320" height="200" rx="16" fill="#eef4ff"/>
+  <rect x="42" y="42" width="130" height="116" rx="12" fill="#fff" stroke="#cdddfb"/>
+  <rect x="42" y="42" width="130" height="28" rx="12" fill="#f2f6ff"/>
+  <rect x="42" y="56" width="130" height="14" fill="#f2f6ff"/>
+  <circle cx="55" cy="56" r="3" fill="#c7d9f7"/>
+  <circle cx="66" cy="56" r="3" fill="#d7e4f8"/>
+  <rect x="54" y="80" width="106" height="56" rx="8" fill="#dbe7ff"/>
+  <path d="M92 92v32a2.5 2.5 0 0 0 3.8 2.1l24-16a2.5 2.5 0 0 0 0-4.2l-24-16A2.5 2.5 0 0 0 92 92z" fill="#1c64f4"/>
+  <rect x="54" y="144" width="66" height="6" rx="3" fill="#dbe7ff"/>
+  <circle cx="206" cy="100" r="34" fill="#fff" stroke="#cdddfb"/>
+  <circle cx="206" cy="100" r="22" fill="#e6efff"/>
+  <path d="M180 100h52M206 74a50 50 0 0 1 0 52M206 74a50 50 0 0 0 0 52" stroke="#3eb0ff" stroke-width="2.4"/>
+  <path d="M262 60l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#1c64f4"/>
+  <path d="M46 150l2.4 5.6 5.6 2.4-5.6 2.4L46 166l-2.4-5.6L38 158l5.6-2.4z" fill="#6d8bff"/>
+</svg>

@@ -16,7 +16,7 @@ const FILES = [
   "src/config.js", "src/util.js", "src/vendor-keys.js",
   "src/drama/config.js", "src/drama/adapters.js",
   "src/drama/adapters/image.js", "src/drama/adapters/video.js",
-  "src/drama/adapters/tts.js", "src/drama/adapters/lipsync.js"
+  "src/drama/adapters/tts.js", "src/drama/adapters/stt.js", "src/drama/adapters/ocr.js", "src/drama/adapters/lipsync.js"
 ];
 
 function startMock() {
@@ -41,6 +41,12 @@ function startMock() {
       if (p.endsWith("/tts")) {
         if (body && String(body.text).includes("B64")) return send({ data: Buffer.from("AUD").toString("base64") });
         return send({ url: base + "/files/a.mp3" });
+      }
+      if (p.endsWith("/stt")) {
+        return send({ text: "你好", language: "zh", utterances: [{ text: "你好", start: 0, end: 1.2 }] });
+      }
+      if (p.endsWith("/ocr")) {
+        return send({ text: "限时五折\n包邮到家", items: ["限时五折", "包邮到家"] });
       }
       if (p.endsWith("/api/v1/services/aigc/text2image/image-synthesis")) return send({ output: { task_id: "t_img1" } });
       if (p.endsWith("/api/v1/tasks/t_img1")) return send({ output: { task_status: "SUCCEEDED", results: [{ url: base + "/files/wanx.png" }] } });
@@ -235,6 +241,93 @@ test("语音：火山走同源网关", async () => {
   assert.equal(payload.key, "VOLCK");
   assert.equal(payload.resource, "seed-tts-2.0");
   assert.equal(payload.speaker, "zh_female_vv_uranus_bigtts");
+});
+
+test("语音识别：火山走同源网关并解析时间轴", async () => {
+  const { w, D } = boot();
+  D.setAdapterConfig("stt", { provider: "volc", key: "STTK", cluster: "volc.bigasr.auc" });
+  const calls = [];
+  const orig = w.fetch;
+  w.fetch = async (u, o) => {
+    calls.push({ u, o });
+    return new Response(JSON.stringify({ ok: true, data: { text: "你好世界", language: "zh", utterances: [{ text: "你好", start: 0, end: 1.2 }] } }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  let out;
+  try {
+    out = await D.adapters.stt.transcribe({ url: "https://cdn/a.mp4", format: "mp4" });
+  } finally { w.fetch = orig; }
+  assert.equal(out.text, "你好世界");
+  assert.equal(out.language, "zh");
+  assert.equal(out.utterances[0].end, 1.2);
+  assert.equal(calls[0].u, "/dian/api/drama/stt", "必须打同源网关");
+  const payload = JSON.parse(calls[0].o.body);
+  assert.equal(payload.key, "STTK");
+  assert.equal(payload.resource, "volc.bigasr.auc");
+  assert.equal(payload.url, "https://cdn/a.mp4");
+  assert.equal(payload.format, "mp4");
+});
+
+test("语音识别：火山缺 Key 前置校验", async () => {
+  const { D } = boot();
+  D.setAdapterConfig("stt", { provider: "volc", key: "" });
+  await assert.rejects(() => D.adapters.stt.transcribe({ url: "https://cdn/a.mp4" }), /API Key|NO_KEY/);
+});
+
+test("语音识别：自定义接口返回文本与时间轴", async () => {
+  const m = await startMock();
+  try {
+    const { D } = boot();
+    D.setAdapterConfig("stt", { provider: "custom-stt", base: m.base + "/stt", key: "SK" });
+    const out = await D.adapters.stt.transcribe({ url: "https://cdn/a.mp4" });
+    assert.equal(out.text, "你好");
+    assert.equal(out.utterances[0].end, 1.2);
+    const req = findReq(m.reqs, "POST", "/stt");
+    assert.equal(req.headers.authorization, "Bearer SK");
+    assert.equal(req.body.url, "https://cdn/a.mp4");
+  } finally { m.close(); }
+});
+
+test("文字识别：火山走同源网关并解析行", async () => {
+  const { w, D } = boot();
+  D.setAdapterConfig("ocr", { provider: "volc", key: "AKX", secret: "SKX" });
+  const calls = [];
+  const orig = w.fetch;
+  w.fetch = async (u, o) => {
+    calls.push({ u, o });
+    return new Response(JSON.stringify({ ok: true, data: { text: "限时五折\n包邮到家", items: ["限时五折", "包邮到家"] } }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  let out;
+  try {
+    out = await D.adapters.ocr.recognize({ imageBase64: "QUJD" });
+  } finally { w.fetch = orig; }
+  assert.equal(out.text, "限时五折\n包邮到家");
+  assert.equal(out.items.length, 2);
+  assert.equal(calls[0].u, "/dian/api/drama/ocr", "必须打同源网关");
+  const payload = JSON.parse(calls[0].o.body);
+  assert.equal(payload.key, "AKX");
+  assert.equal(payload.secret, "SKX");
+  assert.equal(payload.action, "OCRNormal");
+  assert.equal(payload.body.image_base64, "QUJD");
+});
+
+test("文字识别：火山缺 AK/SK 前置校验", async () => {
+  const { D } = boot();
+  D.setAdapterConfig("ocr", { provider: "volc", key: "AKX", secret: "" });
+  await assert.rejects(() => D.adapters.ocr.recognize({ imageBase64: "QUJD" }), /AccessKey|Secret|NO_KEY/);
+});
+
+test("文字识别：自定义接口返回行文本", async () => {
+  const m = await startMock();
+  try {
+    const { D } = boot();
+    D.setAdapterConfig("ocr", { provider: "custom-ocr", base: m.base + "/ocr", key: "OK" });
+    const out = await D.adapters.ocr.recognize({ imageUrl: "https://cdn/f.jpg" });
+    assert.equal(out.text, "限时五折\n包邮到家");
+    assert.equal(out.items[0], "限时五折");
+    const req = findReq(m.reqs, "POST", "/ocr");
+    assert.equal(req.headers.authorization, "Bearer OK");
+    assert.equal(req.body.image_url, "https://cdn/f.jpg");
+  } finally { m.close(); }
 });
 
 test("口型：自定义任务式创建与轮询", async () => {

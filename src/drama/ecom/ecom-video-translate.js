@@ -1,0 +1,366 @@
+/* 铜龙电商ai助手 · 电商工作台 · AI 视频 · 视频翻译（STT + LLM 翻译 + TTS 配音 + 字幕 + 画面文字 OCR） */
+(function () {
+  const D = XLX.drama || (XLX.drama = {});
+  const EC = D.ecom;
+  if (!EC) return;
+  const esc = EC.esc;
+
+  const LANGS = ["中文", "English", "日本語", "한국어", "Español", "Français", "Deutsch", "Português",
+    "Italiano", "Русский", "العربية", "ไทย", "हिन्दी", "Bahasa Indonesia", "Bahasa Melayu",
+    "Tiếng Việt", "Türkçe", "繁體中文"];
+  const LANG_EN = { "中文": "zh", "English": "en", "日本語": "ja", "한국어": "ko", "Español": "es", "Français": "fr",
+    "Deutsch": "de", "Português": "pt", "Italiano": "it", "Русский": "ru", "العربية": "ar", "ไทย": "th",
+    "हिन्दी": "hi", "Bahasa Indonesia": "id", "Bahasa Melayu": "ms", "Tiếng Việt": "vi", "Türkçe": "tr", "繁體中文": "zh-TW" };
+  const SUB_STYLES = ["简洁白", "描边黑", "醒目黄", "艺术字"];
+  const SUB_POS = ["底部", "中部", "顶部"];
+  const MAX_MB = 100;
+
+  const HTML = `<div class="inner">
+    <div class="page-head">
+      <h1>视频翻译</h1>
+      <p>上传原视频，自动识别语音、翻译成目标语言、生成配音与新字幕，可选对口型与画面文字翻译。</p>
+    </div>
+
+    <div class="split" style="grid-template-columns:1fr 1fr;align-items:start">
+      <div class="panel">
+        <div class="panel-head"><svg class="ic sm"><use href="#i-globe"/></svg>翻译设置</div>
+        <div class="panel-body">
+          <div class="field">
+            <label>原视频（MP4 / WebM，≤100MB）</label>
+            <div class="dropzone" data-src>
+              <div class="dz-ic"><svg class="ic"><use href="#i-upload"/></svg></div>
+              <b>点击上传原视频</b>
+              <p>本地上传，或粘贴下方链接</p>
+            </div>
+            <div class="ref-row" style="margin-top:8px;display:flex;gap:8px">
+              <input class="inp" data-link placeholder="粘贴视频链接 https://…" style="flex:1">
+              <button class="btn btn-ghost" data-link-load style="width:auto;padding:0 14px">载入</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>翻译模式</label>
+            <div class="chips" data-group="mode">
+              <div class="chip on" data-mode="voice">仅翻译语音</div>
+              <div class="chip" data-mode="dub">翻译语音+对口型</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>目标语言</label>
+            <div class="select" data-lang>English <svg class="ic sm"><use href="#i-arrow"/></svg></div>
+          </div>
+
+          <div class="field">
+            <label>视频时长</label>
+            <div class="chips" data-group="dur">
+              <div class="chip on">自然语速优先</div>
+              <div class="chip">与原视频一致</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="switch-row">
+              <div><b>配音自动匹配音色</b><span>按目标语言自动选择合适音色</span></div>
+              <div class="switch"></div>
+            </div>
+          </div>
+          <div class="field">
+            <div class="switch-row">
+              <div><b>原声去除背景音乐</b><span>仅保留人声用于识别与翻译</span></div>
+              <div class="switch"></div>
+            </div>
+          </div>
+          <div class="field">
+            <div class="switch-row">
+              <div><b>画面文字翻译</b><span>识别视频画面文字并翻译（OCR）</span></div>
+              <div class="switch off" data-ocr></div>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="switch-row">
+              <div><b>生成新字幕</b><span>按识别结果生成目标语言字幕</span></div>
+              <div class="switch" data-sub></div>
+            </div>
+          </div>
+          <div class="field" data-subbox>
+            <label>字幕样式</label>
+            <div class="chips" data-group="substyle">
+              <div class="chip on">简洁白</div>
+              <div class="chip">描边黑</div>
+              <div class="chip">醒目黄</div>
+              <div class="chip">艺术字</div>
+            </div>
+            <div class="chips" data-group="subpos" style="margin-top:8px">
+              <div class="chip on">底部</div>
+              <div class="chip">中部</div>
+              <div class="chip">顶部</div>
+            </div>
+          </div>
+
+          <div class="field" data-fallback hidden>
+            <label>语音识别未配置 · 可手动填写口播脚本</label>
+            <textarea class="inp" data-script rows="4" placeholder="粘贴或输入视频口播文字，留空则仅做画面/字幕处理"></textarea>
+          </div>
+
+          <button class="btn btn-primary" data-run><svg class="ic sm"><use href="#i-spark"/></svg>开始翻译</button>
+          <button class="btn btn-ghost" data-save style="margin-top:8px"><svg class="ic sm"><use href="#i-download"/></svg>保存到作品库</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><svg class="ic sm"><use href="#i-play"/></svg>翻译结果</div>
+        <div class="panel-body">
+          <div class="stage" data-stage style="min-height:220px;display:flex;align-items:center;justify-content:center;background:#0e0f13;border-radius:12px;overflow:hidden;color:#8a94a6">
+            <span data-empty>上传原视频后开始翻译</span>
+            <video data-player controls playsinline style="width:100%;max-height:320px;display:none"></video>
+          </div>
+          <div data-bar hidden style="margin-top:12px">
+            <div style="height:6px;border-radius:6px;background:#eef0f4;overflow:hidden"><i data-bar-fill style="display:block;height:100%;width:0;background:linear-gradient(90deg,var(--primary),var(--primary-2));transition:.2s"></i></div>
+            <div class="note" data-bar-text style="margin-top:6px;font-size:12px;color:var(--muted)">准备中…</div>
+          </div>
+          <audio data-audio controls style="width:100%;margin-top:12px;display:none"></audio>
+          <div data-subs style="margin-top:12px;max-height:220px;overflow-y:auto"></div>
+          <div data-log style="margin-top:14px"></div>
+          <div class="note" data-hint style="margin-top:12px;font-size:12px;color:var(--muted)">支持 18 种语言；缺少语音识别或配音配置时会在流程中给出提示。</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  function pickChip(el, group) {
+    const n = el.querySelector('.chips[data-group="' + group + '"] .chip.on');
+    return n ? n.textContent.trim() : "";
+  }
+  function set(el, sel, text) { const n = el.querySelector(sel); if (n) n.textContent = text; }
+  function bar(el, pct, text) {
+    const wrap = el.querySelector("[data-bar]"); if (wrap) wrap.hidden = false;
+    const fill = el.querySelector("[data-bar-fill]"); if (fill) fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+    if (text != null) set(el, "[data-bar-text]", text);
+  }
+  function log(el, text) {
+    const box = el.querySelector("[data-log]"); if (!box) return;
+    const line = EC.ui.el("div", "note", esc(text));
+    line.style.cssText = "font-size:12px;color:var(--text2);padding:4px 0;border-bottom:1px dashed var(--border)";
+    box.appendChild(line);
+  }
+  function renderSubs(el, utterances) {
+    const box = el.querySelector("[data-subs]"); if (!box) return;
+    box.innerHTML = "";
+    (utterances || []).forEach(function (u, i) {
+      const row = EC.ui.el("div", "", '<span style="color:var(--muted);font-size:11px">#' + (i + 1) + " " + fmt(u.start) + "</span>"
+        + '<div style="font-size:13px">' + esc(u.text || "") + "</div>"
+        + (u.target ? '<div style="font-size:13px;color:var(--primary);font-weight:600">' + esc(u.target) + "</div>" : ""));
+      row.style.cssText = "padding:7px 0;border-bottom:1px dashed var(--border)";
+      box.appendChild(row);
+    });
+  }
+  function fmt(sec) {
+    const s = Number(sec) || 0;
+    const m = Math.floor(s / 60), r = Math.floor(s % 60);
+    return m + ":" + (r < 10 ? "0" : "") + r;
+  }
+
+  /* 抽帧：把视频首帧画到 canvas，返回 base64（不带前缀） */
+  function grabFrame(video) {
+    return new Promise(function (res, rej) {
+      try {
+        const w = video.videoWidth || 720, h = video.videoHeight || 1280;
+        const cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        cv.getContext("2d").drawImage(video, 0, 0, w, h);
+        res(cv.toDataURL("image/jpeg", 0.88).split(",")[1]);
+      } catch (e) { rej(e); }
+    });
+  }
+  async function translateLines(lines, lang) {
+    const out = [];
+    for (let i = 0; i < lines.length; i++) {
+      const t = String(lines[i] || "").trim();
+      if (!t) { out.push(""); continue; }
+      try {
+        const r = await EC.gen.ask(
+          "你是专业视频字幕翻译，只输出翻译结果，不要解释、不要引号、不要编号。",
+          "把下面这句口播翻译成" + lang + "：" + t
+        );
+        out.push(String(r || "").trim().split("\n")[0] || t);
+      } catch (e) { out.push(t); }
+    }
+    return out;
+  }
+
+  async function run(el, btn) {
+    const video = el.querySelector("[data-player]");
+    const modeChip = el.querySelector('.chips[data-group="mode"] .chip.on');
+    const mode = (modeChip && modeChip.getAttribute("data-mode")) || "voice";
+    const langNode = el.querySelector("[data-lang]");
+    const lang = langNode ? langNode.textContent.split("\n")[0].trim() : "English";
+    const subOn = el.querySelector("[data-sub]") && !el.querySelector("[data-sub]").classList.contains("off");
+    const ocrOn = el.querySelector("[data-ocr]") && !el.querySelector("[data-ocr]").classList.contains("off");
+    const srcAsset = el.__vt && el.__vt.src;
+    if (!srcAsset) { EC.toast("请先上传原视频"); return; }
+    EC.ui.busy(btn, true, "翻译中…");
+    el.querySelector("[data-log]").innerHTML = "";
+    bar(el, 4, "上传原视频到公网…");
+    try {
+      const url = await EC.store.publicUrl(srcAsset);
+      if (video) video.src = EC.store.src(srcAsset);
+
+      let text = "";
+      let utterances = [];
+      if (EC.gen.sttConfigured()) {
+        bar(el, 20, "识别语音（STT）…");
+        const r = await EC.gen.stt({ url: url, language: "" });
+        text = r.text || "";
+        utterances = r.utterances || [];
+        log(el, "语音识别完成：" + (utterances.length || (text ? 1 : 0)) + " 段");
+      } else {
+        const manual = (el.querySelector("[data-script]") || {}).value || "";
+        text = manual.trim();
+        log(el, text ? "未配置 STT，使用手动脚本" : "未配置 STT，跳过语音翻译");
+      }
+
+      let translated = "";
+      if (text && EC.gen.llmConfigured()) {
+        bar(el, 42, "翻译成" + lang + "…");
+        const lines = utterances.length ? utterances.map(u => u.text) : String(text).split(/[。！？\n]/).filter(Boolean);
+        const outs = await translateLines(lines, lang);
+        translated = outs.join(" ");
+        if (utterances.length) utterances = utterances.map((u, i) => Object.assign({}, u, { target: outs[i] || "" }));
+        log(el, "翻译完成：" + lang);
+      } else {
+        translated = text;
+        if (text) log(el, "未配置语言模型，保留原文");
+      }
+
+      let audioUrl = "";
+      if (translated && EC.gen.ttsConfigured()) {
+        bar(el, 62, "生成目标语言配音…");
+        try {
+          const a = await EC.gen.tts({ text: translated });
+          audioUrl = a.url || "";
+          log(el, "配音已生成");
+        } catch (e) { log(el, "配音失败：" + ((e && e.message) || e)); }
+      } else if (translated) {
+        log(el, "未配置语音合成，跳过配音");
+      }
+
+      let outUrl = url;
+      if (mode === "dub" && EC.gen.lipsyncConfigured() && audioUrl) {
+        bar(el, 78, "对口型合成…");
+        try {
+          const ls = await EC.gen.lipsync({ videoUrl: url, audioUrl: audioUrl }, function (d, t) {
+            if (t) bar(el, 78 + Math.round(d / t * 12), "对口型 " + d + "/" + t);
+          });
+          outUrl = (ls && ls.url) || url;
+          log(el, "对口型完成");
+        } catch (e) { log(el, "对口型失败：" + ((e && e.message) || e)); }
+      } else if (mode === "dub") {
+        log(el, "未配置对口型，输出翻译语音与原视频");
+      }
+
+      let textTranslate = [];
+      if (ocrOn && EC.gen.ocrConfigured() && video) {
+        bar(el, 90, "识别画面文字（OCR）…");
+        try {
+          const b64 = await grabFrame(video);
+          const ocr = await EC.gen.ocr({ imageBase64: b64 });
+          const items = (ocr.items && ocr.items.length ? ocr.items : (ocr.text ? [ocr.text] : [])).filter(Boolean);
+          if (items.length) {
+            const outs = await translateLines(items, lang);
+            textTranslate = items.map((s, i) => ({ src: s, dst: outs[i] || "" }));
+            log(el, "画面文字翻译：" + items.length + " 条");
+          } else { log(el, "画面未识别到文字"); }
+        } catch (e) { log(el, "画面文字翻译失败：" + ((e && e.message) || e)); }
+      }
+
+      bar(el, 100, "完成");
+      const asset = await EC.store.addFromUrl(outUrl, {
+        name: "视频翻译 · " + lang, kind: "video",
+        meta: {
+          mode: "translate", mode2: mode, lang: lang, source: url, audio: audioUrl,
+          utterances: utterances, subtitle: subOn ? { style: pickChip(el, "substyle"), pos: pickChip(el, "subpos"), text: translated } : null,
+          textTranslate: textTranslate, provider: "translate"
+        }
+      });
+      el.__vt.result = asset;
+      const player = el.querySelector("[data-player]");
+      if (player && outUrl && outUrl !== url) player.src = outUrl;
+      const empty = el.querySelector("[data-empty]"); if (empty) empty.style.display = "none";
+      if (player) player.style.display = "block";
+      const audioBox = el.querySelector("[data-audio]");
+      if (audioUrl && audioBox) { audioBox.src = audioUrl; audioBox.style.display = "block"; }
+      renderSubs(el, utterances);
+      if (EC.addUsage) EC.addUsage({ generated: 1 });
+      EC.toast("视频翻译完成");
+    } catch (e) {
+      bar(el, 100, "失败");
+      EC.toast((e && e.message) || "翻译失败");
+      log(el, "失败：" + ((e && e.message) || e));
+    } finally { EC.ui.busy(btn, false); }
+  }
+
+  async function save(el) {
+    if (!el.__vt || !el.__vt.result) { EC.toast("请先完成视频翻译"); return; }
+    EC.toast("已保存到作品库");
+    EC.go("ecomGallery");
+  }
+
+  EC.register("ecomVideoTranslate", function (el) {
+    if (!el.__vt) el.__vt = { src: null, result: null };
+    el.innerHTML = '<div class="ecom-ui">' + HTML + "</div>";
+    const fb = el.querySelector("[data-fallback]");
+    if (fb) fb.hidden = EC.gen.sttConfigured();
+    if (el.__vt.src) {
+      const dz = el.querySelector("[data-src]");
+      if (dz) dz.innerHTML = '<video src="' + esc(EC.store.src(el.__vt.src)) + '" muted playsinline style="width:100%;border-radius:10px"></video>';
+    }
+    if (el.__ecomVtBound) return;
+    el.__ecomVtBound = true;
+    el.addEventListener("click", function (e) {
+      if (!EC.ui) return;
+      const src = e.target.closest("[data-src]");
+      if (src) {
+        EC.ui.pickFiles("video/mp4,video/webm", false).then(function (files) {
+          if (!files.length) return;
+          const f = files[0];
+          if (f.size > MAX_MB * 1024 * 1024) { EC.toast("视频超过 " + MAX_MB + "MB，请压缩后再上传"); return; }
+          EC.store.addFile(f, { kind: "upload" }).then(function (a) {
+            el.__vt.src = a;
+            src.innerHTML = '<video src="' + esc(EC.store.src(a)) + '" muted playsinline style="width:100%;border-radius:10px"></video>';
+            const empty = el.querySelector("[data-empty]"); if (empty) empty.style.display = "none";
+            const player = el.querySelector("[data-player]"); if (player) { player.src = EC.store.src(a); player.style.display = "block"; }
+            EC.toast("原视频已载入");
+          });
+        });
+        return;
+      }
+      const loadBtn = e.target.closest("[data-link-load]");
+      if (loadBtn) {
+        const link = (el.querySelector("[data-link]") || {}).value || "";
+        if (!/^https?:\/\//i.test(link.trim())) { EC.toast("请填写有效的视频链接"); return; }
+        EC.store.addFromUrl(link.trim(), { kind: "upload", name: "链接视频" }).then(function (a) {
+          el.__vt.src = a;
+          const dz = el.querySelector("[data-src]");
+          if (dz) dz.innerHTML = '<video src="' + esc(EC.store.src(a)) + '" muted playsinline style="width:100%;border-radius:10px"></video>';
+          EC.toast("链接视频已载入");
+        });
+        return;
+      }
+      const lang = e.target.closest("[data-lang]");
+      if (lang) {
+        e.stopPropagation();
+        const cur = lang.textContent.split("\n")[0].trim();
+        EC.ui.menu(lang, LANGS.map(function (o) {
+          return { label: o, on: o === cur, pick: function () { lang.innerHTML = esc(o) + ' <svg class="ic sm"><use href="#i-arrow"/></svg>'; } };
+        }));
+        return;
+      }
+      const runBtn = e.target.closest("[data-run]");
+      if (runBtn) { run(el, runBtn); return; }
+      const sv = e.target.closest("[data-save]");
+      if (sv) { save(el); return; }
+    });
+  });
+})();
