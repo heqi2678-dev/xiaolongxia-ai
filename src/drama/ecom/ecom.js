@@ -143,12 +143,33 @@
       const root = e.target.closest ? e.target.closest(".ecom-ui") : null;
       if (!root) return;
 
+      /* 工作台入口卡：跳转到对应功能区 */
+      const feat = e.target.closest(".feature[data-go]");
+      if (feat && root.contains(feat)) { go(feat.getAttribute("data-go")); return; }
+
       /* 工具卡：同组单选 */
       const tool = e.target.closest(".tool-card");
       if (tool && root.contains(tool)) {
         const grid = tool.parentElement;
         grid.querySelectorAll(".tool-card").forEach(x => x.classList.remove("on"));
         tool.classList.add("on");
+        return;
+      }
+
+      /* 编辑器工具栏：工具同组单选（不含列表/画布模式切换） */
+      const editTool = e.target.closest(".toolbar .tool");
+      if (editTool) {
+        editTool.closest(".toolbar").querySelectorAll(".tool").forEach(x => x.classList.remove("on"));
+        editTool.classList.add("on");
+        return;
+      }
+
+      /* 编辑器列表：元素/模块行、图层、元素库块同组单选 */
+      const row = e.target.closest(".module-row, .layer, .block");
+      if (row) {
+        const g = row.parentElement;
+        g.querySelectorAll(":scope > *").forEach(x => x.classList.remove("on"));
+        row.classList.add("on");
         return;
       }
 

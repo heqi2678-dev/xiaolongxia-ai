@@ -56,16 +56,22 @@ test("注册：导航 7 项、默认视图、视图容器齐备", () => {
   assert.ok(EC.TITLES.ecomDraw, "顶栏标题已注册");
 });
 
-test("工作台：4 大入口 + 4 数据块 + 最近项目", async () => {
-  const { doc, EC } = boot();
+test("工作台：4 大入口 + 4 数据块 + 最近项目 + 入口卡跳转", async () => {
+  const { w, doc, EC } = boot();
   await EC.render("ecomHome");
   const el = doc.getElementById("ecomHomeView");
   assert.equal(el.querySelectorAll(".feature").length, 4, "4 个功能入口");
+  assert.equal(el.querySelectorAll(".feature[data-go]").length, 4, "每个入口卡带 data-go");
   assert.equal(el.querySelectorAll(".stat").length, 4, "4 个数据块");
   assert.match(el.querySelector(".page-head h1").textContent, /下午好|你好|早上好/, "问候语");
   assert.match(el.textContent, /AI 作图/, "含 AI 作图入口");
   assert.match(el.textContent, /跨境本地化/, "含跨境本地化入口");
   assert.ok(el.querySelector(".proj-grid, .proj-list, .project"), "最近项目区已渲染");
+
+  el.querySelector('.feature[data-go="ecomDetail"]').click();
+  assert.equal(w.__go, "ecomDetail", "点击 AI 详情页入口卡跳转 ecomDetail");
+  el.querySelector('.feature[data-go="ecomLocalize"]').click();
+  assert.equal(w.__go, "ecomLocalize", "点击跨境本地化入口卡跳转 ecomLocalize");
 });
 
 test("AI 作图：12 工具卡 + prompt + 示例作品照片", async () => {
@@ -97,7 +103,7 @@ test("AI 详情图：上传槽 + 要求框 + 风格 chips", async () => {
   assert.ok(el.querySelector(".gen-side"), "右侧空态说明");
 });
 
-test("主图编辑：列表/画布双模式切换 + 色板 + 示例元素", async () => {
+test("主图编辑：列表/画布双模式切换 + 工具/元素选中 + 色板 + 示例元素", async () => {
   const { doc, EC } = boot();
   await EC.render("ecomMainEdit");
   const el = doc.getElementById("ecomMainEditView");
@@ -110,6 +116,16 @@ test("主图编辑：列表/画布双模式切换 + 色板 + 示例元素", asyn
   assert.equal(el.querySelector(".module-empty"), null, "空态已移除");
   assert.ok(el.querySelector(".module-row .m-thumb img"), "元素缩略图为真实照片");
   assert.ok(el.querySelector(".swatches .sw"), "色板");
+
+  const tools = el.querySelectorAll(".toolbar .tool");
+  tools[1].click();
+  assert.equal(tools[1].classList.contains("on"), true, "点击工具栏工具选中");
+  assert.equal(el.querySelectorAll(".toolbar .tool.on").length, 1, "工具栏工具同组单选");
+
+  const rows = el.querySelectorAll(".module-row");
+  rows[0].click();
+  assert.equal(rows[0].classList.contains("on"), true, "点击元素行选中");
+  assert.equal(el.querySelectorAll(".module-row.on").length, 1, "元素行同组单选");
 
   seg.querySelector('[data-mode="canvas"]').click();
   assert.equal(el.querySelector(".view-list").hidden, true, "切画布后列表隐藏");
@@ -127,6 +143,10 @@ test("详情页编辑：模块库 + 双模式", async () => {
   assert.equal(el.querySelector(".module-empty"), null, "空态已移除");
   assert.ok(el.querySelector(".view-canvas .artboard .ab-block"), "画布含模块");
   assert.ok(el.querySelector(".ab-img img"), "画布图片为真实照片");
+  const drows = el.querySelectorAll(".module-row");
+  drows[2].click();
+  assert.equal(drows[2].classList.contains("on"), true, "点击模块行选中");
+  assert.equal(el.querySelectorAll(".module-row.on").length, 1, "模块行同组单选");
   el.querySelector('[data-mode="canvas"]').click();
   assert.equal(el.querySelector(".view-canvas").hidden, false, "切到画布");
 });
