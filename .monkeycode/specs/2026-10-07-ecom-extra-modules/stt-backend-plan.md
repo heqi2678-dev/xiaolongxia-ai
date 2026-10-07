@@ -512,19 +512,21 @@ cd gate && python3 -m unittest test_gate
 
 ## 13. 任务清单
 
-- [ ] 后端：`import uuid`、STT 常量、`drama_stt` + `_volc_stt_call` + `_parse_stt`（`gate/server.py`）
-- [ ] 后端：`_handle_drama_stt` + 路由 `/api/drama/stt`
-- [ ] 适配器：新建 `src/drama/adapters/stt.js`
-- [ ] 配置：`config.js` 新增 `STT_PROVIDERS` 并注册 `adapterList`
-- [ ] 设置页：`settings.js` `DRAMA_KINDS` + `dramaKindBlock` + 文案
-- [ ] 桥接：`ecom-store.js` `EC.gen.stt`/`configured`；`pool.js` 注册
-- [ ] 页面：`ecom-video-translate.js` 接入 STT 全链路 + 原视频「本地上传/链接上传」
-- [ ] 字幕：时间轴字幕生成与烧制（是否新字幕、样式、字号、行间距、位置）
-- [ ] 画面文字：新增 OCR 适配器 `adapters/ocr.js` + 网关 `/api/drama/ocr`（`drama_ocr()`）
-- [ ] 画面文字：抽帧 OCR → 翻译 → `video.edit` 重绘管线
-- [ ] 测试：网关 + 单元 + 端到端
-- [ ] 缓存：`sw.js` 版本递增
-- [ ] 提交：三绿后推送
+- [x] 后端：`import uuid`、STT 常量、`drama_stt` + `_volc_stt_call` + `_parse_stt`（`gate/server.py`）
+- [x] 后端：`_handle_drama_stt` + 路由 `/api/drama/stt`
+- [x] 适配器：新建 `src/drama/adapters/stt.js`
+- [x] 配置：`config.js` 新增 `STT_PROVIDERS` 并注册 `adapterList`
+- [x] 设置页：`settings.js` `DRAMA_KINDS` + `dramaKindBlock` + 文案
+- [x] 桥接：`ecom-store.js` `EC.gen.stt`/`configured`；`pool.js` 注册
+- [x] 页面：`ecom-video-translate.js` 接入 STT 全链路 + 原视频「本地上传/链接上传」
+- [x] 字幕：服务端 `drama_subtitle` + `/api/drama/subtitle`，ffmpeg drawtext 按 `utterances` 时间轴烧入（是否新字幕、样式、字号、行间距、位置）
+- [x] 画面文字：新增 OCR 适配器 `adapters/ocr.js` + 网关 `/api/drama/ocr`（`drama_ocr()`）
+- [x] 画面文字：多帧抽帧 OCR → 翻译 → `drama_subtitle` 以 drawtext overlay 重绘并烧入成片
+- [x] 测试：网关 + 单元 + 端到端（69 / 228 / 388）
+- [x] 缓存：`sw.js` 版本递增（v89 → v90）
+- [x] 提交：三绿后推送（`bcb71e2` 至 `main`）
+
+> 实现变动：第 9.2 节原设想的 `video.edit` 重绘改为服务端单源合成——新增 `/api/drama/subtitle`，用 ffmpeg `drawtext`（`fontfile` 指向 Noto CJK，`expansion=none` 以正确显示 `%`）同时烧入字幕与画面文字译文，避免二次转码与第三方视频编辑依赖。
 
 ## 14. 已定/落地约定（对齐 51aic，不再询问）
 
