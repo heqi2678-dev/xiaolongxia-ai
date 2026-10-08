@@ -9,25 +9,25 @@
 
   /* 电商分区左侧导航（自上而下，13 项；前 9 项与 51aic 同序） */
   const NAV = [
-    { id: "ecomHome", label: "工作台", icon: "home" },
+    { id: "ecomHome", label: "首页", icon: "home" },
     { id: "ecomDraw", label: "AI 作图", icon: "wand" },
     { id: "ecomDetail", label: "AI 详情图", icon: "poster" },
     { id: "ecomStyle", label: "风格复刻", icon: "palette" },
     { id: "ecomVideoI2V", label: "图生视频", icon: "video" },
     { id: "ecomVideoCopy", label: "视频复刻", icon: "film" },
-    { id: "ecomVideoTranslate", label: "视频翻译", icon: "globe" },
-    { id: "ecomVideoHome", label: "AI 视频", icon: "play" },
+    { id: "ecomVideoTranslate", label: "视频翻译", icon: "globe", badge: "NEW" },
+    { id: "ecomVideoHome", label: "AI 视频", icon: "play", badge: "NEW" },
     { id: "ecomToolbox", label: "AI 工具箱", icon: "spark" },
     { id: "ecomMainEdit", label: "主图编辑", icon: "crop" },
     { id: "ecomDetailEdit", label: "详情页编辑", icon: "layers" },
     { id: "ecomLocalize", label: "跨境本地化", icon: "translate" },
-    { id: "ecomGallery", label: "作品库", icon: "grid" }
+    { id: "ecomGallery", label: "资产", icon: "grid" }
   ];
   const VIEWS = NAV.map(n => n.id);
 
   /* 视图标题与副标题（顶栏文案） */
   const TITLES = {
-    ecomHome: ["工作台", "能力入口 · 数据概览 · 最近项目"],
+    ecomHome: ["首页", "能力入口 · 数据概览 · 最近项目"],
     ecomDraw: ["AI 作图", "万能修图间 · 12 工具 · 大白话出图"],
     ecomDetail: ["AI 详情图", "上传商品图 · 一键生成整套详情"],
     ecomStyle: ["风格复刻", "参考设计图定风格 · 结合产品属性"],
@@ -39,7 +39,7 @@
     ecomMainEdit: ["主图编辑", "元素精修 · 列表 / 画布双模式"],
     ecomDetailEdit: ["详情页编辑", "模块排版 · 长图导出"],
     ecomLocalize: ["跨境本地化", "换语言 · 换模特 · 平台适配"],
-    ecomGallery: ["作品库", "搜索 · 筛选 · 再编辑 · 批量下载"]
+    ecomGallery: ["资产", "搜索 · 筛选 · 再编辑 · 批量下载"]
   };
 
   /* ---------------- 共享常量（对齐 51aic，供各创作页复用） ---------------- */
@@ -90,8 +90,9 @@
     const el = host(view);
     if (!el) return;
     const fn = RENDERERS[view];
-    if (fn) return fn(el, view);
-    el.innerHTML = placeholder(view);
+    if (fn) fn(el, view);
+    else el.innerHTML = placeholder(view);
+    if (D.ecom && D.ecom.chrome && D.ecom.chrome.mount) D.ecom.chrome.mount(el, view);
   }
 
   function register(view, fn) { RENDERERS[view] = fn; }

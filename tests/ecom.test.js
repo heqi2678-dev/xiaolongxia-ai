@@ -10,7 +10,7 @@ const { JSDOM } = require("./dom-env.js");
 const ROOT = path.resolve(__dirname, "..");
 function src(file) { return fs.readFileSync(path.join(ROOT, "src/drama/ecom", file), "utf8"); }
 
-const VIEW_FILES = ["ecom-home.js", "ecom-draw.js", "ecom-detail.js", "ecom-style.js", "ecom-video-i2v.js", "ecom-video-copy.js", "ecom-video-translate.js", "ecom-video.js", "ecom-toolbox.js", "ecom-mainedit.js", "ecom-detailedit.js", "ecom-localize.js", "ecom-gallery.js"];
+const VIEW_FILES = ["ecom-home.js", "ecom-draw.js", "ecom-detail.js", "ecom-style.js", "ecom-video-i2v.js", "ecom-video-copy.js", "ecom-video-translate.js", "ecom-video.js", "ecom-toolbox.js", "ecom-mainedit.js", "ecom-detailedit.js", "ecom-localize.js", "ecom-gallery.js", "ecom-chrome.js"];
 const STORE_FILE = "ecom-store.js";
 const ICON_IDS = ["home", "wand", "poster", "crop", "layers", "translate", "grid", "palette", "video", "film", "globe", "play", "spark", "rotate"];
 
@@ -629,4 +629,38 @@ test("A+B 对齐：作图来源 / 详情图门控 / 通道弹层 / 复刻按钮 
     assert.ok(gl.querySelector(".daterange"), "作品库日期筛选");
     assert.match(gl.querySelector(".g-dl-all").textContent, /下载全部/, "下载全部按钮");
   }
+});
+
+test("展示层（C）：工具条 / hero 入口 / 能力区 / 角色卡 / 平台 / CTA / 页脚 / 导航徽标", async () => {
+  const { doc, EC } = boot();
+
+  const nHome = EC.NAV.find(n => n.id === "ecomHome");
+  const nGal = EC.NAV.find(n => n.id === "ecomGallery");
+  assert.equal(nHome.label, "首页", "导航首项为首页");
+  assert.equal(nGal.label, "资产", "导航末项为资产");
+  assert.equal((EC.NAV.find(n => n.id === "ecomVideoTranslate") || {}).badge, "NEW", "视频翻译 NEW 徽标");
+  assert.equal((EC.NAV.find(n => n.id === "ecomVideoHome") || {}).badge, "NEW", "AI 视频 NEW 徽标");
+
+  await EC.render("ecomHome");
+  const el = doc.getElementById("ecomHomeView");
+  assert.ok(el.querySelector(".pp-topbar"), "顶部工具条");
+  assert.equal(el.querySelectorAll(".pp-topbar .pp-link").length >= 6, true, "工具条入口不少于 6 个");
+  assert.ok(el.querySelector('.pp-topbar [data-pp="usage"]'), "积分明细入口");
+  assert.ok(el.querySelector(".pp-footer, .pp-foot"), "首页页脚");
+  assert.ok(el.querySelector(".hero-nav"), "hero 产品入口条");
+  assert.equal(el.querySelectorAll(".hero-nav-item").length, 8, "hero 8 个产品入口");
+  assert.ok(el.querySelector(".hero-points"), "hero 能力要点");
+  assert.equal(el.querySelectorAll(".cap-block").length, 4, "4 个能力介绍块");
+  assert.equal(el.querySelectorAll(".why-card").length, 4, "4 张为什么选择卡");
+  assert.equal(el.querySelectorAll(".role-card").length, 4, "4 张角色卡");
+  assert.equal(el.querySelectorAll(".plat-chip").length, 14, "14 个平台标签");
+  assert.ok(el.querySelector(".cta-sec"), "底部 CTA");
+
+  el.querySelector('.pp-topbar [data-pp="usage"]').click();
+  assert.ok(doc.querySelector(".pp-usage"), "积分明细弹层");
+
+  const dr = doc.getElementById("ecomDrawView");
+  await EC.render("ecomDraw");
+  assert.equal(dr.querySelector(".pp-topbar"), null, "功能页不挂载工具条");
+  assert.equal(dr.querySelector(".pp-foot"), null, "功能页不挂载页脚");
 });

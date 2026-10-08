@@ -15,7 +15,7 @@ const DRAMA_FILES = [
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
   "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js",
-  "ecom/ecom-css.js", "ecom/ecom-sprite.js", "ecom/ecom.js", "ecom/ecom-store.js", "ecom/ecom-home.js", "ecom/ecom-draw.js", "ecom/ecom-detail.js", "ecom/ecom-style.js", "ecom/ecom-video-i2v.js", "ecom/ecom-video-copy.js", "ecom/ecom-video-translate.js", "ecom/ecom-video.js", "ecom/ecom-toolbox.js", "ecom/ecom-mainedit.js", "ecom/ecom-detailedit.js", "ecom/ecom-localize.js", "ecom/ecom-gallery.js", "shell.js"
+  "ecom/ecom-css.js", "ecom/ecom-sprite.js", "ecom/ecom.js", "ecom/ecom-store.js", "ecom/ecom-home.js", "ecom/ecom-draw.js", "ecom/ecom-detail.js", "ecom/ecom-style.js", "ecom/ecom-video-i2v.js", "ecom/ecom-video-copy.js", "ecom/ecom-video-translate.js", "ecom/ecom-video.js", "ecom/ecom-toolbox.js", "ecom/ecom-mainedit.js", "ecom/ecom-detailedit.js", "ecom/ecom-localize.js", "ecom/ecom-gallery.js", "ecom/ecom-chrome.js", "shell.js"
 ];
 
 let pass = 0;
