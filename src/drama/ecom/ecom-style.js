@@ -15,20 +15,20 @@
 
     <div class="split" style="grid-template-columns:1fr 1fr;align-items:start">
       <div class="panel">
-        <div class="panel-head"><svg class="ic sm"><use href="#i-palette"/></svg>素材与要求</div>
+        <div class="panel-head"><svg class="ic sm"><use href="#i-palette"/></svg>创建</div>
         <div class="panel-body">
           <div class="field">
             <label>参考设计图（≤${MAX_STYLE} 张）</label>
             <div class="up-strip" data-strip-style style="display:flex;flex-wrap:wrap;gap:8px"></div>
             <div class="upload-slot" data-add-style style="margin-top:8px">
-              <svg class="ic"><use href="#i-upload"/></svg><span>添加</span>
+              <svg class="ic"><use href="#i-upload"/></svg><span>本地上传</span>
             </div>
           </div>
           <div class="field">
-            <label>商品图（≤${MAX_PRODUCT} 张）</label>
+            <label>产品图（≤${MAX_PRODUCT} 张）</label>
             <div class="up-strip" data-strip-product style="display:flex;flex-wrap:wrap;gap:8px"></div>
             <div class="upload-slot" data-add-product style="margin-top:8px">
-              <svg class="ic"><use href="#i-upload"/></svg><span>添加</span>
+              <svg class="ic"><use href="#i-upload"/></svg><span>本地上传</span>
             </div>
           </div>
           <div class="field">
@@ -38,16 +38,16 @@
           <div class="field">
             <label>尺寸比例</label>
             <div class="chips" data-group="ratio">
-              <div class="chip on">1:1</div>
-              <div class="chip">2:3</div>
-              <div class="chip">3:2</div>
-              <div class="chip">3:4</div>
-              <div class="chip">4:3</div>
-              <div class="chip">4:5</div>
-              <div class="chip">5:4</div>
-              <div class="chip">9:16</div>
-              <div class="chip">16:9</div>
-              <div class="chip">21:9</div>
+              <div class="chip on">1:1 正方形</div>
+              <div class="chip">2:3 竖版</div>
+              <div class="chip">3:2 横版</div>
+              <div class="chip">3:4 竖版</div>
+              <div class="chip">4:3 横版</div>
+              <div class="chip">4:5 竖版</div>
+              <div class="chip">5:4 横版</div>
+              <div class="chip">9:16 手机竖版</div>
+              <div class="chip">16:9 宽屏</div>
+              <div class="chip">21:9 超宽屏</div>
             </div>
           </div>
           <div class="field">
@@ -61,12 +61,12 @@
           <div class="field">
             <label>清晰度</label>
             <div class="chips" data-group="quality">
-              <div class="chip">1K</div>
-              <div class="chip on">2K</div>
-              <div class="chip">4K</div>
+              <div class="chip on">1K 标准</div>
+              <div class="chip">2K 高清</div>
+              <div class="chip">4K 超清</div>
             </div>
           </div>
-          <button class="btn btn-primary" data-run><svg class="ic sm"><use href="#i-spark"/></svg>开始生成</button>
+          <button class="btn btn-primary" data-run><svg class="ic sm"><use href="#i-spark"/></svg>生成</button>
         </div>
       </div>
 
@@ -108,11 +108,11 @@
   async function run(el, btn) {
     const s = el.__style;
     if (!s.style.length) { EC.toast("请上传参考设计图"); return; }
-    if (!s.product.length) { EC.toast("请上传商品图"); return; }
+    if (!s.product.length) { EC.toast("请上传产品图"); return; }
     const req = ((el.querySelector("[data-prompt]") || {}).value || "").trim();
-    const ratio = pick(el, "ratio") || "1:1";
+    const ratio = (pick(el, "ratio") || "1:1").split(/\s/)[0];
     const n = Number((pick(el, "count") || "1 组").replace(/\D/g, "")) || 1;
-    const quality = pick(el, "quality") || "2K";
+    const quality = (pick(el, "quality") || "1K").split(/\s/)[0];
     EC.ui.busy(btn, true, "生成中…");
     try {
       const styleSrc = await EC.store.publicUrl(s.style[0]);

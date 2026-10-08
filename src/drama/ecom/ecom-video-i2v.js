@@ -6,6 +6,10 @@
   const esc = EC.esc;
 
   const CHANNELS = ["灵动演绎", "极速出片"];
+  const CHANNEL_INFO = [
+    { name: "灵动演绎", desc: "动作自然、画面生动，细节表现更丰富", stability: "高稳定", credits: "5秒 150 · 10秒 200 · 15秒 260" },
+    { name: "极速出片", desc: "生成速度快，适合批量快速出片", stability: "极速", credits: "5秒 100 · 10秒 150 · 15秒 200" }
+  ];
   const DURATIONS = ["5", "10", "15"];
   const RATIOS = ["1:1", "3:4", "4:3", "9:16", "16:9"];
   const RESOLUTIONS = ["480P", "720P"];
@@ -42,12 +46,12 @@
           </div>
 
           <div class="field">
-            <label>视频脚本 <button class="btn btn-ghost" data-ai-write style="width:auto;padding:2px 10px;font-size:12px;margin-left:6px">AI 帮写</button></label>
+            <label>视频脚本 <button class="btn btn-ghost" data-ai-write style="width:auto;padding:2px 10px;font-size:12px;margin-left:6px">AI优质帮写视频脚本</button></label>
             <textarea class="inp" data-prompt rows="4" placeholder="描述画面：主体、动作、场景、运镜…"></textarea>
           </div>
 
           <div class="field">
-            <label>生成通道</label>
+            <div class="label-row"><label>选择通道</label><span class="ch-link" data-channel-info>查看通道说明</span></div>
             <div class="chips" data-group="channel">
               <div class="chip on">灵动演绎</div>
               <div class="chip">极速出片</div>
@@ -56,8 +60,8 @@
           <div class="field">
             <label>视频时长</label>
             <div class="chips" data-group="duration">
-              <div class="chip on">5s</div>
-              <div class="chip">10s</div>
+              <div class="chip">5s</div>
+              <div class="chip on">10s</div>
               <div class="chip">15s</div>
             </div>
           </div>
@@ -65,10 +69,10 @@
             <label>视频比例</label>
             <div class="chips" data-group="ratio">
               <div class="chip">1:1</div>
-              <div class="chip on">9:16</div>
-              <div class="chip">16:9</div>
               <div class="chip">3:4</div>
               <div class="chip">4:3</div>
+              <div class="chip on">9:16</div>
+              <div class="chip">16:9</div>
             </div>
           </div>
           <div class="field">
@@ -80,7 +84,7 @@
           </div>
           <div class="field">
             <label>视频语言</label>
-            <div class="select" data-lang>中文 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
+            <div class="select" data-lang>简体中文 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
           </div>
 
           <button class="btn btn-primary" data-run><svg class="ic sm"><use href="#i-spark"/></svg>生成视频</button>
@@ -125,6 +129,17 @@
     const w = el.querySelector("[data-bar]"); if (w) w.hidden = false;
     const f = el.querySelector("[data-bar-fill]"); if (f) f.style.width = Math.max(0, Math.min(100, pct)) + "%";
     const t = el.querySelector("[data-bar-text]"); if (t && text != null) t.textContent = text;
+  }
+
+  function channelDialog() {
+    const body = '<div class="ch-cards">' + CHANNEL_INFO.map(function (c, i) {
+      return '<div class="ch-card' + (i === 0 ? ' on' : '') + '">'
+        + '<div class="ch-card-ic"><svg class="ic"><use href="#i-video"/></svg></div>'
+        + '<div class="ch-card-main"><b>' + esc(c.name) + '</b><span>' + esc(c.desc) + '</span>'
+        + '<em>' + esc(c.credits) + '</em></div>'
+        + '<span class="ch-card-tag">' + esc(c.stability) + '</span></div>';
+    }).join("") + '</div>';
+    EC.ui.modal({ title: "选择通道", body: body });
   }
 
   async function aiWrite(el, btn) {
@@ -220,6 +235,7 @@
       if (!EC.ui) return;
       const histBtn = e.target.closest("[data-history]");
       if (histBtn) { showHistory(el); return; }
+      if (e.target.closest("[data-channel-info]")) { channelDialog(); return; }
       const insp = e.target.closest("[data-insp]");
       if (insp) {
         const it = INSPIRATIONS[Number(insp.getAttribute("data-insp"))];

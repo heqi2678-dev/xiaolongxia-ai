@@ -16,6 +16,7 @@
     { f: "dress.jpg", h: "h4", t: "本地化素材", c: "图片" }
   ];
   const CATS = ["全部", "图片", "视频", "详情页", "工具箱"];
+  const QUOTA_MAX = 100;
   const KIND_CAT = { image: "图片", upload: "图片", edit: "图片", detail: "详情页", video: "视频", localize: "图片", style: "图片", toolbox: "工具箱" };
   const EDIT_GO = { image: "ecomDraw", upload: "ecomMainEdit", edit: "ecomMainEdit", detail: "ecomDetail", localize: "ecomLocalize", style: "ecomStyle", video: "ecomVideoHome", toolbox: "ecomToolbox" };
 
@@ -35,7 +36,7 @@
   const HTML = `<div class="inner">
           <div class="page-head">
             <h1>作品库</h1>
-            <p>所有生成与导出的素材，一处管理、随时复用。数据保存在本机浏览器。</p>
+            <p>所有生成与导出的素材，一处管理、随时复用。数据保存在本机浏览器。<span class="g-quota" data-quota>已用 0 / 100</span></p>
           </div>
 
           <div class="filterbar">
@@ -46,11 +47,12 @@
               <div class="chip">详情页</div>
               <div class="chip">工具箱</div>
             </div>
-            <div class="search" style="width:220px;margin-left:auto">
+            <div class="search" style="width:200px;margin-left:auto">
               <svg class="ic"><use href="#i-search"/></svg><input placeholder="搜索素材">
             </div>
+            <div class="select daterange" style="width:120px">全部时间 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
             <div class="select sortsel" style="width:130px">最近更新 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
-            <button class="btn btn-ghost g-dl-all" style="width:auto;padding:8px 14px;font-size:12.5px"><svg class="ic sm"><use href="#i-download"/></svg>全部下载</button>
+            <button class="btn btn-ghost g-dl-all" style="width:auto;padding:8px 14px;font-size:12.5px"><svg class="ic sm"><use href="#i-download"/></svg>下载全部</button>
             <button class="btn btn-ghost g-clear" style="width:auto;padding:8px 14px;font-size:12.5px"><svg class="ic sm"><use href="#i-trash"/></svg>清空</button>
           </div>
 
@@ -73,6 +75,10 @@
     const st = el.__gal;
     let list = baseList(el);
     if (st.cat && st.cat !== "全部") list = list.filter(function (x) { return x.c === st.cat; });
+    if (st.range) {
+      const cutoff = Date.now() - st.range * 86400 * 1000;
+      list = list.filter(function (x) { return x.fake || (x.createdAt || 0) >= cutoff; });
+    }
     if (st.q) { const q = st.q.toLowerCase(); list = list.filter(function (x) { return String(x.name).toLowerCase().indexOf(q) >= 0; }); }
     if (st.sort === "old") list = list.slice().sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
     else if (st.sort === "name") list = list.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
@@ -85,13 +91,14 @@
     if (!EC.store) { apply(el); return; }
     EC.store.list().then(function (items) {
       el.__gal.real = items;
+      const q = el.querySelector("[data-quota]"); if (q) q.textContent = "已用 " + items.length + " / " + QUOTA_MAX;
       apply(el);
     }).catch(function () { apply(el); });
   }
 
   EC.register("ecomGallery", function (el) {
-    if (!el.__gal) el.__gal = { real: [], cat: "全部", q: "", sort: "recent" };
-    el.__gal.cat = "全部"; el.__gal.q = ""; el.__gal.sort = "recent";
+    if (!el.__gal) el.__gal = { real: [], cat: "全部", q: "", sort: "recent", range: 0 };
+    el.__gal.cat = "全部"; el.__gal.q = ""; el.__gal.sort = "recent"; el.__gal.range = 0;
     el.innerHTML = '<div class="ecom-ui">' + HTML + '</div>';
     apply(el);
     hydrate(el);
@@ -107,6 +114,16 @@
 
       const chip = e.target.closest(".chips .chip");
       if (chip) { el.__gal.cat = chip.textContent.trim(); setTimeout(function () { apply(el); }, 0); return; }
+
+      const daterange = e.target.closest(".daterange");
+      if (daterange) {
+        e.stopPropagation();
+        const opts = [[7, "近 7 天"], [30, "近 30 天"], [0, "全部时间"]];
+        EC.ui.menu(daterange, opts.map(function (o) {
+          return { label: o[1], on: el.__gal.range === o[0], pick: function () { el.__gal.range = o[0]; daterange.childNodes[0].nodeValue = o[1] + " "; apply(el); } };
+        }));
+        return;
+      }
 
       const sortsel = e.target.closest(".sortsel");
       if (sortsel) {

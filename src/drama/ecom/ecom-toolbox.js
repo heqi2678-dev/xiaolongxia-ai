@@ -29,8 +29,11 @@
   const HTML = `<div class="inner" style="display:flex;flex-direction:column;height:100%;min-height:0">
     <div class="page-head">
       <h1>AI 工具箱</h1>
-      <p>16 项图片编辑，本地 Canvas 即改即存，需要 AI 的走已配置图像服务。</p>
-      <button class="btn btn-ghost" data-try style="width:auto;padding:8px 16px;margin-top:10px"><svg class="ic sm"><use href="#i-image"/></svg>试试样片</button>
+      <p>电商修图，一站搞定：抠图、消除、AI 扩图、换背景、加水印等 16 项图片编辑，本地 Canvas 即改即存。</p>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button class="btn btn-primary" data-top-upload style="width:auto;padding:8px 18px"><svg class="ic sm"><use href="#i-upload"/></svg>上传图片</button>
+        <button class="btn btn-ghost" data-try style="width:auto;padding:8px 16px"><svg class="ic sm"><use href="#i-image"/></svg>试试样片</button>
+      </div>
     </div>
     <div class="tool-grid" data-tools style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-bottom:16px"></div>
     <div class="split" style="grid-template-columns:1.3fr .7fr;align-items:start">
@@ -258,7 +261,8 @@
     const grid = el.querySelector("[data-tools]");
     grid.innerHTML = TOOLS.map(t =>
       '<div class="tool-card' + (t.id === el.__tb.tool ? " on" : "") + '" data-id="' + t.id + '" title="' + t.hint + '" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border:1px solid var(--border);border-radius:10px;cursor:pointer">'
-      + '<svg class="ic sm"><use href="#i-' + t.icon + '"/></svg><span style="font-size:11px">' + t.label + "</span></div>").join("");
+      + '<svg class="ic sm"><use href="#i-' + t.icon + '"/></svg><span style="font-size:11px">' + t.label + "</span>"
+      + '<span class="tool-up" data-card-upload="' + t.id + '">上传图片</span></div>').join("");
     selectTool(el, el.__tb.tool);
     if (el.__tb.snapshot) render(el);
     if (el.__tb.src) {
@@ -272,8 +276,24 @@
       if (!EC.ui) return;
       const tryBtn = e.target.closest("[data-try]");
       if (tryBtn) { loadSample(el); return; }
+      const cardUp = e.target.closest("[data-card-upload]");
+      if (cardUp) {
+        selectTool(el, cardUp.getAttribute("data-card-upload"));
+        EC.ui.pickFiles("image/*", false).then(function (files) {
+          if (!files.length) return;
+          EC.store.addFile(files[0], { kind: "upload" }).then(function (a) { loadSrc(el, a); });
+        });
+        return;
+      }
       const card = e.target.closest(".tool-card");
       if (card) { selectTool(el, card.getAttribute("data-id")); return; }
+      if (e.target.closest("[data-top-upload]")) {
+        EC.ui.pickFiles("image/*", false).then(function (files) {
+          if (!files.length) return;
+          EC.store.addFile(files[0], { kind: "upload" }).then(function (a) { loadSrc(el, a); });
+        });
+        return;
+      }
       const drop = e.target.closest("[data-drop]");
       if (drop) {
         EC.ui.pickFiles("image/*", false).then(function (files) {

@@ -23,7 +23,7 @@
   const CTRL = ["agent", "main", "trans", "poster"];
 
   const RATIOS = ["智能比例", "1:1", "2:3", "3:2", "3:4", "9:16", "16:9", "21:9"];
-  const QUALITIES = ["1K 标准", "2K 高清", "4K 超清"];
+  const QUALITIES = ["1K", "2K", "4K"];
   const COUNTS = ["3张", "5张", "8张", "10张", "15张"];
   const PLATFORMS = ["智能匹配", "1688", "阿里国际站", "淘宝", "天猫", "拼多多", "京东", "抖音", "亚马逊", "TEMU", "eBay", "SHEIN", "Shopee", "Lazada", "TikTok", "Ozon", "速卖通", "独立站", "美客多", "小红书", "快手"];
   const LANGS = ["简体中文", "繁体中文", "英语", "日语", "韩语", "德语", "法语", "阿拉伯语", "俄语", "泰语", "印尼语", "越南语", "马来语", "西班牙语", "葡萄牙语", "巴西葡萄牙语"];
@@ -94,7 +94,11 @@
     return '<div class="upload-slot' + (kind === "detail" ? " detail" : "") + '" data-slot="' + kind + '" title="上传参考图（最多 10 张）">'
       + '<svg class="ic"><use href="#i-plus"/></svg>'
       + '<span data-upcount="' + kind + '">0/10</span>'
-      + (label ? '<small>' + esc(label) + '</small>' : '') + '</div>';
+      + (label ? '<small>' + esc(label) + '</small>' : '')
+      + '<div class="slot-src">'
+      + '<span class="slot-src-btn" data-local-up="' + kind + '">本地上传</span>'
+      + '<span class="slot-src-btn" data-asset-pick="' + kind + '">我的资产</span>'
+      + '</div></div>';
   }
   function pill(label, key) { return '<span class="inl-pill" data-inl="' + key + '">' + esc(label) + '</span>'; }
   function nameInput() { return '<span class="inl-input" contenteditable="true" data-inl-input="productName" data-placeholder="商品名称"></span>'; }
@@ -102,7 +106,7 @@
   function composerHTML(m, st) {
     const extra = '<div class="comp-sub">可补充描述您的商品信息或其他生图要求。例如：产品卖点、适用人群、使用场景、商品材质等信息</div><textarea class="comp-extra" placeholder="补充描述（可选）"></textarea>';
     if (m.composer === "agent") {
-      return slotHTML("main", "") + '<textarea class="comp-text" placeholder="描述你想要生成的图片，例如：帮我设计一套吸引顾客眼球的商品主图套图"></textarea>';
+      return slotHTML("main", "") + '<textarea class="comp-text" placeholder="告诉我你想生成什么图片?"></textarea>';
     }
     if (m.composer === "simple") {
       return slotHTML("main", "") + '<textarea class="comp-text" placeholder="' + esc(m.ph) + '"></textarea>';
@@ -136,15 +140,15 @@
     if (CTRL.indexOf(m.key) >= 0 && m.key === "agent") left += ratioPill;
     else left += qualityPill;
     if (m.key === "agent") left += skillPill;
-    return left + '<div class="gen-hint" data-provider></div>'
-      + '<div class="send-btn"><span class="cost">5 / 张</span>'
+    return left       + '<div class="gen-hint" data-provider></div>'
+      + '<div class="send-btn"><span class="cost">5/张</span>'
       + '<button class="send-arrow" title="开始生成"><svg class="ic"><use href="#i-arrow"/></svg></button></div>';
   }
 
   const HTML = `<div class="inner">
           <div class="genai">
             <div class="genai-top">
-              <button class="btn btn-ghost hist" style="padding:8px 14px;font-size:12.5px"><svg class="ic sm"><use href="#i-lib"/></svg>生成记录</button>
+              <button class="btn btn-ghost hist" style="padding:8px 14px;font-size:12.5px"><svg class="ic sm"><use href="#i-lib"/></svg>历史记录</button>
               <div class="genai-brand">
                 <div class="brand-mark">铜龙</div>
                 <div>铜龙AI · <span class="accent">一站式电商 AI 作图</span></div>
@@ -163,10 +167,10 @@
               <div class="prompt-bar" data-bar></div>
             </div>
 
-            <div class="sec-title" style="margin-top:28px"><h2>生成结果</h2><a data-href="ecomGallery">查看全部</a></div>
+            <div class="sec-title" style="margin-top:28px"><h2>生成记录</h2><a data-href="ecomGallery">查看全部</a></div>
             <div class="draw-gallery draw-results"></div>
 
-            <div class="sec-title" style="margin-top:28px"><h2>灵感推荐</h2><span class="sec-sub">点击卡片，一键套用同款提示词与参考图</span></div>
+            <div class="sec-title" style="margin-top:28px"><h2>灵感推荐</h2><span class="sec-sub">点击示例，一键使用提示词</span></div>
             <div class="draw-gallery insp-gallery">${GALLERY}</div>
           </div>
         </div>`;
@@ -259,7 +263,7 @@
     EC.ui.busy(btn, true, "");
     try {
       const refImages = st.files.concat(st.detailFiles).map(function (a) { return EC.store.src(a); }).filter(Boolean);
-      const r = await EC.gen.image({ prompt: text, ratio: genRatio(st), refImages: refImages, hires: st.quality !== "1K 标准" });
+      const r = await EC.gen.image({ prompt: text, ratio: genRatio(st), refImages: refImages, hires: st.quality !== "1K" });
       const asset = await EC.store.addFromUrl(r.url, {
         name: (name || text.slice(0, 20) || m.name), kind: "image",
         meta: { mode: m.key, provider: r.provider, prompt: text, ratio: genRatio(st) }
@@ -292,6 +296,32 @@
         if (!a) return;
         EC.store.download(a);
         if (EC.addUsage) EC.addUsage({ exported: 1 });
+      });
+    });
+  }
+
+  /* 我的资产：从本机已上传/生成的图片中挑选参考图 */
+  async function pickAsset(el, kind) {
+    const items = await EC.store.list().catch(function () { return []; });
+    const imgs = items.filter(function (a) { return a.kind === "image" || a.kind === "upload"; });
+    const body = imgs.length
+      ? '<div class="hist-grid asset-pick-grid">' + imgs.slice(0, 60).map(function (a) {
+          const src = EC.store.src(a);
+          return '<div class="hist-item" data-id="' + esc(a.id) + '"><img src="' + esc(src) + '" alt=""><span>' + esc(a.name || "素材") + '</span></div>';
+        }).join("") + '</div>'
+      : '<div class="ed-empty">还没有可用素材，先上传或生成几张吧。</div>';
+    const m = EC.ui.modal({ title: "我的资产", body: body, wide: true });
+    m.body.addEventListener("click", function (ev) {
+      const it = ev.target.closest(".hist-item");
+      if (!it) return;
+      EC.store.get(it.getAttribute("data-id")).then(function (a) {
+        if (!a) return;
+        const arr = kind === "detail" ? el.__draw.detailFiles : el.__draw.files;
+        if (arr.length >= 10) { EC.toast("最多 10 张参考图"); return; }
+        arr.push(a);
+        renderUploads(el);
+        m.close();
+        EC.toast("已添加 1 张参考图");
       });
     });
   }
@@ -383,7 +413,7 @@
   }
 
   EC.register("ecomDraw", function (el) {
-    if (!el.__draw) el.__draw = { mode: "agent", files: [], detailFiles: [], ratio: "智能比例", quality: "1K 标准", inl: defaultInl() };
+    if (!el.__draw) el.__draw = { mode: "agent", files: [], detailFiles: [], ratio: "智能比例", quality: "1K", inl: defaultInl() };
     let pendingMode = EC.pending && EC.pending.drawMode;
     if (pendingMode) EC.pending.drawMode = null;
     el.innerHTML = '<div class="ecom-ui">' + HTML + '</div>';
@@ -410,6 +440,17 @@
         const local = kind === "detail" ? i - st.files.length : i;
         arr.splice(local, 1);
         renderUploads(el);
+        return;
+      }
+
+      const assetPick = e.target.closest("[data-asset-pick]");
+      if (assetPick) { e.stopPropagation(); pickAsset(el, assetPick.getAttribute("data-asset-pick") || "main"); return; }
+
+      const localUp = e.target.closest("[data-local-up]");
+      if (localUp) {
+        e.stopPropagation();
+        const lk = localUp.getAttribute("data-local-up") || "main";
+        EC.ui.pickFiles("image/*", true).then(function (files) { if (files.length) addFiles(el, files, lk); });
         return;
       }
 

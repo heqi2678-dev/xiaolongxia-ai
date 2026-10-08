@@ -6,6 +6,10 @@
   const esc = EC.esc;
 
   const CHANNELS = ["灵动演绎", "极速出片"];
+  const CHANNEL_INFO = [
+    { name: "灵动演绎", desc: "动作自然、画面生动，细节表现更丰富", stability: "高稳定", credits: "5秒 150 · 10秒 200 · 15秒 260" },
+    { name: "极速出片", desc: "生成速度快，适合批量快速出片", stability: "极速", credits: "5秒 100 · 10秒 150 · 15秒 200" }
+  ];
   const DURATIONS = ["5", "10", "15"];
   const RATIOS = ["1:1", "3:4", "4:3", "9:16", "16:9"];
   const RESOLUTIONS = ["480P", "720P"];
@@ -23,7 +27,7 @@
         <div class="panel-head"><svg class="ic sm"><use href="#i-film"/></svg>复刻设置</div>
         <div class="panel-body">
           <div class="field">
-            <label>原视频（MP4 / MOV / MKV，≤100MB）</label>
+            <label>原视频（MP4 / MOV / MKV / AVI / MPG，≤100MB）</label>
             <div class="dropzone" data-video>
               <div class="dz-ic"><svg class="ic"><use href="#i-upload"/></svg></div>
               <b>点击上传参考视频</b>
@@ -51,7 +55,7 @@
             <textarea class="inp" data-req rows="2" placeholder="例如：保留原视频运镜，换成我们的产品"></textarea>
           </div>
           <div class="field">
-            <label>生成通道</label>
+            <div class="label-row"><label>生成配置 · 选择通道</label><span class="ch-link" data-channel-info>查看通道说明</span></div>
             <div class="chips" data-group="channel">
               <div class="chip on">灵动演绎</div>
               <div class="chip">极速出片</div>
@@ -60,8 +64,8 @@
           <div class="field">
             <label>视频时长</label>
             <div class="chips" data-group="duration">
-              <div class="chip on">5s</div>
-              <div class="chip">10s</div>
+              <div class="chip">5s</div>
+              <div class="chip on">10s</div>
               <div class="chip">15s</div>
             </div>
           </div>
@@ -87,7 +91,7 @@
             <div class="select" data-lang>简体中文 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
           </div>
 
-          <button class="btn btn-primary" data-run><svg class="ic sm"><use href="#i-spark"/></svg>生成同款视频</button>
+          <button class="btn btn-primary" data-run><svg class="ic sm"><use href="#i-spark"/></svg>生成视频提示词</button>
           <button class="btn btn-ghost" data-save style="margin-top:8px"><svg class="ic sm"><use href="#i-download"/></svg>保存到作品库</button>
         </div>
       </div>
@@ -125,6 +129,17 @@
   }
   function setImg(slot, asset) {
     slot.innerHTML = '<img src="' + esc(EC.store.src(asset)) + '" alt="" style="width:100%;border-radius:10px">';
+  }
+
+  function channelDialog() {
+    const body = '<div class="ch-cards">' + CHANNEL_INFO.map(function (c, i) {
+      return '<div class="ch-card' + (i === 0 ? ' on' : '') + '">'
+        + '<div class="ch-card-ic"><svg class="ic"><use href="#i-film"/></svg></div>'
+        + '<div class="ch-card-main"><b>' + esc(c.name) + '</b><span>' + esc(c.desc) + '</span>'
+        + '<em>' + esc(c.credits) + '</em></div>'
+        + '<span class="ch-card-tag">' + esc(c.stability) + '</span></div>';
+    }).join("") + '</div>';
+    EC.ui.modal({ title: "选择通道", body: body });
   }
 
   async function aiWrite(el, btn) {
@@ -199,6 +214,7 @@
     el.__ecomVcBound = true;
     el.addEventListener("click", function (e) {
       if (!EC.ui) return;
+      if (e.target.closest("[data-channel-info]")) { channelDialog(); return; }
       const v = e.target.closest("[data-video]");
       if (v) {
         EC.ui.pickFiles("video/*", false).then(function (files) {

@@ -12,8 +12,6 @@
   const SUB_STYLES = ["简洁白", "描边黑", "醒目黄", "艺术字"];
   const SUB_POS = ["底部", "中部", "顶部"];
   const SUB_POS_EN = { "底部": "bottom", "中部": "middle", "顶部": "top" };
-  const SUB_SIZE = { "小": 0.035, "中": 0.046, "大": 0.062 };
-  const SUB_LINE = { "紧凑": 1.08, "标准": 1.3, "宽松": 1.62 };
   const MAX_MB = 100;
 
   const HTML = `<div class="inner">
@@ -49,26 +47,24 @@
 
           <div class="field">
             <label>目标语言</label>
-            <div class="select" data-lang>英语 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
+            <div class="select" data-lang>请选择目标语言 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
           </div>
 
           <div class="field">
             <label>视频时长</label>
             <div class="chips" data-group="dur">
               <div class="chip on">自然语速优先</div>
-              <div class="chip">与原视频一致</div>
+              <div class="chip">与原视频时长一致</div>
             </div>
           </div>
 
           <div class="field">
-            <div class="switch-row">
-              <div><b>配音自动匹配音色</b><span>按目标语言自动选择合适音色</span></div>
-              <div class="switch"></div>
-            </div>
+            <label>配音音色</label>
+            <div class="select" data-voice>自动匹配音色 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
           </div>
           <div class="field">
             <div class="switch-row">
-              <div><b>原声去除背景音乐</b><span>仅保留人声用于识别与翻译</span></div>
+              <div><b>原声处理 / 去除背景音乐</b><span>仅保留人声用于识别与翻译</span></div>
               <div class="switch"></div>
             </div>
           </div>
@@ -99,17 +95,17 @@
               <div class="chip">顶部</div>
             </div>
             <button class="btn btn-ghost sub-pos-entry" data-subpos-open style="width:auto;margin-top:10px;padding:6px 12px;font-size:12.5px"><svg class="ic sm"><use href="#i-layers"/></svg>字幕位置 · 可点击进入详细设置</button>
-            <label style="margin-top:10px;display:block">字号</label>
-            <div class="chips" data-group="subfont">
-              <div class="chip">小</div>
-              <div class="chip on">中</div>
-              <div class="chip">大</div>
+            <label style="margin-top:10px;display:block">字幕字号</label>
+            <div class="stepper" data-stepper="subfont" data-min="32" data-max="128" data-step="8" data-val="64">
+              <button class="step-btn" data-step-dec>-</button>
+              <span class="step-val" data-step-val>64</span>
+              <button class="step-btn" data-step-inc>+</button>
             </div>
             <label style="margin-top:10px;display:block">行间距</label>
-            <div class="chips" data-group="subline">
-              <div class="chip">紧凑</div>
-              <div class="chip on">标准</div>
-              <div class="chip">宽松</div>
+            <div class="stepper" data-stepper="subline" data-min="1" data-max="2" data-step="0.1" data-val="1.2">
+              <button class="step-btn" data-step-dec>-</button>
+              <span class="step-val" data-step-val>1.2</span>
+              <button class="step-btn" data-step-inc>+</button>
             </div>
           </div>
 
@@ -118,7 +114,7 @@
             <textarea class="inp" data-script rows="4" placeholder="粘贴或输入视频口播文字，留空则仅做画面/字幕处理"></textarea>
           </div>
 
-          <button class="btn btn-primary" data-run><svg class="ic sm"><use href="#i-spark"/></svg>开始翻译</button>
+          <button class="btn btn-primary" data-run><svg class="ic sm"><use href="#i-spark"/></svg>生成视频</button>
           <button class="btn btn-ghost" data-save style="margin-top:8px"><svg class="ic sm"><use href="#i-download"/></svg>保存到作品库</button>
         </div>
       </div>
@@ -146,6 +142,24 @@
   function pickChip(el, group) {
     const n = el.querySelector('.chips[data-group="' + group + '"] .chip.on');
     return n ? n.textContent.trim() : "";
+  }
+  function stepVal(el, name, dflt) {
+    const n = el.querySelector('[data-stepper="' + name + '"]');
+    if (!n) return dflt;
+    const v = Number(n.getAttribute("data-val"));
+    return isFinite(v) ? v : dflt;
+  }
+  function stepBy(el, name, dir) {
+    const n = el.querySelector('[data-stepper="' + name + '"]');
+    if (!n) return;
+    const min = Number(n.getAttribute("data-min")), max = Number(n.getAttribute("data-max"));
+    const step = Number(n.getAttribute("data-step")) || 1;
+    let v = Number(n.getAttribute("data-val"));
+    if (!isFinite(v)) v = min;
+    v = Math.min(max, Math.max(min, v + dir * step));
+    v = Math.round(v * 100) / 100;
+    n.setAttribute("data-val", String(v));
+    const out = n.querySelector("[data-step-val]"); if (out) out.textContent = String(v);
   }
   function set(el, sel, text) { const n = el.querySelector(sel); if (n) n.textContent = text; }
   function bar(el, pct, text) {
@@ -231,7 +245,8 @@
     const modeChip = el.querySelector('.chips[data-group="mode"] .chip.on');
     const mode = (modeChip && modeChip.getAttribute("data-mode")) || "voice";
     const langNode = el.querySelector("[data-lang]");
-    const lang = langNode ? langNode.textContent.split("\n")[0].trim() : "English";
+    const lang = langNode ? langNode.textContent.split("\n")[0].trim() : "";
+    if (!lang || lang === "请选择目标语言") { EC.toast("请选择目标语言"); return; }
     const subOn = el.querySelector("[data-sub]") && !el.querySelector("[data-sub]").classList.contains("off");
     const ocrOn = el.querySelector("[data-ocr]") && !el.querySelector("[data-ocr]").classList.contains("off");
     const srcAsset = el.__vt && el.__vt.src;
@@ -318,11 +333,13 @@
         } catch (e) { log(el, "画面文字翻译失败：" + ((e && e.message) || e)); }
       }
 
+      const fontPx = stepVal(el, "subfont", 64);
+      const lineVal = stepVal(el, "subline", 1.2);
       const subStyle = {
         preset: pickChip(el, "substyle"),
         pos: SUB_POS_EN[pickChip(el, "subpos")] || "bottom",
-        size: SUB_SIZE[pickChip(el, "subfont")] || 0.046,
-        lineHeight: SUB_LINE[pickChip(el, "subline")] || 1.3
+        size: (fontPx / 64) * 0.046,
+        lineHeight: lineVal
       };
       if (el.__vt && el.__vt.subXY) { subStyle.x = el.__vt.subXY.x; subStyle.y = el.__vt.subXY.y; }
       let cues = [];
@@ -354,8 +371,8 @@
           mode: "translate", mode2: mode, lang: lang, source: url, audio: audioUrl,
           utterances: utterances,
           subtitle: subOn ? {
-            style: subStyle.preset, pos: pickChip(el, "subpos"), font: pickChip(el, "subfont"),
-            line: pickChip(el, "subline"), size: subStyle.size, lineHeight: subStyle.lineHeight,
+            style: subStyle.preset, pos: pickChip(el, "subpos"), font: fontPx,
+            line: lineVal, size: subStyle.size, lineHeight: subStyle.lineHeight,
             burned: burned, text: translated
           } : null,
           textTranslate: textTranslate, provider: "translate"
@@ -435,6 +452,19 @@
     el.__ecomVtBound = true;
     el.addEventListener("click", function (e) {
       if (!EC.ui) return;
+      const inc = e.target.closest("[data-step-inc]");
+      if (inc) { stepBy(el, inc.closest("[data-stepper]").getAttribute("data-stepper"), 1); return; }
+      const dec = e.target.closest("[data-step-dec]");
+      if (dec) { stepBy(el, dec.closest("[data-stepper]").getAttribute("data-stepper"), -1); return; }
+      const voice = e.target.closest("[data-voice]");
+      if (voice) {
+        e.stopPropagation();
+        const cur = voice.textContent.split("\n")[0].trim();
+        EC.ui.menu(voice, ["自动匹配音色", "活力女声", "沉稳男声", "温柔女声"].map(function (o) {
+          return { label: o, on: o === cur, pick: function () { voice.innerHTML = esc(o) + ' <svg class="ic sm"><use href="#i-arrow"/></svg>'; } };
+        }));
+        return;
+      }
       const spo = e.target.closest("[data-subpos-open]");
       if (spo) { subPosDialog(el); return; }
       const subChip = e.target.closest('.chips[data-group="subpos"] .chip');

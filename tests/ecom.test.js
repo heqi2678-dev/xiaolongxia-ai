@@ -340,9 +340,12 @@ test("视频翻译：原视频上传 + 模式/语言 chips + 字幕开关 + 阶�
   assert.ok(el.querySelector("[data-stage]"), "阶段进度");
   assert.ok(el.querySelector("[data-log]"), "运行日志");
   assert.ok(el.querySelector("[data-run]"), "开始翻译按钮");
-  assert.equal(el.querySelectorAll('[data-group="subfont"] .chip').length, 3, "字幕字号三档");
-  assert.equal(el.querySelectorAll('[data-group="subline"] .chip').length, 3, "字幕行间距三档");
-  assert.match(el.querySelector("[data-lang]").textContent, /英语/, "目标语言默认英语");
+  const fontStep = el.querySelector('[data-stepper="subfont"]');
+  assert.ok(fontStep && fontStep.getAttribute("data-val") === "64", "字幕字号步进器默认 64");
+  assert.ok(el.querySelector('[data-stepper="subline"]'), "字幕行间距步进器");
+  fontStep.querySelector("[data-step-inc]").click();
+  assert.equal(fontStep.getAttribute("data-val"), "72", "字号步进 +8");
+  assert.match(el.querySelector("[data-lang]").textContent, /请选择目标语言/, "目标语言无默认值");
   assert.match(el.querySelector("[data-hint]").textContent, /18 种语言/, "提示支持 18 种语言");
 });
 
@@ -557,4 +560,73 @@ test("通用 UI：modal 结构 / menu 构建 / el 生成 / uid 唯一", () => {
   assert.equal(n.tagName, "SPAN", "el 按标签创建");
   assert.equal(n.className, "tag on", "el 设置类名");
   assert.notEqual(EC.ui.uid("as"), EC.ui.uid("as"), "uid 唯一");
+});
+
+test("A+B 对齐：作图来源 / 详情图门控 / 通道弹层 / 复刻按钮 / 工具箱内联 / 作品库配额", async () => {
+  {
+    const { doc, EC } = boot();
+    await EC.render("ecomDraw");
+    const dr = doc.getElementById("ecomDrawView");
+    assert.ok(dr.querySelector("[data-local-up]"), "作图 本地上传来源");
+    assert.ok(dr.querySelector("[data-asset-pick]"), "作图 我的资产来源");
+    assert.match(dr.querySelector(".cost").textContent, /5\/张/, "作图积分 5/张");
+  }
+  {
+    const { doc, EC } = boot();
+    await EC.render("ecomDetail");
+    const de = doc.getElementById("ecomDetailView");
+    assert.match(de.querySelector(".gen-form .panel-head").textContent, /产品图/, "详情图面板标题为产品图");
+    assert.equal(de.querySelector(".gd-slot").getAttribute("data-slot"), "main", "首个槽为产品图");
+    assert.equal(de.querySelector("[data-gen]").disabled, true, "未传产品图时生成按钮禁用");
+    const body = de.querySelector("[data-extra-body]");
+    assert.equal(body.hidden, true, "补充参考素材默认折叠");
+    de.querySelector("[data-extra-toggle]").click();
+    assert.equal(body.hidden, false, "点击展开补充参考素材");
+    assert.ok(de.querySelector("[data-help]"), "产品图上传建议入口");
+    de.querySelector("[data-help]").click();
+    assert.ok(doc.querySelector(".gd-help-box"), "上传建议帮助弹层");
+  }
+  {
+    const { doc, EC } = boot();
+    await EC.render("ecomVideoI2V");
+    const i2v = doc.getElementById("ecomVideoI2VView");
+    assert.equal(i2v.querySelector('[data-group="duration"] .chip.on').textContent.trim(), "10s", "图生视频默认 10 秒");
+    assert.equal(i2v.querySelector('[data-group="ratio"] .chip.on').textContent.trim(), "9:16", "图生视频默认 9:16");
+    assert.match(i2v.querySelector("[data-ai-write]").textContent, /AI优质帮写视频脚本/, "帮写按钮文案");
+    assert.ok(i2v.querySelector("[data-channel-info]"), "通道说明入口");
+    i2v.querySelector("[data-channel-info]").click();
+    assert.equal(doc.querySelectorAll(".ch-card").length, 2, "通道弹层两张卡");
+  }
+  {
+    const { doc, EC } = boot();
+    await EC.render("ecomVideoCopy");
+    const cp = doc.getElementById("ecomVideoCopyView");
+    assert.match(cp.querySelector("[data-run]").textContent, /生成视频提示词/, "复刻主按钮文案");
+    assert.equal(cp.querySelector('[data-group="duration"] .chip.on').textContent.trim(), "10s", "复刻默认 10 秒");
+    assert.ok(cp.querySelector("[data-channel-info]"), "复刻通道说明入口");
+  }
+  {
+    const { doc, EC } = boot();
+    await EC.render("ecomVideoTranslate");
+    const vt = doc.getElementById("ecomVideoTranslateView");
+    assert.ok(vt.querySelector("[data-voice]"), "配音音色下拉");
+    assert.match(vt.querySelector("[data-voice]").textContent, /自动匹配音色/, "默认自动匹配音色");
+    assert.match(vt.querySelector('[data-group="dur"]').textContent, /与原视频时长一致/, "时长第二项文案");
+  }
+  {
+    const { doc, EC } = boot();
+    await EC.render("ecomToolbox");
+    const tb = doc.getElementById("ecomToolboxView");
+    assert.ok(tb.querySelector("[data-top-upload]"), "工具箱顶部上传图片");
+    assert.equal(tb.querySelectorAll("[data-card-upload]").length, 16, "16 张工具卡内联上传");
+    assert.match(tb.querySelector(".page-head p").textContent, /电商修图，一站搞定/, "工具箱页头综述");
+  }
+  {
+    const { doc, EC } = boot();
+    await EC.render("ecomGallery");
+    const gl = doc.getElementById("ecomGalleryView");
+    assert.match(gl.querySelector("[data-quota]").textContent, /\/ 100/, "作品库配额");
+    assert.ok(gl.querySelector(".daterange"), "作品库日期筛选");
+    assert.match(gl.querySelector(".g-dl-all").textContent, /下载全部/, "下载全部按钮");
+  }
 });

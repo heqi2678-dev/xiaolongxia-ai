@@ -47,11 +47,11 @@
   const PLATFORM_DEF = "智能匹配";
   const LANG_DEF = "简体中文";
   const CLARITY_DEF = "1K 标准";
-  const RATIO_DEF = "1:1 正方形";
-  const COUNT_DEF = "3 张";
+  const RATIO_DEF = "3:4 竖版";
+  const COUNT_DEF = "1 张";
 
   const SLOTS = [
-    { key: "main", title: "主商品图", tip: "上传主商品图和同一产品的多角度图片", note: "必填 · 展示商品外观与关键信息", req: true },
+    { key: "main", title: "产品图", tip: "上传产品图和同一产品的多角度图片", note: "必填 · 展示商品外观与关键信息", req: true },
     { key: "sku", title: "商品SKU图", tip: "不同颜色/款式 · 用于SKU展示", note: "用于生成 SKU 展示图，如果商品只有一个规格，可不上传", req: false },
     { key: "detail", title: "商品细节图", tip: "材质/工艺/局部 · 用于细节展示", note: "用于参考商品局部、材质和工艺细节，生成更准确的细节展示图", req: false }
   ];
@@ -78,7 +78,9 @@
       + '<div style="display:flex;gap:8px;justify-content:center;margin-top:12px">'
       + '<button class="btn btn-primary" style="width:auto;padding:8px 16px;font-size:12.5px"><svg class="ic sm"><use href="#i-upload"/></svg>本地上传</button>'
       + '<button class="btn btn-ghost" data-history="' + s.key + '" style="padding:8px 16px;font-size:12.5px"><svg class="ic sm"><use href="#i-lib"/></svg>历史上传</button>'
-      + '</div></div>'
+      + '</div>'
+      + (s.key === "main" ? '<p class="gd-fmt">支持JPG，JPEG，PNG，WEBP</p><span class="gd-help" data-help><i>?</i>产品图片上传建议</span>' : '')
+      + '</div>'
       + '<div class="gd-thumbs" data-thumbs="' + s.key + '"></div>'
       + '</div>';
   }
@@ -91,9 +93,19 @@
 
           <div class="split" style="grid-template-columns:400px 1fr">
             <div class="panel gen-form">
-              <div class="panel-head">产品素材</div>
+              <div class="panel-head">产品图</div>
               <div class="panel-body">
-                ${SLOTS.map(slotHTML).join("")}
+                ${slotHTML(SLOTS[0])}
+
+                <div class="field sec gd-extra">
+                  <div class="label-row">
+                    <label>补充参考素材（选传）</label>
+                    <span class="gd-extra-toggle" data-extra-toggle>展开</span>
+                  </div>
+                  <div class="gd-extra-body" data-extra-body hidden>
+                    ${SLOTS.slice(1).map(slotHTML).join("")}
+                  </div>
+                </div>
 
                 <div class="field sec">
                   <div class="label-row"><label>详情图模块</label></div>
@@ -112,12 +124,12 @@
                   </div>
                   <textarea placeholder="建议输入以下信息：产品名称、核心卖点、适用人群、规格参数、详情图风格等"></textarea>
                   <div class="chips" style="margin-top:10px">
-                    <div class="chip">+ 专业质感</div>
-                    <div class="chip">+ 科技感</div>
-                    <div class="chip on">+ 突出核心卖点</div>
-                    <div class="chip">+ 突出使用场景</div>
-                    <div class="chip">+ 简约高级</div>
-                    <div class="chip">+ 文案简洁</div>
+                    <div class="chip">专业质感</div>
+                    <div class="chip">科技感</div>
+                    <div class="chip">突出核心卖点</div>
+                    <div class="chip">突出使用场景</div>
+                    <div class="chip">简约高级</div>
+                    <div class="chip">文案简洁</div>
                   </div>
                 </div>
 
@@ -133,7 +145,7 @@
                   ${sel("layers", COUNT_DEF, "count")}
                 </div>
 
-                <button class="btn btn-primary" data-gen style="margin-top:6px"><svg class="ic sm"><use href="#i-spark"/></svg>生成设计规划方案</button>
+                <button class="btn btn-primary" data-gen disabled style="margin-top:6px"><svg class="ic sm"><use href="#i-spark"/></svg>生成设计规划方案</button>
                 <button class="btn btn-ghost" data-export style="margin-top:8px"><svg class="ic sm"><use href="#i-download"/></svg>导出详情长图</button>
               </div>
             </div>
@@ -186,6 +198,8 @@
     if (pg && main.length) {
       pg.innerHTML = main.map(function (a) { return '<div class="gd-p"><img src="' + esc(EC.store.src(a)) + '" alt=""></div>'; }).join("");
     }
+    const gb = el.querySelector("[data-gen]");
+    if (gb) gb.disabled = !main.length;
   }
 
   function renderModules(el) {
@@ -245,7 +259,7 @@
     const st = el.__gd;
     const ta = el.querySelector("textarea");
     const req = (ta.value || "").trim();
-    if (!(st.slots.main || []).length) { EC.toast("请先上传主商品图"); return; }
+    if (!(st.slots.main || []).length) { EC.toast("请先上传产品图"); return; }
 
     let points;
     if (st.moduleMode === "manual") {
@@ -347,6 +361,19 @@
       if (!EC.ui) return;
       const state = el.__gd;
 
+      const extraToggle = e.target.closest("[data-extra-toggle]");
+      if (extraToggle) {
+        const body = el.querySelector("[data-extra-body]");
+        if (body) {
+          body.hidden = !body.hidden;
+          extraToggle.textContent = body.hidden ? "展开" : "收起";
+        }
+        return;
+      }
+
+      const help = e.target.closest("[data-help]");
+      if (help) { helpDialog(); return; }
+
       const del = e.target.closest(".gd-thumb .up-del");
       if (del) {
         e.stopPropagation();
@@ -427,6 +454,18 @@
       });
     }
   });
+
+  function helpDialog() {
+    const body = '<div class="gd-help-box">'
+      + '<div class="gd-help-tip"><b>1. 主体清晰</b><span>产品图请保证主体完整、无遮挡，建议使用纯色或简洁背景。</span></div>'
+      + '<div class="gd-help-tip"><b>2. 多角度更佳</b><span>可上传正面、侧面、背面等多角度图片，AI 生成更准确。</span></div>'
+      + '<div class="gd-help-samples">'
+      + ['pot.jpg', 'lipstick.jpg', 'detergent.jpg', 'dress.jpg'].map(function (f) {
+          return '<img src="assets/ecom/' + f + '" alt="">';
+        }).join("")
+      + '</div></div>';
+    EC.ui.modal({ title: "产品图片上传建议", body: body });
+  }
 
   async function showHistory(el, key) {
     const items = (await EC.store.list().catch(function () { return []; })).filter(function (a) { return a.kind === "upload" || a.kind === "image"; });

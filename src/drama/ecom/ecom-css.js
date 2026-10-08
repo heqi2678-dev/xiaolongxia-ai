@@ -768,6 +768,48 @@
 
 /* 生成记录：视频缩略 */
 .ecom-ui .hist-item video,.modal .hist-item video{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;background:#0e0f13}
+
+/* AI 作图：上传来源切换 */
+.ecom-ui .slot-src{display:flex;gap:8px;margin-top:10px}
+.ecom-ui .slot-src-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--text2);font-size:12.5px;font-weight:600;cursor:pointer;transition:.14s}
+.ecom-ui .slot-src-btn:hover{border-color:var(--primary);color:var(--primary)}
+.asset-pick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-height:420px;overflow-y:auto}
+.asset-pick-grid .hist-item{cursor:pointer}
+
+/* AI 详情图：补充素材分组 / 格式说明 / 帮助 */
+.ecom-ui .gd-fmt{margin:10px 0 0;font-size:11.5px;color:var(--muted);text-align:center}
+.ecom-ui .gd-help{display:inline-flex;align-items:center;gap:5px;margin-top:8px;font-size:12px;color:var(--primary);cursor:pointer;font-weight:600}
+.ecom-ui .gd-help i{display:grid;place-items:center;width:15px;height:15px;border-radius:50%;background:var(--primary);color:#fff;font-size:10px;font-style:normal;font-weight:800}
+.ecom-ui .gd-extra-toggle{font-size:12.5px;color:var(--primary);cursor:pointer;font-weight:600;user-select:none}
+.ecom-ui .gd-extra-body{margin-top:12px}
+.gd-help-box{display:flex;flex-direction:column;gap:12px}
+.gd-help-tip{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--text2);line-height:1.6}
+.gd-help-samples{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px}
+.gd-help-samples img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:8px}
+
+/* 视频：通道说明 */
+.ecom-ui .ch-link{font-size:12.5px;color:var(--primary);cursor:pointer;font-weight:600}
+.ch-cards{display:flex;flex-direction:column;gap:12px}
+.ch-card{display:flex;align-items:flex-start;gap:12px;padding:14px;border:1px solid var(--border);border-radius:12px}
+.ch-card.on{border-color:var(--primary);background:rgba(28,100,244,.04)}
+.ch-card-ic{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:rgba(28,100,244,.08);color:var(--primary);flex:none}
+.ch-card-main{display:flex;flex-direction:column;gap:3px;flex:1}
+.ch-card-main b{font-size:14px;color:var(--text)}
+.ch-card-main span{font-size:12.5px;color:var(--text2)}
+.ch-card-main em{font-size:12px;color:var(--muted);font-style:normal}
+.ch-card-tag{padding:2px 9px;border-radius:999px;background:rgba(34,160,107,.1);color:#22a06b;font-size:11.5px;font-weight:700;flex:none}
+
+/* 视频翻译：步进器 */
+.ecom-ui .stepper{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-top:6px}
+.ecom-ui .step-btn{width:34px;height:34px;border:none;background:#f6f7f9;color:var(--text);font-size:16px;font-weight:700;cursor:pointer;transition:.14s}
+.ecom-ui .step-btn:hover{background:var(--primary);color:#fff}
+.ecom-ui .step-val{min-width:52px;text-align:center;font-size:13px;font-weight:700;color:var(--text)}
+
+/* AI 工具箱：卡片内联上传 */
+.ecom-ui .tool-up{font-size:11px;color:var(--primary);font-weight:600}
+
+/* 作品库：配额 */
+.ecom-ui .g-quota{display:inline-block;margin-left:10px;padding:2px 10px;border-radius:999px;background:rgba(28,100,244,.08);color:var(--primary);font-size:12px;font-weight:700}
 `;
   document.head.appendChild(s);
 })();
