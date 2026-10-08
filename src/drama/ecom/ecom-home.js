@@ -5,30 +5,22 @@
   if (!EC) return;
   const esc = EC.esc;
 
-  const HERO_ART = `<svg viewBox="0 0 320 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="160" cy="160" rx="118" ry="13" fill="#e3edff"/>
-          <rect x="66" y="26" width="152" height="122" rx="14" fill="#fff" stroke="#cdddfb"/>
-          <rect x="66" y="26" width="152" height="34" rx="14" fill="#f2f6ff"/>
-          <rect x="66" y="44" width="152" height="16" fill="#f2f6ff"/>
-          <circle cx="82" cy="40" r="3" fill="#c7d9f7"/>
-          <circle cx="93" cy="40" r="3" fill="#d7e4f8"/>
-          <circle cx="104" cy="40" r="3" fill="#e2ebf8"/>
-          <rect x="80" y="68" width="62" height="42" rx="9" fill="#dbe7ff"/>
-          <circle cx="111" cy="89" r="13" fill="#1c64f4"/>
-          <rect x="150" y="68" width="54" height="42" rx="9" fill="#e6efff"/>
-          <circle cx="177" cy="89" r="13" fill="#3eb0ff"/>
-          <rect x="80" y="120" width="124" height="7" rx="3.5" fill="#dbe7ff"/>
-          <rect x="80" y="133" width="88" height="7" rx="3.5" fill="#e9f1fd"/>
-          <rect x="232" y="50" width="54" height="92" rx="13" fill="#fff" stroke="#cdddfb"/>
-          <rect x="240" y="62" width="38" height="56" rx="8" fill="#eaf1ff"/>
-          <circle cx="259" cy="90" r="13" fill="#1c64f4"/>
-          <rect x="249" y="128" width="20" height="5" rx="2.5" fill="#dbe7ff"/>
-          <path d="M48 44l4 9 9 4-9 4-4 9-4-9-9-4 9-4z" fill="#3eb0ff"/>
-          <path d="M284 140l3 6 6 3-6 3-3 6-3-6-6-3 6-3z" fill="#6d8bff"/>
-          <circle cx="44" cy="122" r="5" fill="#cfe0ff"/>
-          <circle cx="292" cy="34" r="6" fill="#dbe7ff"/>
-          <circle cx="288" cy="112" r="4" fill="#e3edff"/>
-        </svg>`;
+  /* hero 商品缩略图卡片拼贴（真实商品图） */
+  const HERO_COLLAGE = [
+    { img: "pot.jpg", name: "珐琅锅", tag: "主图生成" },
+    { img: "lipstick.jpg", name: "丝绒口红", tag: "详情图" },
+    { img: "detergent.jpg", name: "浓缩洗衣液", tag: "带货视频" },
+    { img: "dress.jpg", name: "连衣裙", tag: "场景图" }
+  ];
+  function heroArt() {
+    return '<div class="hero-collage">'
+      + HERO_COLLAGE.map(function (c) {
+        return '<div class="hc-card"><div class="hc-thumb"><img src="assets/ecom/' + c.img + '" alt="" loading="lazy"></div>'
+          + '<div class="hc-cap"><b>' + esc(c.name) + '</b><i>' + esc(c.tag) + '</i></div></div>';
+      }).join("")
+      + '<span class="hc-badge"><svg class="ic sm"><use href="#i-spark"/></svg>AI 一键生成</span>'
+      + '</div>';
+  }
 
   const ICON_DRAW = `<svg class="fi-art" viewBox="0 0 24 24"><rect class="t2" x="3" y="4" width="18" height="16" rx="3"/><path class="t1" d="M6 17.4l3.7-4.4a1 1 0 0 1 1.5 0l2.1 2.5 1.6-1.8a1 1 0 0 1 1.5 0l1.6 1.8v.3a1.3 1.3 0 0 1-1.3 1.3H7.3A1.3 1.3 0 0 1 6 17.4z"/><circle class="t1" cx="8.5" cy="9" r="1.7"/></svg>`;
   const ICON_VIDEO = `<svg class="fi-art" viewBox="0 0 24 24"><rect class="t2" x="3" y="5" width="18" height="14" rx="3"/><path class="t1" d="M10.4 9.1v5.8a.7.7 0 0 0 1.06.6l4.5-2.9a.7.7 0 0 0 0-1.2l-4.5-2.9a.7.7 0 0 0-1.06.6z"/></svg>`;
@@ -122,7 +114,7 @@
                 <span><svg class="ic sm"><use href="#i-video"/></svg>多语言配音字幕</span>
               </div>
             </div>
-            <div class="hero-art">${HERO_ART}</div>
+            <div class="hero-art">${heroArt()}</div>
           </div>
 
           <div class="hero-nav">

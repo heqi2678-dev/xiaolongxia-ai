@@ -227,7 +227,7 @@
       }
     }
     const cf = el.querySelector("[data-count-field]");
-    if (cf) cf.hidden = st.moduleMode === "manual";
+    if (cf) cf.hidden = false;
   }
 
   function fieldValue(el, key) {

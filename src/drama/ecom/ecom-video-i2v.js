@@ -46,7 +46,7 @@
           </div>
 
           <div class="field">
-            <label>视频脚本 <button class="btn btn-ghost" data-ai-write style="width:auto;padding:2px 10px;font-size:12px;margin-left:6px">AI优质帮写视频脚本</button></label>
+            <label>视频脚本 <button class="btn btn-ghost" data-ai-write style="width:auto;padding:2px 10px;font-size:12px;margin-left:6px">AI优质帮写视频脚本</button><span class="cost-badge">优质帮写 200 积分</span></label>
             <textarea class="inp" data-prompt rows="4" placeholder="描述画面：主体、动作、场景、运镜…"></textarea>
           </div>
 
@@ -60,9 +60,9 @@
           <div class="field">
             <label>视频时长</label>
             <div class="chips" data-group="duration">
-              <div class="chip">5s</div>
-              <div class="chip on">10s</div>
-              <div class="chip">15s</div>
+              <div class="chip">5秒</div>
+              <div class="chip on">10秒</div>
+              <div class="chip">15秒</div>
             </div>
           </div>
           <div class="field">
@@ -89,6 +89,7 @@
 
           <button class="btn btn-primary" data-run><svg class="ic sm"><use href="#i-spark"/></svg>生成视频</button>
           <button class="btn btn-ghost" data-save style="margin-top:8px"><svg class="ic sm"><use href="#i-download"/></svg>保存到作品库</button>
+          <p class="note cost-note" style="margin-top:8px;font-size:12px;color:var(--muted)">生成消耗按通道与时长计费，点击「查看通道说明」查看详情。</p>
         </div>
       </div>
 
@@ -118,6 +119,11 @@
             + '<b>' + esc(it.title) + '</b></div>';
         }).join("")}
       </div>
+    </div>
+
+    <div class="i2v-recent" data-history-panel>
+      <div class="label-row" style="margin:24px 0 12px"><label style="font-size:15px;font-weight:800">近 30 天生成记录</label><span style="font-size:12px;color:var(--muted)" data-recent-count></span></div>
+      <div class="i2v-recent-grid" data-recent-list><div class="ed-empty">正在加载…</div></div>
     </div>
   </div>`;
 
@@ -169,7 +175,7 @@
       bar(el, 18, "提交视频任务…");
       const r = await EC.gen.video({
         firstFrame: firstFrame, prompt: prompt,
-        duration: Number(pick(el, "duration").replace("s", "")) || 5,
+        duration: Number(pick(el, "duration").replace(/[s秒]/g, "")) || 5,
         ratio: pick(el, "ratio") || "9:16",
         resolution: pick(el, "resolution") || "720P",
         channel: pick(el, "channel"), lang: (el.querySelector("[data-lang]") || {}).textContent.trim()
@@ -187,6 +193,7 @@
       if (player) { player.src = EC.store.src(asset); player.style.display = "block"; }
       const scene = el.querySelector("[data-scene]"); if (scene) scene.style.display = "none";
       if (EC.addUsage) EC.addUsage({ generated: 1 });
+      renderRecent(el);
       EC.toast("视频生成完成");
     } catch (e) {
       bar(el, 100, "失败"); EC.toast((e && e.message) || "生成失败");
@@ -217,9 +224,26 @@
     });
   }
 
+  async function renderRecent(el) {
+    const box = el.querySelector("[data-recent-list]");
+    if (!box) return;
+    const items = await EC.store.list().catch(function () { return []; });
+    const cutoff = Date.now() - 30 * 86400 * 1000;
+    const vids = items.filter(function (a) {
+      return a.kind === "video" && (!a.createdAt || a.createdAt >= cutoff);
+    }).sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); }).slice(0, 12);
+    const cnt = el.querySelector("[data-recent-count]");
+    if (cnt) cnt.textContent = vids.length ? "共 " + vids.length + " 条" : "";
+    if (!vids.length) { box.innerHTML = '<div class="ed-empty">近 30 天还没有生成记录，先生成一个视频吧。</div>'; return; }
+    box.innerHTML = vids.map(function (a) {
+      return '<div class="hist-item" data-id="' + esc(a.id) + '"><video src="' + esc(EC.store.src(a)) + '" muted playsinline></video><span>' + esc(a.name || "视频") + '</span></div>';
+    }).join("");
+  }
+
   EC.register("ecomVideoI2V", function (el) {
     if (!el.__i2v) el.__i2v = { ref: null, result: null };
     el.innerHTML = '<div class="ecom-ui">' + HTML + "</div>";
+    renderRecent(el);
     if (el.__i2v.ref) {
       const dz = el.querySelector("[data-ref]");
       if (dz) dz.innerHTML = '<img src="' + esc(EC.store.src(el.__i2v.ref)) + '" alt="" style="width:100%;border-radius:10px">';
@@ -233,6 +257,15 @@
     el.__ecomI2vBound = true;
     el.addEventListener("click", function (e) {
       if (!EC.ui) return;
+      const recent = e.target.closest(".i2v-recent .hist-item");
+      if (recent) {
+        EC.store.get(recent.getAttribute("data-id")).then(function (a) {
+          if (!a) return;
+          EC.store.download(a);
+          if (EC.addUsage) EC.addUsage({ exported: 1 });
+        });
+        return;
+      }
       const histBtn = e.target.closest("[data-history]");
       if (histBtn) { showHistory(el); return; }
       if (e.target.closest("[data-channel-info]")) { channelDialog(); return; }

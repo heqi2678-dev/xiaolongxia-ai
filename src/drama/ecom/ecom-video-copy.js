@@ -28,14 +28,22 @@
         <div class="panel-body">
           <div class="field">
             <label>原视频（MP4 / MOV / MKV / AVI / MPG，≤100MB）</label>
-            <div class="dropzone" data-video>
-              <div class="dz-ic"><svg class="ic"><use href="#i-upload"/></svg></div>
-              <b>点击上传参考视频</b>
-              <p>爆款视频或竞品视频</p>
+            <div class="up-tabs" data-uptab-group>
+              <button type="button" class="up-tab on" data-uptab="local"><svg class="ic sm"><use href="#i-upload"/></svg>本地上传</button>
+              <button type="button" class="up-tab" data-uptab="link"><svg class="ic sm"><use href="#i-globe"/></svg>链接上传</button>
             </div>
-            <div class="ref-row" style="margin-top:8px;display:flex;gap:8px">
-              <input class="inp" data-link placeholder="或粘贴视频链接 https://…" style="flex:1">
-              <button class="btn btn-ghost" data-link-load style="width:auto;padding:0 14px">载入</button>
+            <div data-uptab-pane="local">
+              <div class="dropzone" data-video>
+                <div class="dz-ic"><svg class="ic"><use href="#i-upload"/></svg></div>
+                <b>点击上传参考视频</b>
+                <p>爆款视频或竞品视频</p>
+              </div>
+            </div>
+            <div data-uptab-pane="link" hidden>
+              <div class="ref-row" style="display:flex;gap:8px">
+                <input class="inp" data-link placeholder="粘贴视频链接 https://…" style="flex:1">
+                <button class="btn btn-ghost" data-link-load style="width:auto;padding:0 14px">载入</button>
+              </div>
             </div>
           </div>
           <div class="field">
@@ -64,9 +72,9 @@
           <div class="field">
             <label>视频时长</label>
             <div class="chips" data-group="duration">
-              <div class="chip">5s</div>
-              <div class="chip on">10s</div>
-              <div class="chip">15s</div>
+              <div class="chip">5秒</div>
+              <div class="chip on">10秒</div>
+              <div class="chip">15秒</div>
             </div>
           </div>
           <div class="field">
@@ -173,7 +181,7 @@
         referenceVideo: refVideo, referenceImages: [product],
         prompt: prompt + (req ? "，" + req : ""),
         ratio: pick(el, "ratio") || "9:16",
-        duration: Number(pick(el, "duration").replace("s", "")) || 5,
+        duration: Number(pick(el, "duration").replace(/[s秒]/g, "")) || 5,
         resolution: pick(el, "resolution") || "720P",
         channel: pick(el, "channel"), lang: (el.querySelector("[data-lang]") || {}).textContent.trim()
       }, function (st) {
@@ -183,7 +191,7 @@
       bar(el, 100, "完成");
       const asset = await EC.store.addFromUrl(r.url, {
         name: "视频复刻", kind: "video",
-        meta: { mode: "copy", prompt: prompt, req: req, ratio: pick(el, "ratio"), duration: Number(pick(el, "duration").replace("s", "")) || 5, resolution: pick(el, "resolution"), channel: pick(el, "channel"), provider: r.provider }
+        meta: { mode: "copy", prompt: prompt, req: req, ratio: pick(el, "ratio"), duration: Number(pick(el, "duration").replace(/[s秒]/g, "")) || 5, resolution: pick(el, "resolution"), channel: pick(el, "channel"), provider: r.provider }
       });
       el.__vc.result = asset;
       const player = el.querySelector("[data-player]");
@@ -215,6 +223,14 @@
     el.addEventListener("click", function (e) {
       if (!EC.ui) return;
       if (e.target.closest("[data-channel-info]")) { channelDialog(); return; }
+      const tab = e.target.closest("[data-uptab]");
+      if (tab) {
+        const wrap = tab.closest("[data-uptab-group]");
+        const key = tab.getAttribute("data-uptab");
+        if (wrap) wrap.querySelectorAll("[data-uptab]").forEach(function (x) { x.classList.toggle("on", x === tab); });
+        el.querySelectorAll("[data-uptab-pane]").forEach(function (p) { p.hidden = p.getAttribute("data-uptab-pane") !== key; });
+        return;
+      }
       const v = e.target.closest("[data-video]");
       if (v) {
         EC.ui.pickFiles("video/*", false).then(function (files) {

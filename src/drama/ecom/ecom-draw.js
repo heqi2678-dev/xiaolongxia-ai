@@ -24,6 +24,8 @@
 
   const RATIOS = ["智能比例", "1:1", "2:3", "3:2", "3:4", "9:16", "16:9", "21:9"];
   const QUALITIES = ["1K", "2K", "4K"];
+  const QUALITY_LABELS = { "1K": "1K 标准", "2K": "2K 高清", "4K": "4K 超清" };
+  function qlabel(q) { return QUALITY_LABELS[q] || q; }
   const COUNTS = ["3张", "5张", "8张", "10张", "15张"];
   const PLATFORMS = ["智能匹配", "1688", "阿里国际站", "淘宝", "天猫", "拼多多", "京东", "抖音", "亚马逊", "TEMU", "eBay", "SHEIN", "Shopee", "Lazada", "TikTok", "Ozon", "速卖通", "独立站", "美客多", "小红书", "快手"];
   const LANGS = ["简体中文", "繁体中文", "英语", "日语", "韩语", "德语", "法语", "阿拉伯语", "俄语", "泰语", "印尼语", "越南语", "马来语", "西班牙语", "葡萄牙语", "巴西葡萄牙语"];
@@ -57,8 +59,8 @@
       ["添加文字", "在图片【位置】添加文字“【文字内容】”，使用【颜色/风格】，排版【要求】。"],
       ["消除元素", "消除图片中的【图标】。"],
       ["改变风格", "将画面改为【绘本】风格。"],
-      ["改变光影", "将画面改为【逆光】。"],
-      ["改变色调", "将画面改为【暖色调】。"],
+      ["改变光影", "将画面光影改为【逆光】。"],
+      ["改变色调", "将画面色调改为【暖色调】。"],
       ["改变视角", "将视角改为【正面平视】。"],
       ["改变景别", "将景别改为【远景】。"],
       ["改变材质", "将材质改为【石头】。"],
@@ -133,8 +135,8 @@
 
   function barHTML(m, st) {
     const modePill = '<div class="pill mode-pill" data-opt="mode">' + esc(m.name) + ' <svg class="ic sm"><use href="#i-caret"/></svg></div>';
-    const ratioPill = '<div class="pill ratio" data-opt="ratio" title="选择出图比例"><svg class="ic sm"><use href="#i-spark"/></svg><span>' + esc(st.ratio) + ' · ' + esc(st.quality) + '</span></div>';
-    const qualityPill = '<div class="pill quality" data-opt="quality">' + esc(st.quality) + ' <svg class="ic sm"><use href="#i-caret"/></svg></div>';
+    const ratioPill = '<div class="pill ratio" data-opt="ratio" title="选择出图比例"><svg class="ic sm"><use href="#i-spark"/></svg><span>' + esc(st.ratio) + ' · ' + esc(qlabel(st.quality)) + '</span></div>';
+    const qualityPill = '<div class="pill quality" data-opt="quality">' + esc(qlabel(st.quality)) + ' <svg class="ic sm"><use href="#i-caret"/></svg></div>';
     const skillPill = '<div class="pill skill" data-opt="skill"><svg class="ic sm"><use href="#i-layers"/></svg>技能库</div>';
     let left = modePill;
     if (CTRL.indexOf(m.key) >= 0 && m.key === "agent") left += ratioPill;
@@ -375,7 +377,7 @@
       return '<div class="ratio-item' + (r === st.ratio ? " on" : "") + '" data-ratio="' + esc(r) + '">' + esc(r) + '</div>';
     }).join("") + '</div>';
     const qual = '<div class="dc-title">清晰度</div><div class="quality-switch">' + QUALITIES.map(function (q) {
-      return '<div class="quality-item' + (q === st.quality ? " on" : "") + '" data-quality="' + esc(q) + '">' + esc(q) + '</div>';
+      return '<div class="quality-item' + (q === st.quality ? " on" : "") + '" data-quality="' + esc(q) + '">' + esc(qlabel(q)) + '</div>';
     }).join("") + '</div>';
     dcPop(anchor, grid + qual, function (e) {
       const ri = e.target.closest("[data-ratio]");
@@ -475,7 +477,7 @@
         else if (kind === "ratio") ratioPop(el);
         else if (kind === "quality") {
           EC.ui.menu(opt, QUALITIES.map(function (q) {
-            return { label: q, on: q === st.quality, pick: function () { st.quality = q; renderComposer(el); } };
+            return { label: qlabel(q), on: q === st.quality, pick: function () { st.quality = q; renderComposer(el); } };
           }));
         } else if (kind === "skill") skillPop(el);
         return;

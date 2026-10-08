@@ -9,7 +9,14 @@
   const LANG_EN = { "简体中文": "zh", "繁体中文": "zh-TW", "英语": "en", "泰语": "th", "俄语": "ru", "越南语": "vi",
     "马来语": "ms", "葡萄牙语": "pt", "西班牙语": "es", "日语": "ja", "韩语": "ko", "德语": "de", "法语": "fr",
     "荷兰语": "nl", "波兰语": "pl", "土耳其语": "tr", "印尼语": "id", "菲律宾语": "fil" };
-  const SUB_STYLES = ["简洁白", "描边黑", "醒目黄", "艺术字"];
+  /* 预设字幕样式（对齐 51aic video_translation_config）：文字颜色 + 描边颜色 */
+  const SUB_STYLES = [
+    { name: "经典白", color: "#FFFFFF", outline: "#8E8A87", w: 1 },
+    { name: "天蓝白", color: "#B6D9F2", outline: "#000000", w: 1 },
+    { name: "浪漫粉", color: "#FFFFFF", outline: "#E899A1", w: 1 },
+    { name: "纯黑字", color: "#000000", outline: "", w: 0 },
+    { name: "描边白", color: "#FFFFFF", outline: "#000000", w: 1 }
+  ];
   const SUB_POS = ["底部", "中部", "顶部"];
   const SUB_POS_EN = { "底部": "bottom", "中部": "middle", "顶部": "top" };
   const MAX_MB = 100;
@@ -76,18 +83,20 @@
           </div>
 
           <div class="field">
-            <div class="switch-row">
-              <div><b>生成新字幕</b><span>按识别结果生成目标语言字幕</span></div>
-              <div class="switch" data-sub></div>
+            <div class="label-row"><label>是否需要新字幕</label><span class="note" style="font-size:12px;color:var(--muted)">按识别结果生成目标语言字幕</span></div>
+            <div class="chips" data-group="subneed">
+              <div class="chip on">需要</div>
+              <div class="chip">不需要</div>
             </div>
           </div>
           <div class="field" data-subbox>
-            <label>字幕样式</label>
-            <div class="chips" data-group="substyle">
-              <div class="chip on">简洁白</div>
-              <div class="chip">描边黑</div>
-              <div class="chip">醒目黄</div>
-              <div class="chip">艺术字</div>
+            <label>预设字幕样式</label>
+            <div class="chips sub-style-chips" data-group="substyle">
+              ${SUB_STYLES.map(function (s, i) {
+                return '<div class="chip sub-style' + (i === 0 ? " on" : "") + '" data-substyle="' + esc(s.name) + '">'
+                  + '<span class="sub-prev" style="color:' + s.color + ';' + (s.w ? '-webkit-text-stroke:' + s.w + 'px ' + s.outline + ';text-shadow:0 0 ' + s.w + 'px ' + s.outline : '') + '">字幕</span>'
+                  + '<em>' + esc(s.name) + '</em></div>';
+              }).join("")}
             </div>
             <div class="chips" data-group="subpos" style="margin-top:8px">
               <div class="chip on">底部</div>
@@ -142,6 +151,10 @@
   function pickChip(el, group) {
     const n = el.querySelector('.chips[data-group="' + group + '"] .chip.on');
     return n ? n.textContent.trim() : "";
+  }
+  function pickStyle(el) {
+    const n = el.querySelector('.chips[data-group="substyle"] .chip.on');
+    return (n && n.getAttribute("data-substyle")) || SUB_STYLES[0].name;
   }
   function stepVal(el, name, dflt) {
     const n = el.querySelector('[data-stepper="' + name + '"]');
@@ -247,7 +260,7 @@
     const langNode = el.querySelector("[data-lang]");
     const lang = langNode ? langNode.textContent.split("\n")[0].trim() : "";
     if (!lang || lang === "请选择目标语言") { EC.toast("请选择目标语言"); return; }
-    const subOn = el.querySelector("[data-sub]") && !el.querySelector("[data-sub]").classList.contains("off");
+    const subOn = pickChip(el, "subneed") !== "不需要";
     const ocrOn = el.querySelector("[data-ocr]") && !el.querySelector("[data-ocr]").classList.contains("off");
     const srcAsset = el.__vt && el.__vt.src;
     if (!srcAsset) { EC.toast("请先上传原视频"); return; }
@@ -336,7 +349,7 @@
       const fontPx = stepVal(el, "subfont", 64);
       const lineVal = stepVal(el, "subline", 1.2);
       const subStyle = {
-        preset: pickChip(el, "substyle"),
+        preset: pickStyle(el),
         pos: SUB_POS_EN[pickChip(el, "subpos")] || "bottom",
         size: (fontPx / 64) * 0.046,
         lineHeight: lineVal
@@ -467,6 +480,12 @@
       }
       const spo = e.target.closest("[data-subpos-open]");
       if (spo) { subPosDialog(el); return; }
+      const needChip = e.target.closest('.chips[data-group="subneed"] .chip');
+      if (needChip) {
+        const box = el.querySelector("[data-subbox]");
+        if (box) box.hidden = needChip.textContent.trim() === "不需要";
+        return;
+      }
       const subChip = e.target.closest('.chips[data-group="subpos"] .chip');
       if (subChip) { if (el.__vt) el.__vt.subXY = null; return; }
       const src = e.target.closest("[data-src]");

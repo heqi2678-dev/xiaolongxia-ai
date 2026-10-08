@@ -188,7 +188,7 @@ test("AI 详情图：三上传槽 + 模块双模式 + 张数步进 + 选择器",
   assert.equal(mods.length, 6, "6 个详情图模块");
   assert.equal(el.querySelectorAll(".gd-mod.on").length, 5, "默认选中 5 个模块（白底图选中、尺寸图未选）");
   assert.equal(el.querySelector("[data-mod-total]").hidden, false, "自选模式显示合计");
-  assert.equal(el.querySelector("[data-count-field]").hidden, true, "自选模式隐藏张数选择器");
+  assert.equal(el.querySelector("[data-count-field]").hidden, false, "自选模式仍常显张数选择器");
 
   const inc = el.querySelector('[data-mod-step="0"] [data-mod-inc]');
   inc.click();
@@ -325,6 +325,10 @@ test("视频复刻：参考视频/产品图上传 + 生成按钮", async () => {
   assert.ok(el.querySelectorAll(".dropzone").length >= 2, "参考视频与产品图上传槽");
   assert.ok(el.querySelector("[data-video]"), "参考视频选择");
   assert.ok(el.querySelector("[data-run]"), "生成按钮");
+  assert.equal(el.querySelectorAll("[data-uptab]").length, 2, "本地上传/链接上传 双 tab");
+  el.querySelector('[data-uptab="link"]').click();
+  assert.equal(el.querySelector('[data-uptab-pane="local"]').hidden, true, "切到链接上传隐藏本地");
+  assert.equal(el.querySelector('[data-uptab-pane="link"]').hidden, false, "显示链接上传");
   assert.equal(el.querySelectorAll('[data-group="duration"] .chip').length, 3, "时长 5/10/15");
   assert.equal(el.querySelectorAll('[data-group="ratio"] .chip').length, 5, "比例 5 种");
   assert.equal(el.querySelectorAll('[data-group="resolution"] .chip').length, 2, "分辨率 480P/720P");
@@ -347,6 +351,13 @@ test("视频翻译：原视频上传 + 模式/语言 chips + 字幕开关 + 阶�
   assert.equal(fontStep.getAttribute("data-val"), "72", "字号步进 +8");
   assert.match(el.querySelector("[data-lang]").textContent, /请选择目标语言/, "目标语言无默认值");
   assert.match(el.querySelector("[data-hint]").textContent, /18 种语言/, "提示支持 18 种语言");
+  assert.equal(el.querySelectorAll('.chips[data-group="subneed"] .chip').length, 2, "需要/不需要 二选一");
+  assert.equal(el.querySelectorAll('.chips[data-group="substyle"] .chip').length, 5, "5 款预设字幕样式");
+  assert.ok(el.querySelector('.chip[data-substyle] .sub-prev'), "字幕样式含可视化预览");
+  assert.equal(el.querySelector("[data-subbox]").hidden, false, "默认需要新字幕，展示样式设置");
+  const noSub = Array.from(el.querySelectorAll('.chips[data-group="subneed"] .chip')).find(c => c.textContent.trim() === "不需要");
+  noSub.click();
+  assert.equal(el.querySelector("[data-subbox]").hidden, true, "不需要新字幕时隐藏样式设置");
 });
 
 test("AI 工具箱：16 工具 + 画布 + 应用/撤销", async () => {
@@ -383,9 +394,10 @@ test("AI 作图：清晰度放开 2K/4K（hires 透传）", async () => {
   const items = menu.querySelectorAll(".ecmenu-mi");
   assert.equal(items.length, 3, "三档清晰度");
   assert.equal(menu.querySelectorAll(".is-disabled").length, 0, "2K/4K 不再禁用");
-  assert.match(menu.textContent, /4K/, "含 4K 超清");
+  assert.match(menu.textContent, /1K 标准/, "含 1K 标准");
+  assert.match(menu.textContent, /4K 超清/, "含 4K 超清");
   Array.from(items).find(x => /4K/.test(x.textContent)).click();
-  assert.match(el.querySelector('.prompt-bar [data-opt="quality"]').textContent, /4K/, "清晰度已切到 4K");
+  assert.match(el.querySelector('.prompt-bar [data-opt="quality"]').textContent, /4K 超清/, "清晰度已切到 4K 超清");
 });
 
 test("视频复刻：支持粘贴视频链接载入", async () => {
@@ -590,7 +602,7 @@ test("A+B 对齐：作图来源 / 详情图门控 / 通道弹层 / 复刻按钮 
     const { doc, EC } = boot();
     await EC.render("ecomVideoI2V");
     const i2v = doc.getElementById("ecomVideoI2VView");
-    assert.equal(i2v.querySelector('[data-group="duration"] .chip.on').textContent.trim(), "10s", "图生视频默认 10 秒");
+    assert.equal(i2v.querySelector('[data-group="duration"] .chip.on').textContent.trim(), "10秒", "图生视频默认 10 秒");
     assert.equal(i2v.querySelector('[data-group="ratio"] .chip.on').textContent.trim(), "9:16", "图生视频默认 9:16");
     assert.match(i2v.querySelector("[data-ai-write]").textContent, /AI优质帮写视频脚本/, "帮写按钮文案");
     assert.ok(i2v.querySelector("[data-channel-info]"), "通道说明入口");
@@ -602,7 +614,7 @@ test("A+B 对齐：作图来源 / 详情图门控 / 通道弹层 / 复刻按钮 
     await EC.render("ecomVideoCopy");
     const cp = doc.getElementById("ecomVideoCopyView");
     assert.match(cp.querySelector("[data-run]").textContent, /生成视频提示词/, "复刻主按钮文案");
-    assert.equal(cp.querySelector('[data-group="duration"] .chip.on').textContent.trim(), "10s", "复刻默认 10 秒");
+    assert.equal(cp.querySelector('[data-group="duration"] .chip.on').textContent.trim(), "10秒", "复刻默认 10 秒");
     assert.ok(cp.querySelector("[data-channel-info]"), "复刻通道说明入口");
   }
   {
@@ -646,7 +658,10 @@ test("展示层（C）：工具条 / hero 入口 / 能力区 / 角色卡 / 平�
   assert.ok(el.querySelector(".pp-topbar"), "顶部工具条");
   assert.equal(el.querySelectorAll(".pp-topbar .pp-link").length >= 6, true, "工具条入口不少于 6 个");
   assert.ok(el.querySelector('.pp-topbar [data-pp="usage"]'), "积分明细入口");
+  assert.ok(el.querySelector('.pp-topbar [data-pp="notice"]'), "提示通知入口");
   assert.ok(el.querySelector(".pp-footer, .pp-foot"), "首页页脚");
+  assert.ok(el.querySelector(".hero-collage"), "hero 商品缩略图拼贴");
+  assert.equal(el.querySelectorAll(".hero-collage .hc-card").length, 4, "hero 拼贴 4 张商品图");
   assert.ok(el.querySelector(".hero-nav"), "hero 产品入口条");
   assert.equal(el.querySelectorAll(".hero-nav-item").length, 8, "hero 8 个产品入口");
   assert.ok(el.querySelector(".hero-points"), "hero 能力要点");
@@ -658,6 +673,10 @@ test("展示层（C）：工具条 / hero 入口 / 能力区 / 角色卡 / 平�
 
   el.querySelector('.pp-topbar [data-pp="usage"]').click();
   assert.ok(doc.querySelector(".pp-usage"), "积分明细弹层");
+
+  el.querySelector('.pp-topbar [data-pp="notice"]').click();
+  assert.ok(doc.querySelector(".pp-faq"), "提示通知弹层");
+  assert.ok(doc.querySelector(".pp-new"), "提示含 NEW 标记");
 
   const dr = doc.getElementById("ecomDrawView");
   await EC.render("ecomDraw");

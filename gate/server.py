@@ -1388,6 +1388,12 @@ SUBTITLE_STYLES = {
     "描边黑": {"color": "white", "box": False, "boxcolor": "black@0.45", "borderw": 3, "bordercolor": "black"},
     "醒目黄": {"color": "0xFFD400", "box": True, "boxcolor": "black@0.4", "borderw": 2, "bordercolor": "black"},
     "艺术字": {"color": "0xFF66CC", "box": False, "boxcolor": "black@0.45", "borderw": 4, "bordercolor": "0x222222"},
+    # 预设字幕样式（对齐 51aic video_translation_config）：文字色 + 描边色
+    "经典白": {"color": "white", "box": False, "boxcolor": "black@0.45", "borderw": 1, "bordercolor": "0x8E8A87"},
+    "天蓝白": {"color": "0xB6D9F2", "box": False, "boxcolor": "black@0.45", "borderw": 1, "bordercolor": "black"},
+    "浪漫粉": {"color": "white", "box": False, "boxcolor": "black@0.45", "borderw": 1, "bordercolor": "0xE899A1"},
+    "纯黑字": {"color": "black", "box": False, "boxcolor": "black@0.45", "borderw": 0, "bordercolor": "black"},
+    "描边白": {"color": "white", "box": False, "boxcolor": "black@0.45", "borderw": 3, "bordercolor": "black"},
 }
 
 

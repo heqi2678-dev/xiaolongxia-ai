@@ -44,6 +44,7 @@
       +   '<button class="pp-link" data-pp="support">客服</button>'
       + '</div>'
       + '<div class="pp-top-right">'
+      +   '<button class="pp-btn ghost pp-notice-btn" data-pp="notice"><svg class="ic sm" viewBox="0 0 24 24"><use href="#i-bell"/></svg>提示<i class="pp-dot"></i></button>'
       +   '<button class="pp-btn ghost" data-pp="fav"><svg class="ic sm" viewBox="0 0 24 24"><use href="#i-lib"/></svg>收藏本页</button>'
       +   '<button class="pp-btn primary" data-pp="member">开通会员</button>'
       + '</div>'
@@ -124,6 +125,18 @@
       + '</div>';
   }
 
+  const NOTICES = [
+    ["新功能上线", "视频翻译支持 5 款预设字幕样式，可在「字幕样式」中直接选择。"],
+    ["额度提醒", "本月免费生成额度充足，可放心创作。"],
+    ["平台规范更新", "已同步淘宝 / 天猫 / 亚马逊最新主图与详情图规范。"],
+    ["作品库升级", "支持按类型与时间筛选，一键下载全部素材。"]
+  ];
+  function noticeBody() {
+    return '<div class="pp-faq">' + NOTICES.map(function (q, i) {
+      return '<div class="pp-faq-item"><b>' + esc(q[0]) + (i === 0 ? '<em class="pp-new">NEW</em>' : '') + '</b><p>' + esc(q[1]) + '</p></div>';
+    }).join("") + '</div>';
+  }
+
   function favBody() {
     return '<div class="pp-faq">'
       + '<div class="pp-faq-item"><b>方式一 · 快捷键收藏</b><p>按 Ctrl+D（Mac 为 ⌘+D）将本页加入书签，下次一键直达。</p></div>'
@@ -141,6 +154,7 @@
     tutorial: function () { openModal("使用教程", tutorialBody()); },
     faq: function () { openModal("常见问题 FAQ", faqBody()); },
     support: function () { openModal("联系我们", supportBody()); },
+    notice: function () { openModal("提示 · 通知", noticeBody()); },
     fav: function () { openModal("收藏铜龙电商ai助手", favBody()); },
     plugin: function () { EC.toast("插件即将上线，敬请期待", "warn"); },
     member: function () { EC.toast("当前为体验版，额度充足，会员套餐即将开放", "ok"); }
