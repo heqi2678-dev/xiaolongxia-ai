@@ -913,9 +913,8 @@ async function flowEcom(env) {
   await settle(2);
   eq(draw.querySelectorAll(".tool-card").length, 12, "AI 作图 12 工具卡");
   eq(draw.querySelectorAll(".tool-card.on").length, 1, "默认选中 1 个工具");
-  eq(draw.querySelectorAll(".insp-card").length, 0, "AI 作图旧灵感卡已移除");
-  ok(draw.querySelectorAll(".draw-item").length >= 4, "AI 作图示例作品已配图");
-  ok(!!draw.querySelector(".draw-item img"), "AI 作图示例为真实照片");
+  eq(draw.querySelectorAll(".insp-card").length, 6, "AI 作图 6 条灵感推荐");
+  ok(!!draw.querySelector(".insp-card img"), "AI 作图灵感推荐为真实照片");
   ok(!!draw.querySelector(".prompt-box textarea"), "大白话输入框");
   const drawCards = draw.querySelectorAll(".tool-card");
   drawCards[3].click();

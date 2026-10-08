@@ -42,6 +42,25 @@
     ecomGallery: ["作品库", "搜索 · 筛选 · 再编辑 · 批量下载"]
   };
 
+  /* ---------------- 共享常量（对齐 51aic，供各创作页复用） ---------------- */
+  const CONST = {
+    /* 目标平台（AI 作图 / AI 详情图共用，21 项） */
+    PLATFORMS: ["智能匹配", "1688", "阿里国际站", "淘宝", "天猫", "拼多多", "京东", "抖音", "亚马逊", "TEMU", "eBay", "SHEIN", "Shopee", "Lazada", "TikTok", "Ozon", "速卖通", "独立站", "美客多", "小红书", "快手"],
+    /* 文案语言（AI 作图 / AI 详情图共用，16 项） */
+    LANGS: ["简体中文", "繁体中文", "英语", "日语", "韩语", "德语", "法语", "阿拉伯语", "俄语", "泰语", "印尼语", "越南语", "马来语", "西班牙语", "葡萄牙语", "巴西葡萄牙语"],
+    /* 详情图尺寸比例（含中文后缀，10 项） */
+    DETAIL_RATIOS: [
+      { label: "1:1 正方形", value: "1:1" }, { label: "2:3 竖版", value: "2:3" }, { label: "3:2 横版", value: "3:2" },
+      { label: "3:4 竖版", value: "3:4" }, { label: "4:3 横版", value: "4:3" }, { label: "4:5 竖版", value: "4:5" },
+      { label: "5:4 横版", value: "5:4" }, { label: "9:16 手机竖版", value: "9:16" }, { label: "16:9 宽屏", value: "16:9" },
+      { label: "21:9 超宽屏", value: "21:9" }
+    ],
+    /* 视频语言（图生视频 / 视频复刻 / 视频翻译共用，18 项） */
+    VIDEO_LANGS: ["简体中文", "繁体中文", "英语", "泰语", "俄语", "越南语", "马来语", "葡萄牙语", "西班牙语", "日语", "韩语", "德语", "法语", "荷兰语", "波兰语", "土耳其语", "印尼语", "菲律宾语"],
+    /* 详情图生成张数（1–15） */
+    DETAIL_COUNTS: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  };
+
   /* 已注册的视图渲染器：view → fn(el, view) */
   const RENDERERS = {};
 
@@ -221,20 +240,12 @@
         if (vc) vc.hidden = mode !== "canvas";
         return;
       }
-
-      /* 灵感卡：填入最近的输入框 */
-      const insp = e.target.closest(".insp-card");
-      if (insp) {
-        const ta = root.querySelector(".prompt-box textarea, textarea");
-        if (ta) { ta.value = insp.textContent.trim(); ta.focus(); }
-        return;
-      }
     });
   }
   bindInteractions();
 
   D.ecom = {
     ZONE, NAV, VIEWS, DEFAULT_VIEW, TITLES, render, register, host, esc, icon,
-    api, toast, go, fmtTime, USAGE_KEY, stats, addUsage
+    api, toast, go, fmtTime, USAGE_KEY, stats, addUsage, const: CONST
   };
 })();

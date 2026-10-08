@@ -1,9 +1,10 @@
-/* 电商工作台 · AI 详情图（真实上传 + AI 规划 + 真实生图 + 导出长图） */
+/* 电商工作台 · AI 详情图（三槽上传 + 详情图模块 + AI 规划 + 真实生图 + 导出长图） */
 (function () {
   const D = XLX.drama || (XLX.drama = {});
   const EC = D.ecom;
   if (!EC) return;
   const esc = EC.esc;
+  const C = EC.const || {};
 
   const PRODUCTS = ["pot.jpg", "lipstick.jpg", "detergent.jpg", "dress.jpg"].map(function (f) {
     return '<div class="gd-p"><img src="assets/ecom/' + f + '" alt="" loading="lazy"></div>';
@@ -30,11 +31,57 @@
       + '<svg class="ic sm"><use href="#i-arrow"/></svg></div>';
   }
 
-  const PLATFORMS = ["智能匹配", "淘宝天猫", "京东", "拼多多", "抖音商城", "TikTok Shop", "Amazon"];
-  const LANGS = ["简体中文", "English", "Bahasa Melayu", "日本語", "繁體中文"];
+  /* 选项取值对齐 51aic，集中来自 EC.const */
+  const PLATFORMS = C.PLATFORMS || ["智能匹配", "1688", "阿里国际站", "淘宝", "天猫", "拼多多", "京东", "抖音", "亚马逊", "TEMU", "eBay", "SHEIN", "Shopee", "Lazada", "TikTok", "Ozon", "速卖通", "独立站", "美客多", "小红书", "快手"];
+  const LANGS = C.LANGS || ["简体中文", "繁体中文", "英语", "日语", "韩语", "德语", "法语", "阿拉伯语", "俄语", "泰语", "印尼语", "越南语", "马来语", "西班牙语", "葡萄牙语", "巴西葡萄牙语"];
   const CLARITY = ["1K 标准", "2K 高清", "4K 超清"];
-  const RATIOS = ["3:4 竖版", "1:1 方形", "4:3 横版", "9:16 长图"];
-  const COUNTS = ["1 张", "2 张", "3 张", "4 张"];
+  const RATIO_LABELS = (C.DETAIL_RATIOS || [
+    { label: "1:1 正方形", value: "1:1" }, { label: "2:3 竖版", value: "2:3" }, { label: "3:2 横版", value: "3:2" },
+    { label: "3:4 竖版", value: "3:4" }, { label: "4:3 横版", value: "4:3" }, { label: "4:5 竖版", value: "4:5" },
+    { label: "5:4 横版", value: "5:4" }, { label: "9:16 手机竖版", value: "9:16" }, { label: "16:9 宽屏", value: "16:9" },
+    { label: "21:9 超宽屏", value: "21:9" }
+  ]).map(function (r) { return r.label; });
+  const COUNT_NUMS = C.DETAIL_COUNTS || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+  const COUNTS = COUNT_NUMS.map(function (n) { return n + " 张"; });
+
+  const PLATFORM_DEF = "智能匹配";
+  const LANG_DEF = "简体中文";
+  const CLARITY_DEF = "1K 标准";
+  const RATIO_DEF = "1:1 正方形";
+  const COUNT_DEF = "3 张";
+
+  const SLOTS = [
+    { key: "main", title: "主商品图", tip: "上传主商品图和同一产品的多角度图片", note: "必填 · 展示商品外观与关键信息", req: true },
+    { key: "sku", title: "商品SKU图", tip: "不同颜色/款式 · 用于SKU展示", note: "用于生成 SKU 展示图，如果商品只有一个规格，可不上传", req: false },
+    { key: "detail", title: "商品细节图", tip: "材质/工艺/局部 · 用于细节展示", note: "用于参考商品局部、材质和工艺细节，生成更准确的细节展示图", req: false }
+  ];
+
+  function defaultModules() {
+    return [
+      { name: "主图", desc: "展示商品首屏视觉图", selected: true, count: 1, maxCount: 5 },
+      { name: "卖点图", desc: "展示商品的核心卖点", selected: true, count: 1, maxCount: 5 },
+      { name: "细节图", desc: "放大材质与工艺", selected: true, count: 1, maxCount: 5 },
+      { name: "场景图", desc: "呈现真实使用场景", selected: true, count: 1, maxCount: 5 },
+      { name: "白底图", desc: "纯白色展示商品主体", selected: true, count: 1, maxCount: 1 },
+      { name: "尺寸图", desc: "展示商品尺寸图", selected: false, count: 1, maxCount: 5 }
+    ];
+  }
+
+  function slotHTML(s) {
+    return '<div class="field sec gd-slot" data-slot="' + s.key + '">'
+      + '<div class="label-row"><label>' + esc(s.title) + (s.req ? ' <span style="color:#ff4d4f">*</span>' : "") + '</label>'
+      + '<span style="color:var(--muted);font-weight:500;font-size:12px"><b data-upcount="' + s.key + '">0</b>/6</span></div>'
+      + '<div class="dropzone gd-drop" data-up="' + s.key + '" style="margin-bottom:12px">'
+      + '<div class="dz-ic"><svg class="ic lg"><use href="#i-upload"/></svg></div>'
+      + '<b>' + esc(s.tip) + '</b>'
+      + '<p>' + esc(s.note) + '</p>'
+      + '<div style="display:flex;gap:8px;justify-content:center;margin-top:12px">'
+      + '<button class="btn btn-primary" style="width:auto;padding:8px 16px;font-size:12.5px"><svg class="ic sm"><use href="#i-upload"/></svg>本地上传</button>'
+      + '<button class="btn btn-ghost" data-history="' + s.key + '" style="padding:8px 16px;font-size:12.5px"><svg class="ic sm"><use href="#i-lib"/></svg>历史上传</button>'
+      + '</div></div>'
+      + '<div class="gd-thumbs" data-thumbs="' + s.key + '"></div>'
+      + '</div>';
+  }
 
   const HTML = `<div class="inner">
           <div class="page-head">
@@ -44,18 +91,19 @@
 
           <div class="split" style="grid-template-columns:400px 1fr">
             <div class="panel gen-form">
-              <div class="panel-head">产品图 <span style="margin-left:auto;color:var(--muted);font-weight:500;font-size:12px"><b data-upcount>0</b>/6</span></div>
+              <div class="panel-head">产品素材</div>
               <div class="panel-body">
-                <div class="dropzone gd-drop" style="margin-bottom:18px">
-                  <div class="dz-ic"><svg class="ic lg"><use href="#i-upload"/></svg></div>
-                  <b>点击上传主商品图和同一产品的多角度图片</b>
-                  <p>支持 JPG、JPEG、PNG、WEBP</p>
-                  <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
-                    <button class="btn btn-primary" data-up style="width:auto;padding:8px 16px;font-size:12.5px"><svg class="ic sm"><use href="#i-upload"/></svg>本地上传</button>
-                    <button class="btn btn-ghost" data-history style="padding:8px 16px;font-size:12.5px"><svg class="ic sm"><use href="#i-lib"/></svg>历史上传</button>
+                ${SLOTS.map(slotHTML).join("")}
+
+                <div class="field sec">
+                  <div class="label-row"><label>详情图模块</label></div>
+                  <div class="seg wide" data-mod-mode-group>
+                    <button type="button" data-mod-mode="ai" class="on"><svg class="ic sm"><use href="#i-spark"/></svg>AI规划</button>
+                    <button type="button" data-mod-mode="manual"><svg class="ic sm"><use href="#i-layers"/></svg>自选组合</button>
                   </div>
+                  <div class="gd-modules" data-modules></div>
+                  <div class="gd-mod-total" data-mod-total hidden></div>
                 </div>
-                <div class="gd-thumbs"></div>
 
                 <div class="field sec">
                   <div class="label-row">
@@ -74,15 +122,15 @@
                 </div>
 
                 <div class="grid2">
-                  <div class="field"><label>目标平台</label>${sel("globe", "智能匹配", "platform")}</div>
-                  <div class="field"><label>语言要求</label>${sel("translate", "简体中文", "lang")}</div>
-                  <div class="field"><label>清晰度</label>${sel("grid-img", "1K 标准", "clarity")}</div>
-                  <div class="field"><label>尺寸比例</label>${sel("crop", "3:4 竖版", "ratio")}</div>
+                  <div class="field"><label>目标平台</label>${sel("globe", PLATFORM_DEF, "platform")}</div>
+                  <div class="field"><label>语言要求</label>${sel("translate", LANG_DEF, "lang")}</div>
+                  <div class="field"><label>清晰度</label>${sel("grid-img", CLARITY_DEF, "clarity")}</div>
+                  <div class="field"><label>尺寸比例</label>${sel("crop", RATIO_DEF, "ratio")}</div>
                 </div>
 
-                <div class="field">
+                <div class="field" data-count-field>
                   <label>生成张数</label>
-                  ${sel("layers", "3 张", "count")}
+                  ${sel("layers", COUNT_DEF, "count")}
                 </div>
 
                 <button class="btn btn-primary" data-gen style="margin-top:6px"><svg class="ic sm"><use href="#i-spark"/></svg>生成设计规划方案</button>
@@ -112,19 +160,60 @@
 
   function now() { return Date.now(); }
 
+  function newState() {
+    return { slots: { main: [], sku: [], detail: [] }, moduleMode: "ai", modules: defaultModules(), uploads: [] };
+  }
+
+  function selectedModuleCount(st) {
+    return st.modules.filter(function (m) { return m.selected; })
+      .reduce(function (n, m) { return n + (Number(m.count) || 0); }, 0);
+  }
+
   function renderThumbs(el) {
     const st = el.__gd;
-    const box = el.querySelector(".gd-thumbs");
-    const cnt = el.querySelector("[data-upcount]");
-    if (cnt) cnt.textContent = String(st.uploads.length);
-    if (!box) return;
-    box.innerHTML = st.uploads.map(function (a, i) {
-      return '<div class="gd-thumb" data-i="' + i + '"><img src="' + esc(EC.store.src(a)) + '" alt=""><button class="up-del">&times;</button></div>';
-    }).join("");
+    SLOTS.forEach(function (s) {
+      const list = st.slots[s.key] || [];
+      const cnt = el.querySelector('[data-upcount="' + s.key + '"]');
+      if (cnt) cnt.textContent = String(list.length);
+      const box = el.querySelector('[data-thumbs="' + s.key + '"]');
+      if (!box) return;
+      box.innerHTML = list.map(function (a, i) {
+        return '<div class="gd-thumb" data-slot="' + s.key + '" data-i="' + i + '"><img src="' + esc(EC.store.src(a)) + '" alt=""><button class="up-del">&times;</button></div>';
+      }).join("");
+    });
     const pg = el.querySelector(".gd-pgrid");
-    if (pg && st.uploads.length) {
-      pg.innerHTML = st.uploads.map(function (a) { return '<div class="gd-p"><img src="' + esc(EC.store.src(a)) + '" alt=""></div>'; }).join("");
+    const main = st.slots.main || [];
+    if (pg && main.length) {
+      pg.innerHTML = main.map(function (a) { return '<div class="gd-p"><img src="' + esc(EC.store.src(a)) + '" alt=""></div>'; }).join("");
     }
+  }
+
+  function renderModules(el) {
+    const st = el.__gd;
+    const box = el.querySelector("[data-modules]");
+    const total = el.querySelector("[data-mod-total]");
+    if (!box) return;
+    if (st.moduleMode === "ai") {
+      box.innerHTML = '<div class="gd-mod-hint">AI 将依据商品信息自动规划详情图结构。</div>';
+    } else {
+      box.innerHTML = st.modules.map(function (m, i) {
+        return '<div class="gd-mod' + (m.selected ? " on" : "") + '" data-mod="' + i + '">'
+          + '<div class="gd-mod-main"><span class="gd-check' + (m.selected ? " on" : "") + '"></span>'
+          + '<b>' + esc(m.name) + '</b><span class="gd-mod-desc">' + esc(m.desc) + '</span></div>'
+          + '<div class="stepper" data-mod-step="' + i + '"><button type="button" data-mod-dec>&minus;</button><span data-mod-count>' + m.count + '</span><button type="button" data-mod-inc>+</button></div>'
+          + '</div>';
+      }).join("");
+    }
+    if (total) {
+      if (st.moduleMode === "manual") {
+        total.hidden = false;
+        total.textContent = "合计 " + selectedModuleCount(st) + " 张";
+      } else {
+        total.hidden = true;
+      }
+    }
+    const cf = el.querySelector("[data-count-field]");
+    if (cf) cf.hidden = st.moduleMode === "manual";
   }
 
   function fieldValue(el, key) {
@@ -156,14 +245,25 @@
     const st = el.__gd;
     const ta = el.querySelector("textarea");
     const req = (ta.value || "").trim();
-    if (!req && !st.uploads.length) { EC.toast("请先上传产品图或填写产品信息"); return; }
+    if (!(st.slots.main || []).length) { EC.toast("请先上传主商品图"); return; }
+
+    let points;
+    if (st.moduleMode === "manual") {
+      const mods = st.modules.filter(function (m) { return m.selected; });
+      if (!mods.length) { EC.toast("至少选择一个详情图模块"); return; }
+      points = [];
+      mods.forEach(function (m) { for (let i = 0; i < m.count; i++) points.push(m.name); });
+    }
+
     EC.ui.busy(btn, true, "规划中…");
     try {
-      const plan = await buildPlan(el, req || (st.uploads.length ? "上传的商品图片" : ""));
-      const n = Math.max(1, parseInt(fieldValue(el, "count"), 10) || 3);
-      const points = plan.points.slice(0, n);
-      while (points.length < n) points.push(plan.title);
-      const ratio = fieldValue(el, "ratio").split(" ")[0]; // 3:4
+      const plan = await buildPlan(el, req || "上传的商品图片");
+      if (!points) {
+        const n = Math.max(1, Math.min(15, parseInt(fieldValue(el, "count"), 10) || 3));
+        points = plan.points.slice(0, n);
+        while (points.length < n) points.push(plan.title);
+      }
+      const ratio = fieldValue(el, "ratio").split(" ")[0]; // "1:1"
       const collage = el.querySelector(".gd-collage");
       collage.innerHTML = points.map(function (p, i) {
         return '<div class="gd-col" data-i="' + i + '"><div class="gd-panel hero t-blue"><div class="gd-load">生成中…</div>'
@@ -173,7 +273,7 @@
       if (side) side.textContent = "正在生成：" + plan.title;
 
       for (let i = 0; i < points.length; i++) {
-        const prompt = "电商详情图设计，产品： " + plan.title + " ，核心卖点： " + points[i] + " ，专业棚拍，干净简洁背景，高级质感，留出文字排版空间";
+        const prompt = "电商详情图设计，产品： " + plan.title + " ，画面： " + points[i] + " ，专业棚拍，干净简洁背景，高级质感，留出文字排版空间";
         try {
           const r = await EC.gen.image({ prompt: prompt, ratio: ratio });
           const asset = await EC.store.addFromUrl(r.url, { name: plan.title + "·" + points[i], kind: "detail", meta: { provider: r.provider, prompt: prompt } });
@@ -234,35 +334,64 @@
     } catch (e) { EC.toast((e && e.message) || "AI 帮写失败"); }
   }
 
-  function openSelect(el, key, options, labelNode) {
-    const anchor = el.querySelector('[data-sel="' + key + '"]');
-    EC.ui.menu(anchor, options.map(function (o) {
-      return { label: o, pick: function () { labelNode.textContent = o; } };
-    }));
-  }
-
   EC.register("ecomDetail", function (el) {
-    if (!el.__gd) el.__gd = { uploads: [] };
+    if (!el.__gd || !el.__gd.slots) el.__gd = newState();
+    const st = el.__gd;
     el.innerHTML = '<div class="ecom-ui">' + HTML + '</div>';
     renderThumbs(el);
-    const seg = el.querySelector("[data-mod-group]");
-    if (seg) seg.addEventListener("click", function (e) {
-      const b = e.target.closest("button"); if (!b) return;
-      seg.querySelectorAll("button").forEach(function (x) { x.classList.remove("on"); });
-      b.classList.add("on");
-    });
+    renderModules(el);
 
     if (el.__ecomGdBound) return;
     el.__ecomGdBound = true;
     el.addEventListener("click", function (e) {
       if (!EC.ui) return;
-      const st = el.__gd;
+      const state = el.__gd;
+
       const del = e.target.closest(".gd-thumb .up-del");
-      if (del) { e.stopPropagation(); st.uploads.splice(Number(del.closest(".gd-thumb").getAttribute("data-i")), 1); renderThumbs(el); return; }
-      const up = e.target.closest("[data-up], .gd-drop");
-      if (up) { addFiles(el); return; }
+      if (del) {
+        e.stopPropagation();
+        const t = del.closest(".gd-thumb");
+        const key = t.getAttribute("data-slot");
+        state.slots[key].splice(Number(t.getAttribute("data-i")), 1);
+        renderThumbs(el); return;
+      }
+
+      const up = e.target.closest("[data-up]");
+      if (up) { addFiles(el, up.getAttribute("data-up")); return; }
+
       const hist = e.target.closest("[data-history]");
-      if (hist) { showHistory(el); return; }
+      if (hist) { showHistory(el, hist.getAttribute("data-history")); return; }
+
+      const mm = e.target.closest("[data-mod-mode]");
+      if (mm) {
+        state.moduleMode = mm.getAttribute("data-mod-mode");
+        const g = mm.closest("[data-mod-mode-group]");
+        if (g) g.querySelectorAll("button").forEach(function (x) { x.classList.remove("on"); });
+        mm.classList.add("on");
+        renderModules(el); return;
+      }
+
+      const stepBtn = e.target.closest("[data-mod-inc], [data-mod-dec]");
+      if (stepBtn) {
+        e.stopPropagation();
+        const i = Number(stepBtn.closest("[data-mod-step]").getAttribute("data-mod-step"));
+        const m = state.modules[i];
+        if (m) {
+          const d = stepBtn.hasAttribute("data-mod-inc") ? 1 : -1;
+          m.count = Math.max(1, Math.min(m.maxCount, (Number(m.count) || 1) + d));
+          renderModules(el);
+        }
+        return;
+      }
+
+      const mod = e.target.closest(".gd-mod");
+      if (mod) {
+        const i = Number(mod.getAttribute("data-mod"));
+        const m = state.modules[i];
+        if (m) { m.selected = !m.selected; }
+        renderModules(el); return;
+      }
+
       const aiw = e.target.closest("[data-aiwrite]");
       if (aiw) { aiWrite(el); return; }
       const gen = e.target.closest("[data-gen]");
@@ -274,7 +403,7 @@
         e.stopPropagation(); e.preventDefault();
         const key = s.getAttribute("data-sel");
         const labelNode = s.querySelector(".sel-val");
-        const map = { platform: PLATFORMS, lang: LANGS, clarity: CLARITY, ratio: RATIOS, count: COUNTS };
+        const map = { platform: PLATFORMS, lang: LANGS, clarity: CLARITY, ratio: RATIO_LABELS, count: COUNTS };
         const idx = (map[key] || []).indexOf(labelNode.textContent.replace(/\s+/g, " ").trim());
         EC.ui.menu(s, (map[key] || []).map(function (o, i) {
           return { label: o, on: i === idx, pick: function () { labelNode.innerHTML = labelNode.querySelector(".sel-ic").outerHTML + esc(o); } };
@@ -283,20 +412,23 @@
       }
     });
 
-    function addFiles(el2) {
+    function addFiles(el2, key) {
       EC.ui.pickFiles("image/*", true).then(async function (files) {
         if (!files.length) return;
-        for (let i = 0; i < files.length && el2.__gd.uploads.length < 6; i++) {
+        const list = el2.__gd.slots[key];
+        let added = 0;
+        for (let i = 0; i < files.length && list.length < 6; i++) {
           const a = await EC.store.addFile(files[i], { kind: "upload" }).catch(function () { return { id: EC.ui.uid("as"), kind: "upload", name: files[i].name, blob: files[i], mime: files[i].type }; });
-          el2.__gd.uploads.push(a);
+          list.push(a); added++;
         }
         renderThumbs(el2);
-        EC.toast("已上传 " + files.length + " 张产品图");
+        if (added < files.length) EC.toast("已达到 6 张上限，仅添加前 " + added + " 张");
+        else EC.toast("已上传 " + added + " 张");
       });
     }
   });
 
-  async function showHistory(el) {
+  async function showHistory(el, key) {
     const items = (await EC.store.list().catch(function () { return []; })).filter(function (a) { return a.kind === "upload" || a.kind === "image"; });
     const body = items.length
       ? '<div class="hist-grid">' + items.slice(0, 40).map(function (a) {
@@ -309,8 +441,9 @@
       if (!it) return;
       EC.store.get(it.getAttribute("data-id")).then(function (a) {
         if (!a) return;
-        if (el.__gd.uploads.length >= 6) { EC.toast("最多 6 张"); return; }
-        el.__gd.uploads.push(a); renderThumbs(el); m.close();
+        const list = el.__gd.slots[key] || (el.__gd.slots[key] = []);
+        if (list.length >= 6) { EC.toast("最多 6 张"); return; }
+        list.push(a); renderThumbs(el); m.close();
       });
     });
   }

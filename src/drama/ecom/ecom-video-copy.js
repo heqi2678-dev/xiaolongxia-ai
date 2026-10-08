@@ -6,8 +6,10 @@
   const esc = EC.esc;
 
   const CHANNELS = ["灵动演绎", "极速出片"];
+  const DURATIONS = ["5", "10", "15"];
+  const RATIOS = ["1:1", "3:4", "4:3", "9:16", "16:9"];
   const RESOLUTIONS = ["480P", "720P"];
-  const LANGS = ["中文", "English", "日本語", "한국어", "Español", "Bahasa Melayu", "Bahasa Indonesia", "Tiếng Việt"];
+  const LANGS = (EC.const && EC.const.VIDEO_LANGS) || ["简体中文", "繁体中文", "英语", "泰语", "俄语", "越南语", "马来语", "葡萄牙语", "西班牙语", "日语", "韩语", "德语", "法语", "荷兰语", "波兰语", "土耳其语", "印尼语", "菲律宾语"];
   const VIDEO_MAX_MB = 100, IMG_MAX_MB = 10;
 
   const HTML = `<div class="inner">
@@ -52,6 +54,24 @@
             </div>
           </div>
           <div class="field">
+            <label>视频时长</label>
+            <div class="chips" data-group="duration">
+              <div class="chip on">5s</div>
+              <div class="chip">10s</div>
+              <div class="chip">15s</div>
+            </div>
+          </div>
+          <div class="field">
+            <label>视频比例</label>
+            <div class="chips" data-group="ratio">
+              <div class="chip">1:1</div>
+              <div class="chip">3:4</div>
+              <div class="chip">4:3</div>
+              <div class="chip on">9:16</div>
+              <div class="chip">16:9</div>
+            </div>
+          </div>
+          <div class="field">
             <label>视频分辨率</label>
             <div class="chips" data-group="resolution">
               <div class="chip">480P</div>
@@ -60,9 +80,8 @@
           </div>
           <div class="field">
             <label>视频语言</label>
-            <div class="select" data-lang>中文 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
+            <div class="select" data-lang>简体中文 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
           </div>
-          <div class="note" style="font-size:12px;color:var(--muted);margin-bottom:14px">比例与时长自动跟随参考视频（自适应）。</div>
 
           <button class="btn btn-primary" data-run><svg class="ic sm"><use href="#i-spark"/></svg>生成同款视频</button>
           <button class="btn btn-ghost" data-save style="margin-top:8px"><svg class="ic sm"><use href="#i-download"/></svg>保存到作品库</button>
@@ -134,7 +153,8 @@
       const r = await EC.gen.video({
         referenceVideo: refVideo, referenceImages: [product],
         prompt: prompt + (req ? "，" + req : ""),
-        ratio: "adaptive", duration: -1,
+        ratio: pick(el, "ratio") || "9:16",
+        duration: Number(pick(el, "duration").replace("s", "")) || 5,
         resolution: pick(el, "resolution") || "720P",
         channel: pick(el, "channel"), lang: (el.querySelector("[data-lang]") || {}).textContent.trim()
       }, function (st) {
@@ -144,7 +164,7 @@
       bar(el, 100, "完成");
       const asset = await EC.store.addFromUrl(r.url, {
         name: "视频复刻", kind: "video",
-        meta: { mode: "copy", prompt: prompt, req: req, resolution: pick(el, "resolution"), channel: pick(el, "channel"), provider: r.provider }
+        meta: { mode: "copy", prompt: prompt, req: req, ratio: pick(el, "ratio"), duration: Number(pick(el, "duration").replace("s", "")) || 5, resolution: pick(el, "resolution"), channel: pick(el, "channel"), provider: r.provider }
       });
       el.__vc.result = asset;
       const player = el.querySelector("[data-player]");

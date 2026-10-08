@@ -39,15 +39,15 @@
             <label>尺寸比例</label>
             <div class="chips" data-group="ratio">
               <div class="chip on">1:1</div>
-              <div class="chip">3:4</div>
-              <div class="chip">4:3</div>
-              <div class="chip">16:9</div>
-              <div class="chip">9:16</div>
               <div class="chip">2:3</div>
               <div class="chip">3:2</div>
+              <div class="chip">3:4</div>
+              <div class="chip">4:3</div>
               <div class="chip">4:5</div>
               <div class="chip">5:4</div>
-              <div class="chip">3:5</div>
+              <div class="chip">9:16</div>
+              <div class="chip">16:9</div>
+              <div class="chip">21:9</div>
             </div>
           </div>
           <div class="field">

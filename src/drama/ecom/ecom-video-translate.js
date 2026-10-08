@@ -5,12 +5,10 @@
   if (!EC) return;
   const esc = EC.esc;
 
-  const LANGS = ["中文", "English", "日本語", "한국어", "Español", "Français", "Deutsch", "Português",
-    "Italiano", "Русский", "العربية", "ไทย", "हिन्दी", "Bahasa Indonesia", "Bahasa Melayu",
-    "Tiếng Việt", "Türkçe", "繁體中文"];
-  const LANG_EN = { "中文": "zh", "English": "en", "日本語": "ja", "한국어": "ko", "Español": "es", "Français": "fr",
-    "Deutsch": "de", "Português": "pt", "Italiano": "it", "Русский": "ru", "العربية": "ar", "ไทย": "th",
-    "हिन्दी": "hi", "Bahasa Indonesia": "id", "Bahasa Melayu": "ms", "Tiếng Việt": "vi", "Türkçe": "tr", "繁體中文": "zh-TW" };
+  const LANGS = (EC.const && EC.const.VIDEO_LANGS) || ["简体中文", "繁体中文", "英语", "泰语", "俄语", "越南语", "马来语", "葡萄牙语", "西班牙语", "日语", "韩语", "德语", "法语", "荷兰语", "波兰语", "土耳其语", "印尼语", "菲律宾语"];
+  const LANG_EN = { "简体中文": "zh", "繁体中文": "zh-TW", "英语": "en", "泰语": "th", "俄语": "ru", "越南语": "vi",
+    "马来语": "ms", "葡萄牙语": "pt", "西班牙语": "es", "日语": "ja", "韩语": "ko", "德语": "de", "法语": "fr",
+    "荷兰语": "nl", "波兰语": "pl", "土耳其语": "tr", "印尼语": "id", "菲律宾语": "fil" };
   const SUB_STYLES = ["简洁白", "描边黑", "醒目黄", "艺术字"];
   const SUB_POS = ["底部", "中部", "顶部"];
   const SUB_POS_EN = { "底部": "bottom", "中部": "middle", "顶部": "top" };
@@ -51,7 +49,7 @@
 
           <div class="field">
             <label>目标语言</label>
-            <div class="select" data-lang>English <svg class="ic sm"><use href="#i-arrow"/></svg></div>
+            <div class="select" data-lang>英语 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
           </div>
 
           <div class="field">

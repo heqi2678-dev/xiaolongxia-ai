@@ -585,6 +585,23 @@
     font-size:12px;color:var(--sub);background:linear-gradient(135deg,#eef4ff,#dce8ff);
   }
 
+/* 详情图：模块选择（AI规划 / 自选组合） */
+.ecom-ui .gd-modules{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.ecom-ui .gd-mod-hint{font-size:12px;color:var(--muted);line-height:1.6;padding:10px 12px;background:#f7f9fc;border-radius:10px}
+.ecom-ui .gd-mod{display:flex;align-items:center;gap:10px;border:1px solid var(--border-2);border-radius:10px;padding:9px 11px;cursor:pointer;transition:.14s;background:#fff}
+.ecom-ui .gd-mod:hover{border-color:var(--primary)}
+.ecom-ui .gd-mod.on{border-color:var(--primary);background:var(--primary-soft)}
+.ecom-ui .gd-mod-main{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.ecom-ui .gd-mod-main b{font-size:12.5px;white-space:nowrap}
+.ecom-ui .gd-mod-desc{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ecom-ui .gd-check{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--border-2);flex:none;display:grid;place-items:center;transition:.14s}
+.ecom-ui .gd-check.on{background:var(--primary);border-color:var(--primary)}
+.ecom-ui .gd-check.on::after{content:"";width:8px;height:4px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg);margin-top:-1px}
+.ecom-ui .gd-mod .stepper{gap:8px;flex:none}
+.ecom-ui .gd-mod .stepper button{width:26px;height:26px;font-size:14px}
+.ecom-ui .gd-mod .stepper span{min-width:16px;font-size:13px}
+.ecom-ui .gd-mod-total{margin-top:9px;font-size:12px;font-weight:700;color:var(--primary);text-align:right}
+
 /* 历史上传 / 生成记录 */
 .ecom-ui .hist-grid,.modal .hist-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .ecom-ui .hist-item,.modal .hist-item{border:1px solid var(--border);border-radius:10px;overflow:hidden;cursor:pointer;background:#fff;box-shadow:var(--shadow-sm);transition:.14s}
@@ -702,6 +719,27 @@
 .dc-pop .skill-card:hover{border-color:#1c64f4;background:rgba(28,100,244,.05)}
 .dc-pop .skill-card-name{font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:3px}
 .dc-pop .skill-card-preview{font-size:11.5px;color:#909399;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* 图生视频：发现灵感 · 一键同款 */
+.ecom-ui .insp-section{border-top:1px solid var(--border);margin-top:20px;padding-top:6px}
+.ecom-ui .insp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.ecom-ui .i2v-insp{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;box-shadow:var(--shadow-sm);cursor:pointer;transition:.14s}
+.ecom-ui .i2v-insp:hover{border-color:var(--primary);box-shadow:0 8px 20px rgba(28,100,244,.12);transform:translateY(-2px)}
+.ecom-ui .i2v-insp-thumb{position:relative;aspect-ratio:4/3;background:#eef2f7;overflow:hidden}
+.ecom-ui .i2v-insp-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.ecom-ui .i2v-insp-play{position:absolute;right:8px;bottom:8px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center}
+.ecom-ui .i2v-insp b{display:block;font-size:12.5px;font-weight:700;color:var(--text);padding:9px 11px}
+@media (max-width:900px){.ecom-ui .insp-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* AI 作图：灵感推荐（一键同款） */
+.ecom-ui .sec-sub{font-size:12px;color:var(--text-3);margin-left:8px}
+.ecom-ui .insp-gallery{grid-template-columns:repeat(6,1fr)}
+.ecom-ui .insp-card{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;box-shadow:var(--shadow-sm);cursor:pointer;transition:.14s;position:relative}
+.ecom-ui .insp-card:hover{border-color:var(--primary);box-shadow:0 8px 20px rgba(28,100,244,.12);transform:translateY(-2px)}
+.ecom-ui .insp-thumb{position:relative;aspect-ratio:1/1;background:#eef2f7;overflow:hidden}
+.ecom-ui .insp-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.ecom-ui .insp-tag{position:absolute;left:8px;bottom:8px;padding:2px 8px;border-radius:999px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;line-height:1.6}
+@media (max-width:900px){.ecom-ui .insp-gallery{grid-template-columns:repeat(3,1fr)}}
 `;
   document.head.appendChild(s);
 })();

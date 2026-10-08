@@ -64,6 +64,16 @@ test("注册：导航 13 项、默认视图、视图容器齐备", () => {
   assert.ok(EC.TITLES.ecomDraw, "顶栏标题已注册");
 });
 
+test("缺口常量：EC.const 取值与爱创对齐", () => {
+  const { EC } = boot();
+  assert.ok(EC.const, "EC.const 已挂载");
+  assert.equal(EC.const.PLATFORMS.length, 21, "平台 21");
+  assert.equal(EC.const.LANGS.length, 16, "详情语言 16");
+  assert.equal(EC.const.DETAIL_RATIOS.length, 10, "详情比例 10");
+  assert.equal(EC.const.VIDEO_LANGS.length, 18, "视频语言 18");
+  assert.deepEqual(EC.const.DETAIL_COUNTS, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "详情张数 1-15");
+});
+
 test("工作台：10 大入口 + 4 数据块 + 最近项目 + 入口卡跳转", async () => {
   const { w, doc, EC } = boot();
   await EC.render("ecomHome");
@@ -86,15 +96,18 @@ test("工作台：10 大入口 + 4 数据块 + 最近项目 + 入口卡跳转", 
   assert.equal(w.__go, "ecomToolbox", "点击 AI 工具箱入口卡跳转 ecomToolbox");
 });
 
-test("AI 作图：12 工具卡 + prompt + 示例作品照片", async () => {
+test("AI 作图：12 工具卡 + prompt + 灵感推荐照片", async () => {
   const { doc, EC } = boot();
   await EC.render("ecomDraw");
   const el = doc.getElementById("ecomDrawView");
   assert.equal(el.querySelectorAll(".tool-card").length, 12, "12 个工具卡");
   assert.equal(el.querySelectorAll(".tool-card.on").length, 1, "默认选中 1 个工具");
-  assert.equal(el.querySelectorAll(".insp-card").length, 0, "旧灵感卡已移除");
-  assert.ok(el.querySelectorAll(".draw-item").length >= 4, "示例作品已配图");
-  assert.ok(el.querySelector(".draw-item img"), "示例作品为真实照片");
+  assert.equal(el.querySelectorAll(".insp-card").length, 6, "6 条灵感推荐");
+  assert.ok(el.querySelector(".insp-card img"), "灵感推荐为真实照片");
+  assert.match(el.textContent, /灵感推荐/, "含灵感推荐区块");
+  el.querySelector(".insp-card").click();
+  assert.match(el.querySelector(".comp-text").value, /板鞋/, "点击灵感回填提示词");
+  assert.equal(el.querySelectorAll(".tool-card.on")[0].getAttribute("data-tool"), "agent", "点击灵感切到 Agent 模式");
   assert.ok(el.querySelector(".prompt-box textarea"), "大白话输入框");
   assert.match(el.textContent, /Agent模式/, "含 Agent模式工具卡");
   assert.ok(el.querySelector('.prompt-bar [data-opt="mode"]'), "底栏模式选择器");
@@ -157,15 +170,32 @@ test("AI 作图：比例浮层切换比例", async () => {
   assert.match(el.querySelector('.prompt-bar [data-opt="ratio"]').textContent, /16:9/, "比例已更新");
 });
 
-test("AI 详情图：上传槽 + 要求框 + 风格 chips", async () => {
+test("AI 详情图：三上传槽 + 模块双模式 + 张数步进 + 选择器", async () => {
   const { doc, EC } = boot();
   await EC.render("ecomDetail");
   const el = doc.getElementById("ecomDetailView");
-  assert.ok(el.querySelector(".dropzone"), "商品图上传槽");
+  assert.equal(el.querySelectorAll(".gd-slot").length, 3, "主图/SKU/细节 三个上传槽");
   assert.ok(el.querySelector("textarea"), "补充要求文本框");
   assert.ok(el.querySelectorAll(".chip").length >= 4, "风格 chips");
-  assert.ok(el.querySelector(".select"), "平台/语言选择器");
+  assert.equal(el.querySelectorAll(".gen-form [data-sel]").length, 5, "平台/语言/清晰度/比例/张数 五个选择器");
   assert.ok(el.querySelector(".gen-side"), "右侧空态说明");
+  assert.ok(el.querySelector("[data-mod-mode-group]"), "详情图模块模式切换");
+  assert.match(el.querySelector("[data-modules]").textContent, /AI 将依据/, "默认 AI 规划");
+  assert.equal(el.querySelector("[data-mod-total]").hidden, true, "AI 模式隐藏合计");
+
+  el.querySelector('[data-mod-mode="manual"]').click();
+  const mods = el.querySelectorAll(".gd-mod");
+  assert.equal(mods.length, 6, "6 个详情图模块");
+  assert.equal(el.querySelectorAll(".gd-mod.on").length, 5, "默认选中 5 个模块（白底图选中、尺寸图未选）");
+  assert.equal(el.querySelector("[data-mod-total]").hidden, false, "自选模式显示合计");
+  assert.equal(el.querySelector("[data-count-field]").hidden, true, "自选模式隐藏张数选择器");
+
+  const inc = el.querySelector('[data-mod-step="0"] [data-mod-inc]');
+  inc.click();
+  assert.equal(el.querySelector('[data-mod-step="0"] [data-mod-count]').textContent, "2", "模块张数 +1");
+  const dec = el.querySelector('[data-mod-step="0"] [data-mod-dec]');
+  dec.click(); dec.click();
+  assert.equal(el.querySelector('[data-mod-step="0"] [data-mod-count]').textContent, "1", "模块张数下限为 1");
 });
 
 test("主图编辑：列表/画布双模式切换 + 工具/元素选中 + 色板 + 示例元素", async () => {
@@ -250,6 +280,10 @@ test("风格复刻：参考设计图/商品图上传槽 + 尺寸/组数 chips + 
   assert.ok(el.querySelector('[data-add-style]'), "参考设计图上传槽");
   assert.ok(el.querySelector('[data-add-product]'), "商品图上传槽");
   assert.ok(el.querySelectorAll(".chips .chip").length >= 4, "尺寸/组数 chips");
+  const ratioBox = el.querySelector('[data-group="ratio"]');
+  assert.equal(ratioBox.querySelectorAll(".chip").length, 10, "10 种比例");
+  assert.match(ratioBox.textContent, /21:9/, "含 21:9");
+  assert.doesNotMatch(ratioBox.textContent, /3:5/, "已移除 3:5");
   assert.ok(el.querySelector("[data-run]"), "生成按钮");
   assert.ok(el.querySelector("[data-bar]"), "进度条");
   assert.ok(el.querySelector(".result-grid"), "结果区");
@@ -275,6 +309,13 @@ test("图生视频：参考图上传 + AI 帮写 + 时长/比例 chips + 手机�
   assert.ok(el.querySelectorAll(".chips .chip").length >= 3, "时长/比例 chips");
   assert.ok(el.querySelector(".phone"), "手机预览");
   assert.ok(el.querySelector("[data-run]"), "生成按钮");
+  assert.equal(el.querySelectorAll(".i2v-insp").length, 4, "4 条发现灵感");
+  assert.match(el.querySelector(".note").textContent, /成人用品/, "参考图限制提示");
+  assert.match(el.querySelector("[data-hint]").textContent, /18 种语言|1–3 分钟/, "耗时提示");
+
+  el.querySelector(".i2v-insp").click();
+  assert.match(el.querySelector("[data-prompt]").value, /旁白/, "点击灵感回填脚本");
+  assert.ok(el.querySelector("[data-ref] img"), "点击灵感套用参考图");
 });
 
 test("视频复刻：参考视频/产品图上传 + 生成按钮", async () => {
@@ -284,6 +325,9 @@ test("视频复刻：参考视频/产品图上传 + 生成按钮", async () => {
   assert.ok(el.querySelectorAll(".dropzone").length >= 2, "参考视频与产品图上传槽");
   assert.ok(el.querySelector("[data-video]"), "参考视频选择");
   assert.ok(el.querySelector("[data-run]"), "生成按钮");
+  assert.equal(el.querySelectorAll('[data-group="duration"] .chip').length, 3, "时长 5/10/15");
+  assert.equal(el.querySelectorAll('[data-group="ratio"] .chip').length, 5, "比例 5 种");
+  assert.equal(el.querySelectorAll('[data-group="resolution"] .chip').length, 2, "分辨率 480P/720P");
 });
 
 test("视频翻译：原视频上传 + 模式/语言 chips + 字幕开关 + 阶段日志", async () => {
@@ -298,6 +342,8 @@ test("视频翻译：原视频上传 + 模式/语言 chips + 字幕开关 + 阶�
   assert.ok(el.querySelector("[data-run]"), "开始翻译按钮");
   assert.equal(el.querySelectorAll('[data-group="subfont"] .chip').length, 3, "字幕字号三档");
   assert.equal(el.querySelectorAll('[data-group="subline"] .chip').length, 3, "字幕行间距三档");
+  assert.match(el.querySelector("[data-lang]").textContent, /英语/, "目标语言默认英语");
+  assert.match(el.querySelector("[data-hint]").textContent, /18 种语言/, "提示支持 18 种语言");
 });
 
 test("AI 工具箱：16 工具 + 画布 + 应用/撤销", async () => {

@@ -9,8 +9,16 @@
   const DURATIONS = ["5", "10", "15"];
   const RATIOS = ["1:1", "3:4", "4:3", "9:16", "16:9"];
   const RESOLUTIONS = ["480P", "720P"];
-  const LANGS = ["中文", "English", "日本語", "한국어", "Español", "Bahasa Melayu", "Bahasa Indonesia", "Tiếng Việt"];
+  const LANGS = (EC.const && EC.const.VIDEO_LANGS) || ["简体中文", "繁体中文", "英语", "泰语", "俄语", "越南语", "马来语", "葡萄牙语", "西班牙语", "日语", "韩语", "德语", "法语", "荷兰语", "波兰语", "土耳其语", "印尼语", "菲律宾语"];
   const MAX_MB = 3;
+
+  /* 发现灵感 · 一键同款（本地示例：参考图 + 脚本） */
+  const INSPIRATIONS = [
+    { img: "pot.jpg", title: "珐琅锅 · 使用场景", script: "镜头缓缓推近珐琅锅，热气腾腾的汤汁翻滚。旁白：一锅多用，锁温聚能，烹饪更省心。" },
+    { img: "lipstick.jpg", title: "口红 · 上色展示", script: "特写口红丝滑涂抹，唇部显色饱满。旁白：丝绒质地，显白持色，一抹倾心。" },
+    { img: "detergent.jpg", title: "洗衣液 · 洁净演示", script: "对比镜头展示衣物由脏到净。旁白：浓缩配方，强效去渍，守护全家洁净。" },
+    { img: "dress.jpg", title: "连衣裙 · 模特走动", script: "模特身着连衣裙自信走位，裙摆轻盈摆动。旁白：优雅版型，通勤约会都合适。" }
+  ];
 
   const HTML = `<div class="inner">
     <div class="page-head">
@@ -29,6 +37,7 @@
               <b>点击上传参考图</b>
               <p>建议使用商品主图或人物图</p>
             </div>
+            <p class="note" style="margin-top:8px;font-size:11.5px;color:var(--muted)">不支持上传包含真人脸或成人用品的图片</p>
           </div>
 
           <div class="field">
@@ -92,6 +101,17 @@
           <div class="note" data-bar-text style="margin-top:6px;font-size:12px;color:var(--muted)">准备中…</div>
         </div>
         <div class="note" data-hint style="font-size:12px;color:var(--muted)">视频生成较慢，通常需要 1–3 分钟，请保持页面打开。</div>
+      </div>
+    </div>
+
+    <div class="insp-section">
+      <div class="label-row" style="margin:22px 0 12px"><label style="font-size:15px;font-weight:800">发现灵感 · 一键同款</label><span style="font-size:12px;color:var(--muted)">点击示例，一键套用参考图与脚本</span></div>
+      <div class="insp-grid">
+        ${INSPIRATIONS.map(function (it, i) {
+          return '<div class="i2v-insp" data-insp="' + i + '">'
+            + '<div class="i2v-insp-thumb"><img src="assets/ecom/' + it.img + '" alt="" loading="lazy"><span class="i2v-insp-play"><svg class="ic sm"><use href="#i-play"/></svg></span></div>'
+            + '<b>' + esc(it.title) + '</b></div>';
+        }).join("")}
       </div>
     </div>
   </div>`;
@@ -173,6 +193,19 @@
     el.__ecomI2vBound = true;
     el.addEventListener("click", function (e) {
       if (!EC.ui) return;
+      const insp = e.target.closest("[data-insp]");
+      if (insp) {
+        const it = INSPIRATIONS[Number(insp.getAttribute("data-insp"))];
+        if (it) {
+          el.__i2v.ref = { id: "demo-i2v-" + it.img, url: "assets/ecom/" + it.img, name: it.title };
+          const dz = el.querySelector("[data-ref]");
+          if (dz) dz.innerHTML = '<img src="' + esc(EC.store.src(el.__i2v.ref)) + '" alt="" style="width:100%;border-radius:10px">';
+          const ta = el.querySelector("[data-prompt]");
+          if (ta) ta.value = it.script;
+          EC.toast("已套用示例：" + it.title);
+        }
+        return;
+      }
       const ref = e.target.closest("[data-ref]");
       if (ref) {
         EC.ui.pickFiles("image/*", false).then(function (files) {
