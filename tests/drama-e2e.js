@@ -1067,6 +1067,168 @@ async function flowEcom(env) {
   eq(shell.zoneOfView("home"), "drama", "短剧视图归属短剧分区");
 }
 
+/* 链路八：电商全控件交互扫描 —— 逐页点击所有状态类控件、分组状态、滚动容器与弹层。
+ * 临时把 app.go 替换为「真实视图切换」版本，仅在本链路内生效，结束后还原，
+ * 以贴近浏览器里点导航/入口后目标视图激活并渲染的真实行为。 */
+async function flowEcomInteract(env) {
+  const { doc, D } = env;
+  const W = env.window;
+  console.log("\n链路八：电商全控件交互扫描（逐页点击 / 分组状态 / 滚动 / 弹层）");
+  const E = D.ecom;
+  const shell = W.XLX.dramaShell;
+  const benign = (m) => !/Could not parse CSS|Not implemented|Ignoring/i.test(String(m));
+  const errCount = () => env.jserrors.filter(benign).length;
+  const resetOverlays = () => {
+    doc.querySelectorAll(".modal-mask").forEach((m) => { try { m.remove(); } catch (e) {} });
+    try { if (E.ui && E.ui.closeMenus) E.ui.closeMenus(); } catch (e) {}
+  };
+
+  const realGo = W.XLX.app.go;
+  W.XLX.app.go = function (v) {
+    W.XLX.app.currentView = v;
+    doc.querySelectorAll(".view").forEach((el) => el.classList.remove("active"));
+    const t = doc.getElementById(v + "View");
+    if (t) t.classList.add("active");
+    if (shell && shell.setActive) shell.setActive(v);
+    if (E && E.VIEWS.indexOf(v) >= 0 && E.render) E.render(v);
+  };
+
+  try {
+    /* 1) 导航逐项点击：目标视图激活并渲染 */
+    shell.setZone("ecom", { noGo: true });
+    await settle(2);
+    const nav = doc.getElementById("shellNav");
+    const items = Array.from(nav.querySelectorAll(".shell-nav-item"));
+    eq(items.length, 13, "导航 13 项均可点击");
+    let activated = 0, drawn = 0;
+    for (const it of items) {
+      const v = it.getAttribute("data-view");
+      it.click();
+      await settle(3);
+      const host = doc.getElementById(v + "View");
+      if (host && host.classList.contains("active")) activated++;
+      if (host && host.querySelector(".ecom-ui")) drawn++;
+    }
+    eq(activated, 13, "点击 13 个导航项后目标视图均激活");
+    eq(drawn, 13, "点击导航后目标视图均渲染出 .ecom-ui 内容");
+
+    /* 2) 逐页点击所有状态类控件（每轮重置渲染，避免节点失效） */
+    const stateSEL = [
+      ".tool-card", ".chip", ".switch", ".sw", ".hero-nav-item", ".mode-card",
+      ".insp-card", "[data-sel]", "[data-uptab]", "[data-mode-group] button",
+      ".up-tab", "[data-fold]", ".g-item", ".project"
+    ].join(",");
+    let totalClicks = 0; const problems = [];
+    for (const view of E.VIEWS) {
+      const host = doc.getElementById(view + "View");
+      host.innerHTML = ""; E.render(view); await settle(2);
+      if (!host.querySelector(".ecom-ui")) { problems.push(view + ":无 .ecom-ui"); continue; }
+      host.innerHTML = ""; E.render(view); await settle(2);
+      const n = host.querySelectorAll(stateSEL).length;
+      for (let i = 0; i < n; i++) {
+        host.innerHTML = ""; E.render(view); await settle(1);
+        const el = host.querySelectorAll(stateSEL)[i];
+        if (!el) break;
+        const label = view + ":" + (el.getAttribute("data-uptab") || el.className || el.tagName);
+        const before = errCount();
+        try { el.click(); } catch (err) { problems.push(label + ":抛错"); }
+        await settle(1);
+        resetOverlays();
+        if (errCount() > before) problems.push(label + ":触发异常");
+        totalClicks++;
+      }
+    }
+    ok(totalClicks > 60, "逐页点击状态控件 " + totalClicks + " 次");
+    eq(problems.length, 0, "逐页点击无死键/无异常" + (problems.length ? "：" + JSON.stringify(problems.slice(0, 5)) : ""));
+
+    /* 3) 分组状态确定性验证 */
+    const draw = doc.getElementById("ecomDrawView");
+    draw.innerHTML = ""; E.render("ecomDraw"); await settle(2);
+    const dcards = draw.querySelectorAll(".tool-card");
+    dcards[dcards.length - 1].click(); await settle(1);
+    eq(draw.querySelectorAll(".tool-card.on").length, 1, "作图工具卡同组单选");
+    ok(dcards[dcards.length - 1].classList.contains("on"), "点击的作图工具卡被选中");
+
+    const det = doc.getElementById("ecomDetailView");
+    det.innerHTML = ""; E.render("ecomDetail"); await settle(2);
+    const dchips = det.querySelectorAll(".chips .chip");
+    if (dchips.length > 1) { dchips[1].click(); await settle(1); ok(dchips[1].classList.contains("on"), "详情图要求 chip 可选中"); }
+
+    const gal = doc.getElementById("ecomGalleryView");
+    gal.innerHTML = ""; E.render("ecomGallery"); await settle(2);
+    const gchips = gal.querySelectorAll(".chips .chip");
+    if (gchips.length > 2) { gchips[2].click(); await settle(1); ok(gchips[2].classList.contains("on"), "作品库筛选 chip 可选中"); }
+    ok(!!gal.querySelector(".search input"), "作品库搜索输入框存在");
+
+    const vc = doc.getElementById("ecomVideoCopyView");
+    vc.innerHTML = ""; E.render("ecomVideoCopy"); await settle(2);
+    const tabs = vc.querySelectorAll("[data-uptab]");
+    eq(tabs.length, 2, "视频复刻上传方式 2 个 tab");
+    tabs[1].click(); await settle(1);
+    ok(tabs[1].classList.contains("on"), "视频复刻切到链接上传 tab");
+    ok(!tabs[0].classList.contains("on"), "视频复刻本地上传 tab 取消选中");
+
+    const vt = doc.getElementById("ecomVideoTranslateView");
+    vt.innerHTML = ""; E.render("ecomVideoTranslate"); await settle(2);
+    const vsw = vt.querySelector(".switch");
+    if (vsw) { const off = vsw.classList.contains("off"); vsw.click(); await settle(1); eq(vsw.classList.contains("off"), !off, "视频翻译字幕开关可切换"); }
+    const stepper = vt.querySelector('[data-stepper="subfont"]');
+    ok(!!stepper, "视频翻译字幕字号步进器存在");
+    if (stepper) {
+      const valNode = stepper.querySelector("[data-step-val]");
+      const v0 = valNode.textContent.trim();
+      stepper.querySelector("[data-step-inc]").click(); await settle(1);
+      ok(Number(valNode.textContent.trim()) > Number(v0), "字号步进器 + 可增");
+      stepper.querySelector("[data-step-dec]").click(); await settle(1);
+      eq(valNode.textContent.trim(), v0, "字号步进器 - 可回退");
+    }
+
+    const me = doc.getElementById("ecomMainEditView");
+    me.innerHTML = ""; E.render("ecomMainEdit"); await settle(2);
+    const seg = me.querySelector("[data-mode-group]");
+    seg.querySelector('[data-mode="canvas"]').click(); await settle(1);
+    eq(me.querySelector(".view-canvas").hidden, false, "主图编辑切到画布");
+    seg.querySelector('[data-mode="list"]').click(); await settle(1);
+    eq(me.querySelector(".view-list").hidden, false, "主图编辑切回列表");
+
+    /* 4) 首页工具条弹层：打开 → 关闭 */
+    const home = doc.getElementById("ecomHomeView");
+    home.innerHTML = ""; E.render("ecomHome"); await settle(2);
+    const notice = home.querySelector('[data-pp="notice"]');
+    ok(!!notice, "首页工具条含「提示」按钮");
+    if (notice) {
+      notice.click(); await settle(2);
+      const mask = doc.querySelector(".modal-mask");
+      ok(!!mask && !!mask.querySelector(".modal"), "点击提示弹出弹层");
+      const closeBtn = mask && mask.querySelector(".modal-close");
+      ok(!!closeBtn, "弹层含关闭按钮");
+      if (closeBtn) { closeBtn.click(); await settle(1); }
+      eq(doc.querySelectorAll(".modal-mask").length, 0, "关闭按钮可关闭弹层");
+    }
+
+    /* 5) 滚动容器：每个视图均可纵向滚动 */
+    let scrollCss = 0, scrollSet = 0;
+    for (const view of E.VIEWS) {
+      const host = doc.getElementById(view + "View");
+      host.innerHTML = ""; E.render(view); await settle(1);
+      const ui = host.querySelector(".ecom-ui");
+      if (!ui) continue;
+      const oy = W.getComputedStyle(ui).overflowY;
+      if (oy === "auto" || oy === "scroll") scrollCss++;
+      ui.scrollTop = 240;
+      if (ui.scrollTop === 240) scrollSet++;
+    }
+    eq(scrollCss, 13, "13 个视图 .ecom-ui 均为纵向滚动容器");
+    eq(scrollSet, 13, "13 个视图均可设置 scrollTop 滚动");
+    /* 真实页面外壳的滚动样式定义在 index.html，这里做静态校验 */
+    const shellHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+    ok(/\.shell-nav\{[^}]*overflow-y:auto/.test(shellHtml), "index.html 侧栏导航可纵向滚动");
+    ok(/\.view\.active\{[^}]*overflow-y:auto/.test(shellHtml), "index.html 视图激活后可纵向滚动");
+  } finally {
+    W.XLX.app.go = realGo;
+  }
+}
+
 /* ============================ 主流程 ============================ */
 async function main() {
   const env = boot();
@@ -1079,6 +1241,7 @@ async function main() {
     await flowBox3d(env);
     await flowEdge(env);
     await flowEcom(env);
+    await flowEcomInteract(env);
   } catch (e) {
     fails.push("运行时异常：" + (e && e.stack || e));
     console.log("\n!! 运行异常 " + (e && e.stack || e));
