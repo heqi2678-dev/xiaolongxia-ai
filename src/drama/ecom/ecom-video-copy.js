@@ -18,8 +18,8 @@
 
   const HTML = `<div class="inner">
     <div class="page-head">
-      <h1>视频复刻</h1>
-      <p>上传一条爆款参考视频和你的产品图，AI 复用原视频的节奏与运镜，生成同款带货视频。</p>
+      <h1>爆款视频复刻</h1>
+      <p>上传爆款参考视频与自有产品素材，AI 自动生成同款带货视频、口播种草视频、实景实拍视频。</p>
     </div>
 
     <div class="split" style="grid-template-columns:1fr 1fr;align-items:start">
@@ -27,7 +27,7 @@
         <div class="panel-head"><svg class="ic sm"><use href="#i-film"/></svg>复刻设置</div>
         <div class="panel-body">
           <div class="field">
-            <label>原视频（MP4 / MOV / MKV / AVI / MPG，≤100MB）</label>
+            <label>上传原视频（MP4 / MOV / MKV / AVI / MPG，≤100MB）</label>
             <div class="up-tabs" data-uptab-group>
               <button type="button" class="up-tab on" data-uptab="local"><svg class="ic sm"><use href="#i-upload"/></svg>本地上传</button>
               <button type="button" class="up-tab" data-uptab="link"><svg class="ic sm"><use href="#i-globe"/></svg>链接上传</button>
@@ -47,7 +47,7 @@
             </div>
           </div>
           <div class="field">
-            <label>产品图（JPG / PNG / WEBP，≤10MB）</label>
+            <label>上传产品图（JPG / PNG / WEBP，≤10MB）</label>
             <div class="dropzone" data-product>
               <div class="dz-ic"><svg class="ic"><use href="#i-upload"/></svg></div>
               <b>点击上传产品图</b>

@@ -131,9 +131,10 @@
       <div class="panel">
         <div class="panel-head"><svg class="ic sm"><use href="#i-play"/></svg>翻译结果</div>
         <div class="panel-body">
-          <div class="stage" data-stage style="min-height:220px;display:flex;align-items:center;justify-content:center;background:#0e0f13;border-radius:12px;overflow:hidden;color:#8a94a6">
+          <div class="stage" data-stage style="position:relative;min-height:220px;display:flex;align-items:center;justify-content:center;background:#0e0f13;border-radius:12px;overflow:hidden;color:#8a94a6">
             <span data-empty>上传原视频后开始翻译</span>
             <video data-player controls playsinline style="width:100%;max-height:320px;display:none"></video>
+            <button type="button" class="unmute-hint" data-unmute hidden><svg class="ic sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M19 6a8 8 0 0 1 0 12"/></svg>点击开启声音</button>
           </div>
           <div data-bar hidden style="margin-top:12px">
             <div style="height:6px;border-radius:6px;background:#eef0f4;overflow:hidden"><i data-bar-fill style="display:block;height:100%;width:0;background:linear-gradient(90deg,var(--primary),var(--primary-2));transition:.2s"></i></div>
@@ -395,7 +396,15 @@
       const player = el.querySelector("[data-player]");
       if (player && outUrl && outUrl !== url) player.src = outUrl;
       const empty = el.querySelector("[data-empty]"); if (empty) empty.style.display = "none";
-      if (player) player.style.display = "block";
+      if (player) {
+        player.style.display = "block";
+        const un = el.querySelector("[data-unmute]");
+        if (un) {
+          player.muted = true;
+          try { const p = player.play(); if (p && p.catch) p.catch(function () {}); } catch (e2) {}
+          un.hidden = false;
+        }
+      }
       const audioBox = el.querySelector("[data-audio]");
       if (audioUrl && audioBox) { audioBox.src = audioUrl; audioBox.style.display = "block"; }
       renderSubs(el, utterances);
@@ -465,6 +474,13 @@
     el.__ecomVtBound = true;
     el.addEventListener("click", function (e) {
       if (!EC.ui) return;
+      const un = e.target.closest("[data-unmute]");
+      if (un) {
+        const player = el.querySelector("[data-player]");
+        if (player) { player.muted = false; player.volume = 1; try { const p = player.play(); if (p && p.catch) p.catch(function () {}); } catch (e2) {} }
+        un.hidden = true;
+        return;
+      }
       const inc = e.target.closest("[data-step-inc]");
       if (inc) { stepBy(el, inc.closest("[data-stepper]").getAttribute("data-stepper"), 1); return; }
       const dec = e.target.closest("[data-step-dec]");

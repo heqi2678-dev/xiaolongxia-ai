@@ -325,6 +325,9 @@ test("视频复刻：参考视频/产品图上传 + 生成按钮", async () => {
   assert.ok(el.querySelectorAll(".dropzone").length >= 2, "参考视频与产品图上传槽");
   assert.ok(el.querySelector("[data-video]"), "参考视频选择");
   assert.ok(el.querySelector("[data-run]"), "生成按钮");
+  assert.match(el.querySelector(".page-head h1").textContent, /爆款视频复刻/, "标题对齐 51aic");
+  assert.match(el.innerHTML, /上传原视频/, "原视频槽文案对齐 51aic");
+  assert.match(el.innerHTML, /上传产品图/, "产品图槽文案对齐 51aic");
   assert.equal(el.querySelectorAll("[data-uptab]").length, 2, "本地上传/链接上传 双 tab");
   el.querySelector('[data-uptab="link"]').click();
   assert.equal(el.querySelector('[data-uptab-pane="local"]').hidden, true, "切到链接上传隐藏本地");
@@ -358,6 +361,10 @@ test("视频翻译：原视频上传 + 模式/语言 chips + 字幕开关 + 阶�
   const noSub = Array.from(el.querySelectorAll('.chips[data-group="subneed"] .chip')).find(c => c.textContent.trim() === "不需要");
   noSub.click();
   assert.equal(el.querySelector("[data-subbox]").hidden, true, "不需要新字幕时隐藏样式设置");
+  const un = el.querySelector("[data-unmute]");
+  assert.ok(un, "结果预览区含「点击开启声音」提示");
+  assert.equal(un.hidden, true, "默认隐藏开声提示");
+  assert.match(un.textContent, /点击开启声音/, "开声提示文案");
 });
 
 test("AI 工具箱：16 工具 + 画布 + 应用/撤销", async () => {

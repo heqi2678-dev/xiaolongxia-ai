@@ -765,6 +765,9 @@
 .subpos-cell.on i{background:#1c64f4}
 .subpos-tip{margin-top:10px;font-size:12px;color:var(--muted);line-height:1.6}
 .subpos-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.ecom-ui [data-stage] .unmute-hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:0;border-radius:999px;background:rgba(0,0,0,.62);color:#fff;font-size:13px;font-weight:700;cursor:pointer;z-index:2;backdrop-filter:blur(2px)}
+.ecom-ui [data-stage] .unmute-hint:hover{background:rgba(0,0,0,.78)}
+.ecom-ui [data-stage] .unmute-hint .ic{width:16px;height:16px}
 
 /* 生成记录：视频缩略 */
 .ecom-ui .hist-item video,.modal .hist-item video{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;background:#0e0f13}
