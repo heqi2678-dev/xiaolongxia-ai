@@ -259,7 +259,7 @@
     EC.ui.busy(btn, true, "");
     try {
       const refImages = st.files.concat(st.detailFiles).map(function (a) { return EC.store.src(a); }).filter(Boolean);
-      const r = await EC.gen.image({ prompt: text, ratio: genRatio(st), refImages: refImages });
+      const r = await EC.gen.image({ prompt: text, ratio: genRatio(st), refImages: refImages, hires: st.quality !== "1K 标准" });
       const asset = await EC.store.addFromUrl(r.url, {
         name: (name || text.slice(0, 20) || m.name), kind: "image",
         meta: { mode: m.key, provider: r.provider, prompt: text, ratio: genRatio(st) }
@@ -345,15 +345,13 @@
       return '<div class="ratio-item' + (r === st.ratio ? " on" : "") + '" data-ratio="' + esc(r) + '">' + esc(r) + '</div>';
     }).join("") + '</div>';
     const qual = '<div class="dc-title">清晰度</div><div class="quality-switch">' + QUALITIES.map(function (q) {
-      const dis = q !== QUALITIES[0];
-      return '<div class="quality-item' + (q === st.quality ? " on" : "") + (dis ? " is-disabled" : "") + '" data-quality="' + esc(q) + '">' + esc(q) + '</div>';
+      return '<div class="quality-item' + (q === st.quality ? " on" : "") + '" data-quality="' + esc(q) + '">' + esc(q) + '</div>';
     }).join("") + '</div>';
     dcPop(anchor, grid + qual, function (e) {
       const ri = e.target.closest("[data-ratio]");
       if (ri) { st.ratio = ri.getAttribute("data-ratio"); EC.ui.closeMenus(); renderComposer(el); return; }
       const qi = e.target.closest("[data-quality]");
       if (qi) {
-        if (qi.classList.contains("is-disabled")) { EC.toast("2K / 4K 清晰度即将开放"); return; }
         st.quality = qi.getAttribute("data-quality"); EC.ui.closeMenus(); renderComposer(el);
       }
     });
@@ -386,11 +384,14 @@
 
   EC.register("ecomDraw", function (el) {
     if (!el.__draw) el.__draw = { mode: "agent", files: [], detailFiles: [], ratio: "智能比例", quality: "1K 标准", inl: defaultInl() };
+    let pendingMode = EC.pending && EC.pending.drawMode;
+    if (pendingMode) EC.pending.drawMode = null;
     el.innerHTML = '<div class="ecom-ui">' + HTML + '</div>';
     const prov = el.querySelector("[data-provider]");
     if (prov) prov.textContent = EC.gen ? "出图服务：" + EC.gen.providerName() : "";
     if (EC.store && EC.store.ready) EC.store.ready();
-    renderComposer(el);
+    if (pendingMode && modeOf(pendingMode).key === pendingMode) selectMode(el, pendingMode);
+    else renderComposer(el);
 
     if (el.__ecomDrawBound) { return; }
     el.__ecomDrawBound = true;
@@ -433,7 +434,7 @@
         else if (kind === "ratio") ratioPop(el);
         else if (kind === "quality") {
           EC.ui.menu(opt, QUALITIES.map(function (q) {
-            return { label: q, on: q === st.quality, pick: function () { if (q !== QUALITIES[0]) { EC.toast("2K / 4K 清晰度即将开放"); return; } st.quality = q; renderComposer(el); } };
+            return { label: q, on: q === st.quality, pick: function () { st.quality = q; renderComposer(el); } };
           }));
         } else if (kind === "skill") skillPop(el);
         return;

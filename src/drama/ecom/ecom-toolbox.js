@@ -30,6 +30,7 @@
     <div class="page-head">
       <h1>AI 工具箱</h1>
       <p>16 项图片编辑，本地 Canvas 即改即存，需要 AI 的走已配置图像服务。</p>
+      <button class="btn btn-ghost" data-try style="width:auto;padding:8px 16px;margin-top:10px"><svg class="ic sm"><use href="#i-image"/></svg>试试样片</button>
     </div>
     <div class="tool-grid" data-tools style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-bottom:16px"></div>
     <div class="split" style="grid-template-columns:1.3fr .7fr;align-items:start">
@@ -269,6 +270,8 @@
 
     el.addEventListener("click", function (e) {
       if (!EC.ui) return;
+      const tryBtn = e.target.closest("[data-try]");
+      if (tryBtn) { loadSample(el); return; }
       const card = e.target.closest(".tool-card");
       if (card) { selectTool(el, card.getAttribute("data-id")); return; }
       const drop = e.target.closest("[data-drop]");
@@ -361,5 +364,14 @@
     const drop = el.querySelector("[data-drop]"); if (drop) drop.style.display = "none";
     render(el);
     el.querySelector("[data-apply]").disabled = false;
+  }
+
+  const SAMPLE = "assets/ecom/pot.jpg";
+  async function loadSample(el) {
+    try {
+      const a = await EC.store.addFromUrl(SAMPLE, { kind: "upload", name: "试试样片" });
+      await loadSrc(el, a);
+      EC.toast("已载入样片，选择工具开始编辑");
+    } catch (e) { EC.toast((e && e.message) || "样片载入失败"); }
   }
 })();

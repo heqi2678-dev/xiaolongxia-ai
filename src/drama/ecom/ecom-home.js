@@ -50,6 +50,22 @@
       '</div>';
   }
 
+  /* AI 作图快捷模式：与 AI 作图页 12 模式同键 */
+  const SHORTCUTS = [
+    { key: "agent", name: "Agent模式", icon: "spark" },
+    { key: "main", name: "主图套图", icon: "grid" },
+    { key: "white", name: "精修白底图", icon: "crop" },
+    { key: "try", name: "AI试衣", icon: "layers" },
+    { key: "wear", name: "万物穿戴", icon: "layers" },
+    { key: "swap", name: "商品替换", icon: "grid" },
+    { key: "trans", name: "图片翻译", icon: "translate" },
+    { key: "wm", name: "去除水印", icon: "wand" },
+    { key: "pose", name: "姿势裂变", icon: "spark" },
+    { key: "recolor", name: "商品换色", icon: "palette" },
+    { key: "retouch", name: "商品精修", icon: "wand" },
+    { key: "poster", name: "海报设计", icon: "poster" }
+  ];
+
   const HTML = `<div class="inner">
           <div class="page-head hero">
             <div class="hero-copy">
@@ -62,6 +78,15 @@
               </div>
             </div>
             <div class="hero-art">${HERO_ART}</div>
+          </div>
+
+          <div class="mode-strip">
+            <div class="mode-strip-head"><h2>AI 作图 · 快捷模式</h2><a data-go="ecomDraw">全部模式</a></div>
+            <div class="mode-strip-grid">
+              ${SHORTCUTS.map(function (s) {
+                return '<button class="mode-card" data-draw-mode="' + s.key + '" data-go="ecomDraw"><svg class="ic sm"><use href="#i-' + s.icon + '"/></svg><span>' + esc(s.name) + '</span></button>';
+              }).join("")}
+            </div>
           </div>
 
           <div class="feature-grid">
@@ -191,6 +216,8 @@
     if (el.__ecomHomeBound) return;
     el.__ecomHomeBound = true;
     el.addEventListener("click", function (e) {
+      const dmEl = e.target.closest("[data-draw-mode]");
+      if (dmEl && el.contains(dmEl)) { EC.openDraw(dmEl.getAttribute("data-draw-mode")); return; }
       const goEl = e.target.closest("[data-go]");
       if (goEl && el.contains(goEl)) { EC.go(goEl.getAttribute("data-go")); return; }
       const proj = e.target.closest(".project");

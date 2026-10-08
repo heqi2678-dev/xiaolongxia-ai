@@ -1450,6 +1450,14 @@ def drama_subtitle(owner, spec):
         st = SUBTITLE_STYLES.get(str(style.get("preset") or "简洁白"), SUBTITLE_STYLES["简洁白"])
         margin = int(round(h * 0.055))
         max_chars = max(8, int(round(w * 0.92 / fontsize)))
+        try:
+            fx = float(style.get("x")) if style.get("x") is not None else None
+            fy = float(style.get("y")) if style.get("y") is not None else None
+        except (TypeError, ValueError):
+            fx = fy = None
+        if fx is not None and fy is not None:
+            fx = max(0.0, min(1.0, fx))
+            fy = max(0.0, min(1.0, fy))
         filters = []
 
         ov_size = max(14, int(round(h * 0.038)))
@@ -1485,19 +1493,25 @@ def drama_subtitle(owner, spec):
             tf = work / ("cue%d.txt" % i)
             tf.write_text("\n".join(lines), encoding="utf-8")
             block = len(lines) * fontsize + (len(lines) - 1) * spacing
-            if pos == "top":
-                y = margin
-            elif pos == "middle":
-                y = max(margin, (h - block) // 2)
+            if fx is not None and fy is not None:
+                xexpr = "(w-text_w)*%.4f" % fx
+                yexpr = "(h-text_h)*%.4f" % fy
             else:
-                y = max(margin, h - margin - block)
+                xexpr = "(w-text_w)/2"
+                if pos == "top":
+                    y = margin
+                elif pos == "middle":
+                    y = max(margin, (h - block) // 2)
+                else:
+                    y = max(margin, h - margin - block)
+                yexpr = "%d" % y
             filters.append(
                 "drawtext=fontfile='%s':textfile='%s':expansion=none:fontsize=%d:line_spacing=%d:"
                 "fontcolor=%s:box=%d:boxcolor=%s:borderw=%d:bordercolor=%s:"
-                "x=(w-text_w)/2:y=%d:enable='between(t,%.3f,%.3f)'"
+                "x=%s:y=%s:enable='between(t,%.3f,%.3f)'"
                 % (font, tf, fontsize, spacing, st["color"], 1 if st.get("box") else 0,
                    st.get("boxcolor", "black@0.45"), int(st.get("borderw", 0)),
-                   st.get("bordercolor", "black"), y, start, end)
+                   st.get("bordercolor", "black"), xexpr, yexpr, start, end)
             )
         if not filters:
             raise ValueError("字幕内容为空")

@@ -29,6 +29,10 @@
               <b>点击上传参考视频</b>
               <p>爆款视频或竞品视频</p>
             </div>
+            <div class="ref-row" style="margin-top:8px;display:flex;gap:8px">
+              <input class="inp" data-link placeholder="或粘贴视频链接 https://…" style="flex:1">
+              <button class="btn btn-ghost" data-link-load style="width:auto;padding:0 14px">载入</button>
+            </div>
           </div>
           <div class="field">
             <label>产品图（JPG / PNG / WEBP，≤10MB）</label>
@@ -207,6 +211,19 @@
             if (vp) { vp.src = EC.store.src(a); vp.style.display = "block"; }
             const re = el.querySelector("[data-ref-empty]"); if (re) re.style.display = "none";
           });
+        });
+        return;
+      }
+      const loadBtn = e.target.closest("[data-link-load]");
+      if (loadBtn) {
+        const link = (el.querySelector("[data-link]") || {}).value || "";
+        if (!/^https?:\/\//i.test(link.trim())) { EC.toast("请填写有效的视频链接"); return; }
+        EC.store.addFromUrl(link.trim(), { kind: "upload", name: "链接视频" }).then(function (a) {
+          el.__vc.video = a;
+          const vp = el.querySelector("[data-ref-player]");
+          if (vp) { vp.src = EC.store.src(a); vp.style.display = "block"; }
+          const re = el.querySelector("[data-ref-empty]"); if (re) re.style.display = "none";
+          EC.toast("链接视频已载入");
         });
         return;
       }

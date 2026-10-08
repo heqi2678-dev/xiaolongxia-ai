@@ -1002,6 +1002,30 @@ class GateTests(unittest.TestCase):
         self.assertIn(",format=yuv420p[v]", script)
         self.assertIn("box=1", script)
 
+    def test_drama_subtitle_normalized_xy_position(self):
+        captured = []
+        self._mock_subtitle_ff(captured)
+        self.gate.drama_subtitle("liyu", {
+            "video": "http://x.test/a.mp4",
+            "style": {"pos": "bottom", "x": 0.08, "y": 0.1},
+            "cues": [{"start": 0, "end": 2, "text": "你好世界"}],
+        })
+        script = self._subtitle_script(captured)
+        self.assertIn("x=(w-text_w)*0.0800", script)
+        self.assertIn("y=(h-text_h)*0.1000", script)
+
+    def test_drama_subtitle_clamps_normalized_xy(self):
+        captured = []
+        self._mock_subtitle_ff(captured)
+        self.gate.drama_subtitle("liyu", {
+            "video": "http://x.test/a.mp4",
+            "style": {"x": 9, "y": -3},
+            "cues": [{"start": 0, "end": 2, "text": "你好"}],
+        })
+        script = self._subtitle_script(captured)
+        self.assertIn("x=(w-text_w)*1.0000", script)
+        self.assertIn("y=(h-text_h)*0.0000", script)
+
     def test_drama_subtitle_requires_content(self):
         captured = []
         self._mock_subtitle_ff(captured)

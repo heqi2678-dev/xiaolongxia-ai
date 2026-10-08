@@ -357,6 +357,83 @@ test("AI 工具箱：16 工具 + 画布 + 应用/撤销", async () => {
   assert.ok(el.querySelector("[data-undo]"), "撤销按钮");
 });
 
+test("工作台：AI 作图快捷模式条 12 模式 + 跨页传参", async () => {
+  const { w, doc, EC } = boot();
+  await EC.render("ecomHome");
+  const el = doc.getElementById("ecomHomeView");
+  assert.ok(el.querySelector(".mode-strip"), "快捷模式条");
+  const cards = el.querySelectorAll(".mode-card[data-draw-mode]");
+  assert.equal(cards.length, 12, "12 个快捷模式");
+  cards[0].click();
+  assert.equal(w.__go, "ecomDraw", "点击快捷模式跳转 AI 作图");
+  assert.equal(EC.pending.drawMode, cards[0].getAttribute("data-draw-mode"), "跨页写入待应用模式");
+});
+
+test("AI 作图：清晰度放开 2K/4K（hires 透传）", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomDraw");
+  const el = doc.getElementById("ecomDrawView");
+  el.querySelector('.tool-card[data-tool="main"]').click();
+  el.querySelector('.prompt-bar [data-opt="quality"]').click();
+  const menu = doc.querySelector(".ecmenu");
+  assert.ok(menu, "清晰度菜单已展开");
+  const items = menu.querySelectorAll(".ecmenu-mi");
+  assert.equal(items.length, 3, "三档清晰度");
+  assert.equal(menu.querySelectorAll(".is-disabled").length, 0, "2K/4K 不再禁用");
+  assert.match(menu.textContent, /4K/, "含 4K 超清");
+  Array.from(items).find(x => /4K/.test(x.textContent)).click();
+  assert.match(el.querySelector('.prompt-bar [data-opt="quality"]').textContent, /4K/, "清晰度已切到 4K");
+});
+
+test("视频复刻：支持粘贴视频链接载入", async () => {
+  const { w, doc, EC } = boot();
+  await EC.render("ecomVideoCopy");
+  const el = doc.getElementById("ecomVideoCopyView");
+  const input = el.querySelector("[data-link]");
+  assert.ok(input, "链接输入框");
+  assert.ok(el.querySelector("[data-link-load]"), "链接载入按钮");
+  input.value = "not-a-url";
+  el.querySelector("[data-link-load]").click();
+  assert.ok(w.__toasts.some(m => /有效/.test(m)), "非法链接给出提示");
+});
+
+test("视频翻译：字幕位置详细设置九宫格弹窗", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomVideoTranslate");
+  const el = doc.getElementById("ecomVideoTranslateView");
+  const entry = el.querySelector("[data-subpos-open]");
+  assert.ok(entry, "字幕位置详细设置入口");
+  entry.click();
+  const grid = doc.querySelector(".subpos-grid");
+  assert.ok(grid, "九宫格弹窗已打开");
+  assert.equal(grid.querySelectorAll(".subpos-cell").length, 9, "9 个候选位置");
+  grid.querySelectorAll(".subpos-cell")[0].click();
+  doc.querySelector("[data-subpos-ok]").click();
+  assert.ok(el.__vt.subXY, "确定后写入自定义坐标");
+  assert.equal(el.__vt.subXY.x, 0.08, "取九宫格左列 x");
+  assert.equal(el.__vt.subXY.y, 0.1, "取九宫格顶行 y");
+});
+
+test("图生视频：生成记录入口 + 近 30 天空态", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomVideoI2V");
+  const el = doc.getElementById("ecomVideoI2VView");
+  const btn = el.querySelector("[data-history]");
+  assert.ok(btn, "生成记录入口");
+  btn.click();
+  await new Promise(r => setTimeout(r, 30));
+  const empty = doc.querySelector(".ed-empty");
+  assert.ok(empty, "无记录时展示空态");
+  assert.match(empty.textContent, /30 天/, "空态文案含 30 天");
+});
+
+test("AI 工具箱：试试样片入口", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomToolbox");
+  const el = doc.getElementById("ecomToolboxView");
+  assert.ok(el.querySelector("[data-try]"), "试试样片按钮");
+});
+
 test("通道：api 走 /dian/api/ecom 且 go 委托 XLX.app", async () => {
   let seen = null;
   const { w, EC } = boot((url, opts) => {

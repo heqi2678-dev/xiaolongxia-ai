@@ -129,6 +129,12 @@
     if (XLX.app && XLX.app.go) XLX.app.go(view);
   }
 
+  const pending = {};
+  function openDraw(mode) {
+    if (mode) pending.drawMode = mode;
+    go("ecomDraw");
+  }
+
   function fmtTime(ts) {
     if (!ts) return "-";
     if (U.fmtTime) return U.fmtTime(ts);
@@ -246,6 +252,6 @@
 
   D.ecom = {
     ZONE, NAV, VIEWS, DEFAULT_VIEW, TITLES, render, register, host, esc, icon,
-    api, toast, go, fmtTime, USAGE_KEY, stats, addUsage, const: CONST
+    api, toast, go, openDraw, pending, fmtTime, USAGE_KEY, stats, addUsage, const: CONST
   };
 })();

@@ -740,6 +740,34 @@
 .ecom-ui .insp-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .ecom-ui .insp-tag{position:absolute;left:8px;bottom:8px;padding:2px 8px;border-radius:999px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;line-height:1.6}
 @media (max-width:900px){.ecom-ui .insp-gallery{grid-template-columns:repeat(3,1fr)}}
+
+/* 工作台：AI 作图快捷模式条 */
+.ecom-ui .mode-strip{margin:4px 0 22px}
+.ecom-ui .mode-strip-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ecom-ui .mode-strip-head h2{font-size:15px;font-weight:800;color:var(--text)}
+.ecom-ui .mode-strip-head a{font-size:12.5px;color:var(--primary);cursor:pointer}
+.ecom-ui .mode-strip-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.ecom-ui .mode-card{display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 6px;border:1px solid var(--border);border-radius:11px;background:#fff;color:var(--text2);font-size:12.5px;font-weight:700;cursor:pointer;transition:.14s}
+.ecom-ui .mode-card:hover{border-color:var(--primary);color:var(--primary);box-shadow:0 8px 20px rgba(28,100,244,.10);transform:translateY(-2px)}
+@media (max-width:900px){.ecom-ui .mode-strip-grid{grid-template-columns:repeat(3,1fr)}}
+
+/* 视频翻译：字幕位置详细设置 */
+.ecom-ui .sub-pos-entry{margin-top:10px}
+.subpos-wrap{display:grid;grid-template-columns:1fr 210px;gap:20px;align-items:start}
+.subpos-preview{border:1px solid var(--border);border-radius:12px;background:#0e0f13;padding:16px;display:flex;justify-content:center}
+.subpos-frame{position:relative;width:180px;aspect-ratio:9/16;border-radius:8px;background:linear-gradient(160deg,#1d2433,#0e0f13)}
+.subpos-bar{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;padding:3px 8px;border-radius:6px;background:rgba(255,255,255,.92);color:#101828;font-size:11px;font-weight:700;transition:left .12s,top .12s}
+.subpos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.subpos-cell{aspect-ratio:1/1;border:1px solid #e4e7ed;border-radius:10px;display:grid;place-items:center;cursor:pointer;transition:.14s}
+.subpos-cell i{width:9px;height:9px;border-radius:50%;background:#c7ccd6;transition:.14s}
+.subpos-cell:hover{border-color:#1c64f4}
+.subpos-cell.on{border-color:#1c64f4;background:rgba(28,100,244,.08)}
+.subpos-cell.on i{background:#1c64f4}
+.subpos-tip{margin-top:10px;font-size:12px;color:var(--muted);line-height:1.6}
+.subpos-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+
+/* 生成记录：视频缩略 */
+.ecom-ui .hist-item video,.modal .hist-item video{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;background:#0e0f13}
 `;
   document.head.appendChild(s);
 })();

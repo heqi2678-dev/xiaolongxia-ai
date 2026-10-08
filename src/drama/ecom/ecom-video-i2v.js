@@ -24,6 +24,7 @@
     <div class="page-head">
       <h1>图生视频</h1>
       <p>上传一张参考图（≤3M），描述视频内容或让 AI 帮写脚本，生成商品讲解视频。</p>
+      <button class="btn btn-ghost" data-history style="width:auto;padding:8px 14px;font-size:12.5px;margin-top:10px"><svg class="ic sm"><use href="#i-lib"/></svg>生成记录</button>
     </div>
 
     <div class="split" style="grid-template-columns:1fr 1fr;align-items:start">
@@ -177,6 +178,30 @@
     } finally { EC.ui.busy(btn, false); }
   }
 
+  async function showHistory(el) {
+    const items = await EC.store.list().catch(function () { return []; });
+    const cutoff = Date.now() - 30 * 86400 * 1000;
+    const vids = items.filter(function (a) {
+      return a.kind === "video" && (!a.createdAt || a.createdAt >= cutoff);
+    }).sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+    const body = vids.length
+      ? '<div class="hist-grid">' + vids.slice(0, 40).map(function (a) {
+          return '<div class="hist-item" data-id="' + esc(a.id) + '"><video src="' + esc(EC.store.src(a)) + '" muted playsinline></video>'
+            + '<span>' + esc(a.name || "视频") + '</span></div>';
+        }).join("") + '</div>'
+      : '<div class="ed-empty">近 30 天还没有生成记录，先生成一个视频吧。</div>';
+    const m = EC.ui.modal({ title: "生成记录 · 近 30 天", body: body, wide: true });
+    m.body.addEventListener("click", function (e) {
+      const it = e.target.closest(".hist-item");
+      if (!it) return;
+      EC.store.get(it.getAttribute("data-id")).then(function (a) {
+        if (!a) return;
+        EC.store.download(a);
+        if (EC.addUsage) EC.addUsage({ exported: 1 });
+      });
+    });
+  }
+
   EC.register("ecomVideoI2V", function (el) {
     if (!el.__i2v) el.__i2v = { ref: null, result: null };
     el.innerHTML = '<div class="ecom-ui">' + HTML + "</div>";
@@ -193,6 +218,8 @@
     el.__ecomI2vBound = true;
     el.addEventListener("click", function (e) {
       if (!EC.ui) return;
+      const histBtn = e.target.closest("[data-history]");
+      if (histBtn) { showHistory(el); return; }
       const insp = e.target.closest("[data-insp]");
       if (insp) {
         const it = INSPIRATIONS[Number(insp.getAttribute("data-insp"))];

@@ -98,6 +98,7 @@
               <div class="chip">中部</div>
               <div class="chip">顶部</div>
             </div>
+            <button class="btn btn-ghost sub-pos-entry" data-subpos-open style="width:auto;margin-top:10px;padding:6px 12px;font-size:12.5px"><svg class="ic sm"><use href="#i-layers"/></svg>字幕位置 · 可点击进入详细设置</button>
             <label style="margin-top:10px;display:block">字号</label>
             <div class="chips" data-group="subfont">
               <div class="chip">小</div>
@@ -323,6 +324,7 @@
         size: SUB_SIZE[pickChip(el, "subfont")] || 0.046,
         lineHeight: SUB_LINE[pickChip(el, "subline")] || 1.3
       };
+      if (el.__vt && el.__vt.subXY) { subStyle.x = el.__vt.subXY.x; subStyle.y = el.__vt.subXY.y; }
       let cues = [];
       if (subOn) {
         if (utterances.length) {
@@ -382,6 +384,44 @@
     EC.go("ecomGallery");
   }
 
+  function subPosDialog(el) {
+    if (!el.__vt) return;
+    const chipPos = SUB_POS_EN[pickChip(el, "subpos")] || "bottom";
+    const fallback = chipPos === "top" ? { x: 0.5, y: 0.1 } : chipPos === "middle" ? { x: 0.5, y: 0.5 } : { x: 0.5, y: 0.9 };
+    let sel = el.__vt.subXY ? { x: el.__vt.subXY.x, y: el.__vt.subXY.y } : fallback;
+    const PX = [0.08, 0.5, 0.92], PY = [0.1, 0.5, 0.9];
+    const grid = PY.map(function (y) {
+      return PX.map(function (x) {
+        return '<div class="subpos-cell" data-px="' + x + '" data-py="' + y + '"><i></i></div>';
+      }).join("");
+    }).join("");
+    const body = '<div class="subpos-wrap">'
+      + '<div class="subpos-preview"><div class="subpos-frame"><span class="subpos-bar" data-subpos-bar>字幕位置预览</span></div></div>'
+      + '<div><div class="subpos-grid">' + grid + '</div><div class="subpos-tip">点击九宫格选择字幕所在位置，左侧预览实时更新。</div></div>'
+      + '</div>'
+      + '<div class="subpos-foot"><button class="btn btn-ghost" data-subpos-cancel style="width:auto;padding:8px 20px">取消</button>'
+      + '<button class="btn btn-primary" data-subpos-ok style="width:auto;padding:8px 20px">确定</button></div>';
+    const m = EC.ui.modal({ title: "字幕位置 · 详细设置", body: body, wide: true });
+    const bar = m.body.querySelector("[data-subpos-bar]");
+    function paint() {
+      if (bar) { bar.style.left = (sel.x * 100) + "%"; bar.style.top = (sel.y * 100) + "%"; }
+      m.body.querySelectorAll(".subpos-cell").forEach(function (c) {
+        c.classList.toggle("on", Number(c.getAttribute("data-px")) === sel.x && Number(c.getAttribute("data-py")) === sel.y);
+      });
+    }
+    paint();
+    m.body.addEventListener("click", function (e) {
+      const cell = e.target.closest(".subpos-cell");
+      if (cell) { sel = { x: Number(cell.getAttribute("data-px")), y: Number(cell.getAttribute("data-py")) }; paint(); return; }
+      if (e.target.closest("[data-subpos-cancel]")) { m.close(); return; }
+      if (e.target.closest("[data-subpos-ok]")) {
+        el.__vt.subXY = { x: sel.x, y: sel.y };
+        m.close();
+        EC.toast("字幕位置已更新");
+      }
+    });
+  }
+
   EC.register("ecomVideoTranslate", function (el) {
     if (!el.__vt) el.__vt = { src: null, result: null };
     el.innerHTML = '<div class="ecom-ui">' + HTML + "</div>";
@@ -395,6 +435,10 @@
     el.__ecomVtBound = true;
     el.addEventListener("click", function (e) {
       if (!EC.ui) return;
+      const spo = e.target.closest("[data-subpos-open]");
+      if (spo) { subPosDialog(el); return; }
+      const subChip = e.target.closest('.chips[data-group="subpos"] .chip');
+      if (subChip) { if (el.__vt) el.__vt.subXY = null; return; }
       const src = e.target.closest("[data-src]");
       if (src) {
         EC.ui.pickFiles("video/mp4,video/webm", false).then(function (files) {
