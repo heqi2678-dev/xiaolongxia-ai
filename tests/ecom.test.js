@@ -96,12 +96,65 @@ test("AI 作图：12 工具卡 + prompt + 示例作品照片", async () => {
   assert.ok(el.querySelectorAll(".draw-item").length >= 4, "示例作品已配图");
   assert.ok(el.querySelector(".draw-item img"), "示例作品为真实照片");
   assert.ok(el.querySelector(".prompt-box textarea"), "大白话输入框");
-  assert.match(el.textContent, /Agent 模式/, "含 Agent 模式工具卡");
+  assert.match(el.textContent, /Agent模式/, "含 Agent模式工具卡");
+  assert.ok(el.querySelector('.prompt-bar [data-opt="mode"]'), "底栏模式选择器");
+  assert.ok(el.querySelector('.prompt-bar [data-opt="ratio"]'), "底栏比例/清晰度选择器");
+  assert.ok(el.querySelector('.prompt-bar [data-opt="skill"]'), "底栏技能库入口");
 
   const cards = el.querySelectorAll(".tool-card");
   cards[3].click();
   assert.equal(cards[3].classList.contains("on"), true, "点击工具卡选中");
   assert.equal(el.querySelectorAll(".tool-card.on").length, 1, "工具卡同组单选");
+});
+
+test("AI 作图：切换模式改写模板与底栏（主图套图 / 图片翻译）", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomDraw");
+  const el = doc.getElementById("ecomDrawView");
+
+  el.querySelector('.tool-card[data-tool="main"]').click();
+  assert.equal(el.querySelector('.tool-card[data-tool="main"]').classList.contains("on"), true, "主图套图选中");
+  assert.equal(el.querySelectorAll(".comp-slots .upload-slot").length, 2, "商品图 + 细节图双上传槽");
+  assert.ok(el.querySelectorAll(".comp-line .inl-pill").length >= 4, "行内下拉占位");
+  assert.match(el.querySelector(".comp-line").textContent, /请基于我的/, "主图套图模板文案");
+  assert.match(el.querySelector(".comp-line").textContent, /主图套图/, "主图套图模板文案");
+  assert.ok(el.querySelector('.prompt-bar [data-opt="quality"]'), "非 Agent 模式底栏为清晰度");
+  assert.equal(el.querySelector('.prompt-bar [data-opt="skill"]'), null, "非 Agent 模式无技能库");
+
+  el.querySelector('.tool-card[data-tool="trans"]').click();
+  assert.match(el.querySelector(".comp-line").textContent, /将图片翻译成目标语言/, "图片翻译模板文案");
+  assert.match(el.querySelector(".comp-line").textContent, /不翻译/, "图片翻译对象选项");
+
+  el.querySelector('.tool-card[data-tool="agent"]').click();
+  assert.ok(el.querySelector(".prompt-box textarea"), "切回 Agent 模式恢复大白话输入");
+});
+
+test("AI 作图：技能库浮层套用提示词", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomDraw");
+  const el = doc.getElementById("ecomDrawView");
+
+  el.querySelector('.prompt-bar [data-opt="skill"]').click();
+  const pop = doc.querySelector(".dc-pop");
+  assert.ok(pop, "技能库浮层已弹出");
+  assert.ok(pop.querySelectorAll(".skill-card").length >= 20, "技能库卡片齐备");
+  assert.match(pop.textContent, /高端商品主图/, "含 商品展示 技能");
+
+  pop.querySelector('.skill-card[data-name="高端商品主图"]').click();
+  assert.match(el.querySelector(".comp-text").value, /高端电商主图/, "点击技能回填提示词");
+});
+
+test("AI 作图：比例浮层切换比例", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomDraw");
+  const el = doc.getElementById("ecomDrawView");
+
+  el.querySelector('.prompt-bar [data-opt="ratio"]').click();
+  const pop = doc.querySelector(".dc-pop");
+  assert.ok(pop, "比例浮层已弹出");
+  assert.equal(pop.querySelectorAll(".ratio-item").length, 8, "8 种比例");
+  pop.querySelector('[data-ratio="16:9"]').click();
+  assert.match(el.querySelector('.prompt-bar [data-opt="ratio"]').textContent, /16:9/, "比例已更新");
 });
 
 test("AI 详情图：上传槽 + 要求框 + 风格 chips", async () => {

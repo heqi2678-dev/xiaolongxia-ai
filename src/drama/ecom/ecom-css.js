@@ -666,6 +666,42 @@
 .ecom-ui .pill.ratio{min-width:150px}
 .ecom-ui .filterbar .g-dl-all,.ecom-ui .filterbar .g-clear{flex:none}
 .ecom-ui .g-clear:hover{border-color:#ff4d4f;color:#ff4d4f}
+
+/* 作图：模式模板 composer + 行内下拉 */
+.ecom-ui .comp-line{flex:1;min-width:0;font-size:14px;line-height:2.15;color:var(--text)}
+.ecom-ui .comp-sub{margin-top:8px;font-size:12.5px;color:var(--muted);line-height:1.6}
+.ecom-ui .comp-extra{width:100%;border:1px solid var(--border-2);border-radius:10px;padding:9px 12px;margin-top:8px;font-family:inherit;font-size:13px;line-height:1.6;color:var(--text);resize:vertical;min-height:54px;outline:0;background:#fff}
+.ecom-ui .comp-extra:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+.ecom-ui .comp-extra::placeholder{color:var(--muted)}
+.ecom-ui .comp-slots{display:flex;flex:none}
+.ecom-ui .upload-slot.detail{margin-left:-10px}
+.ecom-ui .inl-pill{display:inline-flex;align-items:center;padding:2px 9px;border-radius:8px;background:rgba(28,100,244,.09);color:var(--primary);font-weight:600;font-size:13.5px;cursor:pointer;white-space:nowrap;transition:.14s}
+.ecom-ui .inl-pill:hover{background:rgba(28,100,244,.17)}
+.ecom-ui .inl-input{display:inline-block;min-width:72px;padding:2px 9px;border-radius:8px;border:1px dashed var(--border-2);color:var(--text);font-size:13.5px;text-align:center;outline:0;cursor:text}
+.ecom-ui .inl-input:empty::before{content:attr(data-placeholder);color:var(--muted)}
+.ecom-ui .inl-input:focus{border-color:var(--primary);border-style:solid}
+
+/* 作图：比例 / 技能库浮层（挂在 body 下，class 复用 .ecmenu） */
+.dc-pop{min-width:290px;max-height:min(70vh,520px);padding:14px}
+.dc-pop .dc-title{font-size:12.5px;font-weight:700;color:#606266;margin:2px 0 9px}
+.dc-pop .dc-title:not(:first-child){margin-top:15px}
+.dc-pop .ratio-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.dc-pop .ratio-item{border:1px solid #e4e7ed;border-radius:9px;padding:8px 0;text-align:center;font-size:12.5px;color:#606266;cursor:pointer;transition:.14s}
+.dc-pop .ratio-item:hover{border-color:#1c64f4;color:#1c64f4}
+.dc-pop .ratio-item.on{background:rgba(28,100,244,.10);border-color:#1c64f4;color:#1c64f4;font-weight:700}
+.dc-pop .quality-switch{display:flex;gap:8px}
+.dc-pop .quality-item{flex:1;border:1px solid #e4e7ed;border-radius:9px;padding:8px 0;text-align:center;font-size:12.5px;color:#606266;cursor:pointer}
+.dc-pop .quality-item.on{background:rgba(28,100,244,.10);border-color:#1c64f4;color:#1c64f4;font-weight:700}
+.dc-pop .quality-item.is-disabled{opacity:.5;cursor:not-allowed}
+.dc-pop .skill-lib{width:452px;max-width:74vw}
+.dc-pop .skill-section{margin-bottom:14px}
+.dc-pop .skill-section:last-child{margin-bottom:2px}
+.dc-pop .skill-section-title{font-size:12.5px;font-weight:700;color:#1c64f4;margin:4px 0 9px}
+.dc-pop .skill-list{display:flex;flex-wrap:wrap;gap:8px}
+.dc-pop .skill-card{width:calc(50% - 4px);border:1px solid #e4e7ed;border-radius:10px;padding:9px 11px;cursor:pointer;transition:.14s;background:#fff}
+.dc-pop .skill-card:hover{border-color:#1c64f4;background:rgba(28,100,244,.05)}
+.dc-pop .skill-card-name{font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:3px}
+.dc-pop .skill-card-preview{font-size:11.5px;color:#909399;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 `;
   document.head.appendChild(s);
 })();
