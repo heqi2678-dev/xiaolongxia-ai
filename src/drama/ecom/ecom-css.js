@@ -35,7 +35,7 @@
     --shadow:0 1px 2px rgba(16,24,40,.04),0 10px 30px rgba(16,24,40,.06);
     --shadow-sm:0 1px 2px rgba(16,24,40,.05);}
 .ecom-ui,.ecom-ui *,.ecom-ui *::before,.ecom-ui *::after{box-sizing:border-box}
-.ecom-ui{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;padding:22px 26px 56px;min-height:100%}
+.ecom-ui{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;padding:22px 26px 56px;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
 .ecom-ui .ic{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .ecom-ui .ic.sm{width:15px;height:15px}
 .ecom-ui .ic.lg{width:22px;height:22px}

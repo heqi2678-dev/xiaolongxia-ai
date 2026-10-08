@@ -351,6 +351,13 @@ test("生成桥接：字幕烧制走 /dian/api/drama/subtitle", async () => {
   assert.equal(r.url, "/dian/api/drama/out/x.mp4", "返回成片地址");
 });
 
+test("样式：电商根容器撑满视图并可纵向滚动", () => {
+  const css = fs.readFileSync(path.join(ROOT, "src/drama/ecom/ecom-css.js"), "utf8");
+  assert.match(css, /\.ecom-ui\{[^}]*flex:1/, "根容器 flex:1 撑满视图");
+  assert.match(css, /\.ecom-ui\{[^}]*min-height:0/, "根容器 min-height:0");
+  assert.match(css, /\.ecom-ui\{[^}]*overflow-y:auto/, "根容器纵向可滚动");
+});
+
 test("通用 UI：modal 结构 / menu 构建 / el 生成 / uid 唯一", () => {
   const { doc, EC } = boot();
   const m = EC.ui.modal({ title: "标题<X>", body: "<p>hi</p>", wide: true });
