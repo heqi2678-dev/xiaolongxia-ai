@@ -12,4 +12,4 @@
 - [x] T10 更新 `tests/ecom.test.js` 断言 + 新增用例
 - [x] T11 SW 缓存版本递增
 - [x] T12 三绿：`node --test`、`gate/test_gate.py`、`tests/drama-e2e.js`
-- [ ] T13 经用户确认后同步上线并校验
+- [x] T13 经用户确认后同步上线并校验
