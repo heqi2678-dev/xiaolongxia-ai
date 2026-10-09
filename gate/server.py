@@ -845,6 +845,11 @@ def _download_asset(url, dest):
 # ---------- 商品抠图（AI 分割）：gate 以独立 Python3.11 venv 调起 rembg worker ----------
 DEFAULT_MATTING_PY = os.environ.get("MATTING_PY_DEFAULT", "/home/admin/work/.xlx-matting/venv/bin/python")
 MATTING_TIMEOUT = int(os.environ.get("MATTING_TIMEOUT", "180"))
+_matting_lock = threading.Lock()
+
+
+class MattingBusy(RuntimeError):
+    """已有抠图任务在跑；映射为 503，避免并发 worker 撑爆内存。"""
 
 
 def _matting_python():
@@ -867,27 +872,32 @@ def drama_matting(owner, spec):
     worker = _matting_worker()
     if not py or not worker:
         raise RuntimeError("抠图服务未安装")
-    with tempfile.TemporaryDirectory(prefix="xlx-matting-") as tmp:
-        src = Path(tmp) / "in.img"
-        dst = Path(tmp) / "out.png"
-        _download_asset(image, src)
-        menv = dict(os.environ)
-        for k in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMBA_NUM_THREADS", "ORT_NUM_THREADS"):
-            menv.setdefault(k, "1")
-        try:
-            r = subprocess.run(
-                [py, worker, str(src), str(dst)],
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=MATTING_TIMEOUT, env=menv,
-            )
-        except subprocess.TimeoutExpired:
-            raise RuntimeError("抠图超时")
-        if r.returncode != 0 or not dst.is_file():
-            detail = (r.stdout or b"").decode("utf-8", "ignore").strip()[:200]
-            raise RuntimeError("抠图失败：" + (detail or ("worker 退出码 %d" % r.returncode)))
-        DRAMA_PUB_DIR.mkdir(parents=True, exist_ok=True)
-        name = secrets.token_urlsafe(24) + ".png"
-        (DRAMA_PUB_DIR / name).write_bytes(dst.read_bytes())
-    return {"name": name}
+    if not _matting_lock.acquire(blocking=False):
+        raise MattingBusy("抠图繁忙，请稍后再试")
+    try:
+        with tempfile.TemporaryDirectory(prefix="xlx-matting-") as tmp:
+            src = Path(tmp) / "in.img"
+            dst = Path(tmp) / "out.png"
+            _download_asset(image, src)
+            menv = dict(os.environ)
+            for k in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMBA_NUM_THREADS", "ORT_NUM_THREADS"):
+                menv.setdefault(k, "1")
+            try:
+                r = subprocess.run(
+                    [py, worker, str(src), str(dst)],
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=MATTING_TIMEOUT, env=menv,
+                )
+            except subprocess.TimeoutExpired:
+                raise RuntimeError("抠图超时")
+            if r.returncode != 0 or not dst.is_file():
+                detail = (r.stdout or b"").decode("utf-8", "ignore").strip()[:200]
+                raise RuntimeError("抠图失败：" + (detail or ("worker 退出码 %d" % r.returncode)))
+            DRAMA_PUB_DIR.mkdir(parents=True, exist_ok=True)
+            name = secrets.token_urlsafe(24) + ".png"
+            (DRAMA_PUB_DIR / name).write_bytes(dst.read_bytes())
+        return {"name": name}
+    finally:
+        _matting_lock.release()
 
 
 def _ff_run(args, timeout=DRAMA_COMPOSE_TIMEOUT):
@@ -2359,6 +2369,9 @@ class Handler(BaseHTTPRequestHandler):
             out = drama_matting(me["name"], obj)
         except ValueError as exc:
             self._json(400, {"ok": False, "error": str(exc)})
+            return
+        except MattingBusy as exc:
+            self._json(503, {"ok": False, "error": str(exc)})
             return
         except RuntimeError as exc:
             self._json(501, {"ok": False, "error": str(exc)})

@@ -1170,6 +1170,19 @@ class GateTests(unittest.TestCase):
         self.assertTrue(saved.is_file())
         self.assertEqual(saved.read_bytes(), b"\x89PNG\r\n\x1a\nfake")
 
+    def test_drama_matting_busy_returns_503(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        self._patch_matting_env()
+        os.environ["MATTING_PY"] = "/bin/sh"
+        os.environ["MATTING_WORKER"] = __file__
+        gate = self.gate
+        self.assertTrue(gate._matting_lock.acquire(blocking=False))
+        self.addCleanup(gate._matting_lock.release)
+        code, body, _ = self.req(opener, "/api/drama/matting", method="POST", json_body={"image": "http://x/y.png"})
+        self.assertEqual(code, 503)
+        self.assertIn("繁忙", json.loads(body.decode("utf-8"))["error"])
+
     def test_drama_pub_missing_file_is_404(self):
         opener, _ = self.opener()
         code, _, _ = self.req(opener, "/pub/" + "a" * 32 + ".mp3")
