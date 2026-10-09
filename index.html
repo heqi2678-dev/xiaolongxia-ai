@@ -811,6 +811,7 @@ select.inp{padding-right:34px}
 <script src="src/util.js"></script>
 <script src="src/vendor-keys.js"></script>
 <script src="src/model-catalog.js"></script>
+<script src="src/asr-audio.js"></script>
 <script src="src/pool.js"></script>
 <script>
 /* ===== 模型库：HookShot 式多模型管理 =====
@@ -3284,8 +3285,9 @@ XLX.tools = (function () {
     { host: "https://raw.githubusercontent.com/heqi2678-dev/xiaolongxia-ai/main/models/", tpl: "{model}/" }
   ];
   const ASR_MODELS = {
-    tiny: { id: "Xenova/whisper-tiny", size: "约 39MB，极速（推荐）" },
-    base: { id: "Xenova/whisper-base", size: "约 145MB，更准确（较慢）" }
+    tiny: { id: "Xenova/whisper-tiny", size: "约 39MB，极速" },
+    base: { id: "Xenova/whisper-base", size: "约 145MB，均衡" },
+    small: { id: "Xenova/whisper-small", size: "约 260MB，最准（较慢）" }
   };
   let asrPipeline = null;
   let asrModelKey = null;
@@ -3386,38 +3388,28 @@ XLX.tools = (function () {
     return data;
   }
 
-  /* 二阶 Butterworth 高通滤波器（去除背景音乐等低频干扰，人声主要在 80Hz-4kHz） */
-  function highpassFilter(data, fs, fc) {
-    const w0 = 2 * Math.PI * fc / fs;
-    const cosw = Math.cos(w0);
-    const alpha = Math.sin(w0) / Math.SQRT2;
-    const b0 = (1 + cosw) / 2, b1 = -(1 + cosw), b2 = b0;
-    const a0 = 1 + alpha, a1 = -2 * cosw, a2 = 1 - alpha;
-    const out = new Float32Array(data.length);
-    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
-    for (let i = 0; i < data.length; i++) {
-      const x = data[i];
-      const y = (b0 / a0) * x + (b1 / a0) * x1 + (b2 / a0) * x2 - (a1 / a0) * y1 - (a2 / a0) * y2;
-      x2 = x1; x1 = x; y2 = y1; y1 = y;
-      out[i] = y;
-    }
-    return out;
-  }
+  /* 音频处理纯函数见 src/asr-audio.js（XLX.asrAudio），此处复用其能力 */
 
-  /* 峰值归一化（提升口播音量，避免过小输入） */
-  function normalizeAudio(data) {
-    let peak = 0;
-    for (let i = 0; i < data.length; i++) { const a = Math.abs(data[i]); if (a > peak) peak = a; }
-    if (peak > 0.001) {
-      const g = Math.min(0.9 / peak, 4);
-      for (let i = 0; i < data.length; i++) data[i] *= g;
+  /* 云端高精度：本地提取 16k 单声道 → 上传换公网地址 → 走网关火山语音识别 */
+  async function cloudTranscribe(blob, langCode) {
+    const c = (XLX.drama && XLX.drama.getAdapterConfig) ? XLX.drama.getAdapterConfig("stt") : {};
+    if (!c || c.provider !== "volc" || !c.key) {
+      throw new Error("云端高精度需先在「设置 → 短剧服务」配置火山语音 API Key");
     }
-    return data;
-  }
-
-  function preprocessAudio(data, fs, enhance) {
-    if (!enhance) return data;
-    return normalizeAudio(highpassFilter(data, fs, 100));
+    let audio = await decodeAudioFile(blob);
+    audio = XLX.asrAudio.normalizeAudio(audio);
+    const up = await fetch("/dian/api/drama/asset", {
+      method: "POST", headers: { "Content-Type": "audio/wav" }, body: XLX.asrAudio.encodeWav(audio, 16000)
+    });
+    const uj = await up.json().catch(() => null);
+    if (!uj || !uj.ok || !uj.url) throw new Error((uj && uj.error) || "音频上传失败");
+    const rj = await fetch("/dian/api/drama/stt", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: c.key, resource: c.cluster || "volc.bigasr.auc", url: uj.url, format: "wav", language: langCode || "" })
+    });
+    const j = await rj.json().catch(() => null);
+    if (!j || !j.ok || !j.data) throw new Error((j && j.error) || "云端识别失败");
+    return String(j.data.text || "").trim();
   }
 
   async function extractVideoAudio(file) {
@@ -3524,7 +3516,8 @@ XLX.tools = (function () {
       + '<b>两种模式</b>提取视频/音频里的说话内容：'
       + '<br>① <b>链接提取</b>：粘贴可直连访问的媒体链接（自托管视频、公开 CDN 直链等），网页内下载并 AI 转写。'
       + '<br>② <b>本地上传</b>：选择电脑里的视频/音频文件，浏览器本地 AI 转写。'
-      + '<br>均使用 Whisper 开源模型，<b>免费、不上传</b>；首次使用需联网下载语音模型。</div>'
+      + '<br>均使用 Whisper 开源模型，<b>免费、不上传</b>；首次使用需联网下载语音模型。'
+      + '<br>也可切换「<b>云端高精度</b>」（火山语音大模型，最接近商用产品；需在「设置 → 短剧服务」配置 API Key，音频会上传、按量计费）。</div>'
       + '<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px">'
       + '<div style="font-weight:600;font-size:13px;margin-bottom:8px">① 链接提取</div>'
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
@@ -3547,14 +3540,19 @@ XLX.tools = (function () {
        + '<option value="fr">法文</option>'
        + '<option value="de">德文</option>'
        + '</select></div>'
-       + '<div style="flex:0 0 auto"><select id="vtModel" class="inp" style="min-width:210px">'
-       + '<option value="base" selected>标准 · ' + ASR_MODELS.base.size + '（更准确）</option>'
+       + '<div style="flex:0 0 auto"><select id="vtMode" class="inp" style="min-width:170px" title="本地免费不上传；云端最准但需配置 Key 且会上传音频">'
+       + '<option value="local" selected>本地识别 · 免费不上传</option>'
+       + '<option value="cloud">云端高精度 · 需配置 Key</option>'
+       + '</select></div>'
+       + '<div style="flex:0 0 auto"><select id="vtModel" class="inp" style="min-width:200px">'
+       + '<option value="small" selected>高精度 · ' + ASR_MODELS.small.size + '</option>'
+       + '<option value="base">均衡 · ' + ASR_MODELS.base.size + '</option>'
        + '<option value="tiny">极速 · ' + ASR_MODELS.tiny.size + '</option>'
        + '</select></div>'
        + '<label style="flex:0 0 auto;display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);cursor:pointer" title="去除背景音乐等低频干扰，提升口播识别率"><input type="checkbox" id="vtEnh" checked style="accent-color:var(--primary)">增强人声</label>'
        + '<button class="btn primary" id="vtRunBtn">' + svg("mic", 15) + ' 转写上传文件</button>'
        + '</div>'
-       + '<div style="font-size:11px;color:var(--text3);margin-top:4px">识别不准时请①切换到"标准"模型 ②选对语言（自动识别会增加时长）</div>'
+        + '<div style="font-size:11px;color:var(--text3);margin-top:4px">识别不准时：①本地切到「高精度 small」②选对语言（自动识别会增加时长）；仍不满意可切「云端高精度」。云端仅本地模式支持「增强人声」等预处理</div>'
        + '</div>'
       + '<div id="vtProgress" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>'
       + '<div id="vtResult" style="margin-top:10px"></div>'
@@ -3566,6 +3564,7 @@ XLX.tools = (function () {
 
     const fileEl = document.getElementById("vtFile");
     const modelEl = document.getElementById("vtModel");
+    const modeEl = document.getElementById("vtMode");
     const langEl = document.getElementById("vtLang");
     const enhEl = document.getElementById("vtEnh");
     const urlEl = document.getElementById("vtUrl");
@@ -3573,6 +3572,14 @@ XLX.tools = (function () {
     const result = document.getElementById("vtResult");
     const runBtn = document.getElementById("vtRunBtn");
     const linkBtn = document.getElementById("vtLinkBtn");
+
+    function syncMode() {
+      const cloud = modeEl.value === "cloud";
+      modelEl.disabled = cloud;
+      enhEl.disabled = cloud;
+    }
+    modeEl.onchange = syncMode;
+    syncMode();
 
     function renderTextResult(text) {
       result.innerHTML = ''
@@ -3596,19 +3603,33 @@ XLX.tools = (function () {
       result.innerHTML = '<div style="color:var(--warn);font-size:12.5px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px">' + XLX.util.esc(msg) + '</div>';
     }
 
-    async function transcribeBlob(blob, modelKey, langCode, enhance) {
-      const pipe = await loadAsr(modelKey, (msg) => { progEl.innerHTML = XLX.util.esc(msg); });
-      progEl.innerHTML = "正在解析音频…";
-      let audio = await decodeAudioFile(blob);
-      if (enhance) {
-        progEl.innerHTML = "正在增强人声（去除背景音乐/低频干扰）…";
-        audio = preprocessAudio(audio, 16000, true);
+    async function transcribeBlob(blob, modelKey, langCode, enhance, mode) {
+      let text;
+      if (mode === "cloud") {
+        progEl.innerHTML = "正在解析音频并上传（云端高精度，音频会上传）…";
+        text = await cloudTranscribe(blob, langCode);
+      } else {
+        const pipe = await loadAsr(modelKey, (msg) => { progEl.innerHTML = XLX.util.esc(msg); });
+        progEl.innerHTML = "正在解析音频…";
+        let audio = await decodeAudioFile(blob);
+        if (enhance) {
+          progEl.innerHTML = "正在增强人声（去除背景音乐/低频干扰）…";
+          audio = XLX.asrAudio.preprocessAudio(audio, 16000, true);
+        }
+        progEl.innerHTML = "正在识别说话内容（文件较长可能需要一些时间）…";
+        const genOpts = { task: "transcribe", chunk_length_s: 30, stride_length_s: 5, num_beams: 5, return_timestamps: false };
+        if (langCode) genOpts.language = langCode;
+        /* 中文提示词：引导输出简体、带标点，减少同音错字；个别版本不支持时自动回退重试 */
+        if (langCode === "zh") genOpts.initial_prompt = "以下是普通话的句子，请使用简体中文并加上标点。";
+        let out;
+        try {
+          out = await pipe(audio, genOpts);
+        } catch (e) {
+          if (genOpts.initial_prompt) { delete genOpts.initial_prompt; out = await pipe(audio, genOpts); }
+          else throw e;
+        }
+        text = (out && out.text || "").trim();
       }
-      progEl.innerHTML = "正在识别说话内容（文件较长可能需要一些时间）…";
-      const genOpts = { task: "transcribe", chunk_length_s: 30, stride_length_s: 5, num_beams: 5 };
-      if (langCode) genOpts.language = langCode;
-      const out = await pipe(audio, genOpts);
-      let text = (out && out.text || "").trim();
       if (!text) throw new Error("未识别到说话内容（请确认文件含人声）");
       if (langEl.value === "zh" || !langEl.value) {
         progEl.innerHTML = "正在转换简体…";
@@ -3626,7 +3647,7 @@ XLX.tools = (function () {
       progEl.innerHTML = "正在准备…";
       result.innerHTML = "";
       try {
-        await transcribeBlob(file, modelEl.value, langEl.value, enhEl.checked);
+        await transcribeBlob(file, modelEl.value, langEl.value, enhEl.checked, modeEl.value);
       } catch (e) {
         progEl.innerHTML = "";
         showErr("转写失败：" + (e.message || e));
@@ -3659,7 +3680,7 @@ XLX.tools = (function () {
         const blob = await fetchVideoBlob(dlUrl);
         const ext = ((dlUrl.split(".").pop() || "mp4").split(/[?#]/)[0].replace(/[^a-z0-9]/g, "") || "mp4");
         const file = new File([blob], "link." + ext, { type: blob.type || "video/mp4" });
-        await transcribeBlob(file, modelEl.value, langEl.value, enhEl.checked);
+        await transcribeBlob(file, modelEl.value, langEl.value, enhEl.checked, modeEl.value);
       } catch (e) {
         progEl.innerHTML = "";
         showErr("链接提取失败：" + (e.message || e) + "（多为跨域限制，可先下载文件再走 ②本地上传）");
