@@ -251,6 +251,10 @@
 
   function genRatio(st) { return st.ratio === "智能比例" ? "1:1" : st.ratio; }
 
+  /* 主图套图：按张数成套生成，逐张换构图，共用同一组商品参考图 + 首图锚图锁定一致。 */
+  const SET_ANGLES = ["正面平视", "侧面 45°", "俯视平铺", "细节特写", "场景搭配", "背面展示", "斜侧俯拍", "手持展示"];
+  function countNum(s) { const n = parseInt(String(s || ""), 10); return n > 0 ? Math.min(n, 15) : 1; }
+
   async function doGenerate(el, btn) {
     const st = el.__draw;
     const m = modeOf(st.mode);
@@ -262,17 +266,36 @@
       EC.toast("请先上传参考图"); return;
     }
     const name = (st.inl.productName || "").trim();
-    EC.ui.busy(btn, true, "");
+    const ratio = genRatio(st);
+    const hires = st.quality !== "1K";
+    const isSet = m.composer === "main";
+    const count = isSet ? countNum(st.inl.count) : 1;
+    EC.ui.busy(btn, true, isSet ? "0/" + count : "");
     try {
-      const refImages = st.files.concat(st.detailFiles).map(function (a) { return EC.store.src(a); }).filter(Boolean);
-      const r = await EC.gen.image({ prompt: text, ratio: genRatio(st), refImages: refImages, hires: st.quality !== "1K" });
-      const asset = await EC.store.addFromUrl(r.url, {
-        name: (name || text.slice(0, 20) || m.name), kind: "image",
-        meta: { mode: m.key, provider: r.provider, prompt: text, ratio: genRatio(st) }
+      const refImages = await EC.gen.resolveRefs(st.files.concat(st.detailFiles));
+      let promptArg = text;
+      if (isSet) {
+        const extra = ((el.querySelector(".comp-extra") || {}).value || "").trim();
+        promptArg = function (i) {
+          return "请基于我的" + (name || "商品名称") + "生成一套主图中的第 " + (i + 1) + "/" + count + " 张（构图：" + SET_ANGLES[i % SET_ANGLES.length] + "）"
+            + "，平台" + st.inl.platform + "，语言" + st.inl.lang + "，生成比例为" + st.ratio
+            + "，严格保持商品款式、颜色、材质、logo 与参考图完全一致" + (extra ? "。" + extra : "");
+        };
+      }
+      const results = await EC.gen.imageSet({
+        prompt: promptArg, ratio: ratio, refImages: refImages, hires: hires, count: count,
+        onProgress: function (i, total) { if (isSet) EC.ui.busy(btn, true, i + "/" + total); }
       });
-      addResult(el, asset, { provider: r.provider });
-      if (EC.addUsage) EC.addUsage({ generated: 1 });
-      EC.toast("生成成功 · " + (r.provider || "AI"));
+      for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        const asset = await EC.store.addFromUrl(r.url, {
+          name: (name || text.slice(0, 20) || m.name) + (isSet ? "·" + (i + 1) : ""), kind: "image",
+          meta: { mode: m.key, provider: r.provider, prompt: r.prompt, ratio: ratio }
+        });
+        addResult(el, asset, { provider: r.provider });
+        if (EC.addUsage) EC.addUsage({ generated: 1 });
+      }
+      EC.toast("生成成功 · " + ((results[0] && results[0].provider) || "AI") + (isSet ? " · " + results.length + " 张" : ""));
     } catch (e) {
       EC.toast((e && e.message) || "生成失败，请稍后重试");
     } finally {

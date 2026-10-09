@@ -741,3 +741,74 @@ test("AI 作图：上传槽来源浮层可展开/关闭（排版修复）", asyn
   assert.ok(!slot.classList.contains("open"), "点击别处关闭来源浮层");
 });
 
+test("成套一致性：resolveRefs 解析公网 URL + imageSet 锚图传递", async () => {
+  const { EC } = boot();
+  assert.equal(typeof EC.gen.resolveRefs, "function", "resolveRefs 编排原语");
+  assert.equal(typeof EC.gen.imageSet, "function", "imageSet 编排原语");
+
+  EC.store.publicUrl = async (a) => "https://cdn.test/" + a.id + ".png";
+  const refs = await EC.gen.resolveRefs([{ id: "a" }, { id: "b" }]);
+  assert.deepEqual(refs, ["https://cdn.test/a.png", "https://cdn.test/b.png"], "本地资产解析为公网 URL");
+  assert.deepEqual(await EC.gen.resolveRefs(["https://x.test/z.png", "", null]), ["https://x.test/z.png"], "字符串直通、空值跳过");
+
+  const calls = [];
+  EC.gen.image = async (o) => { calls.push(o); return { url: "https://img.test/" + calls.length + ".png", provider: "stub" }; };
+  const prog = [];
+  const out = await EC.gen.imageSet({ prompt: "P", ratio: "1:1", refImages: refs, count: 3, onProgress: (i, t) => prog.push(i + "/" + t) });
+  assert.equal(calls.length, 3, "按张数生成 3 张");
+  assert.deepEqual(calls[0].refImages, refs, "首图仅用参考图");
+  assert.deepEqual(calls[1].refImages, refs.concat(["https://img.test/1.png"]), "第二张追加首图锚图");
+  assert.deepEqual(calls[2].refImages, refs.concat(["https://img.test/1.png"]), "第三张沿用锚图锁定一致");
+  assert.deepEqual(out.map(x => x.index), [0, 1, 2], "返回逐张索引");
+  assert.deepEqual(prog, ["1/3", "2/3", "3/3"], "进度回调");
+});
+
+test("AI 详情图：生成携带商品参考图与锚图", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomDetail");
+  const el = doc.getElementById("ecomDetailView");
+  el.__gd.slots.main = [{ id: "m1" }];
+  el.querySelector('[data-sel="count"] .sel-val').textContent = "3 张";
+
+  const resolved = [];
+  EC.gen.resolveRefs = async (arr) => { resolved.push(arr); return ["https://cdn.test/m1.png"]; };
+  const sets = [];
+  EC.gen.imageSet = async (o) => { sets.push(o); return [{ index: 0, url: "https://img.test/" + sets.length + ".png", provider: "stub", prompt: o.prompt }]; };
+
+  el.querySelector("[data-gen]").disabled = false;
+  el.querySelector("[data-gen]").click();
+  await new Promise(r => setTimeout(r, 60));
+  assert.equal(resolved.length, 1, "生成前解析上传的商品参考图");
+  assert.ok(sets.length >= 2, "多张详情图逐张生成");
+  assert.deepEqual(sets[0].refImages, ["https://cdn.test/m1.png"], "首张带商品参考图");
+  assert.equal(sets[1].anchor, "https://img.test/1.png", "后续张带首图锚图");
+  assert.match(String(sets[0].prompt), /保持商品/, "提示词含一致性约束");
+});
+
+test("AI 作图：主图套图按张数成套生成（参考图 + 锚图）", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomDraw");
+  const el = doc.getElementById("ecomDrawView");
+  el.querySelector('.tool-card[data-tool="main"]').click();
+  el.__draw.files = [{ id: "p1" }];
+
+  EC.gen.resolveRefs = async () => ["https://cdn.test/p1.png"];
+  const sets = [];
+  EC.gen.imageSet = async (o) => { sets.push(o); return [{ index: 0, url: "https://img.test/1.png", provider: "stub", prompt: typeof o.prompt === "function" ? o.prompt(0) : o.prompt }]; };
+
+  el.querySelector(".send-arrow").click();
+  await new Promise(r => setTimeout(r, 60));
+  assert.equal(sets.length, 1, "调用一次成套生成");
+  assert.equal(sets[0].count, 5, "默认 5 张成套");
+  assert.deepEqual(sets[0].refImages, ["https://cdn.test/p1.png"], "带商品参考图");
+  assert.equal(typeof sets[0].prompt, "function", "逐张提示词工厂");
+  assert.match(sets[0].prompt(0), /第 1\/5 张/, "提示词含张序");
+  assert.notEqual(sets[0].prompt(0), sets[0].prompt(2), "逐张更换构图");
+});
+
+test("风格复刻：成套生成走 imageSet（参考图 + 锚图）", () => {
+  const s = src("ecom-style.js");
+  assert.match(s, /EC\.gen\.imageSet\(/, "风格复刻使用成套生成原语");
+  assert.match(s, /onProgress: function \(\) \{ done\+\+;/, "进度按张累计");
+});
+

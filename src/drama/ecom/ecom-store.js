@@ -469,6 +469,40 @@
     return n;
   }
 
+  /* ---------------- 成套一致性编排 ---------------- */
+  /* 把本地资产解析为云端模型可访问的公网 URL（网关 /dian/api/drama/asset）；解析失败退回本地地址。 */
+  async function resolveRefs(assets) {
+    const arr = (assets || []).filter(Boolean);
+    const out = [];
+    for (let i = 0; i < arr.length; i++) {
+      const a = arr[i];
+      if (typeof a === "string") { if (a) out.push(a); continue; }
+      try { out.push(await EC.store.publicUrl(a)); }
+      catch (e) { const u = srcOf(a); if (u) out.push(u); }
+    }
+    return out.filter(Boolean);
+  }
+
+  /* 成套一致性：同一组参考图逐张生成，首图成功后作为锚图追加给后续每张，锁定商品/风格一致。 */
+  async function imageSet(opts) {
+    opts = opts || {};
+    const refs = (opts.refImages || []).filter(Boolean);
+    const count = Math.max(1, Number(opts.count) || 1);
+    const out = [];
+    let anchor = opts.anchor || "";
+    for (let i = 0; i < count; i++) {
+      if (opts.signal && opts.signal.aborted) throw err("ABORTED", "已取消");
+      const used = anchor ? refs.concat([anchor]) : refs.slice();
+      const prompt = typeof opts.prompt === "function" ? opts.prompt(i) : opts.prompt;
+      const r = await EC.gen.image({ prompt: prompt, ratio: opts.ratio, hires: opts.hires, refImages: used });
+      if (!anchor && r && r.url) anchor = r.url;
+      const item = { index: i, url: r.url, provider: r.provider, prompt: prompt };
+      out.push(item);
+      if (typeof opts.onProgress === "function") opts.onProgress(i + 1, count, item);
+    }
+    return out;
+  }
+
   EC.store = {
     ready: openDB,
     addAsset, addFile, addFromUrl, addDataUrl,
@@ -476,6 +510,6 @@
     src: srcOf, download, downloadBlob, canvasToBlob, loadImage, dataUrlToBlob, blobToDataUrl, publicUrl,
     saveProject, listProjects, removeProject
   };
-  EC.gen = { image: generate, configured: kindConfigured, providerName, ratioWH, pollinationsUrl, llmConfigured, ask, extractJson, stt: transcribe, sttConfigured, ocr: recognizeText, ocrConfigured, video, videoConfigured, tts: synth, ttsConfigured, lipsync, lipsyncConfigured, subtitle };
+  EC.gen = { image: generate, imageSet, resolveRefs, configured: kindConfigured, providerName, ratioWH, pollinationsUrl, llmConfigured, ask, extractJson, stt: transcribe, sttConfigured, ocr: recognizeText, ocrConfigured, video, videoConfigured, tts: synth, ttsConfigured, lipsync, lipsyncConfigured, subtitle };
   EC.ui = { pickFiles, menu, closeMenus, modal, toast, busy, el, uid, err };
 })();

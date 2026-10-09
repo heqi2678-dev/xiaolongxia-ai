@@ -279,6 +279,8 @@
         while (points.length < n) points.push(plan.title);
       }
       const ratio = fieldValue(el, "ratio").split(" ")[0]; // "1:1"
+      const refAssets = (st.slots.main || []).concat(st.slots.sku || []).concat(st.slots.detail || []);
+      const refs = refAssets.length ? await EC.gen.resolveRefs(refAssets) : [];
       const collage = el.querySelector(".gd-collage");
       collage.innerHTML = points.map(function (p, i) {
         return '<div class="gd-col" data-i="' + i + '"><div class="gd-panel hero t-blue"><div class="gd-load">生成中…</div>'
@@ -287,10 +289,13 @@
       const side = el.querySelector("[data-side-desc]");
       if (side) side.textContent = "正在生成：" + plan.title;
 
+      let anchor = "";
       for (let i = 0; i < points.length; i++) {
-        const prompt = "电商详情图设计，产品： " + plan.title + " ，画面： " + points[i] + " ，专业棚拍，干净简洁背景，高级质感，留出文字排版空间";
+        let prompt = "电商详情图设计，产品： " + plan.title + " ，画面： " + points[i] + " ，专业棚拍，干净简洁背景，高级质感，留出文字排版空间";
+        if (refs.length) prompt += "，严格保持商品的外观、颜色、材质、logo 与参考商品图一致，各张画面内容互不相同";
         try {
-          const r = await EC.gen.image({ prompt: prompt, ratio: ratio });
+          const r = (await EC.gen.imageSet({ prompt: prompt, ratio: ratio, refImages: refs, count: 1, anchor: anchor }))[0];
+          if (!anchor) anchor = r.url;
           const asset = await EC.store.addFromUrl(r.url, { name: plan.title + "·" + points[i], kind: "detail", meta: { provider: r.provider, prompt: prompt } });
           const col = collage.querySelector('.gd-col[data-i="' + i + '"] .gd-panel');
           if (col) {

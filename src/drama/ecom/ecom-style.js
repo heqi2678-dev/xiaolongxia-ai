@@ -123,19 +123,21 @@
       const empty = el.querySelector("[data-empty]"); if (empty) empty.style.display = "none";
       for (let i = 0; i < s.product.length; i++) {
         const productSrc = await EC.store.publicUrl(s.product[i]);
-        for (let g = 0; g < n; g++) {
-          const prompt = "参考设计图的美术风格与配色，应用到商品图上，保持商品主体一致，高质量商业摄影"
-            + (req ? "。" + req : "") + "。清晰度 " + quality;
-          const r = await EC.gen.image({ prompt: prompt, ratio: ratio, refImages: [styleSrc, productSrc] });
+        const prompt = "参考设计图的美术风格与配色，应用到商品图上，保持商品主体一致，高质量商业摄影"
+          + (req ? "。" + req : "") + "。清晰度 " + quality;
+        const results = await EC.gen.imageSet({
+          prompt: prompt, ratio: ratio, refImages: [styleSrc, productSrc], count: n,
+          onProgress: function () { done++; bar(el, Math.round(done / total * 100), "已生成 " + done + "/" + total); }
+        });
+        for (let g = 0; g < results.length; g++) {
+          const r = results[g];
           const asset = await EC.store.addFromUrl(r.url, {
             name: "风格复刻", kind: "style",
-            meta: { styleRef: styleSrc, prompt: prompt, ratio: ratio, quality: quality, provider: r.provider }
+            meta: { styleRef: styleSrc, prompt: r.prompt, ratio: ratio, quality: quality, provider: r.provider }
           });
           const card = EC.ui.el("div", "result", '<img src="' + esc(EC.store.src(asset)) + '" alt="" style="width:100%;border-radius:12px;cursor:pointer">');
           card.addEventListener("click", function () { EC.store.download(asset); });
           out.appendChild(card);
-          done++;
-          bar(el, Math.round(done / total * 100), "已生成 " + done + "/" + total);
           if (EC.addUsage) EC.addUsage({ generated: 1 });
         }
       }
