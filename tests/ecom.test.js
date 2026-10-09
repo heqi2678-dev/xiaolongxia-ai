@@ -81,7 +81,8 @@ test("工作台：10 大入口 + 4 数据块 + 最近项目 + 入口卡跳转", 
   assert.equal(el.querySelectorAll(".feature").length, 10, "10 个功能入口");
   assert.equal(el.querySelectorAll(".feature[data-go]").length, 10, "每个入口卡带 data-go");
   assert.equal(el.querySelectorAll(".stat").length, 4, "4 个数据块");
-  assert.match(el.querySelector(".page-head h1").textContent, /下午好|你好|早上好/, "问候语");
+  assert.match(el.querySelector(".page-head h1").textContent, /凌晨好|早上好|上午好|中午好|下午好|晚上好/, "问候语按时间渲染");
+  assert.doesNotMatch(el.querySelector(".page-head h1").textContent, /何齐|你好/, "问候语不含用户名/占位符");
   assert.match(el.textContent, /AI 作图/, "含 AI 作图入口");
   assert.match(el.textContent, /跨境本地化/, "含跨境本地化入口");
   assert.ok(el.querySelector(".proj-grid, .proj-list, .project"), "最近项目区已渲染");

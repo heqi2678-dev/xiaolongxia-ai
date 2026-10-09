@@ -101,7 +101,7 @@
           <div class="page-head hero">
             <div class="hero-copy">
               <div class="hero-eyebrow">铜龙电商ai助手 · 领先的电商 AI 生成技术</div>
-              <h1>下午好，何齐</h1>
+              <h1 data-greeting>你好</h1>
               <p class="hero-tag">一站式电商 AI 内容创作平台</p>
               <p>上传商品图，轻松生成高质量商品图、详情页与爆款视频，提升转化率与效率。</p>
               <div class="hero-cta">
@@ -251,6 +251,15 @@
     const v = Number(n) || 0;
     try { return v.toLocaleString("en-US"); } catch (e) { return String(v); }
   }
+  function greet() {
+    const h = new Date().getHours();
+    if (h < 5) return "凌晨好";
+    if (h < 9) return "早上好";
+    if (h < 12) return "上午好";
+    if (h < 14) return "中午好";
+    if (h < 18) return "下午好";
+    return "晚上好";
+  }
   function ago(ts) {
     if (!ts) return "";
     const d = Math.floor((Date.now() - ts) / 1000);
@@ -289,6 +298,8 @@
 
   EC.register("ecomHome", function (el) {
     el.innerHTML = '<div class="ecom-ui">' + HTML + '</div>';
+    const gnode = el.querySelector("[data-greeting]");
+    if (gnode) gnode.textContent = greet();
     const s = (EC.stats ? EC.stats() : {}) || {};
     ["generated", "exported", "tokens", "projects"].forEach(function (k) {
       const node = el.querySelector('[data-stat="' + k + '"]');
