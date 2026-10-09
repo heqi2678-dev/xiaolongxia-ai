@@ -158,6 +158,9 @@ Entries discovered by the Agent during task execution should follow this format:
    - 网关 `gate/server.py` 属后端，改动后需重启才生效：`systemctl restart xiaolongxia-gate.service`（服务单元名 `xiaolongxia-gate.service`，进程为 `/usr/bin/python3 /home/admin/work/xiaolongxia-ai/gate/server.py`）；前端静态文件（`index.html`、`src/**`）仍是覆盖即生效、无需重启。（2026-09-23 补记）
   - 小龙虾 LibTV 化总方案落档在 `.monkeycode/specs/2026-09-22-libtv-3layer/总方案.md`（三层：地基 / 工作台 / 3D-BOX，外加门外与贯穿线；管家页全程排除）。
   - 前端静态文件覆盖即生效，但**用户浏览器可能因 Service Worker 缓存仍见旧样式**：`sw.js` 原用 stale-while-revalidate（先返回旧缓存、后台更新），部署后已登录用户长时间看不到新代码。2026-10-06 改为 network-first（在线优先取网络、离线回退缓存），并在网关注入的注册脚本中加 `r.update()` + `controllerchange` 自动 reload 自愈。排查「改了却没生效」先排除 SW 缓存（DevTools > Application > Service Workers 看活动版本与缓存名 `xiaolongxia-vNN`）。SW 版本号为 `sw.js` 顶部 `CACHE` 常量，每次改 SW 需 +1。
+  - **商品 AI 抠图（rembg）**：跑在独立 Python3.11 venv `/home/admin/work/.xlx-matting/venv`（uv 安装，含 rembg 2.0.85 / onnxruntime / pillow / numpy）。网关 `drama_matting()` 以子进程调 `gate/matting_worker.py`，解释器默认 `/home/admin/work/.xlx-matting/venv/bin/python`（可 `MATTING_PY` 覆盖）；改 `drama_matting` 需重启 `xiaolongxia-gate.service`。
+  - **线上内存仅约 1.87GB 且无 swap**：`u2net`（176MB）模型会把抠图进程 OOM 杀掉；默认模型用 `u2netp`（4.6MB，2-5 秒/张），并在服务端把 `OMP_NUM_THREADS`/`NUMBA_NUM_THREADS`/`ORT_NUM_THREADS` 等限为 1。模型缓存在 `/root/.rembg/models/`，首次下载后离线可用；模型可选 `u2netp`(默认)/`u2net`/`isnet-general-use`/`birefnet-general`。
+  - 装依赖：`/home/admin/.local/bin/uv pip install --python /home/admin/work/.xlx-matting/venv/bin/python rembg onnxruntime pillow numpy`（远端 base py3.6.8 与 pip 镜像 `mirrors.cloud.aliyuncs.com` 均不可用，须走 uv 的 py3.11 直连 PyPI）。
 
 [User Instruction Summary]
 - Date: 2026-09-24
