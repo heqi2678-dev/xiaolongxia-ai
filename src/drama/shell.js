@@ -29,11 +29,11 @@
     { id: "download", label: "下载客户端", icon: "download" }
   ];
 
-  /* 顶层工作台分区：短剧工作台 / 电商工作台 / 日常工具。导航按分区过滤，当前分区持久化。 */
+  /* 顶层工作台分区：日常工具 / 电商工作台 / 短剧工作台。导航按分区过滤，当前分区持久化。 */
   const ZONES = [
-    { id: "drama", label: "短剧工作台" },
+    { id: "daily", label: "日常工具" },
     { id: "ecom", label: "电商工作台" },
-    { id: "daily", label: "日常工具" }
+    { id: "drama", label: "短剧工作台" }
   ];
   const ZKEY = "xlx_zone";
   const DAILY_VIEWS = ["agent", "toolkit", "studio", "tools"];

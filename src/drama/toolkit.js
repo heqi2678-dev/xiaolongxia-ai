@@ -36,6 +36,17 @@
 
   const VIDEO_CATS = { video: 1, media: 1 };
 
+  /* 技能弹窗里的“示例问题”快捷标签：按分类给几句可直接点用的需求 */
+  const SAMPLES = {
+    ecom: ["给保温杯写一套详情文案", "给连衣裙起 3 个高转化标题", "分析这份店铺经营数据"],
+    media: ["写一篇小红书探店笔记", "给新品写 30 秒短视频口播", "起 10 个爆款标题"],
+    video: ["把这段剧情拆成分镜脚本", "设计一个国风片头", "写一条 30 秒视频脚本"],
+    office: ["把这段记录整理成周报", "生成一份 10 页 PPT 大纲", "写一封催款邮件"],
+    dev: ["用 JS 写一个待办清单", "解释这段冒泡排序代码", "帮我定位这个报错"],
+    design: ["给音乐节做一版海报文案", "把这句描述优化成绘图提示词", "设计活动主视觉文案"]
+  };
+  const SAMPLES_DEFAULT = ["给我一个完整示例", "按我的行业定制一版", "先给我一个模板"];
+
   const state = { tab: "reco", cat: "reco", q: "", busy: false };
 
   function view() { return document.getElementById("dramaToolkit"); }
@@ -88,9 +99,14 @@
 .hs-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .15s,transform .15s;display:flex;flex-direction:column}
 .hs-card:hover{border-color:var(--accent);transform:translateY(-3px)}
 .hs-thumb{position:relative;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.hs-thumb .hs-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;transition:transform .35s}
+.hs-card:hover .hs-thumb .hs-img{transform:scale(1.06)}
+.hs-thumb.has-img::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.42))}
 .hs-thumb .hs-tic{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.28)}
 .hs-thumb .hs-tic svg{width:23px;height:23px}
-.hs-badge{position:absolute;left:9px;bottom:9px;font-size:10.5px;padding:2px 8px;border-radius:6px;background:rgba(0,0,0,.55);color:#fff}
+.hs-badge{position:absolute;left:9px;bottom:9px;font-size:10.5px;padding:2px 8px;border-radius:6px;background:rgba(0,0,0,.62);color:#fff;z-index:2;backdrop-filter:blur(2px)}
+.hs-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.42);border:1px solid rgba(255,255,255,.55);display:flex;align-items:center;justify-content:center;color:#fff;z-index:2;pointer-events:none}
+.hs-play svg{width:16px;height:16px}
 .hs-fav{position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .15s}
 .hs-card:hover .hs-fav{opacity:1}
 .hs-fav.on{opacity:1;color:#f5c451}
@@ -99,6 +115,21 @@
 .hs-cdesc{font-size:11.5px;color:var(--text3);line-height:1.6;min-height:34px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .hs-cfoot{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px;border-top:1px solid var(--border);padding-top:8px;margin-top:2px}
 .hs-avatar{width:16px;height:16px;border-radius:50%;background:var(--accent-grad);flex:none}
+.sk-head{display:flex;align-items:center;gap:12px}
+.sk-ico{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex:none}
+.sk-ico svg{width:26px;height:26px}
+.sk-nm{font-size:16px;font-weight:700}
+.sk-kind{display:inline-block;font-size:10.5px;padding:2px 8px;border-radius:999px;background:var(--panel2);color:var(--text2);margin-top:4px}
+.sk-desc{font-size:12.5px;color:var(--text3);line-height:1.7;margin:12px 0 14px}
+.sk-samples{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 14px}
+.sk-sample{border:1px solid var(--border);background:var(--card);color:var(--text2);border-radius:999px;padding:5px 11px;font-size:11.5px;cursor:pointer;transition:border-color .15s,color .15s}
+.sk-sample:hover{border-color:var(--accent);color:var(--accent2)}
+.sk-field{display:flex;align-items:center;justify-content:space-between;margin:12px 0 6px}
+.sk-attach{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text3);cursor:pointer}
+.sk-attach:hover{color:var(--accent2)}
+.sk-attach svg{width:13px;height:13px}
+.sk-inp{width:100%;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 12px;color:var(--text);font-size:13.5px;line-height:1.65;resize:vertical;min-height:132px;outline:none;font-family:inherit;box-sizing:border-box}
+.sk-inp:focus{border-color:var(--accent)}
 `;
 
   let cssDone = false;
@@ -203,9 +234,15 @@
   function card(s) {
     const color = catColor(s.cat);
     const kind = skillKind(s);
+    const thumb = (XLX.skillThumb ? XLX.skillThumb(s) : "");
+    const media = thumb
+      ? '<img class="hs-img" src="' + D.ui.esc(thumb) + '" alt="" loading="lazy">'
+      : '<span class="hs-tic" style="color:' + color + '">' + svg(s.icon, 23) + "</span>";
+    const isVideo = kind.id === "gen" && VIDEO_CATS[s.cat];
     return '<div class="hs-card" data-hs-skill="' + D.ui.esc(s.id) + '">' +
-      '<div class="hs-thumb" style="background:linear-gradient(135deg,' + color + '33,' + color + '0d)">' +
-        '<span class="hs-tic" style="color:' + color + '">' + svg(s.icon, 23) + "</span>" +
+      '<div class="hs-thumb' + (thumb ? " has-img" : "") + '" style="background:linear-gradient(135deg,' + color + '33,' + color + '0d)">' +
+        media +
+        (isVideo ? '<span class="hs-play">' + svg("play", 16) + "</span>" : "") +
         '<span class="hs-badge">' + kind.label + "</span>" +
         '<button class="hs-fav' + (isFav(s.id) ? " on" : "") + '" data-hs-fav="' + D.ui.esc(s.id) + '">' +
           '<svg viewBox="0 0 24 24" fill="' + (isFav(s.id) ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 18l-5.8 3 1.1-6.5L2.6 9.8l6.5-.9z"/></svg>' +
@@ -450,19 +487,28 @@
     if (nameEl) setTimeout(() => nameEl.focus(), 80);
   }
 
-  /* 技能输入弹窗：收集 {input} 需求 */
+  /* 技能输入弹窗：头部图标+名称+类型 / 说明 / 示例问题 / 附件 / 输入区 */
   function askSkillInput(skill, cb) {
     const m = document.getElementById("modal");
     if (!m) { cb(""); return; }
     const color = catColor(skill.cat);
     const kind = skillKind(skill);
+    const samples = SAMPLES[skill.cat] || SAMPLES_DEFAULT;
     m.innerHTML = '<div class="modal-box">' +
-      '<div class="modal-head"><div class="mic" style="background:' + color + '22;border:1px solid ' + color + '44">' + svg(skill.icon, 22) + "</div>" +
-        '<div><div class="mt">' + D.ui.esc(skill.name) + '</div><div class="ms">' + kind.label + "技能</div></div></div>" +
+      '<div class="modal-head">' +
+        '<div class="sk-ico" style="background:' + color + '22;border:1px solid ' + color + '44;color:' + color + '">' + svg(skill.icon, 26) + "</div>" +
+        '<div><div class="sk-nm">' + D.ui.esc(skill.name) + '</div><span class="sk-kind">' + kind.label + "技能</span></div>" +
+      "</div>" +
       '<div class="modal-body">' +
-        '<p style="font-size:12.5px;color:var(--text2);margin:0 0 2px">' + D.ui.esc(skill.desc || "") + "</p>" +
-        '<label class="label">描述你的需求</label>' +
-        '<textarea id="hsSkillInput" class="inp" style="min-height:110px" placeholder="请输入「' + D.ui.esc(skill.name) + '」需要的信息…"></textarea>' +
+        '<p class="sk-desc">' + D.ui.esc(skill.desc || "描述你的需求，我来完成剩下的事。") + "</p>" +
+        '<div class="sk-field"><label class="label" style="margin:0">描述你的需求</label>' +
+          '<label class="sk-attach" title="添加附件">' + svg("plus", 13) + "附件" +
+            '<input id="hsSkillFile" type="file" accept=".txt,.md,.markdown,text/*,image/*" style="display:none"></label>' +
+        "</div>" +
+        '<div class="sk-samples">' + samples.map(q =>
+          '<button class="sk-sample" data-q="' + D.ui.esc(q) + '">' + D.ui.esc(q) + "</button>"
+        ).join("") + "</div>" +
+        '<textarea id="hsSkillInput" class="sk-inp" placeholder="请输入「' + D.ui.esc(skill.name) + '」需要的信息，可直接点上方示例…"></textarea>' +
       "</div>" +
       '<div class="modal-foot">' +
         '<button class="btn ghost" id="hsSkillCancel">取消</button>' +
@@ -474,6 +520,22 @@
     const cancel = document.getElementById("hsSkillCancel");
     if (cancel) cancel.onclick = close;
     const inp = document.getElementById("hsSkillInput");
+    m.querySelectorAll("[data-q]").forEach(b => {
+      b.onclick = () => { if (inp) { inp.value = b.dataset.q; inp.focus(); } };
+    });
+    const file = document.getElementById("hsSkillFile");
+    if (file && inp) file.onchange = () => {
+      const f = file.files && file.files[0];
+      if (!f) return;
+      if (/^image\//.test(f.type || "")) {
+        inp.value = (inp.value ? inp.value + "\n" : "") + "【已附图片：" + f.name + "】";
+        return;
+      }
+      const fr = new FileReader();
+      fr.onload = () => { inp.value = (inp.value ? inp.value + "\n" : "") + String(fr.result || ""); };
+      fr.onerror = () => U.toast("文件读取失败", "err");
+      fr.readAsText(f);
+    };
     const run = () => {
       const text = inp ? inp.value.trim() : "";
       if (!text) { U.toast("请先填写需求", "warn"); return; }

@@ -4291,6 +4291,7 @@ XLX.studio = (function () {
 <script src="src/drama/box3d.js"></script>
 <script src="src/drama/box3dscene.js"></script>
 <script src="src/drama/box3dview.js"></script>
+<script src="src/drama/skillthumb.js"></script>
 <script src="src/drama/toolkit.js"></script>
 <script src="src/drama/dramaagent.js"></script>
 <script src="src/drama/ecom/ecom-css.js"></script>
@@ -4588,7 +4589,7 @@ XLX.app = (function () {
     renderMobileNav();
     window.scrollTo(0, 0);
     const nc = document.getElementById("newChatBtn");
-    if (nc) nc.style.display = (view === "agent" || view === "dramaAgent") ? "flex" : "none";
+    if (nc) nc.style.display = (view === "agent") ? "flex" : "none";
     if (view === "agent") {
       if (XLX.modelsel && XLX.modelsel.render) XLX.modelsel.render(document.getElementById("msContainer"));
       if (document.getElementById("chatInput")) document.getElementById("chatInput").focus();

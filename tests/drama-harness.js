@@ -11,7 +11,7 @@ const DRAMA_FILES = [
   "takes.js", "engine.js", "compliance.js", "compose.js", "ui.js",
   "templates.js", "models.js", "home.js",
   "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js",
-  "toolkit.js", "dramaagent.js"
+  "skillthumb.js", "toolkit.js", "dramaagent.js"
 ];
 
 function noop() {}

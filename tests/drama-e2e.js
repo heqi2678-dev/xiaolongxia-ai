@@ -14,7 +14,7 @@ const DRAMA_FILES = [
   "engine.js", "compliance.js", "compose.js", "ui.js",
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
-  "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js", "dramaagent.js",
+  "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "skillthumb.js", "toolkit.js", "dramaagent.js",
   "ecom/ecom-css.js", "ecom/ecom-sprite.js", "ecom/ecom.js", "ecom/ecom-store.js", "ecom/ecom-home.js", "ecom/ecom-draw.js", "ecom/ecom-detail.js", "ecom/ecom-style.js", "ecom/ecom-video-i2v.js", "ecom/ecom-video-copy.js", "ecom/ecom-video-translate.js", "ecom/ecom-video.js", "ecom/ecom-toolbox.js", "ecom/ecom-mainedit.js", "ecom/ecom-detailedit.js", "ecom/ecom-localize.js", "ecom/ecom-gallery.js", "ecom/ecom-chrome.js", "shell.js"
 ];
 
@@ -1248,7 +1248,7 @@ async function flowEcomInteract(env) {
 /* ============================ 链路九：日常工具分区与短剧 Agent ============================ */
 async function flowDailyDramaAgent(env) {
   const { doc, D } = env;
-  console.log("\n链路九：日常工具分区与短剧 Agent（独立入口 · 画布感知 · 流式对话）");
+  console.log("\n链路九：日常工具分区与短剧 Agent（独立入口 · LibTV 首页 · 画布感知）");
   const shell = W.XLX.dramaShell;
   const nav = doc.getElementById("shellNav");
 
@@ -1261,15 +1261,25 @@ async function flowDailyDramaAgent(env) {
   D.dramaAgent.render();
   await settle(2);
   const host = doc.getElementById("dramaAgent");
-  ok(!!host.querySelector(".da-wrap"), "短剧 Agent 三段式外壳");
-  ok(!!host.querySelector(".da-side #daList"), "左侧对话列表");
-  eq(host.querySelectorAll(".da-empty .suggest-card").length, 5, "首屏 5 张建议卡");
+  ok(!!host.querySelector(".da-wrap"), "短剧 Agent 首页外壳");
+  ok(!!host.querySelector(".da-hero"), "LibTV 大标题 hero");
+  has(host.querySelector(".da-hero-t").innerHTML, "说个想法", "LibTV 标题文案");
+  ok(!!host.querySelector("#daInput"), "想法输入框");
+  eq(host.querySelectorAll("[data-da-tab]").length, 3, "Skill/收藏/我的 三个 tab");
+  ok(host.querySelectorAll("[data-da-cat]").length >= 9, "分类 pills >= 9");
+  ok(host.querySelectorAll("#daGrid .da-card").length > 0, "技能卡网格");
+  ok(!host.querySelector(".da-side"), "已去掉左侧对话列表");
 
-  host.querySelector(".suggest-card").click();
+  /* 点技能卡交给工具包引擎分流 */
+  const realOpen = D.toolkit.openSkill;
+  let openedSkill = null;
+  D.toolkit.openSkill = (s) => { openedSkill = s && s.id; };
+  host.querySelector("#daGrid .da-card").click();
   await settle(1);
-  ok((doc.getElementById("daInput").value || "").length > 0, "点击建议卡填充输入框");
+  ok(!!openedSkill, "点击技能卡交给 D.toolkit.openSkill");
+  D.toolkit.openSkill = realOpen;
 
-  /* 画布指令直连（命中画布感知，不占用对话模型） */
+  /* 画布指令直连（命中画布感知，不新建工程） */
   const realCan = D.agent.canHandle, realHandle = D.agent.handle;
   const realRefresh = D.manual && D.manual.refreshCanvas;
   let refreshed = 0;
@@ -1277,25 +1287,29 @@ async function flowDailyDramaAgent(env) {
   D.agent.handle = async () => ({ reply: "已帮你加了 1 个雨夜镜头节点", changed: true });
   if (D.manual) D.manual.refreshCanvas = () => { refreshed++; };
   await D.dramaAgent.send("加一个 5 秒的雨夜镜头");
-  await settle(2);
-  has(host.innerHTML, "雨夜镜头", "画布指令回复已渲染");
-  eq(refreshed, 1, "画布变更后刷新");
+  await settle(1);
+  eq(refreshed, 1, "画布指令命中后刷新画布");
   D.agent.canHandle = realCan; D.agent.handle = realHandle;
   if (D.manual) D.manual.refreshCanvas = realRefresh;
 
-  /* 流式对话（打桩 llm） */
-  const realLlm = W.XLX.llm;
-  W.XLX.llm = {
-    isConfigured: () => true,
-    chat: async (msgs, o) => { o.onDelta("分幕"); o.onDelta("大纲"); return "分幕大纲"; },
-    currentProvider: () => ({ name: "x" }), currentModel: () => "m"
-  };
-  await D.dramaAgent.send("列个分幕大纲");
+  /* 非指令想法落成画布工程并进入画布 */
+  const realBlank = D.project.blank, realSave = D.project.save, realAdd = D.canvas.addNode;
+  const realLoad = D.manual && D.manual.load, realGo = W.XLX.app.go;
+  let blanked = 0, loaded = 0, wentTo = null;
+  D.project.blank = (o) => { blanked++; return { id: "e2e-da", title: o.title }; };
+  D.project.save = async () => {};
+  D.canvas.addNode = () => {};
+  if (D.manual) D.manual.load = async () => { loaded++; };
+  W.XLX.app.go = (v) => { wentTo = v; };
+  await D.dramaAgent.send("一个外卖员穿越到古代当皇帝");
   await settle(2);
-  has(host.innerHTML, "分幕大纲", "流式对话结果已渲染");
-  W.XLX.llm = realLlm;
+  eq(blanked, 1, "想法落成一个画布工程");
+  eq(loaded, 1, "载入工程到画布");
+  eq(wentTo, "drama", "跳转到短剧画布");
+  D.project.blank = realBlank; D.project.save = realSave; D.canvas.addNode = realAdd;
+  if (D.manual) D.manual.load = realLoad;
+  W.XLX.app.go = realGo;
 
-  ok(!!W.localStorage.getItem("xlx_drama_agent_convs"), "短剧 Agent 使用独立存储键");
   eq(W.localStorage.getItem("xlx_conversations"), null, "不污染通用对话存储");
 }
 
