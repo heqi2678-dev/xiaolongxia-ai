@@ -4,7 +4,7 @@
   /* 主导航（LibTV 左侧）。newProject 为主按钮，sep 为分组分隔线，其余为视图入口 */
   const NAV = [
     { id: "newProject", label: "新建项目", icon: "plus", primary: true },
-    { id: "agent", label: "铜龙电商ai助手 Agent", icon: "chat" },
+    { id: "dramaAgent", label: "短剧 Agent", icon: "chat" },
     { id: "home", label: "首页", icon: "home" },
     { id: "projects", label: "项目", icon: "film" },
     { id: "assets", label: "资产", icon: "palette" },
@@ -13,7 +13,12 @@
     { sep: true },
     { id: "box3d", label: "铜龙电商ai助手 3D-BOX", icon: "box" },
     { id: "plugin", label: "Blender 插件", sub: "铜龙电商ai助手 Plugin", icon: "hammer" },
-    { id: "changelog", label: "版本更新记录", icon: "history" },
+    { id: "changelog", label: "版本更新记录", icon: "history" }
+  ];
+
+  /* 日常工具分区导航：迁移自短剧分区的通用对话与工具包 */
+  const DAILY = [
+    { id: "agent", label: "日常ai助手 Agent", icon: "chat" },
     { id: "toolkit", label: "工具包", icon: "grid" }
   ];
 
@@ -24,22 +29,38 @@
     { id: "download", label: "下载客户端", icon: "download" }
   ];
 
-  /* 顶层工作台分区：短剧工作台 / 电商工作台。导航按分区过滤，当前分区持久化。 */
+  /* 顶层工作台分区：短剧工作台 / 电商工作台 / 日常工具。导航按分区过滤，当前分区持久化。 */
   const ZONES = [
     { id: "drama", label: "短剧工作台" },
-    { id: "ecom", label: "电商工作台" }
+    { id: "ecom", label: "电商工作台" },
+    { id: "daily", label: "日常工具" }
   ];
   const ZKEY = "xlx_zone";
+  const DAILY_VIEWS = ["agent", "toolkit", "studio", "tools"];
 
   function zone() {
-    try { return localStorage.getItem(ZKEY) === "ecom" ? "ecom" : "drama"; } catch (e) { return "drama"; }
+    try {
+      const z = localStorage.getItem(ZKEY);
+      return (z === "ecom" || z === "daily") ? z : "drama";
+    } catch (e) { return "drama"; }
   }
   function ecomApi() { return (XLX.drama && XLX.drama.ecom) || null; }
   function navForZone(z) {
     if (z === "ecom") { const E = ecomApi(); return (E && E.NAV) || []; }
+    if (z === "daily") return DAILY;
     return NAV;
   }
-  function zoneOfView(v) { return (typeof v === "string" && v.indexOf("ecom") === 0) ? "ecom" : "drama"; }
+  function zoneOfView(v) {
+    if (typeof v !== "string") return zone();
+    if (v.indexOf("ecom") === 0) return "ecom";
+    if (DAILY_VIEWS.indexOf(v) >= 0) return "daily";
+    return "drama";
+  }
+  function defaultViewFor(z) {
+    if (z === "ecom") { const E = ecomApi(); return (E && E.DEFAULT_VIEW) || "ecomHome"; }
+    if (z === "daily") return "agent";
+    return "home";
+  }
 
   function icon(n) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'
@@ -98,7 +119,7 @@
       +   '<div class="shell-brand-t"><b>铜龙电商ai助手</b></div>'
       + '</div>'
       + zoneSwitchHtml()
-      + (z === "ecom" ? "" : '<button class="shell-create" id="shellCreate">' + icon("plus") + '<span>新建项目</span></button>')
+      + (z === "drama" ? '<button class="shell-create" id="shellCreate">' + icon("plus") + '<span>新建项目</span></button>' : "")
       + '<nav class="shell-nav" id="shellNavList">' + navHtml() + '</nav>';
   }
 
@@ -225,17 +246,16 @@
   }
 
   function setZone(z, opts) {
-    z = z === "ecom" ? "ecom" : "drama";
+    z = (z === "ecom" || z === "daily") ? z : "drama";
     try { localStorage.setItem(ZKEY, z); } catch (e) {}
     renderNav();
     if (!(opts && opts.noGo) && XLX.app && XLX.app.go) {
-      const E = ecomApi();
-      XLX.app.go(z === "ecom" ? ((E && E.DEFAULT_VIEW) || "ecomHome") : "home");
+      XLX.app.go(defaultViewFor(z));
     }
   }
 
-  function setActive(view) {
-    if (zoneOfView(view) !== zone()) setZone(zoneOfView(view), { noGo: true });
+  function setActive(view, opts) {
+    if (!(opts && opts.noZone) && zoneOfView(view) !== zone()) setZone(zoneOfView(view), { noGo: true });
     document.querySelectorAll(".shell-nav-item").forEach(el => {
       el.classList.toggle("active", el.getAttribute("data-view") === view);
     });
@@ -269,7 +289,7 @@
         });
       });
     }
-    setActive((XLX.app && XLX.app.currentView) || "agent");
+    setActive((XLX.app && XLX.app.currentView) || defaultViewFor(zone()), { noZone: true });
     return el;
   }
 
@@ -300,6 +320,6 @@
 
   document.addEventListener("click", closeMenu);
 
-  XLX.dramaShell = { NAV, ACCOUNT, ZONES, zone, setZone, navForZone, zoneOfView, mount, setActive, status, refresh, navHtml, sidebarHtml, snapshot, versions, shareProject, openHistory, restoreVersion, currentProject };
+  XLX.dramaShell = { NAV, DAILY, ACCOUNT, ZONES, zone, setZone, navForZone, zoneOfView, defaultViewFor, mount, setActive, status, refresh, navHtml, sidebarHtml, snapshot, versions, shareProject, openHistory, restoreVersion, currentProject };
   XLX.shell = XLX.dramaShell;
 })();

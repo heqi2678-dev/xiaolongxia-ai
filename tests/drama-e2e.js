@@ -14,7 +14,7 @@ const DRAMA_FILES = [
   "engine.js", "compliance.js", "compose.js", "ui.js",
   "templates.js", "models.js", "home.js",
   "projects.js", "assets.js", "tvshow.js", "ranking.js", "plugin.js",
-  "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js",
+  "manual.js", "makeup.js", "canvas.js", "agent.js", "skill.js", "box3d.js", "box3dscene.js", "box3dview.js", "changelog.js", "toolkit.js", "dramaagent.js",
   "ecom/ecom-css.js", "ecom/ecom-sprite.js", "ecom/ecom.js", "ecom/ecom-store.js", "ecom/ecom-home.js", "ecom/ecom-draw.js", "ecom/ecom-detail.js", "ecom/ecom-style.js", "ecom/ecom-video-i2v.js", "ecom/ecom-video-copy.js", "ecom/ecom-video-translate.js", "ecom/ecom-video.js", "ecom/ecom-toolbox.js", "ecom/ecom-mainedit.js", "ecom/ecom-detailedit.js", "ecom/ecom-localize.js", "ecom/ecom-gallery.js", "ecom/ecom-chrome.js", "shell.js"
 ];
 
@@ -38,6 +38,7 @@ const HTML = `<!doctype html><html><head><title>t</title></head><body>
 <div id="pluginView" class="view"><div id="dramaPlugin"></div></div>
 <div id="changelogView" class="view"><div id="dramaChangelog"></div></div>
 <div id="toolkitView" class="view"><div id="dramaToolkit"></div></div>
+<div id="dramaAgentView" class="view"><div id="dramaAgent"></div></div>
 <div id="dramaView" class="view"><div id="dwManual"></div></div>
 <div id="ecomHomeView" class="view"></div>
 <div id="ecomDrawView" class="view"></div>
@@ -891,7 +892,7 @@ async function flowEcom(env) {
   shell.setZone("ecom", { noGo: true });
   await settle(2);
   eq(nav.querySelectorAll(".shell-nav-item").length, 13, "电商分区渲染 13 个导航项");
-  eq(nav.querySelectorAll(".shell-zone").length, 2, "渲染短剧/电商两个分区切换按钮");
+  eq(nav.querySelectorAll(".shell-zone").length, 3, "渲染短剧/电商/日常三个分区切换按钮");
   ok(!!nav.querySelector('.shell-zone.active[data-zone="ecom"]'), "电商分区按钮高亮");
   ok(!!nav.querySelector('.shell-nav-item[data-view="ecomDraw"]'), "电商导航含 AI 作图项");
   ok(!nav.querySelector("#shellCreate"), "电商分区隐藏「新建项目」按钮");
@@ -1063,8 +1064,23 @@ async function flowEcom(env) {
   await settle(2);
   eq(nav.querySelectorAll(".shell-nav-item").length, shell.NAV.length - 2, "切回短剧分区导航恢复");
   ok(!!nav.querySelector("#shellCreate"), "短剧分区恢复「新建项目」按钮");
+  ok(!!nav.querySelector('.shell-nav-item[data-view="dramaAgent"]'), "短剧导航含短剧 Agent");
+  ok(!nav.querySelector('.shell-nav-item[data-view="agent"]'), "短剧导航不再含通用对话");
   eq(shell.zoneOfView("ecomGallery"), "ecom", "电商视图归属电商分区");
   eq(shell.zoneOfView("home"), "drama", "短剧视图归属短剧分区");
+  eq(shell.zoneOfView("dramaAgent"), "drama", "短剧 Agent 归属短剧分区");
+  eq(shell.zoneOfView("agent"), "daily", "通用对话归属日常工具分区");
+  eq(shell.zoneOfView("toolkit"), "daily", "工具包归属日常工具分区");
+
+  /* 日常工具分区：通用对话 + 工具包 */
+  shell.setZone("daily", { noGo: true });
+  await settle(2);
+  eq(nav.querySelectorAll(".shell-nav-item").length, 2, "日常工具分区渲染 2 个导航项");
+  ok(!!nav.querySelector('.shell-nav-item[data-view="agent"]'), "日常工具含通用对话");
+  ok(!!nav.querySelector('.shell-nav-item[data-view="toolkit"]'), "日常工具含工具包");
+  ok(!nav.querySelector("#shellCreate"), "日常工具分区隐藏「新建项目」按钮");
+  shell.setZone("drama", { noGo: true });
+  await settle(2);
 }
 
 /* 链路八：电商全控件交互扫描 —— 逐页点击所有状态类控件、分组状态、滚动容器与弹层。
@@ -1229,6 +1245,60 @@ async function flowEcomInteract(env) {
   }
 }
 
+/* ============================ 链路九：日常工具分区与短剧 Agent ============================ */
+async function flowDailyDramaAgent(env) {
+  const { doc, D } = env;
+  console.log("\n链路九：日常工具分区与短剧 Agent（独立入口 · 画布感知 · 流式对话）");
+  const shell = W.XLX.dramaShell;
+  const nav = doc.getElementById("shellNav");
+
+  shell.setZone("drama", { noGo: true });
+  await settle(2);
+  ok(!!nav.querySelector('.shell-nav-item[data-view="dramaAgent"]'), "短剧导航含短剧 Agent");
+  ok(!nav.querySelector('.shell-nav-item[data-view="agent"]'), "短剧导航不再含通用对话");
+
+  W.XLX.app.currentView = "dramaAgent";
+  D.dramaAgent.render();
+  await settle(2);
+  const host = doc.getElementById("dramaAgent");
+  ok(!!host.querySelector(".da-wrap"), "短剧 Agent 三段式外壳");
+  ok(!!host.querySelector(".da-side #daList"), "左侧对话列表");
+  eq(host.querySelectorAll(".da-empty .suggest-card").length, 5, "首屏 5 张建议卡");
+
+  host.querySelector(".suggest-card").click();
+  await settle(1);
+  ok((doc.getElementById("daInput").value || "").length > 0, "点击建议卡填充输入框");
+
+  /* 画布指令直连（命中画布感知，不占用对话模型） */
+  const realCan = D.agent.canHandle, realHandle = D.agent.handle;
+  const realRefresh = D.manual && D.manual.refreshCanvas;
+  let refreshed = 0;
+  D.agent.canHandle = () => true;
+  D.agent.handle = async () => ({ reply: "已帮你加了 1 个雨夜镜头节点", changed: true });
+  if (D.manual) D.manual.refreshCanvas = () => { refreshed++; };
+  await D.dramaAgent.send("加一个 5 秒的雨夜镜头");
+  await settle(2);
+  has(host.innerHTML, "雨夜镜头", "画布指令回复已渲染");
+  eq(refreshed, 1, "画布变更后刷新");
+  D.agent.canHandle = realCan; D.agent.handle = realHandle;
+  if (D.manual) D.manual.refreshCanvas = realRefresh;
+
+  /* 流式对话（打桩 llm） */
+  const realLlm = W.XLX.llm;
+  W.XLX.llm = {
+    isConfigured: () => true,
+    chat: async (msgs, o) => { o.onDelta("分幕"); o.onDelta("大纲"); return "分幕大纲"; },
+    currentProvider: () => ({ name: "x" }), currentModel: () => "m"
+  };
+  await D.dramaAgent.send("列个分幕大纲");
+  await settle(2);
+  has(host.innerHTML, "分幕大纲", "流式对话结果已渲染");
+  W.XLX.llm = realLlm;
+
+  ok(!!W.localStorage.getItem("xlx_drama_agent_convs"), "短剧 Agent 使用独立存储键");
+  eq(W.localStorage.getItem("xlx_conversations"), null, "不污染通用对话存储");
+}
+
 /* ============================ 主流程 ============================ */
 async function main() {
   const env = boot();
@@ -1242,6 +1312,7 @@ async function main() {
     await flowEdge(env);
     await flowEcom(env);
     await flowEcomInteract(env);
+    await flowDailyDramaAgent(env);
   } catch (e) {
     fails.push("运行时异常：" + (e && e.stack || e));
     console.log("\n!! 运行异常 " + (e && e.stack || e));

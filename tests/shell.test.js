@@ -61,11 +61,12 @@ function bootApp() {
 test("外壳：主导航与账号菜单定义稳定", () => {
   const { shell } = bootShell();
   assert.deepEqual(shell.NAV.filter(x => !x.sep).map(x => x.id), [
-    "newProject", "agent", "home", "projects", "assets", "tvshow", "ranking", "box3d", "plugin", "changelog", "toolkit"
+    "newProject", "dramaAgent", "home", "projects", "assets", "tvshow", "ranking", "box3d", "plugin", "changelog"
   ]);
   assert.equal(shell.NAV.filter(x => x.sep).length, 1, "只有一条分组分隔线");
   assert.equal(shell.NAV.filter(x => x.primary).length, 1, "只有一个主按钮");
   assert.equal(shell.NAV[0].primary, true);
+  assert.deepEqual(shell.DAILY.map(x => x.id), ["agent", "toolkit"], "日常工具分区含通用对话与工具包");
   assert.deepEqual(shell.ACCOUNT.map(x => x.id), ["settings", "memory", "download"]);
   assert.equal(shell.NAV.find(x => x.id === "settings"), undefined, "设置不在主导航");
 });
@@ -89,12 +90,17 @@ test("外壳：侧栏文案对齐 LibTV（品牌前缀 + 插件两行）", () =>
   const { doc, shell } = bootShell();
   shell.mount();
   const txt = id => doc.querySelector('.shell-nav-item[data-view="' + id + '"] .shell-nav-txt');
-  assert.equal(txt("agent").textContent, "铜龙电商ai助手 Agent");
+  assert.equal(txt("dramaAgent").textContent, "短剧 Agent", "短剧 Agent 位于短剧导航");
   assert.equal(txt("box3d").textContent, "铜龙电商ai助手 3D-BOX");
   const plugin = doc.querySelector('.shell-nav-item[data-view="plugin"]');
   assert.equal(plugin.querySelector(".shell-nav-sub").textContent, "铜龙电商ai助手 Plugin", "插件占两行");
   assert.equal(doc.querySelectorAll(".shell-nav-sub").length, 1, "只有插件是两行");
-  assert.equal(txt("toolkit").textContent, "工具包", "工具包入口存在");
+  assert.equal(doc.querySelector('.shell-nav-item[data-view="agent"]'), null, "短剧导航不再含通用对话");
+  assert.equal(doc.querySelector('.shell-nav-item[data-view="toolkit"]'), null, "短剧导航不再含工具包");
+
+  shell.setZone("daily", { noGo: true });
+  assert.equal(txt("agent").textContent, "日常ai助手 Agent", "通用对话归入日常工具");
+  assert.equal(txt("toolkit").textContent, "工具包", "工具包归入日常工具");
 });
 
 test("外壳：顶部提供分享与历史入口，历史按快照启用", () => {
@@ -161,7 +167,7 @@ test("外壳：分区切换按分区过滤导航并持久化", () => {
   };
   const { w, doc, shell } = bootShell({ drama: { ecom: EC } });
   shell.mount();
-  assert.equal(doc.querySelectorAll(".shell-zone").length, 2, "渲染两个分区按钮");
+  assert.equal(doc.querySelectorAll(".shell-zone").length, 3, "渲染短剧/电商/日常三个分区按钮");
 
   shell.setZone("ecom", { noGo: true });
   assert.equal(doc.querySelectorAll(".shell-nav-item").length, 2, "电商分区渲染 ecom 导航");
@@ -170,6 +176,12 @@ test("外壳：分区切换按分区过滤导航并持久化", () => {
   assert.equal(shell.zone(), "ecom", "当前分区为电商");
   assert.equal(w.localStorage.getItem("xlx_zone"), "ecom", "分区写入 localStorage");
   assert.equal(doc.querySelector("#shellCreate"), null, "电商分区隐藏新建项目按钮");
+
+  shell.setZone("daily", { noGo: true });
+  assert.equal(doc.querySelectorAll(".shell-nav-item").length, 2, "日常工具分区渲染 2 项");
+  assert.ok(doc.querySelector('.shell-nav-item[data-view="agent"]'), "日常工具含通用对话");
+  assert.ok(doc.querySelector('.shell-nav-item[data-view="toolkit"]'), "日常工具含工具包");
+  assert.equal(doc.querySelector("#shellCreate"), null, "日常工具分区隐藏新建项目按钮");
 
   shell.setZone("drama", { noGo: true });
   assert.equal(doc.querySelectorAll(".shell-nav-item").length, shell.NAV.length - 2, "切回短剧导航恢复");
@@ -182,11 +194,18 @@ test("外壳：setActive 依据视图归属自动切换分区", () => {
   shell.mount();
   assert.equal(shell.zoneOfView("ecomProducts"), "ecom", "电商视图归属电商分区");
   assert.equal(shell.zoneOfView("projects"), "drama", "短剧视图归属短剧分区");
+  assert.equal(shell.zoneOfView("dramaAgent"), "drama", "短剧 Agent 归属短剧分区");
+  assert.equal(shell.zoneOfView("agent"), "daily", "通用对话归属日常工具分区");
+  assert.equal(shell.zoneOfView("toolkit"), "daily", "工具包归属日常工具分区");
 
   shell.setActive("ecomHome");
   assert.equal(shell.zone(), "ecom", "选中电商视图自动切到电商分区");
   const active = doc.querySelector(".shell-nav-item.active");
   assert.ok(active && active.getAttribute("data-view") === "ecomHome", "电商视图选中态正确");
+
+  shell.setActive("agent");
+  assert.equal(shell.zone(), "daily", "选中通用对话自动切到日常工具分区");
+  assert.ok(doc.querySelector('.shell-nav-item.active[data-view="agent"]'), "通用对话选中态正确");
 });
 
 test("外壳：钥匙与模型状态统计正确", () => {

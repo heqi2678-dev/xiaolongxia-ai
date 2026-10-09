@@ -14,7 +14,9 @@ XLX.K = {
   PROJECT: "xlx_project",
   IMAGES: "xlx_images",
   CHATS: "xlx_chat_meta",
-  MODELS: "xlx_models"
+  MODELS: "xlx_models",
+  DRAMA_AGENT_CONVS: "xlx_drama_agent_convs",
+  DRAMA_AGENT_CURRENT: "xlx_drama_agent_current"
 };
 
 /* 免费/低价模型平台预设（用户自带Key，按 OpenAI 兼容接口 /chat/completions 调用） */

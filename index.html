@@ -760,6 +760,9 @@ select.inp{padding-right:34px}
     <!-- 工具包 -->
     <div id="toolkitView" class="view"><div id="dramaToolkit"></div></div>
 
+    <!-- 短剧 Agent（独立入口 · 结构对齐 LibTV · 配色沿用工作台主题） -->
+    <div id="dramaAgentView" class="view"><div id="dramaAgent"></div></div>
+
     <!-- 画布工作台 -->
     <div id="dramaView" class="view"><div id="dwManual"></div></div>
 
@@ -4289,6 +4292,7 @@ XLX.studio = (function () {
 <script src="src/drama/box3dscene.js"></script>
 <script src="src/drama/box3dview.js"></script>
 <script src="src/drama/toolkit.js"></script>
+<script src="src/drama/dramaagent.js"></script>
 <script src="src/drama/ecom/ecom-css.js"></script>
 <script src="src/drama/ecom/ecom-sprite.js"></script>
 <script src="src/drama/ecom/ecom.js"></script>
@@ -4476,12 +4480,12 @@ XLX.dlview = (function () {
 
 XLX.app = (function () {
   /* LibTV 顶层视图。drama = 画布工作台；studio/tools 作为插件页内部入口保留可达 */
-  const VIEWS = ["agent", "home", "projects", "assets", "tvshow", "ranking", "box3d", "plugin", "changelog", "toolkit", "studio", "tools", "memory", "download", "settings", "drama"]
+  const VIEWS = ["agent", "dramaAgent", "home", "projects", "assets", "tvshow", "ranking", "box3d", "plugin", "changelog", "toolkit", "studio", "tools", "memory", "download", "settings", "drama"]
     .concat((XLX.drama && XLX.drama.ecom && XLX.drama.ecom.VIEWS) || []);
   /* 旧视图 → 新导航兼容映射（旧代码/旧链接仍能落到正确页面） */
   const COMPAT = { chat: "agent", market: "home", dramaHome: "projects", makeup: "assets" };
   /* 视图 → 容器 id（默认 view + "View"，agent 复用原对话容器） */
-  const VIEW_EL = { agent: "agentView" };
+  const VIEW_EL = { agent: "agentView", dramaAgent: "dramaAgentView" };
   let currentView = "agent";
 
   function placeholder(id, title, desc) {
@@ -4509,6 +4513,7 @@ XLX.app = (function () {
       case "plugin": return D.plugin && D.plugin.render ? D.plugin.render() : placeholder("dramaPlugin", "Blender 插件", "3D 白模 一键成片（建设中）");
       case "changelog": return D.changelog && D.changelog.render ? D.changelog.render() : placeholder("dramaChangelog", "版本更新记录", "更新日志（建设中）");
       case "toolkit": return D.toolkit && D.toolkit.render ? D.toolkit.render() : placeholder("dramaToolkit", "工具包", "软件工坊 / 工具箱 / 技能库（建设中）");
+      case "dramaAgent": return D.dramaAgent && D.dramaAgent.render ? D.dramaAgent.render() : null;
       case "drama": return D.manual && D.manual.render ? D.manual.render() : null;
       case "studio": return XLX.studio && XLX.studio.render();
       case "tools": return XLX.tools && XLX.tools.render();
@@ -4526,7 +4531,9 @@ XLX.app = (function () {
     const list = (SH.navForZone ? SH.navForZone(zone) : SH.NAV) || [];
     const pick = (String(currentView).indexOf("ecom") === 0)
       ? ["ecomHome", "ecomDraw", "ecomDetail", "ecomMainEdit", "ecomGallery"]
-      : ["agent", "home", "projects", "box3d", "toolkit"];
+      : (zone === "daily")
+        ? ["agent", "toolkit"]
+        : ["dramaAgent", "home", "projects", "box3d", "tvshow"];
     mn.innerHTML = pick
       .map(id => list.find(x => x.id === id))
       .filter(Boolean)
@@ -4540,7 +4547,8 @@ XLX.app = (function () {
 
   function renderTopbar() {
     const names = {
-      agent: ["Agent", "多平台免费模型 · 流式秒回"],
+      agent: ["日常ai助手", "多平台免费模型 · 流式秒回"],
+      dramaAgent: ["短剧 Agent", "短剧创作 · 一句话起剧 · 拆分镜脚本"],
       home: ["首页", "新建画布 · 最近项目 · 最近上新"],
       projects: ["项目", "工程管理 · 多画布 · 一键起盘"],
       assets: ["资产", "三视图 · 场景卡 · 多参考"],
@@ -4580,11 +4588,12 @@ XLX.app = (function () {
     renderMobileNav();
     window.scrollTo(0, 0);
     const nc = document.getElementById("newChatBtn");
-    if (nc) nc.style.display = (view === "agent") ? "flex" : "none";
+    if (nc) nc.style.display = (view === "agent" || view === "dramaAgent") ? "flex" : "none";
     if (view === "agent") {
       if (XLX.modelsel && XLX.modelsel.render) XLX.modelsel.render(document.getElementById("msContainer"));
       if (document.getElementById("chatInput")) document.getElementById("chatInput").focus();
     }
+    if (view === "dramaAgent" && document.getElementById("daInput")) document.getElementById("daInput").focus();
     renderView(view);
     closeSidebar();
   }
@@ -4658,6 +4667,10 @@ XLX.app = (function () {
     };
     inp.oninput = () => { inp.style.height = "auto"; inp.style.height = Math.min(inp.scrollHeight, 140) + "px"; };
     document.getElementById("newChatBtn").onclick = () => {
+      if (currentView === "dramaAgent" && XLX.drama && XLX.drama.dramaAgent) {
+        XLX.drama.dramaAgent.newConv();
+        return;
+      }
       XLX.chat.newConv();
       XLX.chat.renderCurrent();
       inp.focus();
@@ -4698,6 +4711,10 @@ XLX.app = (function () {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && currentView === "agent") {
         document.getElementById("chatInput").focus();
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && currentView === "dramaAgent") {
+        const da = document.getElementById("daInput");
+        if (da) da.focus();
+      }
       if (e.key === "Escape") {
         const m = document.getElementById("modal");
         if (m.classList.contains("open")) m.classList.remove("open");
@@ -4729,7 +4746,9 @@ XLX.app = (function () {
     initKeys();
     const bootZone = (XLX.dramaShell && XLX.dramaShell.zone) ? XLX.dramaShell.zone() : "drama";
     const bootEcom = XLX.drama && XLX.drama.ecom;
-    go(bootZone === "ecom" ? ((bootEcom && bootEcom.DEFAULT_VIEW) || "ecomHome") : "agent");
+    const bootView = bootZone === "ecom" ? ((bootEcom && bootEcom.DEFAULT_VIEW) || "ecomHome")
+      : (bootZone === "daily" ? "agent" : "home");
+    go(bootView);
     refreshStatus();
     setTimeout(() => {
       const l = document.getElementById("loader");
