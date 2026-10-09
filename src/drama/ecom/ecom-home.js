@@ -7,10 +7,10 @@
 
   /* hero 商品缩略图卡片拼贴（真实商品图） */
   const HERO_COLLAGE = [
-    { img: "pot.jpg", name: "珐琅锅", tag: "主图生成" },
-    { img: "lipstick.jpg", name: "丝绒口红", tag: "详情图" },
-    { img: "detergent.jpg", name: "浓缩洗衣液", tag: "带货视频" },
-    { img: "dress.jpg", name: "连衣裙", tag: "场景图" }
+    { img: "gen/home-hero-1.jpg", name: "珐琅锅", tag: "主图生成" },
+    { img: "gen/home-hero-2.jpg", name: "丝绒口红", tag: "详情图" },
+    { img: "gen/home-hero-3.jpg", name: "浓缩洗衣液", tag: "带货视频" },
+    { img: "gen/home-hero-4.jpg", name: "连衣裙", tag: "场景图" }
   ];
   function heroArt() {
     return '<div class="hero-collage">'
@@ -134,61 +134,61 @@
 
           <div class="feature-grid">
             <div class="feature" data-go="ecomDraw">
-              ${scene("assets/ecom/pot.jpg")}
+              ${scene("assets/ecom/gen/home-feat-1.jpg")}
               <div class="feat-head"><div class="fi a">${ICON_DRAW}</div><h3>AI 作图</h3></div>
               <p>上传商品图，一键生成多平台主图与场景图</p>
               <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
             </div>
             <div class="feature" data-go="ecomVideoHome">
-              ${scene("assets/ecom/dress.jpg")}
+              ${scene("assets/ecom/gen/home-feat-2.jpg")}
               <div class="feat-head"><div class="fi b">${ICON_VIDEO}</div><h3>AI 生成视频</h3></div>
               <p>图生视频，自动加字幕与配音，适配短视频</p>
               <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
             </div>
             <div class="feature" data-go="ecomStyle">
-              ${scene("assets/ecom/pot.jpg")}
+              ${scene("assets/ecom/gen/home-feat-3.jpg")}
               <div class="feat-head"><div class="fi a">${ICON_STYLE}</div><h3>风格复刻</h3></div>
               <p>参考设计图定风格，批量套用到你的产品图</p>
               <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
             </div>
             <div class="feature" data-go="ecomVideoI2V">
-              ${scene("assets/ecom/dress.jpg")}
+              ${scene("assets/ecom/gen/home-feat-4.jpg")}
               <div class="feat-head"><div class="fi b">${ICON_I2V}</div><h3>图生视频</h3></div>
               <p>参考图 + AI 脚本，生成商品讲解视频</p>
               <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
             </div>
             <div class="feature" data-go="ecomVideoCopy">
-              ${scene("assets/ecom/detergent.jpg")}
+              ${scene("assets/ecom/gen/home-feat-5.jpg")}
               <div class="feat-head"><div class="fi c">${ICON_COPY}</div><h3>视频复刻</h3></div>
               <p>上传爆款参考视频，生成同款带货视频</p>
               <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
             </div>
             <div class="feature" data-go="ecomVideoTranslate">
-              ${scene("assets/ecom/toothbrush.jpg")}
+              ${scene("assets/ecom/gen/home-feat-6.jpg")}
               <div class="feat-head"><div class="fi d">${ICON_TRANS}</div><h3>视频翻译</h3></div>
               <p>语音 / 字幕 / 画面文字多语言出海</p>
               <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
             </div>
             <div class="feature" data-go="ecomToolbox">
-              ${scene("assets/ecom/pot.jpg")}
+              ${scene("assets/ecom/gen/home-feat-7.jpg")}
               <div class="feat-head"><div class="fi a">${ICON_TOOLBOX}</div><h3>AI 工具箱</h3></div>
               <p>16 项图片编辑，本地即改即存 + AI 生成</p>
               <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
             </div>
             <div class="feature" data-go="ecomDetailEdit">
-              ${scene("assets/ecom/detergent.jpg")}
+              ${scene("assets/ecom/gen/home-feat-8.jpg")}
               <div class="feat-head"><div class="fi c">${ICON_DETAIL}</div><h3>详情页编辑</h3></div>
               <p>模块库自由排版，长图整页导出</p>
               <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
             </div>
             <div class="feature" data-go="ecomDetail">
-              ${scene("assets/ecom/detergent.jpg")}
+              ${scene("assets/ecom/gen/home-feat-9.jpg")}
               <div class="feat-head"><div class="fi c">${ICON_DETAIL}</div><h3>AI 详情页</h3></div>
               <p>卖点文案 + 模块排版，一键生成整页详情</p>
               <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
             </div>
             <div class="feature" data-go="ecomLocalize">
-              ${scene("assets/ecom/toothbrush.jpg")}
+              ${scene("assets/ecom/gen/home-feat-10.jpg")}
               <div class="feat-head"><div class="fi d">${ICON_LOCAL}</div><h3>跨境本地化</h3></div>
               <p>多语言、多种族模特，素材一键出海</p>
               <div class="go">立即创作 <svg class="ic sm"><use href="#i-arrow"/></svg></div>
@@ -215,7 +215,7 @@
                 + '<h3>' + esc(c.title) + '</h3><p>' + esc(c.desc) + '</p>'
                 + '<ul>' + c.points.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join("") + '</ul>'
                 + '<button class="btn btn-primary" data-go="' + c.go + '" style="width:auto;padding:9px 18px">立即体验<svg class="ic sm"><use href="#i-arrow"/></svg></button></div>'
-                + '<div class="cap-art"><svg class="ic lg"><use href="#i-' + c.icon + '"/></svg></div>'
+                + '<div class="cap-art"><img src="assets/ecom/gen/home-cap-' + (i + 1) + '.jpg" alt="" loading="lazy"></div>'
                 + '</div>';
             }).join("")}
           </div>

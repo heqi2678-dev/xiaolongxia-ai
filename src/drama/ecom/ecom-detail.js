@@ -6,7 +6,7 @@
   const esc = EC.esc;
   const C = EC.const || {};
 
-  const PRODUCTS = ["pot.jpg", "lipstick.jpg", "detergent.jpg", "dress.jpg"].map(function (f) {
+  const PRODUCTS = ["gen/detail-p-1.jpg", "gen/detail-p-2.jpg", "gen/detail-p-3.jpg", "gen/detail-p-4.jpg"].map(function (f) {
     return '<div class="gd-p"><img src="assets/ecom/' + f + '" alt="" loading="lazy"></div>';
   }).join("");
 
@@ -15,9 +15,9 @@
     + '<path d="M44 15L54 15L50 25" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   const DEMO_COLLAGE = [
-    { img: "pot.jpg", tint: "warm", ti: "经典珐琅 凝聚美味", su: "一锅多用 · 锁温聚能" },
-    { img: "lipstick.jpg", tint: "pink", ti: "玫瑰绽放 邂逅芳华", su: "丝绒质地 · 显白持色" },
-    { img: "detergent.jpg", tint: "blue", ti: "洁净如新 守护全家", su: "浓缩配方 · 强效去渍" }
+    { img: "gen/detail-c-1.jpg", tint: "warm", ti: "经典珐琅 凝聚美味", su: "一锅多用 · 锁温聚能" },
+    { img: "gen/detail-c-2.jpg", tint: "pink", ti: "玫瑰绽放 邂逅芳华", su: "丝绒质地 · 显白持色" },
+    { img: "gen/detail-c-3.jpg", tint: "blue", ti: "洁净如新 守护全家", su: "浓缩配方 · 强效去渍" }
   ];
   function demoCols() {
     return DEMO_COLLAGE.map(function (p) {
@@ -474,7 +474,7 @@
       + '<div class="gd-help-tip"><b>1. 主体清晰</b><span>产品图请保证主体完整、无遮挡，建议使用纯色或简洁背景。</span></div>'
       + '<div class="gd-help-tip"><b>2. 多角度更佳</b><span>可上传正面、侧面、背面等多角度图片，AI 生成更准确。</span></div>'
       + '<div class="gd-help-samples">'
-      + ['pot.jpg', 'lipstick.jpg', 'detergent.jpg', 'dress.jpg'].map(function (f) {
+      + ['gen/detail-h-1.jpg', 'gen/detail-h-2.jpg', 'gen/detail-h-3.jpg', 'gen/detail-h-4.jpg'].map(function (f) {
           return '<img src="assets/ecom/' + f + '" alt="">';
         }).join("")
       + '</div></div>';

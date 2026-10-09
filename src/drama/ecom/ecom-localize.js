@@ -71,7 +71,7 @@
               <div class="phone">
                 <div class="phone-screen">
                   <div class="notch"></div>
-                  <div class="phone-shot" data-shot><img src="assets/ecom/dress.jpg" alt=""></div>
+                  <div class="phone-shot" data-shot><img src="assets/ecom/gen/loc-1.jpg" alt=""></div>
                   <div class="vid-badges"><div class="flag" data-flag>MY</div></div>
                   <div class="gen-tag">AI 本地化</div>
                   <div class="caption">

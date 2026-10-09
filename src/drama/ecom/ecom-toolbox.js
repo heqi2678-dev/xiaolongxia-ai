@@ -7,22 +7,22 @@
 
   /* 16 项，顺序对齐 51aic：生成型在前；desc/img 为卡片文案与真实商品缩略图 */
   const TOOLS = [
-    { id: "eraser", label: "消除笔", kind: "gen", icon: "wand", desc: "一键消除，不留痕迹", img: "assets/ecom/detergent.jpg", hint: "涂抹/框选要消除的区域，AI 智能抹除", fields: ["prompt"] },
-    { id: "aiproduct", label: "AI 商品图", kind: "gen", icon: "poster", desc: "一键轻松更换背景图", img: "assets/ecom/skincare.jpg", hint: "用 AI 生成商品展示图", fields: ["prompt", "ratio"] },
-    { id: "aimodel", label: "AI 模特", kind: "gen", icon: "spark", desc: "一键更换真人模特", img: "assets/ecom/dress.jpg", hint: "给商品换上 AI 模特", fields: ["prompt", "ratio"] },
-    { id: "outpaint", label: "AI 扩图", kind: "gen", icon: "crop", desc: "轻松延展画面", img: "assets/ecom/demo/6-1.jpg", hint: "向四周扩展画布并由 AI 补全", fields: ["ratio", "prompt"] },
-    { id: "crop", label: "尺寸裁剪", kind: "canvas", icon: "crop", desc: "自定义裁剪图片尺寸", img: "assets/ecom/demo/1-2.jpg", hint: "按区域裁剪图片", fields: ["crop"] },
-    { id: "resize", label: "修改尺寸", kind: "canvas", icon: "crop", desc: "自定义修改图片尺寸", img: "assets/ecom/demo/4-2.jpg", hint: "调整图片宽高", fields: ["size"] },
-    { id: "sizelabel", label: "尺码标注", kind: "gen", icon: "layers", desc: "商品尺寸标注、电商必备", img: "assets/ecom/demo/3-2.jpg", hint: "生成带尺码标注的图片", fields: ["prompt"] },
-    { id: "watermark", label: "加水印", kind: "canvas", icon: "layers", desc: "加水印防盗图", img: "assets/ecom/demo/6-2.jpg", hint: "平铺文字水印", fields: ["watermark"] },
-    { id: "text", label: "加文字", kind: "canvas", icon: "layers", desc: "添加文字，支持特效文字", img: "assets/ecom/demo/2-2.jpg", hint: "在指定位置添加文字", fields: ["text"] },
-    { id: "frame", label: "加边框", kind: "canvas", icon: "crop", desc: "花样边框、营销氛围", img: "assets/ecom/demo/5-1.jpg", hint: "为图片添加边框", fields: ["frame"] },
-    { id: "filter", label: "滤镜", kind: "canvas", icon: "wand", desc: "多种滤镜风格美化图片", img: "assets/ecom/lipstick.jpg", hint: "一键套用滤镜", fields: ["filter"] },
-    { id: "material", label: "素材", kind: "canvas", icon: "layers", desc: "加素材、打造营销氛围", img: "assets/ecom/demo/2-1.jpg", hint: "叠加素材图片", fields: ["material"] },
-    { id: "mosaic", label: "打马赛克", kind: "canvas", icon: "grid", desc: "一键马赛克遮挡", img: "assets/ecom/toothbrush.jpg", hint: "对区域做马赛克处理", fields: ["mosaic"] },
-    { id: "rotate", label: "翻转旋转", kind: "canvas", icon: "rotate", desc: "旋转镜像，一键调整", img: "assets/ecom/shoes.jpg", hint: "旋转或镜像翻转", fields: ["rotate"] },
-    { id: "adjust", label: "色彩调节", kind: "canvas", icon: "wand", desc: "调节亮度对比饱和度", img: "assets/ecom/demo/5-2.jpg", hint: "调节亮度/对比度/饱和度", fields: ["adjust"] },
-    { id: "doodle", label: "涂鸦", kind: "canvas", icon: "wand", desc: "自由涂画，创意表达", img: "assets/ecom/demo/4-1.jpg", hint: "用画笔在图片上自由涂画", fields: ["doodle"] }
+    { id: "eraser", label: "消除笔", kind: "gen", icon: "wand", desc: "一键消除，不留痕迹", img: "assets/ecom/gen/tool-1.jpg", hint: "涂抹/框选要消除的区域，AI 智能抹除", fields: ["prompt"] },
+    { id: "aiproduct", label: "AI 商品图", kind: "gen", icon: "poster", desc: "一键轻松更换背景图", img: "assets/ecom/gen/tool-2.jpg", hint: "用 AI 生成商品展示图", fields: ["prompt", "ratio"] },
+    { id: "aimodel", label: "AI 模特", kind: "gen", icon: "spark", desc: "一键更换真人模特", img: "assets/ecom/gen/tool-3.jpg", hint: "给商品换上 AI 模特", fields: ["prompt", "ratio"] },
+    { id: "outpaint", label: "AI 扩图", kind: "gen", icon: "crop", desc: "轻松延展画面", img: "assets/ecom/gen/tool-4.jpg", hint: "向四周扩展画布并由 AI 补全", fields: ["ratio", "prompt"] },
+    { id: "crop", label: "尺寸裁剪", kind: "canvas", icon: "crop", desc: "自定义裁剪图片尺寸", img: "assets/ecom/gen/tool-5.jpg", hint: "按区域裁剪图片", fields: ["crop"] },
+    { id: "resize", label: "修改尺寸", kind: "canvas", icon: "crop", desc: "自定义修改图片尺寸", img: "assets/ecom/gen/tool-6.jpg", hint: "调整图片宽高", fields: ["size"] },
+    { id: "sizelabel", label: "尺码标注", kind: "gen", icon: "layers", desc: "商品尺寸标注、电商必备", img: "assets/ecom/gen/tool-7.jpg", hint: "生成带尺码标注的图片", fields: ["prompt"] },
+    { id: "watermark", label: "加水印", kind: "canvas", icon: "layers", desc: "加水印防盗图", img: "assets/ecom/gen/tool-8.jpg", hint: "平铺文字水印", fields: ["watermark"] },
+    { id: "text", label: "加文字", kind: "canvas", icon: "layers", desc: "添加文字，支持特效文字", img: "assets/ecom/gen/tool-9.jpg", hint: "在指定位置添加文字", fields: ["text"] },
+    { id: "frame", label: "加边框", kind: "canvas", icon: "crop", desc: "花样边框、营销氛围", img: "assets/ecom/gen/tool-10.jpg", hint: "为图片添加边框", fields: ["frame"] },
+    { id: "filter", label: "滤镜", kind: "canvas", icon: "wand", desc: "多种滤镜风格美化图片", img: "assets/ecom/gen/tool-11.jpg", hint: "一键套用滤镜", fields: ["filter"] },
+    { id: "material", label: "素材", kind: "canvas", icon: "layers", desc: "加素材、打造营销氛围", img: "assets/ecom/gen/tool-12.jpg", hint: "叠加素材图片", fields: ["material"] },
+    { id: "mosaic", label: "打马赛克", kind: "canvas", icon: "grid", desc: "一键马赛克遮挡", img: "assets/ecom/gen/tool-13.jpg", hint: "对区域做马赛克处理", fields: ["mosaic"] },
+    { id: "rotate", label: "翻转旋转", kind: "canvas", icon: "rotate", desc: "旋转镜像，一键调整", img: "assets/ecom/gen/tool-14.jpg", hint: "旋转或镜像翻转", fields: ["rotate"] },
+    { id: "adjust", label: "色彩调节", kind: "canvas", icon: "wand", desc: "调节亮度对比饱和度", img: "assets/ecom/gen/tool-15.jpg", hint: "调节亮度/对比度/饱和度", fields: ["adjust"] },
+    { id: "doodle", label: "涂鸦", kind: "canvas", icon: "wand", desc: "自由涂画，创意表达", img: "assets/ecom/gen/tool-16.jpg", hint: "用画笔在图片上自由涂画", fields: ["doodle"] }
   ];
   const RATIOS = ["1:1", "3:4", "4:3", "16:9", "9:16"];
 
@@ -404,7 +404,7 @@
     el.querySelector("[data-apply]").disabled = false;
   }
 
-  const SAMPLE = "assets/ecom/pot.jpg";
+  const SAMPLE = "assets/ecom/gen/sample-1.jpg";
   async function loadSample(el) {
     try {
       const a = await EC.store.addFromUrl(SAMPLE, { kind: "upload", name: "试试样片" });

@@ -13,7 +13,7 @@
   function defaults() {
     return [
       { id: "bg", type: "bg", cls: "", grad: ["#e8f0fe", "#cfe0ff"] },
-      { id: "prod", type: "image", cls: "sq-prod", src: "assets/ecom/pot.jpg", x: 50, y: 54, w: 56, h: 56 },
+      { id: "prod", type: "image", cls: "sq-prod", src: "assets/ecom/gen/medit-1.jpg", x: 50, y: 54, w: 56, h: 56 },
       { id: "title", type: "title", cls: "sq-title", text: "夏日清凉好物", x: 50, y: 14, w: 84, size: 32, color: "#1a1a1a", weight: 800 },
       { id: "badge", type: "badge", cls: "sq-badge", text: "限时特惠", x: 82, y: 8, w: 30, size: 15, color: "#ffffff", bg: "#ff4d2e", radius: 20 },
       { id: "price", type: "price", cls: "sq-price", text: "¥ 199", x: 26, y: 88, w: 40, size: 24, color: "#ffffff", bg: "#1c64f4", radius: 10 }

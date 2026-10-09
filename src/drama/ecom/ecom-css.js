@@ -856,7 +856,8 @@
 .ecom-ui .cap-copy ul{margin:0 0 16px;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px}
 .ecom-ui .cap-copy li{position:relative;padding-left:20px;font-size:13px;color:var(--text)}
 .ecom-ui .cap-copy li::before{content:"";position:absolute;left:4px;top:7px;width:7px;height:7px;border-radius:50%;background:var(--primary)}
-.ecom-ui .cap-art{display:grid;place-items:center;aspect-ratio:16/10;border-radius:16px;background:linear-gradient(135deg,rgba(28,100,244,.10),rgba(62,176,255,.16));color:var(--primary)}
+.ecom-ui .cap-art{position:relative;overflow:hidden;display:grid;place-items:center;aspect-ratio:16/10;border-radius:16px;background:linear-gradient(135deg,rgba(28,100,244,.10),rgba(62,176,255,.16));color:var(--primary)}
+.ecom-ui .cap-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .ecom-ui .cap-art .ic.lg{width:56px;height:56px;stroke-width:1.4}
 
 .ecom-ui .why-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}

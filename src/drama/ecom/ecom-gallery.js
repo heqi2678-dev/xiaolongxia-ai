@@ -6,14 +6,14 @@
   const esc = EC.esc;
 
   const DEMO = [
-    { f: "pot.jpg", h: "h3", t: "主图 · 白底", c: "图片" },
-    { f: "dress.jpg", h: "h1", t: "AI 试衣", c: "图片" },
-    { f: "detergent.jpg", h: "h2", t: "详情页", c: "详情页" },
-    { f: "lipstick.jpg", h: "h3", t: "主图换色", c: "图片" },
-    { f: "shoes.jpg", h: "h2", t: "场景合成", c: "图片" },
-    { f: "skincare.jpg", h: "h4", t: "精修白底", c: "图片" },
-    { f: "toothbrush.jpg", h: "h1", t: "海报设计", c: "图片" },
-    { f: "dress.jpg", h: "h4", t: "本地化素材", c: "图片" }
+    { f: "gen/gal-1.jpg", h: "h3", t: "主图 · 白底", c: "图片" },
+    { f: "gen/gal-2.jpg", h: "h1", t: "AI 试衣", c: "图片" },
+    { f: "gen/gal-3.jpg", h: "h2", t: "详情页", c: "详情页" },
+    { f: "gen/gal-4.jpg", h: "h3", t: "主图换色", c: "图片" },
+    { f: "gen/gal-5.jpg", h: "h2", t: "场景合成", c: "图片" },
+    { f: "gen/gal-6.jpg", h: "h4", t: "精修白底", c: "图片" },
+    { f: "gen/gal-7.jpg", h: "h1", t: "海报设计", c: "图片" },
+    { f: "gen/gal-8.jpg", h: "h4", t: "本地化素材", c: "图片" }
   ];
   const CATS = ["全部", "图片", "视频", "详情页", "工具箱"];
   const QUOTA_MAX = 100;

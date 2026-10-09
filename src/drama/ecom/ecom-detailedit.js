@@ -13,10 +13,10 @@
   function uid() { return EC.ui ? EC.ui.uid("md") : "md" + Math.random().toString(36).slice(2, 7); }
   function defaults() {
     return [
-      { id: "m1", type: "image", src: "assets/ecom/detergent.jpg", title: "主图区" },
+      { id: "m1", type: "image", src: "assets/ecom/gen/dedit-1.jpg", title: "主图区" },
       { id: "m2", type: "hero", title: "超能洗衣液", sub: "植萃去渍 · 持久留香 · 母婴可用", color: "#1a1a1a" },
       { id: "m3", type: "params", cells: [["3kg", "大容量"], ["8x", "洁净力"], ["0", "荧光剂"]], color: "#ff4d2e" },
-      { id: "m4", type: "image", src: "assets/ecom/toothbrush.jpg", title: "使用场景" }
+      { id: "m4", type: "image", src: "assets/ecom/gen/dedit-2.jpg", title: "使用场景" }
     ];
   }
   function byId(st, id) { return st.mods.filter(function (m) { return m.id === id; })[0]; }
@@ -25,7 +25,7 @@
   function addByType(el, type) {
     const st = el.__de;
     let m;
-    if (type === "image") m = { id: uid(), type: "image", src: "assets/ecom/pot.jpg", title: "图片模块" };
+    if (type === "image") m = { id: uid(), type: "image", src: "assets/ecom/gen/dedit-3.jpg", title: "图片模块" };
     else if (type === "hero") m = { id: uid(), type: "hero", title: "新品卖点标题", sub: "一句话说明核心优势", color: "#1a1a1a" };
     else if (type === "params") m = { id: uid(), type: "params", cells: [["100%", "纯棉"], ["A类", "标准"], ["可机洗", "易打理"]], color: "#3b82f6" };
     else if (type === "compare") m = { id: uid(), type: "compare", title: "对比图", sub: "使用前后对比", color: "#12b76a" };
