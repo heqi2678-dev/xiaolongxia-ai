@@ -938,6 +938,38 @@
 .ecom-ui .sub-prev{font-size:15px;font-weight:800;line-height:1.2}
 .ecom-ui .sub-style-chips .chip em{font-size:11px;font-style:normal;color:var(--muted)}
 .ecom-ui .sub-style-chips .chip.on em{color:var(--primary)}
+
+/* ---------- AI 工具箱：蓝色 hero + 4 列图文卡片（对齐 51aic） ---------- */
+.ecom-ui .tb-hero{position:relative;flex:0 0 auto;display:flex;align-items:center;gap:34px;background:linear-gradient(115deg,#2b66ff 0%,#4b82ff 52%,#6ea0ff 100%);border-radius:18px;padding:28px 36px;margin-bottom:20px;color:#fff;box-shadow:0 16px 38px rgba(43,102,255,.26);overflow:hidden}
+.ecom-ui .tb-hero:before{content:"";position:absolute;right:-70px;top:-90px;width:300px;height:300px;border-radius:50%;background:rgba(255,255,255,.10);pointer-events:none}
+.ecom-ui .tb-hero-art{position:relative;flex:none;width:316px;height:188px;border-radius:12px;background:rgba(255,255,255,.16);padding:10px}
+.ecom-ui .tb-mock{height:100%;background:#fff;border-radius:9px;display:flex;gap:8px;padding:10px;box-shadow:0 10px 22px rgba(16,24,40,.18);min-width:0}
+.ecom-ui .tb-mock-tools{width:98px;flex:none;display:flex;flex-direction:column;gap:7px;justify-content:center}
+.ecom-ui .tb-mock-row{display:flex;align-items:center;gap:5px;font-size:10px;color:#8a94a6;white-space:nowrap}
+.ecom-ui .tb-mock-row.on{color:var(--primary);font-weight:700}
+.ecom-ui .tb-mock-row svg{width:12px;height:12px;flex:none}
+.ecom-ui .tb-mock-stage{flex:1;border-radius:7px;background:linear-gradient(135deg,#dfe7f5,#eef2f9);display:grid;place-items:center;color:#9fb0c9}
+.ecom-ui .tb-mock-stage svg{width:34px;height:34px}
+.ecom-ui .tb-hero-txt{position:relative;min-width:0;flex:1 1 auto}
+.ecom-ui .tb-hero.page-head{margin-bottom:20px}
+.ecom-ui .tb-hero h1{margin:0 0 12px;font-size:30px;font-weight:800;letter-spacing:-.5px;color:#fff}
+.ecom-ui .tb-hero p{margin:0 0 18px;font-size:13.5px;line-height:1.75;color:rgba(255,255,255,.9);max-width:680px}
+.ecom-ui .tb-hero .btn-primary{background:#fff;color:var(--primary);border:0;box-shadow:0 8px 18px rgba(16,24,40,.18)}
+.ecom-ui .tb-hero .btn-primary:hover{filter:none;background:#f2f6ff}
+.ecom-ui .tb-hero .btn-ghost{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.6)}
+.ecom-ui .tb-hero .btn-ghost:hover{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.85)}
+
+.ecom-ui .tb-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.ecom-ui .tb-grid .tool-card{display:flex;flex-direction:row;align-items:stretch;justify-content:flex-start;gap:0;padding:0;overflow:hidden;min-height:136px;color:var(--text)}
+.ecom-ui .tb-grid .tool-card:hover{border-color:var(--primary);color:var(--text)}
+.ecom-ui .tb-grid .tool-card.on{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+.ecom-ui .tb-info{flex:1;display:flex;flex-direction:column;gap:6px;padding:16px 14px;min-width:0}
+.ecom-ui .tb-title{font-size:15px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ecom-ui .tb-grid .tool-card.on .tb-title{color:var(--primary)}
+.ecom-ui .tb-desc{font-size:12.5px;font-weight:400;color:var(--sub);line-height:1.5}
+.ecom-ui .tb-go{margin-top:auto;width:28px;height:28px;border-radius:50%;border:1px solid var(--border-2);background:#fff;color:var(--muted);display:grid;place-items:center;cursor:pointer;font-size:16px;line-height:1;padding:0;transition:.14s}
+.ecom-ui .tb-go:hover{border-color:var(--primary);color:var(--primary)}
+.ecom-ui .tb-thumb{width:42%;flex:none;background-size:cover;background-position:center;background-color:#eef1f6;border-left:1px solid var(--border)}
 `;
   document.head.appendChild(s);
 })();

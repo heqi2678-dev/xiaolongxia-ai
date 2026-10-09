@@ -5,37 +5,50 @@
   if (!EC) return;
   const esc = EC.esc;
 
-  /* 16 项，顺序对齐 51aic：生成型在前 */
+  /* 16 项，顺序对齐 51aic：生成型在前；desc/img 为卡片文案与真实商品缩略图 */
   const TOOLS = [
-    { id: "eraser", label: "消除笔", kind: "gen", icon: "wand", hint: "涂抹/框选要消除的区域，AI 智能抹除", fields: ["prompt"] },
-    { id: "aiproduct", label: "AI 商品图", kind: "gen", icon: "poster", hint: "用 AI 生成商品展示图", fields: ["prompt", "ratio"] },
-    { id: "aimodel", label: "AI 模特", kind: "gen", icon: "spark", hint: "给商品换上 AI 模特", fields: ["prompt", "ratio"] },
-    { id: "outpaint", label: "AI 扩图", kind: "gen", icon: "crop", hint: "向四周扩展画布并由 AI 补全", fields: ["ratio", "prompt"] },
-    { id: "crop", label: "尺寸裁剪", kind: "canvas", icon: "crop", hint: "按区域裁剪图片", fields: ["crop"] },
-    { id: "resize", label: "修改尺寸", kind: "canvas", icon: "crop", hint: "调整图片宽高", fields: ["size"] },
-    { id: "sizelabel", label: "尺码标注", kind: "gen", icon: "layers", hint: "生成带尺码标注的图片", fields: ["prompt"] },
-    { id: "watermark", label: "加水印", kind: "canvas", icon: "layers", hint: "平铺文字水印", fields: ["watermark"] },
-    { id: "text", label: "加文字", kind: "canvas", icon: "layers", hint: "在指定位置添加文字", fields: ["text"] },
-    { id: "frame", label: "加边框", kind: "canvas", icon: "crop", hint: "为图片添加边框", fields: ["frame"] },
-    { id: "filter", label: "滤镜", kind: "canvas", icon: "wand", hint: "一键套用滤镜", fields: ["filter"] },
-    { id: "material", label: "素材", kind: "canvas", icon: "layers", hint: "叠加素材图片", fields: ["material"] },
-    { id: "mosaic", label: "打马赛克", kind: "canvas", icon: "grid", hint: "对区域做马赛克处理", fields: ["mosaic"] },
-    { id: "rotate", label: "翻转旋转", kind: "canvas", icon: "rotate", hint: "旋转或镜像翻转", fields: ["rotate"] },
-    { id: "adjust", label: "色彩调节", kind: "canvas", icon: "wand", hint: "调节亮度/对比度/饱和度", fields: ["adjust"] },
-    { id: "doodle", label: "涂鸦", kind: "canvas", icon: "wand", hint: "用画笔在图片上自由涂画", fields: ["doodle"] }
+    { id: "eraser", label: "消除笔", kind: "gen", icon: "wand", desc: "一键消除，不留痕迹", img: "assets/ecom/detergent.jpg", hint: "涂抹/框选要消除的区域，AI 智能抹除", fields: ["prompt"] },
+    { id: "aiproduct", label: "AI 商品图", kind: "gen", icon: "poster", desc: "一键轻松更换背景图", img: "assets/ecom/skincare.jpg", hint: "用 AI 生成商品展示图", fields: ["prompt", "ratio"] },
+    { id: "aimodel", label: "AI 模特", kind: "gen", icon: "spark", desc: "一键更换真人模特", img: "assets/ecom/dress.jpg", hint: "给商品换上 AI 模特", fields: ["prompt", "ratio"] },
+    { id: "outpaint", label: "AI 扩图", kind: "gen", icon: "crop", desc: "轻松延展画面", img: "assets/ecom/demo/6-1.jpg", hint: "向四周扩展画布并由 AI 补全", fields: ["ratio", "prompt"] },
+    { id: "crop", label: "尺寸裁剪", kind: "canvas", icon: "crop", desc: "自定义裁剪图片尺寸", img: "assets/ecom/demo/1-2.jpg", hint: "按区域裁剪图片", fields: ["crop"] },
+    { id: "resize", label: "修改尺寸", kind: "canvas", icon: "crop", desc: "自定义修改图片尺寸", img: "assets/ecom/demo/4-2.jpg", hint: "调整图片宽高", fields: ["size"] },
+    { id: "sizelabel", label: "尺码标注", kind: "gen", icon: "layers", desc: "商品尺寸标注、电商必备", img: "assets/ecom/demo/3-2.jpg", hint: "生成带尺码标注的图片", fields: ["prompt"] },
+    { id: "watermark", label: "加水印", kind: "canvas", icon: "layers", desc: "加水印防盗图", img: "assets/ecom/demo/6-2.jpg", hint: "平铺文字水印", fields: ["watermark"] },
+    { id: "text", label: "加文字", kind: "canvas", icon: "layers", desc: "添加文字，支持特效文字", img: "assets/ecom/demo/2-2.jpg", hint: "在指定位置添加文字", fields: ["text"] },
+    { id: "frame", label: "加边框", kind: "canvas", icon: "crop", desc: "花样边框、营销氛围", img: "assets/ecom/demo/5-1.jpg", hint: "为图片添加边框", fields: ["frame"] },
+    { id: "filter", label: "滤镜", kind: "canvas", icon: "wand", desc: "多种滤镜风格美化图片", img: "assets/ecom/lipstick.jpg", hint: "一键套用滤镜", fields: ["filter"] },
+    { id: "material", label: "素材", kind: "canvas", icon: "layers", desc: "加素材、打造营销氛围", img: "assets/ecom/demo/2-1.jpg", hint: "叠加素材图片", fields: ["material"] },
+    { id: "mosaic", label: "打马赛克", kind: "canvas", icon: "grid", desc: "一键马赛克遮挡", img: "assets/ecom/toothbrush.jpg", hint: "对区域做马赛克处理", fields: ["mosaic"] },
+    { id: "rotate", label: "翻转旋转", kind: "canvas", icon: "rotate", desc: "旋转镜像，一键调整", img: "assets/ecom/shoes.jpg", hint: "旋转或镜像翻转", fields: ["rotate"] },
+    { id: "adjust", label: "色彩调节", kind: "canvas", icon: "wand", desc: "调节亮度对比饱和度", img: "assets/ecom/demo/5-2.jpg", hint: "调节亮度/对比度/饱和度", fields: ["adjust"] },
+    { id: "doodle", label: "涂鸦", kind: "canvas", icon: "wand", desc: "自由涂画，创意表达", img: "assets/ecom/demo/4-1.jpg", hint: "用画笔在图片上自由涂画", fields: ["doodle"] }
   ];
   const RATIOS = ["1:1", "3:4", "4:3", "16:9", "9:16"];
 
   const HTML = `<div class="inner" style="display:flex;flex-direction:column;height:100%;min-height:0">
-    <div class="page-head">
-      <h1>电商修图，一站搞定</h1>
-      <p>集合了图片编辑的所有功能（尺寸裁剪、翻转旋转、消除水印、加水印/文字/边框、滤镜/色彩调节、尺码标注、打马赛克、AI扩图、AI商品图、AI模特）图片美化一站式轻松搞定</p>
-      <div style="display:flex;gap:10px;margin-top:10px">
-        <button class="btn btn-primary" data-top-upload style="width:auto;padding:8px 18px"><svg class="ic sm"><use href="#i-upload"/></svg>上传图片</button>
-        <button class="btn btn-ghost" data-try style="width:auto;padding:8px 16px"><svg class="ic sm"><use href="#i-image"/></svg>试试样片</button>
+    <div class="page-head tb-hero">
+      <div class="tb-hero-art">
+        <div class="tb-mock">
+          <div class="tb-mock-tools">
+            <span class="tb-mock-row on"><svg class="ic xs"><use href="#i-wand"/></svg>消除笔</span>
+            <span class="tb-mock-row"><svg class="ic xs"><use href="#i-crop"/></svg>尺寸裁剪</span>
+            <span class="tb-mock-row"><svg class="ic xs"><use href="#i-rotate"/></svg>翻转旋转</span>
+            <span class="tb-mock-row"><svg class="ic xs"><use href="#i-wand"/></svg>色彩调节</span>
+          </div>
+          <div class="tb-mock-stage"><svg class="ic"><use href="#i-image"/></svg></div>
+        </div>
+      </div>
+      <div class="tb-hero-txt">
+        <h1>电商修图，一站搞定</h1>
+        <p>集合了图片编辑的所有功能（尺寸裁剪、翻转旋转、消除水印、加水印/文字/边框、滤镜/色彩调节、尺码标注、打马赛克、AI扩图、AI商品图、AI模特）图片美化一站式轻松搞定</p>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary" data-top-upload style="width:auto;padding:8px 18px"><svg class="ic sm"><use href="#i-upload"/></svg>上传图片</button>
+          <button class="btn btn-ghost" data-try style="width:auto;padding:8px 16px"><svg class="ic sm"><use href="#i-image"/></svg>试试样片</button>
+        </div>
       </div>
     </div>
-    <div class="tool-grid" data-tools style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-bottom:16px"></div>
+    <div class="tb-grid" data-tools></div>
     <div class="split" style="grid-template-columns:1.3fr .7fr;align-items:start">
       <div class="panel" style="display:flex;flex-direction:column;min-height:0">
         <div class="panel-head"><svg class="ic sm"><use href="#i-crop"/></svg><span data-tool-name>编辑器</span>
@@ -260,9 +273,14 @@
     el.innerHTML = '<div class="ecom-ui">' + HTML + "</div>";
     const grid = el.querySelector("[data-tools]");
     grid.innerHTML = TOOLS.map(t =>
-      '<div class="tool-card' + (t.id === el.__tb.tool ? " on" : "") + '" data-id="' + t.id + '" title="' + t.hint + '" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border:1px solid var(--border);border-radius:10px;cursor:pointer">'
-      + '<svg class="ic sm"><use href="#i-' + t.icon + '"/></svg><span style="font-size:11px">' + t.label + "</span>"
-      + '<span class="tool-up" data-card-upload="' + t.id + '">上传图片</span></div>').join("");
+      '<div class="tool-card tb-card' + (t.id === el.__tb.tool ? " on" : "") + '" data-id="' + t.id + '" title="' + esc(t.hint) + '">'
+      + '<div class="tb-info">'
+      + '<b class="tb-title">' + esc(t.label) + '</b>'
+      + '<span class="tb-desc">' + esc(t.desc) + '</span>'
+      + '<button class="tb-go" data-card-upload="' + t.id + '" title="上传图片开始编辑">\u203a</button>'
+      + '</div>'
+      + '<div class="tb-thumb" style="background-image:url(' + t.img + ')"></div>'
+      + '</div>').join("");
     selectTool(el, el.__tb.tool);
     if (el.__tb.snapshot) render(el);
     if (el.__tb.src) {
