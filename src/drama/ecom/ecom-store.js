@@ -295,6 +295,23 @@
       return { url: o.j.url, file: o.j.file };
     });
   }
+
+  /* 商品抠图（AI 分割）：把商品图交网关 rembg 抠成透明 PNG，返回公网/相对地址。
+   * 服务未安装时网关回 501，调用方退回本地抠图。 */
+  function matting(image) {
+    return fetch("/dian/api/drama/matting", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: image || "" })
+    }).then(function (r) {
+      return r.json().catch(function () { return null; }).then(function (j) { return { r: r, j: j }; });
+    }).then(function (o) {
+      if (!o.r.ok || !o.j || !o.j.ok || !o.j.url) {
+        throw err("MATTING_FAIL", (o.j && o.j.error) || "AI 抠图不可用");
+      }
+      return o.j.url;
+    });
+  }
   function extractJson(text) {
     if (!text) return null;
     let s = String(text).trim();
@@ -504,26 +521,25 @@
   }
 
   /* ---------------- 商品锁定合成（主体像素不重绘） ---------------- */
-  /* 纯函数：以边框采样色为背景基准，从四周泛洪标记背景像素；返回掩码 1=背景、2=边缘(羽化)、0=商品。
-   * 泛洪从边界扩散，白色商品区域若被深色包围则保留，避免全局阈值误删内部区域。 */
+  /* 纯函数：本地兜底抠图。返回逐像素 alpha（0=背景，255=商品，中间=软边）。
+   * 以边框采样色为背景基准做泛洪（被商品包围的区域不误删），按到背景色/前景色的距离估计软 alpha，
+   * 并丢弃不接触边界的小连通域（去噪点）。 */
   function cutoutMask(data, w, h, opts) {
     opts = opts || {};
-    const tol = opts.tolerance == null ? 52 : opts.tolerance;
-    const feather = opts.feather == null ? 24 : opts.feather;
-    const n = w * h, mask = new Uint8Array(n);
-    if (!data || !w || !h) return mask;
+    const tol = opts.tolerance == null ? 60 : opts.tolerance;
+    const band = opts.feather == null ? 26 : opts.feather;
+    const n = w * h, alpha = new Uint8Array(n);
+    if (!data || !w || !h) return alpha;
     let r = 0, g = 0, b = 0, c = 0;
     function sample(x, y) { const i = (y * w + x) * 4; r += data[i]; g += data[i + 1]; b += data[i + 2]; c++; }
     for (let x = 0; x < w; x++) { sample(x, 0); sample(x, h - 1); }
     for (let y = 0; y < h; y++) { sample(0, y); sample(w - 1, y); }
-    if (!c) return mask;
+    if (!c) return alpha;
     r /= c; g /= c; b /= c;
-    function near(idx) {
-      const i = idx * 4, dr = data[i] - r, dg = data[i + 1] - g, db = data[i + 2] - b;
-      return Math.sqrt(dr * dr + dg * dg + db * db) <= tol;
-    }
+    function distBg(i) { const dr = data[i] - r, dg = data[i + 1] - g, db = data[i + 2] - b; return Math.sqrt(dr * dr + dg * dg + db * db); }
+    const bg = new Uint8Array(n);
     const stack = [];
-    function seed(idx) { if (!mask[idx] && near(idx)) { mask[idx] = 1; stack.push(idx); } }
+    function seed(idx) { if (!bg[idx] && distBg(idx * 4) <= tol) { bg[idx] = 1; stack.push(idx); } }
     for (let x = 0; x < w; x++) { seed(x); seed((h - 1) * w + x); }
     for (let y = 0; y < h; y++) { seed(y * w); seed(y * w + w - 1); }
     while (stack.length) {
@@ -533,15 +549,53 @@
       if (idx >= w) seed(idx - w);
       if (idx < n - w) seed(idx + w);
     }
-    const edge = new Uint8Array(n);
-    for (let idx = 0; idx < n; idx++) {
-      if (mask[idx]) continue;
-      const x = idx % w;
-      if ((x > 0 && mask[idx - 1] === 1) || (x < w - 1 && mask[idx + 1] === 1) || (idx >= w && mask[idx - w] === 1) || (idx < n - w && mask[idx + w] === 1)) edge[idx] = 1;
+    const minArea = opts.minArea == null ? Math.max(12, Math.round(n * 0.0004)) : opts.minArea;
+    const seen = new Uint8Array(n);
+    for (let s = 0; s < n; s++) {
+      if (bg[s] || seen[s]) continue;
+      const comp = [], st = [s]; seen[s] = 1;
+      let touchesBorder = false;
+      while (st.length) {
+        const idx = st.pop(); comp.push(idx);
+        const x = idx % w;
+        if (x === 0 || x === w - 1 || idx < w || idx >= n - w) touchesBorder = true;
+        if (x > 0 && !bg[idx - 1] && !seen[idx - 1]) { seen[idx - 1] = 1; st.push(idx - 1); }
+        if (x < w - 1 && !bg[idx + 1] && !seen[idx + 1]) { seen[idx + 1] = 1; st.push(idx + 1); }
+        if (idx >= w && !bg[idx - w] && !seen[idx - w]) { seen[idx - w] = 1; st.push(idx - w); }
+        if (idx < n - w && !bg[idx + w] && !seen[idx + w]) { seen[idx + w] = 1; st.push(idx + w); }
+      }
+      if (!touchesBorder && comp.length < minArea) for (let k = 0; k < comp.length; k++) bg[comp[k]] = 1;
     }
-    const out = new Uint8Array(n);
-    for (let idx = 0; idx < n; idx++) out[idx] = mask[idx] ? 1 : (edge[idx] && feather > 0 ? 2 : 0);
-    return out;
+    const dist = new Int16Array(n).fill(-1);
+    const q = [];
+    for (let idx = 0; idx < n; idx++) if (bg[idx]) { dist[idx] = 0; q.push(idx); }
+    for (let head = 0; head < q.length; head++) {
+      const idx = q[head], x = idx % w, d = dist[idx];
+      if (d >= band) continue;
+      if (x > 0 && dist[idx - 1] < 0) { dist[idx - 1] = d + 1; q.push(idx - 1); }
+      if (x < w - 1 && dist[idx + 1] < 0) { dist[idx + 1] = d + 1; q.push(idx + 1); }
+      if (idx >= w && dist[idx - w] < 0) { dist[idx - w] = d + 1; q.push(idx - w); }
+      if (idx < n - w && dist[idx + w] < 0) { dist[idx + w] = d + 1; q.push(idx + w); }
+    }
+    let fr = 0, fg = 0, fb = 0, fc = 0;
+    for (let idx = 0; idx < n; idx++) {
+      if (bg[idx]) continue;
+      const d = dist[idx];
+      if (d >= 0 && d <= band) continue;
+      const i = idx * 4; fr += data[i]; fg += data[i + 1]; fb += data[i + 2]; fc++;
+    }
+    const hasFg = fc > 0;
+    if (hasFg) { fr /= fc; fg /= fc; fb /= fc; }
+    for (let idx = 0; idx < n; idx++) {
+      if (bg[idx]) { alpha[idx] = 0; continue; }
+      const i = idx * 4, d = dist[idx];
+      if (d < 0 || d > band || !hasFg) { alpha[idx] = 255; continue; }
+      const db = distBg(i);
+      const dr = data[i] - fr, dg = data[i + 1] - fg, db2 = data[i + 2] - fb;
+      const df = Math.sqrt(dr * dr + dg * dg + db2 * db2);
+      alpha[idx] = Math.max(0, Math.min(255, Math.round((db / (db + df + 1e-6)) * 255)));
+    }
+    return alpha;
   }
 
   /* 资产/URL -> 可绘制地址：优先同源 blob（避免跨域污染画布）。 */
@@ -558,22 +612,56 @@
     return srcOf(a);
   }
 
-  /* 商品锁定合成：模型只生成场景背景，商品主体按原始像素抠出后合成，光影统一。
+  /* 构造服务端可访问地址（AI 抠图用）：字符串 http/data 直通，本地资产走 publicUrl 换公网地址。 */
+  async function serverUrl(asset) {
+    if (!asset) return "";
+    if (typeof asset === "string") return /^(https?:|data:)/i.test(asset) ? asset : "";
+    if (asset.dataUrl) return asset.dataUrl;
+    if (asset.url && /^https?:\/\//i.test(asset.url)) return asset.url;
+    try { return await EC.store.publicUrl(asset); } catch (e) { return ""; }
+  }
+
+  /* 采样画布平均亮度，用于商品与背景的明度匹配。 */
+  function meanLum(source, w, h) {
+    try {
+      const ctx = source && source.getContext ? source.getContext("2d") : source;
+      if (!ctx || !ctx.getImageData) return 0;
+      const sw = Math.max(1, Math.round(w / 8)), sh = Math.max(1, Math.round(h / 8));
+      const d = ctx.getImageData(0, 0, sw, sh).data;
+      let sum = 0, cnt = 0;
+      for (let i = 0; i < d.length; i += 4) { sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]; cnt++; }
+      return cnt ? sum / cnt : 0;
+    } catch (e) { return 0; }
+  }
+
+  /* 商品锁定合成：模型只生成场景背景，商品主体按原始像素抠出后合成，
+   * 统一接触阴影 + 明度匹配使商品融入背景。优先用网关 AI 抠图，不可用时本地兜底。
    * 环境不支持画布时退回纯背景生成图（locked=false）。 */
   async function lockComposite(opts) {
     opts = opts || {};
     if (!opts.product) throw err("NO_PRODUCT", "请先上传商品图");
     const ratio = opts.ratio || "1:1";
     const scene = opts.prompt || "干净通透的电商场景背景";
-    const bg = await EC.gen.image({ prompt: "电商产品场景背景，画面干净，不要出现商品主体： " + scene, ratio: ratio, hires: !!opts.hires });
-    const result = { url: bg.url, provider: bg.provider, prompt: scene, locked: false };
+    const bgPrompt = "电商产品场景背景，专业棚拍布光，柔和自然光影，浅景深，高级质感，画面干净无文字无水印，不要出现任何商品主体： " + scene;
+    const bg = await EC.gen.image({ prompt: bgPrompt, ratio: ratio, hires: !!opts.hires });
+    const result = { url: bg.url, provider: bg.provider, prompt: scene, locked: false, source: "none" };
+
+    let prodSrc = "", aiMasked = false;
+    if (opts.matting !== false) {
+      try {
+        const su = await serverUrl(opts.product);
+        if (su) { prodSrc = await EC.gen.matting(su); aiMasked = true; result.source = "ai"; }
+      } catch (e) { prodSrc = ""; aiMasked = false; }
+    }
+    if (!prodSrc) prodSrc = await toDrawable(opts.product);
+
     const cv = document.createElement("canvas");
     let ctx = null;
     try { ctx = cv.getContext && cv.getContext("2d"); } catch (e) { ctx = null; }
     if (!ctx || !ctx.getImageData) return result;
     try {
       const bgImg = await loadImage(await toDrawable(bg.url));
-      const prodImg = await loadImage(await toDrawable(opts.product));
+      const prodImg = await loadImage(prodSrc);
       const WIDTH = bgImg.naturalWidth || bgImg.width || 1024;
       const HEIGHT = bgImg.naturalHeight || bgImg.height || 1024;
       cv.width = WIDTH; cv.height = HEIGHT;
@@ -583,23 +671,38 @@
       const ph = prodImg.naturalHeight || prodImg.height || 1;
       const pc = document.createElement("canvas"); pc.width = pw; pc.height = ph;
       const pctx = pc.getContext("2d"); pctx.drawImage(prodImg, 0, 0);
-      const imgData = pctx.getImageData(0, 0, pw, ph);
-      const mask = cutoutMask(imgData.data, pw, ph, opts);
-      const px = imgData.data;
-      for (let i = 0; i < mask.length; i++) {
-        if (mask[i] === 1) px[i * 4 + 3] = 0;
-        else if (mask[i] === 2) px[i * 4 + 3] = Math.min(px[i * 4 + 3], 128);
+      if (!aiMasked) {
+        const imgData = pctx.getImageData(0, 0, pw, ph);
+        const mask = cutoutMask(imgData.data, pw, ph, opts);
+        const px = imgData.data;
+        for (let i = 0; i < mask.length; i++) px[i * 4 + 3] = Math.min(px[i * 4 + 3], mask[i]);
+        pctx.putImageData(imgData, 0, 0);
       }
-      pctx.putImageData(imgData, 0, 0);
 
       const scale = opts.scale == null ? 0.74 : opts.scale;
       const k = Math.min((WIDTH * scale) / pw, (HEIGHT * scale) / ph);
       const dw = Math.max(1, Math.round(pw * k)), dh = Math.max(1, Math.round(ph * k));
       const dx = Math.round((WIDTH - dw) / 2), dy = Math.round(HEIGHT - dh - HEIGHT * 0.06);
+
+      const sw = dw * 0.92, sh = Math.max(6, dh * 0.1);
+      const scx = dx + dw / 2, scy = dy + dh - sh * 0.14;
+      const grad = ctx.createRadialGradient(scx, scy, 0, scx, scy, sw / 2);
+      grad.addColorStop(0, "rgba(0,0,0,0.34)");
+      grad.addColorStop(0.6, "rgba(0,0,0,0.16)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
       ctx.save();
-      ctx.shadowColor = "rgba(0,0,0,0.28)";
+      ctx.translate(scx, scy); ctx.scale(1, sh / sw);
+      ctx.beginPath(); ctx.arc(0, 0, sw / 2, 0, Math.PI * 2);
+      ctx.fillStyle = grad; ctx.fill();
+      ctx.restore();
+
+      const lbg = meanLum(ctx, WIDTH, HEIGHT), lprod = meanLum(pctx, pw, ph);
+      const bright = lbg > 1 && lprod > 1 ? Math.max(0.86, Math.min(1.18, lbg / lprod)) : 1;
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,0.26)";
       ctx.shadowBlur = Math.round(HEIGHT * 0.02);
-      ctx.shadowOffsetY = Math.round(HEIGHT * 0.012);
+      ctx.shadowOffsetY = Math.round(HEIGHT * 0.01);
+      try { ctx.filter = "brightness(" + bright.toFixed(3) + ")"; } catch (e) {}
       ctx.drawImage(pc, dx, dy, dw, dh);
       ctx.restore();
       const blob = await canvasToBlob(cv, "image/jpeg", 0.92);
@@ -632,6 +735,6 @@
     src: srcOf, download, downloadBlob, canvasToBlob, loadImage, dataUrlToBlob, blobToDataUrl, publicUrl,
     saveProject, listProjects, removeProject
   };
-  EC.gen = { image: generate, imageSet, resolveRefs, lockSet, lockComposite, cutoutMask, configured: kindConfigured, providerName, ratioWH, pollinationsUrl, llmConfigured, ask, extractJson, stt: transcribe, sttConfigured, ocr: recognizeText, ocrConfigured, video, videoConfigured, tts: synth, ttsConfigured, lipsync, lipsyncConfigured, subtitle };
+  EC.gen = { image: generate, imageSet, resolveRefs, lockSet, lockComposite, cutoutMask, matting, configured: kindConfigured, providerName, ratioWH, pollinationsUrl, llmConfigured, ask, extractJson, stt: transcribe, sttConfigured, ocr: recognizeText, ocrConfigured, video, videoConfigured, tts: synth, ttsConfigured, lipsync, lipsyncConfigured, subtitle };
   EC.ui = { pickFiles, menu, closeMenus, modal, toast, busy, el, uid, err };
 })();

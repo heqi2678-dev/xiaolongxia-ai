@@ -812,32 +812,47 @@ test("风格复刻：成套生成走 imageSet（参考图 + 锚图）", () => {
   assert.match(s, /onProgress: function \(\) \{ done\+\+;/, "进度按张累计");
 });
 
-test("商品锁定：cutoutMask 泛洪抠图（边框为背景基准）", () => {
+test("商品锁定：cutoutMask 本地抠图（边框为背景基准）", () => {
   const { EC } = boot();
   assert.equal(typeof EC.gen.cutoutMask, "function", "cutoutMask 纯函数");
-  const w = 7, h = 7;
+  const w = 9, h = 9;
   const data = new Uint8Array(w * h * 4);
   function setPx(x, y, v) { const i = (y * w + x) * 4; data[i] = data[i + 1] = data[i + 2] = v; data[i + 3] = 255; }
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) setPx(x, y, 255);
-  for (let y = 2; y <= 4; y++) for (let x = 2; x <= 4; x++) setPx(x, y, 0);
-  const mask = EC.gen.cutoutMask(data, w, h, {});
-  assert.equal(mask[0], 1, "角落为背景");
-  assert.equal(mask[3 * w + 3], 0, "商品中心保留");
-  assert.equal(mask[2 * w + 2], 2, "商品边缘标记为羽化");
+  for (let y = 3; y <= 5; y++) for (let x = 3; x <= 5; x++) setPx(x, y, 0);
+  const mask = EC.gen.cutoutMask(data, w, h, { feather: 0, minArea: 0 });
+  assert.equal(mask[0], 0, "角落为背景 alpha=0");
+  assert.equal(mask[4 * w + 4], 255, "商品中心 alpha=255");
   assert.equal(mask.length, w * h, "掩码尺寸一致");
 });
 
 test("商品锁定：被商品包围的白色区域不被误删", () => {
   const { EC } = boot();
-  const w = 7, h = 7;
+  const w = 9, h = 9;
   const data = new Uint8Array(w * h * 4);
   function setPx(x, y, v) { const i = (y * w + x) * 4; data[i] = data[i + 1] = data[i + 2] = v; data[i + 3] = 255; }
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) setPx(x, y, 255);
-  for (let y = 1; y <= 5; y++) for (let x = 1; x <= 5; x++) setPx(x, y, 0);
-  setPx(3, 3, 255);
+  for (let y = 1; y <= 7; y++) for (let x = 1; x <= 7; x++) setPx(x, y, 0);
+  setPx(4, 4, 255);
   const mask = EC.gen.cutoutMask(data, w, h, { feather: 0 });
-  assert.equal(mask[3 * w + 3], 0, "内部白色保留（泛洪不越界）");
-  assert.equal(mask[0], 1, "外部背景仍被识别");
+  assert.equal(mask[4 * w + 4], 255, "内部白色保留（泛洪不越界）");
+  assert.equal(mask[0], 0, "外部背景仍被识别");
+});
+
+test("商品锁定：软边 alpha 与漂浮噪点去除", () => {
+  const { EC } = boot();
+  const w = 40, h = 40;
+  const data = new Uint8Array(w * h * 4);
+  function setPx(x, y, v) { const i = (y * w + x) * 4; data[i] = data[i + 1] = data[i + 2] = v; data[i + 3] = 255; }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) setPx(x, y, 240);
+  for (let y = 12; y < 28; y++) for (let x = 12; x < 28; x++) setPx(x, y, 20);
+  setPx(20, 12, 130);
+  setPx(35, 35, 20);
+  const alpha = EC.gen.cutoutMask(data, w, h, { feather: 3 });
+  assert.equal(alpha[20 * w + 20], 255, "商品内部不透明");
+  assert.equal(alpha[0], 0, "背景透明");
+  assert.ok(alpha[12 * w + 20] > 0 && alpha[12 * w + 20] < 255, "过渡像素为中间 alpha（软边）");
+  assert.equal(alpha[35 * w + 35], 0, "漂浮噪点被清除");
 });
 
 test("商品锁定：lockComposite 无画布时退回背景生成图", async () => {
@@ -847,11 +862,43 @@ test("商品锁定：lockComposite 无画布时退回背景生成图", async () 
   EC.gen.image = async (o) => { calls.push(o); return { url: "https://img.test/bg.png", provider: "stub" }; };
   const r = await EC.gen.lockComposite({ product: { id: "p1" }, prompt: "浅木纹桌面", ratio: "1:1" });
   assert.equal(calls.length, 1, "只生成一张背景");
-  assert.match(calls[0].prompt, /不要出现商品主体/, "背景提示词排除商品主体");
+  assert.match(calls[0].prompt, /不要出现任何商品主体/, "背景提示词排除商品主体");
   assert.match(calls[0].prompt, /浅木纹桌面/, "携带场景描述");
   assert.equal(r.url, "https://img.test/bg.png", "无画布退回背景图");
   assert.equal(r.locked, false, "标记未合成");
   await assert.rejects(() => EC.gen.lockComposite({ prompt: "x" }), /NO_PRODUCT|商品图/, "缺商品图拒绝");
+});
+
+test("商品锁定：EC.gen.matting 调用网关抠图端点", async () => {
+  const okBoot = boot((url) => {
+    if (url === "/dian/api/drama/matting") return Promise.resolve({ ok: true, json: async () => ({ ok: true, url: "https://img.test/cut.png" }) });
+    return Promise.resolve({ ok: false, status: 404, json: async () => ({ ok: false }) });
+  });
+  assert.equal(typeof okBoot.EC.gen.matting, "function", "matting 原语");
+  const url = await okBoot.EC.gen.matting("https://img.test/a.png");
+  assert.equal(url, "https://img.test/cut.png", "返回抠图地址");
+
+  const badBoot = boot(() => Promise.resolve({ ok: false, status: 501, json: async () => ({ ok: false }) }));
+  await assert.rejects(() => badBoot.EC.gen.matting("https://img.test/a.png"), /MATTING_FAIL|抠图/, "端点不可用时报错");
+});
+
+test("商品锁定：lockComposite 优先 AI 抠图并标记来源", async () => {
+  const { EC } = boot((url) => {
+    if (url === "/dian/api/drama/matting") return Promise.resolve({ ok: true, json: async () => ({ ok: true, url: "https://img.test/cut.png" }) });
+    return Promise.resolve({ ok: false, status: 404, json: async () => ({ ok: false }) });
+  });
+  EC.gen.image = async () => ({ url: "https://img.test/bg.png", provider: "stub" });
+  const r = await EC.gen.lockComposite({ product: "data:image/png;base64,AAAA", prompt: "大理石台面" });
+  assert.equal(r.url, "https://img.test/bg.png", "无画布退回背景图");
+  assert.equal(r.source, "ai", "标记走 AI 抠图");
+});
+
+test("商品锁定：AI 抠图不可用时本地兜底", async () => {
+  const { EC } = boot(() => Promise.resolve({ ok: false, status: 501, json: async () => ({ ok: false }) }));
+  EC.gen.image = async () => ({ url: "https://img.test/bg.png", provider: "stub" });
+  const r = await EC.gen.lockComposite({ product: "data:image/png;base64,AAAA", prompt: "x" });
+  assert.equal(r.url, "https://img.test/bg.png", "退回背景图（无画布）");
+  assert.equal(r.source, "none", "未标记 AI 抠图");
 });
 
 test("商品锁定：lockSet 逐张换场景", async () => {

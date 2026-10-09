@@ -1106,6 +1106,70 @@ class GateTests(unittest.TestCase):
         self.assertEqual(code, 400)
         self.assertIn("为空", json.loads(body.decode("utf-8"))["error"])
 
+    def _patch_matting_env(self):
+        old = {k: os.environ.get(k) for k in ("MATTING_PY", "MATTING_WORKER")}
+        def restore():
+            for k, v in old.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        self.addCleanup(restore)
+        return old
+
+    def test_drama_matting_requires_login(self):
+        opener, _ = self.opener()
+        code, _, _ = self.req(opener, "/api/drama/matting", method="POST", json_body={"image": "http://x/y.png"})
+        self.assertEqual(code, 401)
+
+    def test_drama_matting_rejects_missing_image(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        code, body, _ = self.req(opener, "/api/drama/matting", method="POST", json_body={"image": ""})
+        self.assertEqual(code, 400)
+        self.assertIn("商品图片", json.loads(body.decode("utf-8"))["error"])
+    def test_drama_matting_unavailable_when_not_installed(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        self._patch_matting_env()
+        os.environ["MATTING_PY"] = "/nonexistent/python3.11"
+        os.environ["MATTING_WORKER"] = "/nonexistent/worker.py"
+        code, body, _ = self.req(opener, "/api/drama/matting", method="POST", json_body={"image": "http://x/y.png"})
+        self.assertEqual(code, 501)
+        self.assertIn("抠图服务未安装", json.loads(body.decode("utf-8"))["error"])
+
+    def test_drama_matting_runs_worker_and_serves_png(self):
+        opener, _ = self.opener()
+        self.req(opener, "/api/login", method="POST", json_body={"username": "liyu", "password": "friend-pass"})
+        self._patch_matting_env()
+        os.environ["MATTING_PY"] = "/bin/sh"
+        os.environ["MATTING_WORKER"] = __file__
+        gate = self.gate
+        old_dl = gate._download_asset
+        gate._download_asset = lambda url, dest: Path(dest).write_bytes(b"fake-image")
+        old_run = gate.subprocess.run
+
+        def fake_run(args, **kw):
+            Path(args[3]).write_bytes(b"\x89PNG\r\n\x1a\nfake")
+            return gate.subprocess.CompletedProcess(args, 0, b'{"ok": true}')
+
+        gate.subprocess.run = fake_run
+
+        def restore():
+            gate._download_asset = old_dl
+            gate.subprocess.run = old_run
+
+        self.addCleanup(restore)
+        code, body, _ = self.req(opener, "/api/drama/matting", method="POST", json_body={"image": "http://x/y.png"})
+        self.assertEqual(code, 200)
+        obj = json.loads(body.decode("utf-8"))
+        self.assertTrue(obj["ok"])
+        self.assertRegex(obj["file"], r"^[A-Za-z0-9_-]{16,64}\.png$")
+        self.assertTrue(obj["url"].endswith("/dian/pub/" + obj["file"]))
+        saved = gate.DRAMA_PUB_DIR / obj["file"]
+        self.assertTrue(saved.is_file())
+        self.assertEqual(saved.read_bytes(), b"\x89PNG\r\n\x1a\nfake")
+
     def test_drama_pub_missing_file_is_404(self):
         opener, _ = self.opener()
         code, _, _ = self.req(opener, "/pub/" + "a" * 32 + ".mp3")

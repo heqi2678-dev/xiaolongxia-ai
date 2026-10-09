@@ -14,6 +14,7 @@ import socket
 import socketserver
 import sqlite3
 import subprocess
+import tempfile
 import threading
 import time
 import urllib.error
@@ -839,6 +840,54 @@ def _download_asset(url, dest):
         raise ValueError("不支持的素材地址")
     dest.write_bytes(raw)
     return dest
+
+
+# ---------- 商品抠图（AI 分割）：gate 以独立 Python3.11 venv 调起 rembg worker ----------
+DEFAULT_MATTING_PY = os.environ.get("MATTING_PY_DEFAULT", "/home/admin/work/.xlx-matting/venv/bin/python")
+MATTING_TIMEOUT = int(os.environ.get("MATTING_TIMEOUT", "180"))
+
+
+def _matting_python():
+    p = os.environ.get("MATTING_PY", DEFAULT_MATTING_PY)
+    return p if p and os.path.isfile(p) else ""
+
+
+def _matting_worker():
+    p = os.environ.get("MATTING_WORKER", str(GATE_DIR / "matting_worker.py"))
+    return p if p and os.path.isfile(p) else ""
+
+
+def drama_matting(owner, spec):
+    """把商品图抠成透明 PNG，落盘到发布素材目录，返回素材名。"""
+    spec = spec or {}
+    image = str(spec.get("image") or "").strip()
+    if not image:
+        raise ValueError("缺少商品图片")
+    py = _matting_python()
+    worker = _matting_worker()
+    if not py or not worker:
+        raise RuntimeError("抠图服务未安装")
+    with tempfile.TemporaryDirectory(prefix="xlx-matting-") as tmp:
+        src = Path(tmp) / "in.img"
+        dst = Path(tmp) / "out.png"
+        _download_asset(image, src)
+        menv = dict(os.environ)
+        for k in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMBA_NUM_THREADS", "ORT_NUM_THREADS"):
+            menv.setdefault(k, "1")
+        try:
+            r = subprocess.run(
+                [py, worker, str(src), str(dst)],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=MATTING_TIMEOUT, env=menv,
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("抠图超时")
+        if r.returncode != 0 or not dst.is_file():
+            detail = (r.stdout or b"").decode("utf-8", "ignore").strip()[:200]
+            raise RuntimeError("抠图失败：" + (detail or ("worker 退出码 %d" % r.returncode)))
+        DRAMA_PUB_DIR.mkdir(parents=True, exist_ok=True)
+        name = secrets.token_urlsafe(24) + ".png"
+        (DRAMA_PUB_DIR / name).write_bytes(dst.read_bytes())
+    return {"name": name}
 
 
 def _ff_run(args, timeout=DRAMA_COMPOSE_TIMEOUT):
@@ -1903,6 +1952,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/drama/subtitle":
             self._handle_drama_subtitle()
             return
+        if path == "/api/drama/matting":
+            self._handle_drama_matting()
+            return
         if path == "/api/drama/asset":
             self._handle_drama_asset()
             return
@@ -2294,6 +2346,31 @@ class Handler(BaseHTTPRequestHandler):
             self._json(500, {"ok": False, "error": "字幕合成失败，请稍后再试"})
             return
         self._json(200, {"ok": True, "output": out, "url": out["url"], "file": out["file"]})
+
+    def _handle_drama_matting(self):
+        me = self._drama_me()
+        if not me:
+            return
+        obj = self._drama_body()
+        if not obj:
+            self._json(400, {"ok": False, "error": "请求读不懂"})
+            return
+        try:
+            out = drama_matting(me["name"], obj)
+        except ValueError as exc:
+            self._json(400, {"ok": False, "error": str(exc)})
+            return
+        except RuntimeError as exc:
+            self._json(501, {"ok": False, "error": str(exc)})
+            return
+        except subprocess.TimeoutExpired:
+            self._json(504, {"ok": False, "error": "抠图超时，请稍后再试"})
+            return
+        except Exception:
+            self._json(500, {"ok": False, "error": "抠图失败，请稍后再试"})
+            return
+        base = self._public_base()
+        self._json(200, {"ok": True, "file": out["name"], "url": base + "/dian/pub/" + out["name"]})
 
     # ---------- 火山数字人只收公网 URL：/dian/pub/<token>.<ext> 免登录只读 ----------
     def _public_base(self):
