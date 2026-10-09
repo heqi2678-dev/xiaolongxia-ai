@@ -436,7 +436,7 @@ test("视频翻译：字幕位置详细设置九宫格弹窗", async () => {
   assert.equal(el.__vt.subXY.y, 0.1, "取九宫格顶行 y");
 });
 
-test("图生视频：生成记录入口 + 近 30 天空态", async () => {
+test("图生视频：生成记录入口 + 30天内含空态", async () => {
   const { doc, EC } = boot();
   await EC.render("ecomVideoI2V");
   const el = doc.getElementById("ecomVideoI2VView");
@@ -446,7 +446,30 @@ test("图生视频：生成记录入口 + 近 30 天空态", async () => {
   await new Promise(r => setTimeout(r, 30));
   const empty = doc.querySelector(".ed-empty");
   assert.ok(empty, "无记录时展示空态");
-  assert.match(empty.textContent, /30 天/, "空态文案含 30 天");
+  assert.match(empty.textContent, /暂无记录/, "空态文案含暂无记录");
+});
+
+test("上传槽：拖拽 / 粘贴接线（drop + paste 落到上传槽）", async () => {
+  const { w, doc, EC } = boot();
+  await EC.render("ecomVideoI2V");
+  const el = doc.getElementById("ecomVideoI2VView");
+  const dz = el.querySelector("[data-ref]");
+  assert.match(dz.querySelector("b").textContent, /点击\/拖拽\/粘贴上传/, "上传槽提示含拖拽/粘贴");
+
+  const file = new w.File([new Uint8Array([1, 2, 3])], "ref.png", { type: "image/png" });
+  const drop = new w.Event("drop", { bubbles: true });
+  Object.defineProperty(drop, "dataTransfer", { value: { files: [file] } });
+  dz.dispatchEvent(drop);
+  await new Promise(r => setTimeout(r, 40));
+  assert.ok(dz.querySelector("img"), "拖拽后参考图槽渲染图片");
+
+  dz.dispatchEvent(new w.Event("mouseover", { bubbles: true }));
+  const file2 = new w.File([new Uint8Array([4, 5, 6])], "paste.jpg", { type: "image/jpeg" });
+  const paste = new w.Event("paste", { bubbles: true });
+  Object.defineProperty(paste, "clipboardData", { value: { files: [file2] } });
+  doc.dispatchEvent(paste);
+  await new Promise(r => setTimeout(r, 40));
+  assert.ok(dz.querySelector("img"), "粘贴后参考图槽仍渲染图片");
 });
 
 test("AI 工具箱：试试样片入口", async () => {
@@ -610,7 +633,7 @@ test("A+B 对齐：作图来源 / 详情图门控 / 通道弹层 / 复刻按钮 
     await EC.render("ecomVideoI2V");
     const i2v = doc.getElementById("ecomVideoI2VView");
     assert.equal(i2v.querySelector('[data-group="duration"] .chip.on').textContent.trim(), "10秒", "图生视频默认 10 秒");
-    assert.equal(i2v.querySelector('[data-group="ratio"] .chip.on').textContent.trim(), "9:16", "图生视频默认 9:16");
+    assert.equal(i2v.querySelector('[data-group="ratio"] .chip.on').textContent.trim(), "16:9", "图生视频默认 16:9");
     assert.match(i2v.querySelector("[data-ai-write]").textContent, /AI优质帮写视频脚本/, "帮写按钮文案");
     assert.ok(i2v.querySelector("[data-channel-info]"), "通道说明入口");
     i2v.querySelector("[data-channel-info]").click();
@@ -621,7 +644,7 @@ test("A+B 对齐：作图来源 / 详情图门控 / 通道弹层 / 复刻按钮 
     await EC.render("ecomVideoCopy");
     const cp = doc.getElementById("ecomVideoCopyView");
     assert.match(cp.querySelector("[data-run]").textContent, /生成视频提示词/, "复刻主按钮文案");
-    assert.equal(cp.querySelector('[data-group="duration"] .chip.on').textContent.trim(), "10秒", "复刻默认 10 秒");
+    assert.equal(cp.querySelector('[data-group="duration"] .chip.on').textContent.trim(), "15秒", "复刻默认 15 秒");
     assert.ok(cp.querySelector("[data-channel-info]"), "复刻通道说明入口");
   }
   {
@@ -638,7 +661,8 @@ test("A+B 对齐：作图来源 / 详情图门控 / 通道弹层 / 复刻按钮 
     const tb = doc.getElementById("ecomToolboxView");
     assert.ok(tb.querySelector("[data-top-upload]"), "工具箱顶部上传图片");
     assert.equal(tb.querySelectorAll("[data-card-upload]").length, 16, "16 张工具卡内联上传");
-    assert.match(tb.querySelector(".page-head p").textContent, /电商修图，一站搞定/, "工具箱页头综述");
+    assert.match(tb.querySelector(".page-head h1").textContent, /电商修图，一站搞定/, "工具箱页头标题");
+    assert.match(tb.querySelector(".page-head p").textContent, /图片编辑的所有功能/, "工具箱页头综述");
   }
   {
     const { doc, EC } = boot();

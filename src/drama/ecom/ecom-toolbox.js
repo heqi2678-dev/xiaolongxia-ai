@@ -28,8 +28,8 @@
 
   const HTML = `<div class="inner" style="display:flex;flex-direction:column;height:100%;min-height:0">
     <div class="page-head">
-      <h1>AI 工具箱</h1>
-      <p>电商修图，一站搞定：抠图、消除、AI 扩图、换背景、加水印等 16 项图片编辑，本地 Canvas 即改即存。</p>
+      <h1>电商修图，一站搞定</h1>
+      <p>集合了图片编辑的所有功能（尺寸裁剪、翻转旋转、消除水印、加水印/文字/边框、滤镜/色彩调节、尺码标注、打马赛克、AI扩图、AI商品图、AI模特）图片美化一站式轻松搞定</p>
       <div style="display:flex;gap:10px;margin-top:10px">
         <button class="btn btn-primary" data-top-upload style="width:auto;padding:8px 18px"><svg class="ic sm"><use href="#i-upload"/></svg>上传图片</button>
         <button class="btn btn-ghost" data-try style="width:auto;padding:8px 16px"><svg class="ic sm"><use href="#i-image"/></svg>试试样片</button>
@@ -45,7 +45,7 @@
         <div class="panel-body" style="display:flex;justify-content:center;align-items:center;min-height:360px;background:#f5f6f8">
           <div data-drop class="dropzone" style="max-width:420px">
             <div class="dz-ic"><svg class="ic"><use href="#i-upload"/></svg></div>
-            <b>点击上传图片开始编辑</b>
+            <b>点击/拖拽/粘贴上传图片开始编辑</b>
             <p>支持 JPG / PNG / WEBP</p>
           </div>
           <canvas data-canvas style="max-width:100%;max-height:520px;display:none;border-radius:10px;box-shadow:0 8px 24px rgba(16,24,40,.16);cursor:default"></canvas>

@@ -117,7 +117,8 @@
     border:1.5px dashed var(--border-2);border-radius:12px;background:#FAFBFC;padding:20px;text-align:center;cursor:pointer;transition:.16s;
   }
 .ecom-ui .dropzone:hover{border-color:var(--primary);background:var(--primary-soft)}
-.ecom-ui .dropzone .dz-ic{width:42px;height:42px;border-radius:11px;background:#fff;border:1px solid var(--border);display:grid;place-items:center;margin:0 auto 9px;color:var(--primary)}
+  .ecom-ui .dropzone.gd-hover{border-color:var(--primary);border-style:solid;background:var(--primary-soft);box-shadow:0 0 0 3px rgba(0,0,0,.05)}
+  .ecom-ui .dropzone .dz-ic{width:42px;height:42px;border-radius:11px;background:#fff;border:1px solid var(--border);display:grid;place-items:center;margin:0 auto 9px;color:var(--primary)}
 .ecom-ui .dropzone b{font-size:13px}
 .ecom-ui .dropzone p{margin:4px 0 0;font-size:11.5px;color:var(--muted)}
 .ecom-ui .thumb-slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
@@ -380,7 +381,8 @@
 .ecom-ui .prompt-box{border:1.5px solid rgba(28,100,244,.45);background:#fff;box-shadow:0 10px 30px rgba(28,100,244,.10)}
 .ecom-ui .dropzone{border:1.5px dashed var(--border-2);background:#fafbfc}
 .ecom-ui .dropzone:hover{border-color:var(--primary);background:var(--primary-soft)}
-.ecom-ui .dropzone .dz-ic{background:#fff;border:1px solid var(--border)}
+  .ecom-ui .dropzone.gd-hover{border-color:var(--primary);border-style:solid;background:var(--primary-soft);box-shadow:0 0 0 3px rgba(0,0,0,.05)}
+  .ecom-ui .dropzone .dz-ic{background:#fff;border:1px solid var(--border)}
 .ecom-ui .feature:hover{border-color:#cfe0ff}
 .ecom-ui .thumb{background:#eef1f5}
 .ecom-ui .t1{background:linear-gradient(135deg,#1c64f4,#2e59ff)}

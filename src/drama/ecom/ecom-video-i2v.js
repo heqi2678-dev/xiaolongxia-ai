@@ -39,8 +39,8 @@
             <label>参考图（JPG / PNG / WEBP，≤3M）</label>
             <div class="dropzone" data-ref>
               <div class="dz-ic"><svg class="ic"><use href="#i-upload"/></svg></div>
-              <b>点击上传参考图</b>
-              <p>建议使用商品主图或人物图</p>
+              <b>点击/拖拽/粘贴上传参考图</b>
+              <p>支持 3M 以内的 JPG / PNG / WEBP 图片</p>
             </div>
             <p class="note" style="margin-top:8px;font-size:11.5px;color:var(--muted)">不支持上传包含真人脸或成人用品的图片</p>
           </div>
@@ -71,8 +71,8 @@
               <div class="chip">1:1</div>
               <div class="chip">3:4</div>
               <div class="chip">4:3</div>
-              <div class="chip on">9:16</div>
-              <div class="chip">16:9</div>
+              <div class="chip">9:16</div>
+              <div class="chip on">16:9</div>
             </div>
           </div>
           <div class="field">
@@ -122,7 +122,7 @@
     </div>
 
     <div class="i2v-recent" data-history-panel>
-      <div class="label-row" style="margin:24px 0 12px"><label style="font-size:15px;font-weight:800">近 30 天生成记录</label><span style="font-size:12px;color:var(--muted)" data-recent-count></span></div>
+      <div class="label-row" style="margin:24px 0 12px"><label style="font-size:15px;font-weight:800">30天内生成记录</label><span style="font-size:12px;color:var(--muted)" data-recent-count></span></div>
       <div class="i2v-recent-grid" data-recent-list><div class="ed-empty">正在加载…</div></div>
     </div>
   </div>`;
@@ -211,8 +211,8 @@
           return '<div class="hist-item" data-id="' + esc(a.id) + '"><video src="' + esc(EC.store.src(a)) + '" muted playsinline></video>'
             + '<span>' + esc(a.name || "视频") + '</span></div>';
         }).join("") + '</div>'
-      : '<div class="ed-empty">近 30 天还没有生成记录，先生成一个视频吧。</div>';
-    const m = EC.ui.modal({ title: "生成记录 · 近 30 天", body: body, wide: true });
+      : '<div class="ed-empty">暂无记录，先生成一个视频吧。</div>';
+    const m = EC.ui.modal({ title: "生成记录 · 30天内", body: body, wide: true });
     m.body.addEventListener("click", function (e) {
       const it = e.target.closest(".hist-item");
       if (!it) return;
@@ -234,7 +234,7 @@
     }).sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); }).slice(0, 12);
     const cnt = el.querySelector("[data-recent-count]");
     if (cnt) cnt.textContent = vids.length ? "共 " + vids.length + " 条" : "";
-    if (!vids.length) { box.innerHTML = '<div class="ed-empty">近 30 天还没有生成记录，先生成一个视频吧。</div>'; return; }
+    if (!vids.length) { box.innerHTML = '<div class="ed-empty">暂无记录，先生成一个视频吧。</div>'; return; }
     box.innerHTML = vids.map(function (a) {
       return '<div class="hist-item" data-id="' + esc(a.id) + '"><video src="' + esc(EC.store.src(a)) + '" muted playsinline></video><span>' + esc(a.name || "视频") + '</span></div>';
     }).join("");

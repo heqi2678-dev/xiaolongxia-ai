@@ -330,7 +330,35 @@
   }
 
   /* ---------------- 通用 UI ---------------- */
+  /* accept 形如 "image/*"、"video/mp4,video/webm"、".png"，用于拖拽/粘贴文件的类型匹配。 */
+  function acceptMatch(file, accept) {
+    if (!accept) return true;
+    const name = ((file && file.name) || "").toLowerCase();
+    const type = ((file && file.type) || "").toLowerCase();
+    return String(accept).split(",").some(function (raw) {
+      const a = raw.trim().toLowerCase();
+      if (!a) return true;
+      const slash = a.indexOf("/*");
+      if (slash >= 0) {
+        const pre = a.slice(0, slash);
+        if (type.indexOf(pre + "/") === 0) return true;
+        if (pre === "image") return /\.(png|jpe?g|webp|gif|bmp)$/.test(name);
+        if (pre === "video") return /\.(mp4|webm|mov|avi|mkv|mpg|mpeg)$/.test(name);
+        return false;
+      }
+      if (a.charAt(0) === ".") return name.slice(-a.length) === a;
+      return type === a;
+    });
+  }
+
   function pickFiles(accept, multiple) {
+    const staged = EC.ui && EC.ui._dropFiles;
+    if (staged && staged.length) {
+      EC.ui._dropFiles = null;
+      let files = staged.filter(function (f) { return acceptMatch(f, accept); });
+      if (multiple === false) files = files.slice(0, 1);
+      return Promise.resolve(files);
+    }
     return new Promise(function (resolve) {
       const inp = document.createElement("input");
       inp.type = "file"; inp.accept = accept || "image/*"; inp.multiple = multiple !== false;
@@ -347,6 +375,42 @@
     document.addEventListener("click", function () { if (now() - _menuAt > 40) closeMenus(); });
     if (W.addEventListener) W.addEventListener("resize", closeMenus);
   }
+  /* 拖拽 / 粘贴上传：命中 .dropzone 上传槽后，把文件暂存到 EC.ui._dropFiles 并派发一次 click，
+     复用各页既有的委托点击逻辑；其内部调用 pickFiles 时直接取用暂存文件，不再弹出选择框。 */
+  if (!W._ecomUploadBound) {
+    W._ecomUploadBound = true;
+    let lastZone = null;
+    const zoneOf = (e) => (e && e.target && e.target.closest) ? e.target.closest(".dropzone") : null;
+    const filesOf = (dt) => { try { return dt && dt.files ? Array.prototype.slice.call(dt.files) : []; } catch (e) { return []; } };
+    document.addEventListener("dragover", function (e) {
+      const z = zoneOf(e); if (!z) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+      z.classList.add("gd-hover");
+    });
+    document.addEventListener("dragleave", function (e) {
+      const z = zoneOf(e); if (z) z.classList.remove("gd-hover");
+    });
+    document.addEventListener("mouseover", function (e) { const z = zoneOf(e); if (z) lastZone = z; }, true);
+    document.addEventListener("drop", function (e) {
+      const z = zoneOf(e); if (!z) return;
+      e.preventDefault(); z.classList.remove("gd-hover");
+      const fs = filesOf(e.dataTransfer); if (!fs.length) return;
+      EC.ui._dropFiles = fs;
+      try { z.click(); } finally { EC.ui._dropFiles = null; }
+    });
+    document.addEventListener("paste", function (e) {
+      const fs = filesOf(e.clipboardData); if (!fs.length) return;
+      const ae = document.activeElement;
+      let z = (ae && ae.closest && ae.closest(".dropzone")) || lastZone;
+      if (!z || !z.isConnected) z = document.querySelector(".view.active .dropzone");
+      if (!z) return;
+      e.preventDefault();
+      EC.ui._dropFiles = fs;
+      try { z.click(); } finally { EC.ui._dropFiles = null; }
+    });
+  }
+
   function menu(anchor, items) {
     closeMenus();
     _menuAt = now();

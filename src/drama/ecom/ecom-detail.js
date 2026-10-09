@@ -146,6 +146,7 @@
                 </div>
 
                 <button class="btn btn-primary" data-gen disabled style="margin-top:6px"><svg class="ic sm"><use href="#i-spark"/></svg>生成设计规划方案</button>
+                <button class="btn btn-ghost" data-hist-pick style="margin-top:8px"><svg class="ic sm"><use href="#i-lib"/></svg>从历史上传图片中选取</button>
                 <button class="btn btn-ghost" data-export style="margin-top:8px"><svg class="ic sm"><use href="#i-download"/></svg>导出详情长图</button>
               </div>
             </div>
@@ -421,6 +422,8 @@
 
       const aiw = e.target.closest("[data-aiwrite]");
       if (aiw) { aiWrite(el); return; }
+      const hp = e.target.closest("[data-hist-pick]");
+      if (hp) { showHistory(el, "main"); return; }
       const gen = e.target.closest("[data-gen]");
       if (gen) { generate(el, gen); return; }
       const exp = e.target.closest("[data-export]");

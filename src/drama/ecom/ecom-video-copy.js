@@ -35,7 +35,7 @@
             <div data-uptab-pane="local">
               <div class="dropzone" data-video>
                 <div class="dz-ic"><svg class="ic"><use href="#i-upload"/></svg></div>
-                <b>点击上传参考视频</b>
+                <b>点击/拖拽/粘贴上传参考视频</b>
                 <p>爆款视频或竞品视频</p>
               </div>
             </div>
@@ -50,7 +50,7 @@
             <label>上传产品图（JPG / PNG / WEBP，≤10MB）</label>
             <div class="dropzone" data-product>
               <div class="dz-ic"><svg class="ic"><use href="#i-upload"/></svg></div>
-              <b>点击上传产品图</b>
+              <b>点击/拖拽/粘贴上传产品图</b>
               <p>用于替换视频中的商品</p>
             </div>
           </div>
@@ -73,8 +73,8 @@
             <label>视频时长</label>
             <div class="chips" data-group="duration">
               <div class="chip">5秒</div>
-              <div class="chip on">10秒</div>
-              <div class="chip">15秒</div>
+              <div class="chip">10秒</div>
+              <div class="chip on">15秒</div>
             </div>
           </div>
           <div class="field">

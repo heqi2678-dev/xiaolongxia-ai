@@ -35,7 +35,7 @@
             <label>原视频（MP4 / WebM，≤100MB）</label>
             <div class="dropzone" data-src>
               <div class="dz-ic"><svg class="ic"><use href="#i-upload"/></svg></div>
-              <b>点击上传原视频</b>
+              <b>点击/拖拽/粘贴上传原视频</b>
               <p>本地上传，或粘贴下方链接</p>
             </div>
             <div class="ref-row" style="margin-top:8px;display:flex;gap:8px">
