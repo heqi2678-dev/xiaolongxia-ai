@@ -72,12 +72,12 @@ Entries discovered by the Agent during task execution should follow this format:
    - 提交前建议同时跑：drama 前端测试 + drama 端到端 + 店门后端测试 + 对 `src/drama/*` 全部 `node --check` + 真实浏览器布局审计（服务在跑时）。
 
 [Project Knowledge Summary]
-- Date: 2026-09-16（2026-09-21 修订）
-- Context: Discovered by Agent while 向 GitHub 推送本仓库
+- Date: 2026-09-16（2026-09-22 修订）
+- Context: Discovered by Agent while 向 GitHub 推送本仓库与管家仓库
 - Category: Environment Configuration
 - Instructions:
-  - 仓库远端为 `git@github.com:heqi2678-dev/xiaolongxia-ai.git`，本仓库历史直接在 `main` 上提交。
-  - 推送 GitHub 可用仓库部署密钥 `/home/admin/.ssh/id_ed25519_xiaolongxia`（`github.com` 的 Host 配置写在 `/home/admin/.ssh/config`）。以 root 身份提交时 root 没有 GitHub 密钥与 ssh config，直接 `git push` 会 `Permission denied (publickey)`，需显式指定密钥：`GIT_SSH_COMMAND="ssh -i /home/admin/.ssh/id_ed25519_xiaolongxia -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" git push origin main`。
+  - 小龙虾仓库远端 `git@github.com:heqi2678-dev/xiaolongxia-ai.git`，历史在 `main` 上提交；推送用部署密钥 `/home/admin/.ssh/id_ed25519_xiaolongxia`（`github.com` Host 配在 `/home/admin/.ssh/config`）。以 root 提交时 root 无该密钥/config，需显式指定：`GIT_SSH_COMMAND="ssh -i /home/admin/.ssh/id_ed25519_xiaolongxia -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" git push origin main`。
+  - 管家仓库远端 `git@github.com:heqi2678-dev/tonglong-ui.git`（私有），推送用独立部署密钥 `/home/admin/.ssh/id_ed25519_tonglongui`（Deploy keys 已勾 write access）：`GIT_SSH_COMMAND="ssh -i /home/admin/.ssh/id_ed25519_tonglongui -o IdentitiesOnly=yes" git push origin main`。两把密钥相互独立，勿混用。
   - `/root/.ssh/id_drama` 与 `/root/.ssh/config` 在 2026-09-21 已不存在，旧记录作废。
 
 [Project Knowledge Summary]
@@ -180,4 +180,12 @@ Entries discovered by the Agent during task execution should follow this format:
   - 管家目录 `/home/admin/work/tonglong-ui`（线上）已 `git init`（分支 `main`，首提交 `7309752`，`.git` 约 900K）；`.gitignore` 已排除虚拟环境 `ocr311/`、`ocrvenv/`、`__pycache__/`、备份 `*.bak*`、运行时数据 `rooms/`、`inbox/`、`downloads/`、`pub/`、`safety/`、`*.jsonl`，以及凭据 `*.keys.json`、`brains.json`、`works.json`。
   - 管家服务由独立 venv 启动：`/home/admin/.hermes/hermes-agent/venv/bin/python3 -m uvicorn app:app --host 127.0.0.1 --port 9130`；改后端代码后需重启该进程（前端 `index.html` 静态改动无需重启）。
   - 该目录文件多为 `admin` 所有、部分 `root`，git 以 root 操作，已 `git config --global --add safe.directory`。
-  - GitHub 远端已配：`git@github.com:heqi2678-dev/tonglong-ui.git`（私有）；推送用专用部署密钥 `/home/admin/.ssh/id_ed25519_tonglongui`（已在仓库 Deploy keys 中勾选 write access）：`GIT_SSH_COMMAND="ssh -i /home/admin/.ssh/id_ed25519_tonglongui -o IdentitiesOnly=yes" git push origin main`。该密钥只授权 `tonglong-ui` 仓库，与小龙虾的 `id_ed25519_xiaolongxia` 相互独立。
+
+[Project Knowledge Summary]
+- Date: 2026-10-09
+- Context: Discovered by Agent while 新增 `src/drama/*.js` 前端脚本并同步线上
+- Category: Build Methods
+- Instructions:
+  - 新增一个 `src/drama/*.js` 脚本时，除在 `index.html` 按依赖顺序加 `<script>`（须排在使用它的模块之前）外，还必须登记到两处测试基建的 `DRAMA_FILES` 列表：`tests/drama-harness.js` 与 `tests/drama-e2e.js`，否则单测/E2E 里该文件不会被加载、相关断言会因 `XLX.xxx` 未定义而失败。
+  - 测试全过三件套：单测 `cd xiaolongxia-ai && node --test tests/*.test.js`；E2E `NODE_PATH="$(npm root -g)" node tests/drama-e2e.js`；网关 `cd gate && python3 -m unittest test_gate`。
+  - 沙箱工作副本同步线上（`/home/admin/work/xiaolongxia-ai`）时本机 **无 `rsync`**，改用 `scp` 逐文件推送；zsh 下不要用 `SSH=user@host` 再展开 `$SSH`（会 command not found），直接写完整 `scp user@host:...`。改前端静态文件覆盖即生效，无需重启服务。
