@@ -6,7 +6,7 @@ const path = require("path");
 const vm = require("vm");
 
 const DRAMA_FILES = [
-  "config.js", "adapters.js", "adapters/image.js", "adapters/video.js",
+  "config.js", "adapters.js", "adapters/image.js", "adapters/matting.js", "adapters/video.js",
   "adapters/tts.js", "adapters/stt.js", "adapters/ocr.js", "adapters/lipsync.js", "project.js", "character.js",
   "takes.js", "engine.js", "compliance.js", "compose.js", "ui.js",
   "templates.js", "models.js", "home.js",

@@ -66,6 +66,35 @@
     }
   ];
 
+  /* ===== 抠图适配器目录（商品锁定合成）===== */
+  XLX.drama.MATTING_PROVIDERS = [
+    {
+      id: "local",
+      name: "本地 AI 抠图（免费 · 网关）",
+      base: "",
+      keyHint: "无需 Key，由网关 rembg 处理",
+      keyLink: "",
+      free: true,
+      color: "#9aa7bd"
+    },
+    {
+      id: "removebg",
+      name: "remove.bg（云端 · 边缘更佳）",
+      base: "https://api.remove.bg/v1.0",
+      keyHint: "remove.bg API Key",
+      keyLink: "https://www.remove.bg/dashboard#api-key",
+      color: "#4f46e5"
+    },
+    {
+      id: "custom-matting",
+      name: "自定义抠图接口",
+      base: "",
+      keyHint: "POST 返回图片（image/* 或 { url }/{ data[0].b64_json }）",
+      keyLink: "",
+      color: "#10b981"
+    }
+  ];
+
   /* ===== 视频适配器目录（仿真人）===== */
   XLX.drama.VIDEO_PROVIDERS = [
     {
@@ -266,7 +295,7 @@
 
   /* ===== 适配器注册表与解析 ===== */
   XLX.drama.adapterList = function (kind) {
-    return { image: XLX.drama.IMAGE_PROVIDERS, video: XLX.drama.VIDEO_PROVIDERS, tts: XLX.drama.TTS_PROVIDERS, stt: XLX.drama.STT_PROVIDERS, ocr: XLX.drama.OCR_PROVIDERS, lipsync: XLX.drama.LIPSYNC_PROVIDERS }[kind] || [];
+    return { image: XLX.drama.IMAGE_PROVIDERS, matting: XLX.drama.MATTING_PROVIDERS, video: XLX.drama.VIDEO_PROVIDERS, tts: XLX.drama.TTS_PROVIDERS, stt: XLX.drama.STT_PROVIDERS, ocr: XLX.drama.OCR_PROVIDERS, lipsync: XLX.drama.LIPSYNC_PROVIDERS }[kind] || [];
   };
 
   XLX.drama.adapterDef = function (kind, id) {
@@ -327,6 +356,7 @@
   XLX.drama.isConfigured = function (kind) {
     const c = XLX.drama.getAdapterConfig(kind);
     if (c.provider === "pollinations") return true;
+    if (c.provider === "local") return true;
     if (!c.base || c.base.indexOf("your") === 0 || c.base.indexOf("{") >= 0) return false;
     return !!c.key || !!c.appId;
   };

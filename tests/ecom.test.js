@@ -883,6 +883,16 @@ test("商品锁定：EC.gen.matting 调用网关抠图端点", async () => {
   await assert.rejects(() => badBoot.EC.gen.matting("https://img.test/a.png"), /MATTING_FAIL|抠图/, "端点不可用时报错");
 });
 
+test("商品锁定：有抠图适配器时 EC.gen.matting 走适配器", async () => {
+  const { w, EC } = boot();
+  let seen = null;
+  w.XLX.drama.adapters = { matting: { run: async (o) => { seen = o; return "https://img.test/cloud.png"; } } };
+  const url = await EC.gen.matting("https://img.test/a.png", { type: "product" });
+  assert.equal(url, "https://img.test/cloud.png", "返回适配器抠图地址");
+  assert.equal(seen.image, "https://img.test/a.png", "透传商品图地址");
+  assert.equal(seen.type, "product", "透传抠图选项");
+});
+
 test("商品锁定：lockComposite 优先 AI 抠图并标记来源", async () => {
   const { EC } = boot((url) => {
     if (url === "/dian/api/drama/matting") return Promise.resolve({ ok: true, json: async () => ({ ok: true, url: "https://img.test/cut.png" }) });

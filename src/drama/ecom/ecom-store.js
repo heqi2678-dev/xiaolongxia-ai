@@ -296,9 +296,14 @@
     });
   }
 
-  /* 商品抠图（AI 分割）：把商品图交网关 rembg 抠成透明 PNG，返回公网/相对地址。
-   * 服务未安装时网关回 501，调用方退回本地抠图。 */
-  function matting(image) {
+  /* 商品抠图（AI 分割）：优先走抠图适配器（本地网关 / remove.bg / 自定义），
+   * 适配器未加载时回落到网关 rembg。服务未安装时网关回 501，调用方退回本地抠图。 */
+  function matting(image, opts) {
+    const a = D.adapters && D.adapters.matting;
+    if (a && a.run) return a.run(Object.assign({ image: image || "" }, opts || {}));
+    return gateMatting(image);
+  }
+  function gateMatting(image) {
     return fetch("/dian/api/drama/matting", {
       method: "POST", credentials: "same-origin",
       headers: { "Content-Type": "application/json" },

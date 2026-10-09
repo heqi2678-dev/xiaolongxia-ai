@@ -85,15 +85,22 @@
       fields: [{ k: "key", label: "API Key", type: "password" }]
     },
     {
+      id: "removebg", name: "remove.bg", color: "#4f46e5",
+      services: "电商·商品抠图（云端，边缘更佳）",
+      link: "https://www.remove.bg/dashboard#api-key",
+      fields: [{ k: "key", label: "API Key", type: "password", ph: "remove.bg API Key" }]
+    },
+    {
       id: "custom", name: "自定义接口", color: "#9aa7bd",
-      services: "对话 / 生图 / 生视频 / 配音 / 口型 各自一份",
+      services: "对话 / 生图 / 生视频 / 配音 / 口型 / 抠图 各自一份",
       link: "",
       fields: [
         { k: "llm_key", label: "对话 Key", type: "password" },
         { k: "image_key", label: "生图 Key", type: "password" },
         { k: "video_key", label: "生视频 Key", type: "password" },
         { k: "tts_key", label: "配音 Key", type: "password" },
-        { k: "lipsync_key", label: "口型 Key", type: "password" }
+        { k: "lipsync_key", label: "口型 Key", type: "password" },
+        { k: "matting_key", label: "抠图 Key", type: "password" }
       ]
     }
   ];
@@ -112,6 +119,8 @@
     "image.seedream": ["volc-ark", "key"],
     "image.wanx": ["aliyun-bailian", "key"],
     "image.custom": ["custom", "image_key"],
+    "matting.removebg": ["removebg", "key"],
+    "matting.custom": ["custom", "matting_key"],
     "video.seedance": ["volc-ark", "key"],
     "video.kling": ["kling", "accessKey"],
     "video.custom": ["custom", "video_key"],
@@ -125,6 +134,8 @@
   const DRAMA_SID = {
     seedream: "image.seedream",
     wanx: "image.wanx",
+    removebg: "matting.removebg",
+    "custom-matting": "matting.custom",
     seedance: "video.seedance",
     kling: "video.kling",
     volc: "tts.volc",

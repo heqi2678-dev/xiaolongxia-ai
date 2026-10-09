@@ -15,7 +15,7 @@ const ROOT = path.resolve(__dirname, "..");
 const FILES = [
   "src/config.js", "src/util.js", "src/vendor-keys.js",
   "src/drama/config.js", "src/drama/adapters.js",
-  "src/drama/adapters/image.js", "src/drama/adapters/video.js",
+  "src/drama/adapters/image.js", "src/drama/adapters/matting.js", "src/drama/adapters/video.js",
   "src/drama/adapters/tts.js", "src/drama/adapters/stt.js", "src/drama/adapters/ocr.js", "src/drama/adapters/lipsync.js"
 ];
 
@@ -29,11 +29,22 @@ function startMock() {
       try { body = raw ? JSON.parse(raw) : null; } catch (e) { body = null; }
       const p = req.url.split("?")[0];
       const base = "http://127.0.0.1:" + server.address().port;
-      reqs.push({ method: req.method, url: p, headers: req.headers, body });
+      reqs.push({ method: req.method, url: p, headers: req.headers, body, raw });
       const send = (o, code) => {
         res.writeHead(code || 200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(o));
       };
+      const sendPng = () => {
+        res.writeHead(200, { "Content-Type": "image/png" });
+        res.end(Buffer.from("PNGDATA"));
+      };
+      if (p.endsWith("/removebg")) return sendPng();
+      if (p.endsWith("/matting-local")) {
+        if (!body || !body.image) return send({ error: { message: "缺少商品图片" } }, 400);
+        return send({ ok: true, url: base + "/files/local-cut.png" });
+      }
+      if (p.endsWith("/matting-custom-bin")) return sendPng();
+      if (p.endsWith("/matting-custom")) return send({ url: base + "/files/custom-cut.png" });
       if (p.endsWith("/images/generations")) {
         if (body && String(body.prompt).includes("B64")) return send({ data: [{ b64_json: Buffer.from("IMG").toString("base64") }] });
         return send({ data: [{ url: base + "/files/img.png" }] });
@@ -371,4 +382,52 @@ test("口型：火山数字人走签名网关", async () => {
   assert.equal(payload.key, "AKID");
   assert.equal(payload.secret, "SECRET");
   assert.equal(payload.body.req_key, "jimeng_realman_avatar_picture_omni_v15");
+});
+
+test("抠图：本地网关返回抠图地址", async () => {
+  const m = await startMock();
+  try {
+    const { D } = boot();
+    D.setAdapterConfig("matting", { provider: "local", base: m.base + "/matting-local" });
+    const out = await D.adapters.matting.run({ image: "https://cdn/a.png" });
+    assert.equal(out, m.base + "/files/local-cut.png");
+    const r = findReq(m.reqs, "POST", "/matting-local");
+    assert.equal(r.body.image, "https://cdn/a.png");
+  } finally { m.close(); }
+});
+
+test("抠图：remove.bg 带 Key、公网地址走 image_url", async () => {
+  const m = await startMock();
+  try {
+    const { D } = boot();
+    D.setAdapterConfig("matting", { provider: "removebg", base: m.base, key: "RBKEY" });
+    const out = await D.adapters.matting.run({ image: "https://cdn/p.png" });
+    assert.equal(out, "blob:test/x", "返回 blob URL");
+    const r = findReq(m.reqs, "POST", "/removebg");
+    assert.equal(r.headers["x-api-key"], "RBKEY");
+    assert.match(r.raw, /name="image_url"/, "公网地址走 image_url");
+    assert.match(r.raw, /https:\/\/cdn\/p\.png/);
+  } finally { m.close(); }
+});
+
+test("抠图：remove.bg 缺 Key 拒绝", async () => {
+  const { D } = boot();
+  D.setAdapterConfig("matting", { provider: "removebg", base: "https://api.remove.bg/v1.0", key: "" });
+  await assert.rejects(() => D.adapters.matting.run({ image: "https://cdn/p.png" }), /NO_KEY|remove\.bg/);
+});
+
+test("抠图：自定义接口解析 JSON 与二进制图片", async () => {
+  const m = await startMock();
+  try {
+    const { D } = boot();
+    D.setAdapterConfig("matting", { provider: "custom-matting", base: m.base + "/matting-custom", key: "CK" });
+    const out = await D.adapters.matting.run({ image: "https://cdn/a.png" });
+    assert.equal(out, m.base + "/files/custom-cut.png");
+    const r = findReq(m.reqs, "POST", "/matting-custom");
+    assert.equal(r.headers.authorization, "Bearer CK");
+
+    D.setAdapterConfig("matting", { provider: "custom-matting", base: m.base + "/matting-custom-bin", key: "" });
+    const bin = await D.adapters.matting.run({ image: "https://cdn/a.png" });
+    assert.equal(bin, "blob:test/x", "二进制回包转 blob URL");
+  } finally { m.close(); }
 });

@@ -87,6 +87,15 @@ test("厂商钥匙库：未知 provider 返回空对象", () => {
   assert.deepEqual(xv.dramaResolve("pollinations"), {});
 });
 
+test("厂商钥匙库：抠图 remove.bg / 自定义各自取样", () => {
+  const { xv } = load();
+  xv.set("removebg", { key: "rb-1" });
+  assert.equal(xv.dramaResolve("removebg").key, "rb-1");
+  assert.equal(xv.isConfigured("removebg"), true);
+  xv.set("custom", { matting_key: "ck-1" });
+  assert.equal(xv.dramaResolve("custom-matting").key, "ck-1");
+});
+
 test("厂商钥匙库：写穿 syncLlm/syncBrain/syncDrama 只写非空", () => {
   const { xv } = load();
   xv.syncLlm("deepseek", "k1");

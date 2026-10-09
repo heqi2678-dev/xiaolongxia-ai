@@ -166,6 +166,7 @@ XLX.settings = (function () {
 
   const DRAMA_KINDS = [
     { id: "image", name: "文生图（漫剧画面）", desc: "生成每个分镜的画面，漫剧的核心。" },
+    { id: "matting", name: "抠图（商品锁定合成）", desc: "电商商品锁定合成时抠出商品主体。默认本地网关免费；想边缘更好可切 remove.bg 或自定义接口。" },
     { id: "video", name: "图生视频（仿真人剧）", desc: "用首帧生成视频，仿真人剧的核心。推荐火山方舟 Seedance。" },
     { id: "tts", name: "语音合成（配音）", desc: "把台词转成自然的配音。推荐火山语音。" },
     { id: "stt", name: "语音识别（视频翻译）", desc: "把视频/音频里的语音转成文字与时间轴，视频翻译用。推荐火山引擎录音文件识别大模型。" },
@@ -256,7 +257,7 @@ XLX.settings = (function () {
     return ''
       + '<div class="set-card">'
       + '<h3><span class="hic">' + svg("film", 15) + '</span>短剧服务（导演台）</h3>'
-      + '<p class="sd">AI 短剧工作台用这里的六类服务。<b>漫剧</b>只需「文生图 + 语音」；<b>仿真人剧</b>还需「图生视频 + 口型」。所有 Key 只保存在浏览器本地，不会上传。填之前可先在导演台里体验。<b style="color:var(--green)">没有 API Key 也能先出剧本与分镜</b>，但生成画面/配音必须配置对应服务。</p>'
+      + '<p class="sd">AI 短剧工作台与电商商品锁定合成用这里的服务。<b>漫剧</b>只需「文生图 + 语音」；<b>仿真人剧</b>还需「图生视频 + 口型」；<b>商品锁定合成</b>的抠图默认本地网关免费，也可切云端。所有 Key 只保存在浏览器本地，不会上传。填之前可先在导演台里体验。<b style="color:var(--green)">没有 API Key 也能先出剧本与分镜</b>，但生成画面/配音必须配置对应服务。</p>'
       + DRAMA_KINDS.map(dramaKindBlock).join("")
       + '<div class="set-row"><div class="lab"><div class="t">保存短剧服务</div><div class="d">保存后立即在短剧工作台生效</div></div>'
       + '<div class="val"><button class="btn primary small" id="dramaSave">保存</button></div></div>'
