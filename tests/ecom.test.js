@@ -714,3 +714,30 @@ test("展示层（C）：工具条 / hero 入口 / 能力区 / 角色卡 / 平�
   assert.equal(dr.querySelector(".pp-topbar"), null, "功能页不挂载工具条");
   assert.equal(dr.querySelector(".pp-foot"), null, "功能页不挂载页脚");
 });
+
+test("AI 作图：灵感推荐使用本地真实示例图（不再外链）", () => {
+  const s = src("ecom-draw.js");
+  assert.ok(!/oss\.fzputi\.com/.test(s), "灵感推荐不再引用外部 CDN");
+  assert.match(s, /DEMO_BASE = "assets\/ecom\/demo\/"/, "灵感推荐指向本地素材目录");
+  for (let i = 1; i <= 6; i++) {
+    ["1", "2"].forEach((suf) => {
+      const f = path.join(ROOT, "assets/ecom/demo", i + "-" + suf + ".jpg");
+      assert.ok(fs.existsSync(f), "存在本地示例图 " + i + "-" + suf + ".jpg");
+    });
+  }
+});
+
+test("AI 作图：上传槽来源浮层可展开/关闭（排版修复）", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomDraw");
+  const el = doc.getElementById("ecomDrawView");
+  const slot = el.querySelector(".upload-slot");
+  assert.ok(slot.querySelector(".slot-src [data-local-up]"), "浮层含本地上传");
+  assert.ok(slot.querySelector(".slot-src [data-asset-pick]"), "浮层含我的资产");
+  slot.click();
+  assert.ok(slot.classList.contains("open"), "点击上传槽展开来源浮层");
+  const other = el.querySelector(".comp-text");
+  other.click();
+  assert.ok(!slot.classList.contains("open"), "点击别处关闭来源浮层");
+});
+

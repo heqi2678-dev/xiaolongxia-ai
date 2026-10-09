@@ -241,7 +241,7 @@
 .ecom-ui .tool-card.on{background:var(--primary-soft);border-color:var(--primary);color:var(--primary)}
 .ecom-ui .prompt-box{border:1.5px solid var(--primary);border-radius:16px;padding:16px;background:#fff;box-shadow:0 10px 30px rgba(255,77,46,.10)}
 .ecom-ui .prompt-main{display:flex;gap:12px}
-.ecom-ui .upload-slot{width:72px;height:72px;border-radius:12px;border:1.5px dashed var(--border-2);flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);gap:3px;cursor:pointer;font-size:11px;transition:.14s}
+.ecom-ui .upload-slot{width:72px;height:72px;border-radius:12px;border:1.5px dashed var(--border-2);flex:none;position:relative;overflow:visible;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);gap:3px;cursor:pointer;font-size:11px;transition:.14s}
 .ecom-ui .upload-slot:hover{border-color:var(--primary);color:var(--primary)}
 .ecom-ui .prompt-box textarea{flex:1;border:0;outline:0;resize:none;min-height:72px;font-family:inherit;font-size:14px;line-height:1.6;color:var(--text);background:transparent}
 .ecom-ui .prompt-box textarea::placeholder{color:var(--muted)}
@@ -775,9 +775,10 @@
 .ecom-ui .hist-item video,.modal .hist-item video{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;background:#0e0f13}
 
 /* AI 作图：上传来源切换 */
-.ecom-ui .slot-src{display:flex;gap:8px;margin-top:10px}
-.ecom-ui .slot-src-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--text2);font-size:12.5px;font-weight:600;cursor:pointer;transition:.14s}
-.ecom-ui .slot-src-btn:hover{border-color:var(--primary);color:var(--primary)}
+.ecom-ui .slot-src{position:absolute;top:100%;left:0;z-index:40;display:none;flex-direction:column;gap:4px;margin-top:0;padding:6px;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 36px rgba(15,23,42,.18);min-width:124px}
+.ecom-ui .upload-slot:hover .slot-src,.ecom-ui .upload-slot:focus-within .slot-src,.ecom-ui .upload-slot.open .slot-src{display:flex}
+.ecom-ui .slot-src-btn{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border:0;border-radius:8px;background:transparent;color:var(--text2);font-size:12.5px;font-weight:600;white-space:nowrap;cursor:pointer;transition:.14s}
+.ecom-ui .slot-src-btn:hover{background:var(--primary-soft);color:var(--primary)}
 .asset-pick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-height:420px;overflow-y:auto}
 .asset-pick-grid .hist-item{cursor:pointer}
 

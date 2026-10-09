@@ -70,14 +70,14 @@
   ];
 
   /* 灵感推荐：与爱创 AI 作图页 demos 一致（图、参考图、功能、提示词） */
-  const DEMO_BASE = "https://oss.fzputi.com/aliProject/ai/make-image/demos/";
+  const DEMO_BASE = "assets/ecom/demo/";
   const DEMOS = [
-    { image: DEMO_BASE + "1-1.png", referImage: DEMO_BASE + "1-2.png", feature: "场景图", prompt: "为这款男士休闲板鞋设计一张高质感使用场景图。场景为休闲街拍环境，搭配一位年轻男性模特，穿着简约休闲服饰，如米色休闲裤、牛仔裤、白T或衬衫，动作自然，突出鞋子的上脚效果。" },
-    { image: DEMO_BASE + "2-1.png", referImage: DEMO_BASE + "2-2.png", feature: "促销海报", prompt: "为这款奶咖色女士手提包设计一张促销海报。海报上方展示“优雅通勤，从容出发”，下方展示“限时特惠 ¥399、日常价 ¥599、新品立减200元、前100名赠精美丝巾”，整体排版简洁高级，留白充足，促销信息清晰但不过度喧闹。" },
-    { image: DEMO_BASE + "3-1.png", referImage: DEMO_BASE + "3-2.png", feature: "卖点图", prompt: "为这款白银配色的无叶塔式风扇设计一张用于 Amazon 平台的英文卖点图。画面整体采用简洁、专业、清爽的亚马逊电商风格。商品作为主视觉居中展示，四周搭配 4–5 个英文卖点模块，每个模块包含简短标题、简洁说明文字和对应图标。卖点方向可围绕 bladeless safety、powerful airflow、quiet operation、slim modern design、easy operation 等展开。整体色调以 white、light gray、silver、soft blue 为主，可加入轻微气流线条和局部功能放大元素，增强科技感与信息表达。" },
-    { image: DEMO_BASE + "4-1.png", referImage: DEMO_BASE + "4-2.png", feature: "模特试穿", prompt: "为这款浅蓝色男士短袖T恤设计一张模特试穿图。使用一位20–30岁、气质阳光自然的男性模特，身材匀称，穿搭简洁清爽，可搭配卡其休闲裤、浅色牛仔裤或白色休闲鞋。模特姿势自然放松，可采用正面站立、轻侧身或行走抓拍等形式，保证胸前图案清晰可见。" },
-    { image: DEMO_BASE + "5-1.png", referImage: DEMO_BASE + "5-2.png", feature: "商品主图", prompt: "基于我的商品生成1张电商主图，平台淘宝，语言要求中文" },
-    { image: DEMO_BASE + "6-1.png", referImage: DEMO_BASE + "6-2.png", feature: "宣传海报", prompt: "为这款 LUMIÈRE 面霜设计一张高端护肤品商品宣传海报。商品作为主视觉居中展示，可搭配柔和高光、水润纹理、玻璃反射或金色光感元素，强化补水滋养和高端美妆感。海报文案可突出“深层保湿、焕亮肤感、滋养修护”等核心卖点，整体版式简洁大气、留白充足、视觉高级，适合商品宣传使用。" }
+    { image: DEMO_BASE + "1-1.jpg", referImage: DEMO_BASE + "1-2.jpg", feature: "场景图", prompt: "为这款男士休闲板鞋设计一张高质感使用场景图。场景为休闲街拍环境，搭配一位年轻男性模特，穿着简约休闲服饰，如米色休闲裤、牛仔裤、白T或衬衫，动作自然，突出鞋子的上脚效果。" },
+    { image: DEMO_BASE + "2-1.jpg", referImage: DEMO_BASE + "2-2.jpg", feature: "促销海报", prompt: "为这款奶咖色女士手提包设计一张促销海报。海报上方展示“优雅通勤，从容出发”，下方展示“限时特惠 ¥399、日常价 ¥599、新品立减200元、前100名赠精美丝巾”，整体排版简洁高级，留白充足，促销信息清晰但不过度喧闹。" },
+    { image: DEMO_BASE + "3-1.jpg", referImage: DEMO_BASE + "3-2.jpg", feature: "卖点图", prompt: "为这款白银配色的无叶塔式风扇设计一张用于 Amazon 平台的英文卖点图。画面整体采用简洁、专业、清爽的亚马逊电商风格。商品作为主视觉居中展示，四周搭配 4–5 个英文卖点模块，每个模块包含简短标题、简洁说明文字和对应图标。卖点方向可围绕 bladeless safety、powerful airflow、quiet operation、slim modern design、easy operation 等展开。整体色调以 white、light gray、silver、soft blue 为主，可加入轻微气流线条和局部功能放大元素，增强科技感与信息表达。" },
+    { image: DEMO_BASE + "4-1.jpg", referImage: DEMO_BASE + "4-2.jpg", feature: "模特试穿", prompt: "为这款浅蓝色男士短袖T恤设计一张模特试穿图。使用一位20–30岁、气质阳光自然的男性模特，身材匀称，穿搭简洁清爽，可搭配卡其休闲裤、浅色牛仔裤或白色休闲鞋。模特姿势自然放松，可采用正面站立、轻侧身或行走抓拍等形式，保证胸前图案清晰可见。" },
+    { image: DEMO_BASE + "5-1.jpg", referImage: DEMO_BASE + "5-2.jpg", feature: "商品主图", prompt: "基于我的商品生成1张电商主图，平台淘宝，语言要求中文" },
+    { image: DEMO_BASE + "6-1.jpg", referImage: DEMO_BASE + "6-2.jpg", feature: "宣传海报", prompt: "为这款 LUMIÈRE 面霜设计一张高端护肤品商品宣传海报。商品作为主视觉居中展示，可搭配柔和高光、水润纹理、玻璃反射或金色光感元素，强化补水滋养和高端美妆感。海报文案可突出“深层保湿、焕亮肤感、滋养修护”等核心卖点，整体版式简洁大气、留白充足、视觉高级，适合商品宣传使用。" }
   ];
   const GALLERY = DEMOS.map(function (d, i) {
     return '<div class="insp-card" data-insp="' + i + '" title="点击套用同款"><div class="insp-thumb"><img src="' + d.image + '" alt="" loading="lazy"></div><span class="insp-tag">' + esc(d.feature) + '</span></div>';
@@ -431,6 +431,8 @@
     el.addEventListener("click", function (e) {
       if (!EC.ui) return;
       const st = el.__draw;
+      const closeSlotMenus = function () { el.querySelectorAll(".upload-slot.open").forEach(function (s) { s.classList.remove("open"); }); };
+      if (!e.target.closest(".upload-slot")) closeSlotMenus();
 
       const del = e.target.closest(".up-del");
       if (del) {
@@ -446,11 +448,12 @@
       }
 
       const assetPick = e.target.closest("[data-asset-pick]");
-      if (assetPick) { e.stopPropagation(); pickAsset(el, assetPick.getAttribute("data-asset-pick") || "main"); return; }
+      if (assetPick) { e.stopPropagation(); closeSlotMenus(); pickAsset(el, assetPick.getAttribute("data-asset-pick") || "main"); return; }
 
       const localUp = e.target.closest("[data-local-up]");
       if (localUp) {
         e.stopPropagation();
+        closeSlotMenus();
         const lk = localUp.getAttribute("data-local-up") || "main";
         EC.ui.pickFiles("image/*", true).then(function (files) { if (files.length) addFiles(el, files, lk); });
         return;
@@ -458,8 +461,9 @@
 
       const slot = e.target.closest(".upload-slot");
       if (slot) {
-        const kind = slot.getAttribute("data-slot") || "main";
-        EC.ui.pickFiles("image/*", true).then(function (files) { if (files.length) addFiles(el, files, kind); });
+        const willOpen = !slot.classList.contains("open");
+        closeSlotMenus();
+        if (willOpen) slot.classList.add("open");
         return;
       }
 
