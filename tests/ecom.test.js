@@ -812,3 +812,100 @@ test("风格复刻：成套生成走 imageSet（参考图 + 锚图）", () => {
   assert.match(s, /onProgress: function \(\) \{ done\+\+;/, "进度按张累计");
 });
 
+test("商品锁定：cutoutMask 泛洪抠图（边框为背景基准）", () => {
+  const { EC } = boot();
+  assert.equal(typeof EC.gen.cutoutMask, "function", "cutoutMask 纯函数");
+  const w = 7, h = 7;
+  const data = new Uint8Array(w * h * 4);
+  function setPx(x, y, v) { const i = (y * w + x) * 4; data[i] = data[i + 1] = data[i + 2] = v; data[i + 3] = 255; }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) setPx(x, y, 255);
+  for (let y = 2; y <= 4; y++) for (let x = 2; x <= 4; x++) setPx(x, y, 0);
+  const mask = EC.gen.cutoutMask(data, w, h, {});
+  assert.equal(mask[0], 1, "角落为背景");
+  assert.equal(mask[3 * w + 3], 0, "商品中心保留");
+  assert.equal(mask[2 * w + 2], 2, "商品边缘标记为羽化");
+  assert.equal(mask.length, w * h, "掩码尺寸一致");
+});
+
+test("商品锁定：被商品包围的白色区域不被误删", () => {
+  const { EC } = boot();
+  const w = 7, h = 7;
+  const data = new Uint8Array(w * h * 4);
+  function setPx(x, y, v) { const i = (y * w + x) * 4; data[i] = data[i + 1] = data[i + 2] = v; data[i + 3] = 255; }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) setPx(x, y, 255);
+  for (let y = 1; y <= 5; y++) for (let x = 1; x <= 5; x++) setPx(x, y, 0);
+  setPx(3, 3, 255);
+  const mask = EC.gen.cutoutMask(data, w, h, { feather: 0 });
+  assert.equal(mask[3 * w + 3], 0, "内部白色保留（泛洪不越界）");
+  assert.equal(mask[0], 1, "外部背景仍被识别");
+});
+
+test("商品锁定：lockComposite 无画布时退回背景生成图", async () => {
+  const { EC } = boot();
+  assert.equal(typeof EC.gen.lockComposite, "function", "lockComposite 原语");
+  const calls = [];
+  EC.gen.image = async (o) => { calls.push(o); return { url: "https://img.test/bg.png", provider: "stub" }; };
+  const r = await EC.gen.lockComposite({ product: { id: "p1" }, prompt: "浅木纹桌面", ratio: "1:1" });
+  assert.equal(calls.length, 1, "只生成一张背景");
+  assert.match(calls[0].prompt, /不要出现商品主体/, "背景提示词排除商品主体");
+  assert.match(calls[0].prompt, /浅木纹桌面/, "携带场景描述");
+  assert.equal(r.url, "https://img.test/bg.png", "无画布退回背景图");
+  assert.equal(r.locked, false, "标记未合成");
+  await assert.rejects(() => EC.gen.lockComposite({ prompt: "x" }), /NO_PRODUCT|商品图/, "缺商品图拒绝");
+});
+
+test("商品锁定：lockSet 逐张换场景", async () => {
+  const { EC } = boot();
+  assert.equal(typeof EC.gen.lockSet, "function", "lockSet 原语");
+  const calls = [];
+  EC.gen.image = async (o) => { calls.push(o); return { url: "https://img.test/" + calls.length + ".png", provider: "stub" }; };
+  const prog = [];
+  const out = await EC.gen.lockSet({ product: { id: "p1" }, count: 3, prompt: function (i) { return "场景" + i; }, onProgress: (i, t) => prog.push(i + "/" + t) });
+  assert.equal(calls.length, 3, "按张数生成");
+  assert.match(calls[1].prompt, /场景1/, "逐张换场景提示词");
+  assert.deepEqual(out.map(x => x.index), [0, 1, 2], "返回逐张索引");
+  assert.deepEqual(prog, ["1/3", "2/3", "3/3"], "进度回调");
+});
+
+test("AI 作图：开启商品锁定走 lockSet", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomDraw");
+  const el = doc.getElementById("ecomDrawView");
+  el.querySelector('.tool-card[data-tool="main"]').click();
+  el.__draw.files = [{ id: "p1" }];
+  const lock = el.querySelector("[data-lock]");
+  assert.ok(lock, "主图套图含商品锁定开关");
+  lock.classList.remove("off");
+
+  const sets = [];
+  EC.gen.lockSet = async (o) => { sets.push(o); return [{ index: 0, url: "https://img.test/lock.png", provider: "stub", prompt: typeof o.prompt === "function" ? o.prompt(0) : o.prompt, locked: true }]; };
+  EC.gen.imageSet = async () => { throw new Error("锁定模式不应走 imageSet"); };
+
+  el.querySelector(".send-arrow").click();
+  await new Promise(r => setTimeout(r, 60));
+  assert.equal(sets.length, 1, "调用一次锁定成套");
+  assert.deepEqual(sets[0].product, { id: "p1" }, "传入商品图");
+  assert.equal(sets[0].count, 5, "默认 5 张");
+  assert.equal(typeof sets[0].prompt, "function", "逐张场景提示词工厂");
+});
+
+test("AI 详情图：开启商品锁定走 lockComposite", async () => {
+  const { doc, EC } = boot();
+  await EC.render("ecomDetail");
+  const el = doc.getElementById("ecomDetailView");
+  el.__gd.slots.main = [{ id: "m1" }];
+  el.querySelector('[data-sel="count"] .sel-val').textContent = "2 张";
+  const lock = el.querySelector("[data-lock]");
+  assert.ok(lock, "详情页含商品锁定开关");
+  lock.classList.remove("off");
+
+  EC.gen.resolveRefs = async () => ["https://cdn.test/m1.png"];
+  const locks = [];
+  EC.gen.lockComposite = async (o) => { locks.push(o); return { url: "https://img.test/l" + locks.length + ".png", provider: "stub", locked: true }; };
+  el.querySelector("[data-gen]").disabled = false;
+  el.querySelector("[data-gen]").click();
+  await new Promise(r => setTimeout(r, 80));
+  assert.ok(locks.length >= 2, "逐张走锁定合成");
+  assert.deepEqual(locks[0].product, { id: "m1" }, "锁定使用商品图");
+});
+

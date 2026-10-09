@@ -503,6 +503,128 @@
     return out;
   }
 
+  /* ---------------- 商品锁定合成（主体像素不重绘） ---------------- */
+  /* 纯函数：以边框采样色为背景基准，从四周泛洪标记背景像素；返回掩码 1=背景、2=边缘(羽化)、0=商品。
+   * 泛洪从边界扩散，白色商品区域若被深色包围则保留，避免全局阈值误删内部区域。 */
+  function cutoutMask(data, w, h, opts) {
+    opts = opts || {};
+    const tol = opts.tolerance == null ? 52 : opts.tolerance;
+    const feather = opts.feather == null ? 24 : opts.feather;
+    const n = w * h, mask = new Uint8Array(n);
+    if (!data || !w || !h) return mask;
+    let r = 0, g = 0, b = 0, c = 0;
+    function sample(x, y) { const i = (y * w + x) * 4; r += data[i]; g += data[i + 1]; b += data[i + 2]; c++; }
+    for (let x = 0; x < w; x++) { sample(x, 0); sample(x, h - 1); }
+    for (let y = 0; y < h; y++) { sample(0, y); sample(w - 1, y); }
+    if (!c) return mask;
+    r /= c; g /= c; b /= c;
+    function near(idx) {
+      const i = idx * 4, dr = data[i] - r, dg = data[i + 1] - g, db = data[i + 2] - b;
+      return Math.sqrt(dr * dr + dg * dg + db * db) <= tol;
+    }
+    const stack = [];
+    function seed(idx) { if (!mask[idx] && near(idx)) { mask[idx] = 1; stack.push(idx); } }
+    for (let x = 0; x < w; x++) { seed(x); seed((h - 1) * w + x); }
+    for (let y = 0; y < h; y++) { seed(y * w); seed(y * w + w - 1); }
+    while (stack.length) {
+      const idx = stack.pop(), x = idx % w;
+      if (x > 0) seed(idx - 1);
+      if (x < w - 1) seed(idx + 1);
+      if (idx >= w) seed(idx - w);
+      if (idx < n - w) seed(idx + w);
+    }
+    const edge = new Uint8Array(n);
+    for (let idx = 0; idx < n; idx++) {
+      if (mask[idx]) continue;
+      const x = idx % w;
+      if ((x > 0 && mask[idx - 1] === 1) || (x < w - 1 && mask[idx + 1] === 1) || (idx >= w && mask[idx - w] === 1) || (idx < n - w && mask[idx + w] === 1)) edge[idx] = 1;
+    }
+    const out = new Uint8Array(n);
+    for (let idx = 0; idx < n; idx++) out[idx] = mask[idx] ? 1 : (edge[idx] && feather > 0 ? 2 : 0);
+    return out;
+  }
+
+  /* 资产/URL -> 可绘制地址：优先同源 blob（避免跨域污染画布）。 */
+  async function toDrawable(assetOrUrl) {
+    if (!assetOrUrl) return "";
+    if (typeof assetOrUrl === "string") return assetOrUrl;
+    const a = assetOrUrl;
+    if (a.blob) { try { return W.URL.createObjectURL(a.blob); } catch (e) {} }
+    if (a.dataUrl) return a.dataUrl;
+    if (a.url && /^https?:/i.test(a.url)) {
+      try { const b = await fetch(a.url, { mode: "cors", credentials: "omit" }).then(function (r) { return r.blob(); }); return W.URL.createObjectURL(b); }
+      catch (e) { return a.url; }
+    }
+    return srcOf(a);
+  }
+
+  /* 商品锁定合成：模型只生成场景背景，商品主体按原始像素抠出后合成，光影统一。
+   * 环境不支持画布时退回纯背景生成图（locked=false）。 */
+  async function lockComposite(opts) {
+    opts = opts || {};
+    if (!opts.product) throw err("NO_PRODUCT", "请先上传商品图");
+    const ratio = opts.ratio || "1:1";
+    const scene = opts.prompt || "干净通透的电商场景背景";
+    const bg = await EC.gen.image({ prompt: "电商产品场景背景，画面干净，不要出现商品主体： " + scene, ratio: ratio, hires: !!opts.hires });
+    const result = { url: bg.url, provider: bg.provider, prompt: scene, locked: false };
+    const cv = document.createElement("canvas");
+    let ctx = null;
+    try { ctx = cv.getContext && cv.getContext("2d"); } catch (e) { ctx = null; }
+    if (!ctx || !ctx.getImageData) return result;
+    try {
+      const bgImg = await loadImage(await toDrawable(bg.url));
+      const prodImg = await loadImage(await toDrawable(opts.product));
+      const WIDTH = bgImg.naturalWidth || bgImg.width || 1024;
+      const HEIGHT = bgImg.naturalHeight || bgImg.height || 1024;
+      cv.width = WIDTH; cv.height = HEIGHT;
+      ctx.drawImage(bgImg, 0, 0, WIDTH, HEIGHT);
+
+      const pw = prodImg.naturalWidth || prodImg.width || 1;
+      const ph = prodImg.naturalHeight || prodImg.height || 1;
+      const pc = document.createElement("canvas"); pc.width = pw; pc.height = ph;
+      const pctx = pc.getContext("2d"); pctx.drawImage(prodImg, 0, 0);
+      const imgData = pctx.getImageData(0, 0, pw, ph);
+      const mask = cutoutMask(imgData.data, pw, ph, opts);
+      const px = imgData.data;
+      for (let i = 0; i < mask.length; i++) {
+        if (mask[i] === 1) px[i * 4 + 3] = 0;
+        else if (mask[i] === 2) px[i * 4 + 3] = Math.min(px[i * 4 + 3], 128);
+      }
+      pctx.putImageData(imgData, 0, 0);
+
+      const scale = opts.scale == null ? 0.74 : opts.scale;
+      const k = Math.min((WIDTH * scale) / pw, (HEIGHT * scale) / ph);
+      const dw = Math.max(1, Math.round(pw * k)), dh = Math.max(1, Math.round(ph * k));
+      const dx = Math.round((WIDTH - dw) / 2), dy = Math.round(HEIGHT - dh - HEIGHT * 0.06);
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,0.28)";
+      ctx.shadowBlur = Math.round(HEIGHT * 0.02);
+      ctx.shadowOffsetY = Math.round(HEIGHT * 0.012);
+      ctx.drawImage(pc, dx, dy, dw, dh);
+      ctx.restore();
+      const blob = await canvasToBlob(cv, "image/jpeg", 0.92);
+      result.url = await blobToDataUrl(blob);
+      result.locked = true;
+    } catch (e) { /* 合成失败保留背景生成图 */ }
+    return result;
+  }
+
+  /* 商品锁定成套：同一商品像素，逐张换场景。 */
+  async function lockSet(opts) {
+    opts = opts || {};
+    const count = Math.max(1, Number(opts.count) || 1);
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      if (opts.signal && opts.signal.aborted) throw err("ABORTED", "已取消");
+      const prompt = typeof opts.prompt === "function" ? opts.prompt(i) : opts.prompt;
+      const r = await lockComposite({ product: opts.product, prompt: prompt, ratio: opts.ratio, hires: opts.hires, scale: opts.scale });
+      const item = { index: i, url: r.url, provider: r.provider, prompt: prompt, locked: r.locked };
+      out.push(item);
+      if (typeof opts.onProgress === "function") opts.onProgress(i + 1, count, item);
+    }
+    return out;
+  }
+
   EC.store = {
     ready: openDB,
     addAsset, addFile, addFromUrl, addDataUrl,
@@ -510,6 +632,6 @@
     src: srcOf, download, downloadBlob, canvasToBlob, loadImage, dataUrlToBlob, blobToDataUrl, publicUrl,
     saveProject, listProjects, removeProject
   };
-  EC.gen = { image: generate, imageSet, resolveRefs, configured: kindConfigured, providerName, ratioWH, pollinationsUrl, llmConfigured, ask, extractJson, stt: transcribe, sttConfigured, ocr: recognizeText, ocrConfigured, video, videoConfigured, tts: synth, ttsConfigured, lipsync, lipsyncConfigured, subtitle };
+  EC.gen = { image: generate, imageSet, resolveRefs, lockSet, lockComposite, cutoutMask, configured: kindConfigured, providerName, ratioWH, pollinationsUrl, llmConfigured, ask, extractJson, stt: transcribe, sttConfigured, ocr: recognizeText, ocrConfigured, video, videoConfigured, tts: synth, ttsConfigured, lipsync, lipsyncConfigured, subtitle };
   EC.ui = { pickFiles, menu, closeMenus, modal, toast, busy, el, uid, err };
 })();

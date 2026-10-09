@@ -689,6 +689,7 @@
 /* 作图：模式模板 composer + 行内下拉 */
 .ecom-ui .comp-line{flex:1;min-width:0;font-size:14px;line-height:2.15;color:var(--text)}
 .ecom-ui .comp-sub{margin-top:8px;font-size:12.5px;color:var(--muted);line-height:1.6}
+.ecom-ui .comp-lock{display:flex;align-items:center;gap:9px;margin-top:12px;font-size:12.5px;color:var(--text);cursor:pointer;user-select:none}
 .ecom-ui .comp-extra{width:100%;border:1px solid var(--border-2);border-radius:10px;padding:9px 12px;margin-top:8px;font-family:inherit;font-size:13px;line-height:1.6;color:var(--text);resize:vertical;min-height:54px;outline:0;background:#fff}
 .ecom-ui .comp-extra:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
 .ecom-ui .comp-extra::placeholder{color:var(--muted)}

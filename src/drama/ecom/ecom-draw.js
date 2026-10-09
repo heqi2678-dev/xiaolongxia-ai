@@ -117,7 +117,9 @@
       return '<div class="comp-slots">' + slotHTML("main", "商品图") + slotHTML("detail", "细节图") + '</div>'
         + '<div class="comp-line">请基于我的 ' + nameInput() + ' 生成一套 ' + pill(st.inl.count, "count")
         + ' 的主图套图，平台 ' + pill(st.inl.platform, "platform") + '，语言 ' + pill(st.inl.lang, "lang")
-        + '，生成比例为 ' + pill(st.ratio, "ratio") + '。' + extra + '</div>';
+        + '，生成比例为 ' + pill(st.ratio, "ratio") + '。'
+        + '<label class="comp-lock"><span class="switch off" data-lock></span>商品锁定合成（保留商品原始像素，仅生成场景）</label>'
+        + extra + '</div>';
     }
     if (m.composer === "translate") {
       return slotHTML("main", "") + '<div class="comp-line">将图片翻译成目标语言 ' + pill(st.inl.tlang, "tlang")
@@ -253,7 +255,9 @@
 
   /* 主图套图：按张数成套生成，逐张换构图，共用同一组商品参考图 + 首图锚图锁定一致。 */
   const SET_ANGLES = ["正面平视", "侧面 45°", "俯视平铺", "细节特写", "场景搭配", "背面展示", "斜侧俯拍", "手持展示"];
+  const LOCK_SCENES = ["纯色渐变棚拍背景", "浅木纹桌面场景", "现代家居客厅场景", "户外自然光影场景", "大理石台面场景", "简约纯白影棚场景", "温暖生活氛围场景", "高端商务质感场景"];
   function countNum(s) { const n = parseInt(String(s || ""), 10); return n > 0 ? Math.min(n, 15) : 1; }
+  function lockOn(el) { const s = el.querySelector("[data-lock]"); return !!(s && !s.classList.contains("off")); }
 
   async function doGenerate(el, btn) {
     const st = el.__draw;
@@ -270,19 +274,31 @@
     const hires = st.quality !== "1K";
     const isSet = m.composer === "main";
     const count = isSet ? countNum(st.inl.count) : 1;
+    const lock = isSet && lockOn(el);
     EC.ui.busy(btn, true, isSet ? "0/" + count : "");
     try {
       const refImages = await EC.gen.resolveRefs(st.files.concat(st.detailFiles));
       let promptArg = text;
       if (isSet) {
         const extra = ((el.querySelector(".comp-extra") || {}).value || "").trim();
-        promptArg = function (i) {
-          return "请基于我的" + (name || "商品名称") + "生成一套主图中的第 " + (i + 1) + "/" + count + " 张（构图：" + SET_ANGLES[i % SET_ANGLES.length] + "）"
-            + "，平台" + st.inl.platform + "，语言" + st.inl.lang + "，生成比例为" + st.ratio
-            + "，严格保持商品款式、颜色、材质、logo 与参考图完全一致" + (extra ? "。" + extra : "");
-        };
+        if (lock) {
+          promptArg = function (i) {
+            return LOCK_SCENES[i % LOCK_SCENES.length] + (name ? "，商品：" + name : "")
+              + "，平台" + st.inl.platform + "，语言" + st.inl.lang + "，生成比例为" + st.ratio + (extra ? "。" + extra : "");
+          };
+        } else {
+          promptArg = function (i) {
+            return "请基于我的" + (name || "商品名称") + "生成一套主图中的第 " + (i + 1) + "/" + count + " 张（构图：" + SET_ANGLES[i % SET_ANGLES.length] + "）"
+              + "，平台" + st.inl.platform + "，语言" + st.inl.lang + "，生成比例为" + st.ratio
+              + "，严格保持商品款式、颜色、材质、logo 与参考图完全一致" + (extra ? "。" + extra : "");
+          };
+        }
       }
-      const results = await EC.gen.imageSet({
+      const runner = lock ? EC.gen.lockSet : EC.gen.imageSet;
+      const results = await runner(lock ? {
+        product: st.files[0] || st.detailFiles[0], prompt: promptArg, ratio: ratio, hires: hires, count: count,
+        onProgress: function (i, total) { EC.ui.busy(btn, true, i + "/" + total); }
+      } : {
         prompt: promptArg, ratio: ratio, refImages: refImages, hires: hires, count: count,
         onProgress: function (i, total) { if (isSet) EC.ui.busy(btn, true, i + "/" + total); }
       });
@@ -290,7 +306,7 @@
         const r = results[i];
         const asset = await EC.store.addFromUrl(r.url, {
           name: (name || text.slice(0, 20) || m.name) + (isSet ? "·" + (i + 1) : ""), kind: "image",
-          meta: { mode: m.key, provider: r.provider, prompt: r.prompt, ratio: ratio }
+          meta: { mode: m.key, provider: r.provider, prompt: r.prompt, ratio: ratio, locked: !!r.locked }
         });
         addResult(el, asset, { provider: r.provider });
         if (EC.addUsage) EC.addUsage({ generated: 1 });

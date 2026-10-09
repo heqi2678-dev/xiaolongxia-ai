@@ -145,6 +145,8 @@
                   ${sel("layers", COUNT_DEF, "count")}
                 </div>
 
+                <label class="comp-lock"><span class="switch off" data-lock></span>商品锁定合成（保留商品原始像素，仅生成场景背景）</label>
+
                 <button class="btn btn-primary" data-gen disabled style="margin-top:6px"><svg class="ic sm"><use href="#i-spark"/></svg>生成设计规划方案</button>
                 <button class="btn btn-ghost" data-hist-pick style="margin-top:8px"><svg class="ic sm"><use href="#i-lib"/></svg>从历史上传图片中选取</button>
                 <button class="btn btn-ghost" data-export style="margin-top:8px"><svg class="ic sm"><use href="#i-download"/></svg>导出详情长图</button>
@@ -290,13 +292,17 @@
       if (side) side.textContent = "正在生成：" + plan.title;
 
       let anchor = "";
+      const lockEl = el.querySelector("[data-lock]");
+      const lock = !!(lockEl && !lockEl.classList.contains("off")) && refAssets.length > 0;
       for (let i = 0; i < points.length; i++) {
         let prompt = "电商详情图设计，产品： " + plan.title + " ，画面： " + points[i] + " ，专业棚拍，干净简洁背景，高级质感，留出文字排版空间";
         if (refs.length) prompt += "，严格保持商品的外观、颜色、材质、logo 与参考商品图一致，各张画面内容互不相同";
         try {
-          const r = (await EC.gen.imageSet({ prompt: prompt, ratio: ratio, refImages: refs, count: 1, anchor: anchor }))[0];
-          if (!anchor) anchor = r.url;
-          const asset = await EC.store.addFromUrl(r.url, { name: plan.title + "·" + points[i], kind: "detail", meta: { provider: r.provider, prompt: prompt } });
+          const r = lock
+            ? await EC.gen.lockComposite({ product: refAssets[0], prompt: "电商详情图场景： " + points[i] + " ，突出商品： " + plan.title, ratio: ratio })
+            : (await EC.gen.imageSet({ prompt: prompt, ratio: ratio, refImages: refs, count: 1, anchor: anchor }))[0];
+          if (!lock && !anchor) anchor = r.url;
+          const asset = await EC.store.addFromUrl(r.url, { name: plan.title + "·" + points[i], kind: "detail", meta: { provider: r.provider, prompt: prompt, locked: !!r.locked } });
           const col = collage.querySelector('.gd-col[data-i="' + i + '"] .gd-panel');
           if (col) {
             col.innerHTML = '<img src="' + esc(EC.store.src(asset)) + '" alt="" data-id="' + esc(asset.id) + '">'
