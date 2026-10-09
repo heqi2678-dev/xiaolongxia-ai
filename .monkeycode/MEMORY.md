@@ -189,3 +189,13 @@ Entries discovered by the Agent during task execution should follow this format:
   - 新增一个 `src/drama/*.js` 脚本时，除在 `index.html` 按依赖顺序加 `<script>`（须排在使用它的模块之前）外，还必须登记到两处测试基建的 `DRAMA_FILES` 列表：`tests/drama-harness.js` 与 `tests/drama-e2e.js`，否则单测/E2E 里该文件不会被加载、相关断言会因 `XLX.xxx` 未定义而失败。
   - 测试全过三件套：单测 `cd xiaolongxia-ai && node --test tests/*.test.js`；E2E `NODE_PATH="$(npm root -g)" node tests/drama-e2e.js`；网关 `cd gate && python3 -m unittest test_gate`。
   - 沙箱工作副本同步线上（`/home/admin/work/xiaolongxia-ai`）时本机 **无 `rsync`**，改用 `scp` 逐文件推送；zsh 下不要用 `SSH=user@host` 再展开 `$SSH`（会 command not found），直接写完整 `scp user@host:...`。改前端静态文件覆盖即生效，无需重启服务。
+
+[Project Knowledge Summary]
+- Date: 2026-10-09
+- Context: Discovered by Agent while 升级「视频提取文案」语音识别准确率（本地 Whisper + 云端火山）
+- Category: Operations & Deployment
+- Instructions:
+  - 浏览器本地 Whisper 模型放在线服务器 `models/Xenova/whisper-{tiny,base,small}/`，前端同源加载 `/dian/models/<modelId>/`（`index.html` 的 `ASR_MODEL_HOSTS` 第一项）；新增模型只要把整套文件（`config.json/generation_config.json/preprocessor_config.json/tokenizer*.json/onnx/*_quantized.onnx`）放进该目录即可，无需改服务端。
+  - 服务器上 `huggingface.co` 不可达，下载 Xenova 模型走镜像 `hf-mirror.com`（`curl -L` 跟随 307/308）；whisper-small 量化后编码器约 92MB、解码器约 157MB。
+  - 云端高精度识别复用既有火山链路：先 POST `/dian/api/drama/asset`（body `audio/wav`，上限 200MB）换公网 URL，再 POST `/dian/api/drama/stt`（`{key,resource,url,format,language}`）；前端需先在「设置→短剧服务」把 stt provider 配成 `volc` 并填 Key。
+  - 音频处理纯函数（高通/归一化/人声增强/WAV 编码）已抽到 `src/asr-audio.js`（`XLX.asrAudio`），单测见 `tests/asr-audio.test.js`。
