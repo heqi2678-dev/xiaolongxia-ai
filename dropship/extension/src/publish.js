@@ -176,9 +176,9 @@
         }).join("") + '</div>';
     }
     if (plan.images.length) {
-      html += '<div class="xlx-pub-dhead">主图（' + plan.images.length + '，下载后上传）</div>'
+      html += '<div class="xlx-pub-dhead">主图（' + plan.images.length + '，点击下载后上传）</div>'
         + '<div class="xlx-pub-imgs">' + plan.images.map(function (u, i) {
-          return '<a class="xlx-pub-img" data-idx="' + i + '" download="xlx-image-' + i + '.jpg" href="' + esc(u) + '">图 ' + (i + 1) + '</a>';
+          return '<button class="xlx-pub-img" data-idx="' + i + '" data-src="' + esc(u) + '">图 ' + (i + 1) + '</button>';
         }).join("") + '</div>';
     }
     detail.innerHTML = html;
@@ -214,6 +214,25 @@
   }
 
   function onDetailClick(ev) {
+    var imgBtn = ev.target.closest(".xlx-pub-img");
+    if (imgBtn) {
+      var src = imgBtn.getAttribute("data-src");
+      var idx = Number(imgBtn.getAttribute("data-idx")) + 1;
+      imgBtn.disabled = true;
+      status("正在取图 " + idx + "…");
+      fetchImage(src).then(function (dataUrl) {
+        var a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = "xlx-image-" + idx + ".jpg";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        status("已下载 图 " + idx, true);
+      }).catch(function (e) {
+        status("取图失败：" + (e.message || e) + "（可右键另存或先在货源库归档图片）", false);
+      }).then(function () { imgBtn.disabled = false; });
+      return;
+    }
     var btn = ev.target.closest(".xlx-pub-copy");
     if (!btn) return;
     var product = ROOT._product;

@@ -6,7 +6,7 @@
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
     "https://*.1688.com/*",
-    "https://cbu01.alicdn.com/*",
+    "https://*.alicdn.com/*",
     "https://*.taobao.com/*",
     "https://*.tmall.com/*",
     "http://127.0.0.1/*",

@@ -43,10 +43,12 @@ async function apiGet(path) {
 
 // 后端图片接口在 /api/* 下需要令牌，content 脚本不能直接 <a href>，
 // 这里带令牌取回并转成 data URL，供缩略图预览与下载。
+// 令牌只发给自家后端；1688/alicdn 等外部图床按普通请求取回。
 async function fetchImageDataUrl(url) {
   const cfg = await getConfig();
+  const backend = cfg.backendUrl.replace(/\/$/, "");
   const headers = {};
-  if (cfg.token) headers["Authorization"] = "Bearer " + cfg.token;
+  if (cfg.token && url.indexOf(backend) === 0) headers["Authorization"] = "Bearer " + cfg.token;
   const resp = await fetch(url, { headers });
   if (!resp.ok) throw new Error("HTTP " + resp.status);
   const blob = await resp.blob();
