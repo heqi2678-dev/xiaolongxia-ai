@@ -16,6 +16,7 @@ def load_config(env=None):
         "ext_token": env.get("DROPSHIP_EXT_TOKEN", ""),
         "rate_per_min": int(env.get("DROPSHIP_RATE_PER_MIN", "30")),
         "max_retries": int(env.get("DROPSHIP_MAX_RETRIES", "3")),
+        "oauth_redirect": env.get("DROPSHIP_OAUTH_REDIRECT", ""),
         "dry_run": env.get("DROPSHIP_DRY_RUN", "1") not in ("0", "false", "False"),
         "app_creds": {
             "taobao": {

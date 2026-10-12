@@ -55,6 +55,7 @@
     categories: (platform, parent) => request("GET", "/api/adapters/" + encodeURIComponent(platform) + "/categories" + (parent ? "?parent=" + parent : "")),
     attributes: (platform, cid) => request("GET", "/api/adapters/" + encodeURIComponent(platform) + "/attributes?cid=" + encodeURIComponent(cid)),
     authorizeUrl: (platform) => request("GET", "/api/auth/" + encodeURIComponent(platform) + "/authorize"),
+    callback: (platform, code) => request("GET", "/api/auth/" + encodeURIComponent(platform) + "/callback?code=" + encodeURIComponent(code)),
     revoke: (platform) => request("POST", "/api/auth/" + encodeURIComponent(platform) + "/revoke")
   };
 
@@ -238,8 +239,17 @@
     body.querySelectorAll("[data-auth]").forEach(a => {
       a.onclick = async (e) => {
         e.preventDefault();
-        try { const r = await API.authorizeUrl(a.dataset.auth); window.open(r.authorizeUrl, "_blank", "noopener"); }
-        catch (err) { if (U.toast) U.toast("获取授权链接失败：" + err.message, "err"); }
+        try {
+          const r = await API.authorizeUrl(a.dataset.auth);
+          window.open(r.authorizeUrl, "_blank", "noopener");
+          const pasted = window.prompt("已打开授权页，请用店铺账号登录并同意授权。\n授权后浏览器会跳转，把跳转地址里的 code 参数（或整段回调地址）粘贴到这里：");
+          if (!pasted) return;
+          const m = String(pasted).match(/[?&]code=([^&]+)/);
+          const code = m ? decodeURIComponent(m[1]) : String(pasted).trim();
+          await API.callback(a.dataset.auth, code);
+          if (U.toast) U.toast("授权成功", "ok");
+          load(ROOT || body);
+        } catch (err) { if (U.toast) U.toast("授权失败：" + err.message, "err"); }
       };
     });
     body.querySelectorAll("[data-pub]").forEach(b => {

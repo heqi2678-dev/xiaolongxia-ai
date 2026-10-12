@@ -39,6 +39,15 @@ def _err(status, message):
     return status, {"error": message}
 
 
+def _app_creds(ctx, platform):
+    """应用级凭据（appKey/appSecret），从配置读取。"""
+    return dict((ctx.cfg.get("app_creds") or {}).get(platform) or {})
+
+
+def _oauth_redirect(ctx):
+    return ctx.cfg.get("oauth_redirect") or ""
+
+
 def _check_auth(ctx, path, headers):
     token = ctx.cfg.get("ext_token") or ""
     if not token or path in PUBLIC_PATHS:
@@ -188,7 +197,7 @@ def _h_adapter_categories(ctx, query, body, params):
     adapter = ctx.adapters.get(params["platform"])
     if not adapter:
         return _err(404, "未知平台")
-    creds = ctx.auth.ensure_valid(params["platform"]) or {}
+    creds = ctx.auth.ensure_valid(params["platform"], _app_creds(ctx, params["platform"])) or {}
     parent = int(query.get("parent", 0))
     return 200, {"categories": adapter.query_categories(creds=creds, parent_cid=parent)}
 
@@ -197,7 +206,7 @@ def _h_adapter_attributes(ctx, query, body, params):
     adapter = ctx.adapters.get(params["platform"])
     if not adapter:
         return _err(404, "未知平台")
-    creds = ctx.auth.ensure_valid(params["platform"]) or {}
+    creds = ctx.auth.ensure_valid(params["platform"], _app_creds(ctx, params["platform"])) or {}
     return 200, {"attributes": adapter.query_attributes(creds=creds, cid=query.get("cid"))}
 
 
@@ -214,18 +223,19 @@ def _h_authorize(ctx, query, body, params):
     platform = params["platform"]
     if platform not in ctx.adapters:
         return _err(404, "未知平台")
-    redirect = query.get("redirect") or ctx.cfg.get("oauth_redirect", "")
+    redirect = query.get("redirect") or _oauth_redirect(ctx)
     state = query.get("state") or "xlx"
-    url = ctx.auth.authorize_url(platform, redirect, state)
+    url = ctx.auth.authorize_url(platform, redirect, state, _app_creds(ctx, platform))
     return 200, {"authorizeUrl": url, "platform": platform}
 
 
 def _h_callback(ctx, query, body, params):
     platform = params["platform"]
-    code = query.get("code")
+    code = query.get("code") or (body or {}).get("code")
     if not code:
         return _err(400, "缺少 code")
-    token = ctx.auth.exchange_code(platform, code, query.get("redirect_uri", ""))
+    redirect_uri = query.get("redirect_uri") or _oauth_redirect(ctx)
+    token = ctx.auth.exchange_code(platform, code, redirect_uri, _app_creds(ctx, platform))
     return 200, {"ok": True, "platform": platform, "authorized": ctx.auth.is_authorized(platform)}
 
 

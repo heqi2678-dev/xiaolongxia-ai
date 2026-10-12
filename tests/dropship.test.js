@@ -75,6 +75,15 @@ test("API：任务重试 / 图片归档 / 类目查询地址正确", async () =>
   assert.equal(w.calls[3].url, "http://127.0.0.1:9150/api/adapters/taobao/attributes?cid=50010850");
 });
 
+test("API：授权链接与回调地址正确", async () => {
+  const { w, DS } = boot();
+  DS.setConfig({ backendUrl: "http://127.0.0.1:9150" });
+  await DS.API.authorizeUrl("taobao");
+  await DS.API.callback("taobao", "abc/def");
+  assert.equal(w.calls[0].url, "http://127.0.0.1:9150/api/auth/taobao/authorize");
+  assert.equal(w.calls[1].url, "http://127.0.0.1:9150/api/auth/taobao/callback?code=abc%2Fdef");
+});
+
 test("render：搜索框、编辑表单与失败任务重试按钮", async () => {
   const products = {
     total: 1,
