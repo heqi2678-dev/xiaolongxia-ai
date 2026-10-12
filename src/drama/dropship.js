@@ -9,6 +9,17 @@
   const CFG_KEY = "xlx_dropship_cfg";
   const DEFAULT_BASE = "http://127.0.0.1:9150";
 
+  function defaultBase() {
+    try {
+      const loc = window.location || {};
+      const host = loc.hostname || "";
+      if (/^https?:$/.test(loc.protocol) && host && host !== "localhost" && host !== "127.0.0.1") {
+        return (loc.origin || (loc.protocol + "//" + loc.host)) + "/dropship";
+      }
+    } catch (e) {}
+    return DEFAULT_BASE;
+  }
+
   function esc(s) { return (U.esc || String)(s == null ? "" : s); }
 
   function getConfig() {
@@ -19,7 +30,7 @@
     try { localStorage.setItem(CFG_KEY, JSON.stringify(next)); } catch (e) {}
     return next;
   }
-  function normalizeBase(url) { return String(url || DEFAULT_BASE).replace(/\/+$/, ""); }
+  function normalizeBase(url) { return String(url || defaultBase()).replace(/\/+$/, ""); }
   function buildHeaders(cfg) {
     const headers = { "Content-Type": "application/json" };
     const token = cfg && cfg.token;
@@ -152,7 +163,7 @@
       + '</div>'
       + '<div class="dp-cfg" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">'
       + '<div style="flex:1;min-width:220px"><label class="label">铺货后端地址</label>'
-      + '<input id="dpBase" class="inp" value="' + esc(cfg.backendUrl || DEFAULT_BASE) + '" placeholder="' + DEFAULT_BASE + '"></div>'
+      + '<input id="dpBase" class="inp" value="' + esc(cfg.backendUrl || defaultBase()) + '" placeholder="' + esc(defaultBase()) + '"></div>'
       + '<div style="flex:1;min-width:180px"><label class="label">访问令牌</label>'
       + '<input id="dpToken" class="inp" type="password" value="' + esc(cfg.token || "") + '" placeholder="可留空"></div>'
       + '<button class="btn ghost" id="dpSave">保存</button>'

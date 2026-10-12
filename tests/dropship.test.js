@@ -9,10 +9,10 @@ const { JSDOM } = require("./dom-env.js");
 const ROOT = path.resolve(__dirname, "..");
 const SRC = fs.readFileSync(path.join(ROOT, "src/drama/dropship.js"), "utf8");
 
-function boot(fetchImpl) {
+function boot(fetchImpl, url) {
   const dom = new JSDOM('<!doctype html><html><body>'
     + '<div id="toolsContent"></div><div id="toolPanel"></div><div id="toasts"></div></body></html>',
-    { runScripts: "outside-only", url: "http://localhost/dian/" });
+    { runScripts: "outside-only", url: url || "http://localhost/dian/" });
   const w = dom.window;
   w.calls = [];
   w.__toasts = [];
@@ -41,6 +41,13 @@ test("纯函数：normalizeBase 去尾斜杠、buildHeaders 带令牌", () => {
   assert.equal(DS.normalizeBase("http://x:1/"), "http://x:1");
   assert.deepEqual(DS.buildHeaders({}), { "Content-Type": "application/json" });
   assert.deepEqual(DS.buildHeaders({ token: "t" }), { "Content-Type": "application/json", Authorization: "Bearer t" });
+});
+
+test("默认后端地址：线上页面自动指向站点 /dropship，本地回落 127.0.0.1", () => {
+  const online = boot(null, "https://shop.example.com/dian/");
+  assert.equal(online.DS.normalizeBase(""), "https://shop.example.com/dropship");
+  const local = boot();
+  assert.equal(local.DS.normalizeBase(""), "http://127.0.0.1:9150");
 });
 
 test("API：请求地址与鉴权头正确", async () => {
