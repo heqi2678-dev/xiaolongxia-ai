@@ -109,6 +109,80 @@ test("extractBatchLinks 提取列表页商品链接并去重", () => {
   ]);
 });
 
+const IMG_PAGE = `
+<html><body>
+<img src="https://img.alicdn.com/imgextra/i1/xxx-2-tps-288-56.png" />
+<img src="https://gw.alicdn.com/tps/i4/abc-tps-16-16.svg" />
+<img src="https://cbu01.alicdn.com/img/ibank/O1CN-main-0-cib.jpg" />
+<img src="https://cbu01.alicdn.com/img/ibank/O1CN-sku-red-0-cib.jpg" />
+<img src="https://cbu01.alicdn.com/img/ibank/O1CN-review-0-rate.jpg" />
+<img src="https://img.alicdn.com/gg_dtc_123.png" />
+<div class="detail-desc"><img src="https://cbu01.alicdn.com/img/ibank/O1CN-detail1-0-cib.jpg" /></div>
+<script>var d = {"price":"12.50","skuImage":"https://cbu01.alicdn.com/img/ibank/O1CN-sku-red-0-cib.jpg"};</script>
+</body></html>`;
+
+test("isJunkImage 识别图标/广告/评价等装饰素材", () => {
+  assert.ok(C.isJunkImage("https://img.alicdn.com/x-2-tps-288-56.png"));
+  assert.ok(C.isJunkImage("https://gw.alicdn.com/tps/i4/a-tps-16-16.svg"));
+  assert.ok(C.isJunkImage("https://img.alicdn.com/gg_dtc_123.png"));
+  assert.ok(C.isJunkImage("https://cbu01.alicdn.com/img/ibank/a-0-rate.jpg"));
+  assert.ok(!C.isJunkImage("https://cbu01.alicdn.com/img/ibank/O1CN-main-0-cib.jpg"));
+});
+
+test("collectImages 直接丢弃装饰素材", () => {
+  const imgs = C.collectImages(IMG_PAGE);
+  assert.deepEqual(imgs, [
+    "https://cbu01.alicdn.com/img/ibank/O1CN-main-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/O1CN-sku-red-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/O1CN-detail1-0-cib.jpg"
+  ]);
+});
+
+test("classifyImages 按详情板块切分主图/详情图", () => {
+  const refs = C.collectImageRefs(IMG_PAGE);
+  const split = C.classifyImages(IMG_PAGE, refs);
+  assert.deepEqual(split.main, [
+    "https://cbu01.alicdn.com/img/ibank/O1CN-main-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/O1CN-sku-red-0-cib.jpg"
+  ]);
+  assert.deepEqual(split.detail, ["https://cbu01.alicdn.com/img/ibank/O1CN-detail1-0-cib.jpg"]);
+});
+
+test("classifyImages 无详情块时前 N 张兜底为主图", () => {
+  const html = '<img src="https://cbu01.alicdn.com/img/ibank/a-0-cib.jpg"><img src="https://cbu01.alicdn.com/img/ibank/b-0-cib.jpg">';
+  const refs = C.collectImageRefs(html);
+  const split = C.classifyImages(html, refs);
+  assert.equal(split.main.length, 2);
+  assert.equal(split.detail.length, 0);
+});
+
+test("extractSkuImages 抽取 SKU 图", () => {
+  assert.deepEqual(C.extractSkuImages(IMG_PAGE), [
+    "https://cbu01.alicdn.com/img/ibank/O1CN-sku-red-0-cib.jpg"
+  ]);
+});
+
+test("extractOffer 归纳主图/详情图/SKU图/价格，且不含装饰素材", () => {
+  const p = C.extractOffer({ url: "https://detail.1688.com/offer/874025170740.html", html: IMG_PAGE });
+  assert.equal(p.title, "");
+  assert.deepEqual(p.images.main, ["https://cbu01.alicdn.com/img/ibank/O1CN-main-0-cib.jpg"]);
+  assert.deepEqual(p.images.detail, ["https://cbu01.alicdn.com/img/ibank/O1CN-detail1-0-cib.jpg"]);
+  assert.equal(p.skus.length, 1);
+  assert.equal(p.skus[0].image, "https://cbu01.alicdn.com/img/ibank/O1CN-sku-red-0-cib.jpg");
+  assert.equal(p.pricing.cost, 12.5);
+  assert.equal(p.pricing.price, 12.5);
+  const all = p.images.main.concat(p.images.detail);
+  assert.ok(!all.some((u) => /-tps-|gg_dtc|-rate/.test(u)));
+});
+
+test("extractOffer 无阶梯价时用 ladder 兜底基础价", () => {
+  const html = '<img src="https://cbu01.alicdn.com/img/ibank/a-0-cib.jpg">'
+    + '<script>{"beginAmount":2,"price":"8.80"}</script>';
+  const p = C.extractOffer({ url: "https://detail.1688.com/offer/1.html", html: html });
+  assert.equal(p.pricing.price, 8.8);
+  assert.equal(p.pricing.ladder.length, 1);
+});
+
 test("applySelection 按勾选裁剪字段与图片", () => {
   const product = C.extractOffer({ url: "https://detail.1688.com/offer/1.html", html: PAGE });
   product.images.main = ["m0", "m1", "m2"];

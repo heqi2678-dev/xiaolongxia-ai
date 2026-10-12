@@ -47,7 +47,19 @@
     return u;
   }
 
-  function collectImages(html) {
+  // 页面装饰性素材（图标/占位/广告/评价图）——直接不采集
+  function isJunkImage(url) {
+    var u = String(url || "").trim().toLowerCase();
+    if (!u) return true;
+    if (/\.svg$|\.ico$/.test(u)) return true;
+    if (u.indexOf("-tps-") >= 0 || u.indexOf("/tps/") >= 0 || u.indexOf("tps-") === 0) return true;
+    if (u.indexOf("gg_dtc") >= 0 || u.indexOf("spacer.") >= 0) return true;
+    if (/-rate[.-]|_rate[.-]|\/rate\//.test(u)) return true;
+    return false;
+  }
+
+  // 采集图片并保留其在 HTML 中的位置（用于按板块切分主图/详情图）
+  function collectImageRefs(html) {
     var out = [];
     var seen = {};
     var re = /(?:data-src|data-lazy-src|data-oss-src|src)\s*=\s*["']([^"']+)["']/gi;
@@ -55,6 +67,46 @@
     while ((m = re.exec(html))) {
       var raw = m[1];
       if (!isAllowedImage(raw)) continue;
+      if (isJunkImage(normalizeImageUrl(raw))) continue;
+      var url = normalizeImageUrl(raw);
+      if (seen[url]) continue;
+      seen[url] = 1;
+      out.push({ url: url, index: m.index });
+    }
+    return out;
+  }
+
+  function collectImages(html) {
+    return collectImageRefs(html).map(function (r) { return r.url; });
+  }
+
+  // 主图上限：1688 详情页主图一般不超过 8 张
+  var MAX_MAIN = 8;
+
+  // 按“详情板块”位置切分：详情块之前 → 主图，之后 → 详情图。
+  // 找不到详情块时退回“前 N 张为主图，其余为详情图”。
+  function classifyImages(html, refs) {
+    refs = refs || [];
+    var marker = html.search(/detail-desc|desc-lazyload|detail-content|mod-detail-description/i);
+    var main = [], detail = [];
+    refs.forEach(function (r) {
+      if (marker >= 0 && r.index >= marker) detail.push(r.url);
+      else main.push(r.url);
+    });
+    if (!main.length) main = detail.splice(0, Math.min(MAX_MAIN, detail.length));
+    else if (main.length > MAX_MAIN) {
+      detail = main.slice(MAX_MAIN).concat(detail);
+      main = main.slice(0, MAX_MAIN);
+    }
+    return { main: main, detail: detail };
+  }
+
+  // SKU 图：从页面 JSON 的 sku 图片字段抽取（保守匹配，避免误抓主图）
+  function extractSkuImages(html) {
+    var out = [], seen = {}, re = /"(?:skuImage|skuImg|skuImageUrl)"\s*:\s*"(https?:\\?\/\\?\/[^"]+)"/gi, m;
+    while ((m = re.exec(html))) {
+      var raw = m[1].replace(/\\\//g, "/");
+      if (!isAllowedImage(raw) || isJunkImage(raw)) continue;
       var url = normalizeImageUrl(raw);
       if (seen[url]) continue;
       seen[url] = 1;
@@ -124,13 +176,21 @@
     };
   }
 
-  function buildSkus(specs, price, image) {
+  // images 为 SKU 图候选，按顺序循环分配给各 SKU；无 SKU 图时退回主图
+  function buildSkus(specs, price, image, images) {
     var colors = (specs && specs.colors && specs.colors.length) ? specs.colors : [""];
     var sizes = (specs && specs.sizes && specs.sizes.length) ? specs.sizes : [""];
+    var pool = (images && images.length) ? images : (image ? [image] : []);
     var out = [];
     colors.forEach(function (c) {
       sizes.forEach(function (s) {
-        out.push({ skuId: "sku-" + (out.length + 1), specs: { color: c, size: s }, price: price, stock: 1, image: image || "" });
+        out.push({
+          skuId: "sku-" + (out.length + 1),
+          specs: { color: c, size: s },
+          price: price,
+          stock: 1,
+          image: pool.length ? pool[out.length % pool.length] : ""
+        });
       });
     });
     return out;
@@ -174,10 +234,17 @@
     var url = (input && input.url) || "";
     var html = (input && input.html) || "";
     var offerId = extractOfferId(url);
-    var images = collectImages(html);
+    var refs = collectImageRefs(html);
+    var split = classifyImages(html, refs);
+    var skuImages = extractSkuImages(html);
     var price = extractPrice(html);
     var ladder = extractLadderPrices(html);
+    if (!price && ladder.length) price = ladder[0].price;
     var specs = extractSpecs(html);
+    // SKU 图不重复进主图
+    var main = split.main.filter(function (u) { return skuImages.indexOf(u) < 0; });
+    var detail = split.detail;
+    var cover = main[0] || detail[0] || skuImages[0] || "";
     var product = {
       source: {
         platform: "1688",
@@ -189,11 +256,8 @@
       },
       title: extractTitle(html),
       description: extractDescription(html),
-      images: {
-        main: images.slice(0, 5),
-        detail: images.length > 5 ? images.slice(5) : []
-      },
-      skus: price > 0 ? buildSkus(specs, price, images[0] || "") : [],
+      images: { main: main, detail: detail },
+      skus: price > 0 ? buildSkus(specs, price, cover, skuImages) : [],
       category: { sourcePath: [] },
       pricing: { cost: price, price: price, currency: "CNY", ladder: ladder }
     };
@@ -202,12 +266,17 @@
 
   var API = {
     IMAGE_HOSTS: IMAGE_HOSTS,
+    MAX_MAIN: MAX_MAIN,
     decodeEntities: decodeEntities,
     stripTags: stripTags,
     extractOfferId: extractOfferId,
     isAllowedImage: isAllowedImage,
+    isJunkImage: isJunkImage,
     normalizeImageUrl: normalizeImageUrl,
+    collectImageRefs: collectImageRefs,
     collectImages: collectImages,
+    classifyImages: classifyImages,
+    extractSkuImages: extractSkuImages,
     extractTitle: extractTitle,
     extractPrice: extractPrice,
     extractDescription: extractDescription,
