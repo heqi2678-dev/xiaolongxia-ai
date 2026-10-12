@@ -184,10 +184,11 @@
     if (saveBtn) saveBtn.onclick = () => {
       setConfig({ backendUrl: normalizeBase(container.querySelector("#dpBase").value.trim()), token: container.querySelector("#dpToken").value.trim() });
       if (U.toast) U.toast("已保存铺货设置", "ok");
+      load(container);
     };
     const testBtn = container.querySelector("#dpTest");
     if (testBtn) testBtn.onclick = async () => {
-      try { const info = await API.health(); if (U.toast) U.toast("连接正常，适配器：" + (info.adapters || []).join("/"), "ok"); }
+      try { const info = await API.health(); if (U.toast) U.toast("连接正常，适配器：" + (info.adapters || []).join("/"), "ok"); load(container); }
       catch (e) { if (U.toast) U.toast("连接失败：" + e.message, "err"); }
     };
     const srcSel = container.querySelector("#dpSource");

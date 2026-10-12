@@ -132,6 +132,22 @@ test("render：筛选条件拼接到列表请求", async () => {
   assert.ok(/source=1688/.test(listCall), "请求带 source");
 });
 
+test("保存设置后自动重新拉取货源库", async () => {
+  const { w, doc } = boot((url) => {
+    w.calls.push({ url: String(url) });
+    return Promise.resolve({ ok: true, status: 200, json: async () => ({ products: [], total: 0, platforms: [], tasks: [] }) });
+  });
+  const panel = doc.getElementById("toolPanel");
+  w.XLX.drama.dropship.render(panel);
+  await new Promise(r => setTimeout(r, 0));
+  const before = w.calls.filter(c => /\/api\/products/.test(c.url)).length;
+  doc.getElementById("dpToken").value = "t";
+  doc.getElementById("dpSave").onclick();
+  await new Promise(r => setTimeout(r, 0));
+  const after = w.calls.filter(c => /\/api\/products/.test(c.url)).length;
+  assert.ok(after > before, "保存后重新拉取列表");
+});
+
 test("render：渲染配置条、平台授权与货源库", async () => {
   const products = {
     products: [{ id: "p1", title: "测试T恤", source: { platform: "1688", itemId: "1" }, images: { main: [{ url: "https://cbu01.alicdn.com/a.jpg" }] }, pricing: { price: 29.9 }, category: { target: { id: "50000000" } } }]
