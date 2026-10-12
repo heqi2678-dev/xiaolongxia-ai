@@ -51,6 +51,7 @@
     if (old) old.remove();
     var main = (product.images && product.images.main) || [];
     var detail = (product.images && product.images.detail) || [];
+    var sku = (product.images && product.images.sku) || [];
     var field = function (key, label, checked) {
       return '<label class="xlx-pf"><input type="checkbox" data-field="' + key + '"' + (checked ? " checked" : "") + '> ' + esc(label) + "</label>";
     };
@@ -70,6 +71,8 @@
       + "</div>"
       + '<div class="xlx-pv-label">主图（' + main.length + '）</div>'
       + '<div class="xlx-pv-imgs">' + main.map(function (u, i) { return imgCell("main", i, u); }).join("") + "</div>"
+      + (sku.length ? '<div class="xlx-pv-label">SKU 图（' + sku.length + '）</div>'
+        + '<div class="xlx-pv-imgs">' + sku.map(function (u, i) { return imgCell("sku", i, u); }).join("") + "</div>" : "")
       + (detail.length ? '<div class="xlx-pv-label">详情图（' + detail.length + '）</div>'
         + '<div class="xlx-pv-imgs">' + detail.map(function (u, i) { return imgCell("detail", i, u); }).join("") + "</div>" : "")
       + '<div class="xlx-pv-actions"><button class="xlx-pv-cancel">取消</button><button class="xlx-pv-ok">确认采集</button></div>'

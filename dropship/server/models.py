@@ -100,6 +100,7 @@ def normalize_product(raw):
         "images": {
             "main": _clean_images(images.get("main")),
             "detail": _clean_images(images.get("detail")),
+            "sku": _clean_images(images.get("sku")),
             "white": _clean_images(images.get("white")),
         },
         "skus": _clean_skus(raw.get("skus")),

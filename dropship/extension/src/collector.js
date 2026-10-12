@@ -120,9 +120,9 @@
     return { main: main, detail: detail };
   }
 
-  // SKU 图：从页面 JSON 的 sku 图片字段抽取（保守匹配，避免误抓主图）
+  // SKU 图：从页面 JSON 的 sku 图片字段抽取（兼容 1688 常见字段名）
   function extractSkuImages(html) {
-    var out = [], seen = {}, re = /"(?:skuImage|skuImg|skuImageUrl)"\s*:\s*"(https?:\\?\/\\?\/[^"]+)"/gi, m;
+    var out = [], seen = {}, re = /"(?:skuImage|skuImg|skuImageUrl|imageUrl)"\s*:\s*"(https?:\\?\/\\?\/[^"]+)"/gi, m;
     while ((m = re.exec(html))) {
       var raw = m[1].replace(/\\\//g, "/");
       if (!isAllowedImage(raw) || isJunkImage(raw)) continue;
@@ -235,7 +235,7 @@
     sel = sel || {};
     var fields = sel.fields || {};
     var out = JSON.parse(JSON.stringify(product || {}));
-    out.images = out.images || { main: [], detail: [] };
+    out.images = out.images || { main: [], detail: [], sku: [] };
     if (fields.title === false) out.title = "";
     if (fields.description === false) out.description = "";
     if (fields.skus === false) out.skus = [];
@@ -245,6 +245,7 @@
     }
     if (Array.isArray(sel.main)) out.images.main = (out.images.main || []).filter(function (_, i) { return sel.main.indexOf(i) >= 0; });
     if (Array.isArray(sel.detail)) out.images.detail = (out.images.detail || []).filter(function (_, i) { return sel.detail.indexOf(i) >= 0; });
+    if (Array.isArray(sel.sku)) out.images.sku = (out.images.sku || []).filter(function (_, i) { return sel.sku.indexOf(i) >= 0; });
     return out;
   }
 
@@ -260,9 +261,10 @@
     var ladder = extractLadderPrices(html);
     if (!price && ladder.length) price = ladder[0].price;
     var specs = extractSpecs(html);
-    // SKU 图不重复进主图
+    // 三组互斥：SKU 图不重复进主图；主图/详情图也不重复进 SKU 图
     var main = split.main.filter(function (u) { return skuImages.indexOf(u) < 0; });
-    var detail = split.detail;
+    var detail = split.detail.filter(function (u) { return skuImages.indexOf(u) < 0; });
+    skuImages = skuImages.filter(function (u) { return main.indexOf(u) < 0 && detail.indexOf(u) < 0; });
     var cover = main[0] || detail[0] || skuImages[0] || "";
     var product = {
       source: {
@@ -275,7 +277,7 @@
       },
       title: extractTitle(html),
       description: extractDescription(html),
-      images: { main: main, detail: detail },
+      images: { main: main, detail: detail, sku: skuImages },
       skus: price > 0 ? buildSkus(specs, price, cover, skuImages) : [],
       category: { sourcePath: [] },
       pricing: { cost: price, price: price, currency: "CNY", ladder: ladder }

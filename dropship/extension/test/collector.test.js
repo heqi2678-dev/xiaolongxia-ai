@@ -192,6 +192,7 @@ test("extractOffer 归纳主图/详情图/SKU图/价格，剔除推荐图与装�
   ]);
   assert.equal(p.skus.length, 1);
   assert.equal(p.skus[0].image, "https://cbu01.alicdn.com/img/ibank/O1CN-A2_!!888-0-cib.jpg");
+  assert.deepEqual(p.images.sku, ["https://cbu01.alicdn.com/img/ibank/O1CN-A2_!!888-0-cib.jpg"]);
   assert.equal(p.pricing.cost, 12.5);
   const all = p.images.main.concat(p.images.detail);
   assert.ok(!all.some((u) => /-tps-|gg_dtc|-rate|!!111-/.test(u)));
@@ -220,4 +221,11 @@ test("applySelection 按勾选裁剪字段与图片", () => {
   assert.deepEqual(out.images.detail, ["d1"]);
   assert.equal(out.source.articleNo, undefined);
   assert.equal(out.source.itemId, product.source.itemId);
+});
+
+test("applySelection 支持裁剪 SKU 图", () => {
+  const product = C.extractOffer({ url: "https://detail.1688.com/offer/1.html", html: IMG_PAGE });
+  product.images.sku = ["s0", "s1", "s2"];
+  const out = C.applySelection(product, { sku: [0, 2] });
+  assert.deepEqual(out.images.sku, ["s0", "s2"]);
 });
