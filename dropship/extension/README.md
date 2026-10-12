@@ -76,6 +76,7 @@ SKU 图从页面 JSON 的 `skuModel.skuProps[].value[].imageUrl` / `skuImage` �
 
 `fillTargets` 用「宝贝标题 / 一口价 / 库存」等文案关键词在页面上定位输入框；
 若淘宝改版导致定位失败，面板会提示改用「复制全部字段」手工粘贴。
+发布页脚本以 `all_frames: true` 注入，发布表单在 iframe 内加载时按钮同样会出现。
 
 ### 发布助手核心接口（`XLXPublisher`）
 
