@@ -32,7 +32,7 @@ SKU 图从页面 JSON 的 `skuModel.skuProps[].value[].imageUrl` / `skuImage` �
 
 1. 打开 `chrome://extensions`，开启「开发者模式」
 2. 点「加载已解压的扩展程序」，选择本目录 `dropship/extension`
-3. 点扩展图标，填铺货后端地址（默认 `http://127.0.0.1:9150`）与令牌，保存并测试连接
+3. 点扩展图标，填铺货后端地址（默认 `http://47.108.14.206/dropship`，本机开发可改 `http://127.0.0.1:9150`）与令牌，保存并测试连接
 
 ## 采集流程
 

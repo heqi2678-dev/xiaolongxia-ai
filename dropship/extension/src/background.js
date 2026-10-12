@@ -3,7 +3,8 @@
  */
 "use strict";
 
-const DEFAULT_BACKEND = "http://127.0.0.1:9150";
+// 默认指向线上铺货后端（nginx /dropship 反代）；本机开发可在弹窗改回 http://127.0.0.1:9150
+const DEFAULT_BACKEND = "http://47.108.14.206/dropship";
 
 function getConfig() {
   return new Promise((resolve) => {
