@@ -4,8 +4,10 @@
 支持采集预览勾选与列表页批量采集，回传到铜龙铺货后端。
 采集时自动归纳：装饰性素材（图标 `-tps-`/`.svg`、广告 `gg_dtc`、服务标 `cms/upload`、`/tfs/`、
 视频封面 `tbvideo`、评价图 `-rate`）直接不采集；
-**主图/详情图优先读取页面内嵌 JSON**（`gallery.fields.mainImage` 为权威主图、`offerImgList` 为主图+详情图全集，
-详情图 = `offerImgList` 去掉主图），拿不到 JSON 才退回 DOM 启发式（按卖家 uid 剔除「推荐/相关商品」缩略图，前 5 张归主图）；
+**主图/详情图优先读取页面内嵌 JSON**（`gallery.fields.mainImage` 为权威主图、`offerImgList` 为主图+规格图全集），
+拿不到 JSON 才退回 DOM 启发式（按卖家 uid 剔除「推荐/相关商品」缩略图，前 5 张归主图）；
+**详情描述长图**单独从页面 `detailUrl`（`itemcdn.tmall.com/1688offer/icoss*`）二次拉取，解析 `offer_details.content` 里的 `<img src>` 得到，
+拉取失败才退回 `offerImgList` 去掉主图的部分兜底；
 SKU 图从页面 JSON 的 `skuModel.skuProps[].value[].imageUrl` / `skuImage` 等字段抽取，单列**SKU 图**组并归到各 SKU；
 预览面板三组（主图 / SKU 图 / 详情图）均可勾选保留；同一张图既是 SKU 图又是详情图时两处都保留；价格归纳为基础价 + 阶梯价。
 下载 API 普通开发者拿不到，所以读货这一侧走浏览器扩展读取用户当前打开的页面。
@@ -53,6 +55,9 @@ SKU 图从页面 JSON 的 `skuModel.skuProps[].value[].imageUrl` / `skuImage` �
 | `extractLadderPrices(html)` | 抽取阶梯价 `[{minQty, price}]` |
 | `extractSpecs(html)` / `buildSkus(...)` | 抽取颜色/尺码并生成规格组合 |
 | `extractBatchLinks(html)` | 列表页提取商品链接（去重、补协议） |
+| `extractStructuredGallery(html)` | 从内嵌 JSON 取主图/规格图（`mainImage`/`offerImgList`） |
+| `extractDetailUrl(html)` | 取详情描述长图地址 `detailUrl` |
+| `extractDetailImages(text)` | 从 `offer_details.content` 解析详情长图并过滤装饰素材 |
 | `applySelection(product, sel)` | 按预览面板勾选裁剪字段与图片 |
 | `extractOffer({url, html})` | 汇总为统一原始商品结构 |
 

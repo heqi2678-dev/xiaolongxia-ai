@@ -277,6 +277,30 @@ test("extractOffer 优先用内嵌 JSON 主图/详情图/SKU图，剔除平台�
   assert.ok(!all.some((u) => /cms\/upload|-tps-/.test(u)));
 });
 
+test("extractDetailUrl 取详情描述地址", () => {
+  const html = '<script>{"detailUrl":"https:\\/\\/itemcdn.tmall.com\\/1688offer\\/icoss123abc"}</script>';
+  assert.equal(C.extractDetailUrl(html), "https://itemcdn.tmall.com/1688offer/icoss123abc");
+  assert.equal(C.extractDetailUrl("<html></html>"), "");
+});
+
+test("extractDetailImages 从 offer_details.content 抽取详情长图并剔除装饰素材", () => {
+  const text = 'var offer_details={"content":"<div><img style=\\"display:block;\\" src=\\"https:\\/\\/cbu01.alicdn.com\\/img\\/ibank\\/DD1_!!222-0-cib.jpg\\"/>'
+    + '<img src=\\"https://cbu01.alicdn.com/img/ibank/DD2_!!222-0-cib.jpg\\"/>'
+    + '<img src=\\"https://img.alicdn.com/gg_dtc_x.png\\"/></div>","other":1};';
+  assert.deepEqual(C.extractDetailImages(text), [
+    "https://cbu01.alicdn.com/img/ibank/DD1_!!222-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/DD2_!!222-0-cib.jpg"
+  ]);
+});
+
+test("extractOffer 带出 detailUrl 供详情长图二次拉取", () => {
+  const html = '<img src="https://cbu01.alicdn.com/img/ibank/M1_!!222-0-cib.jpg">'
+    + '<script>{"price":"9.9","detailUrl":"https:\\/\\/itemcdn.tmall.com\\/1688offer\\/icoss9"}</script>';
+  const p = C.extractOffer({ url: "https://detail.1688.com/offer/1.html", html: html });
+  assert.equal(p.detailUrl, "https://itemcdn.tmall.com/1688offer/icoss9");
+});
+
+
 
 test("extractOffer 无阶梯价时用 ladder 兜底基础价", () => {
   const html = '<img src="https://cbu01.alicdn.com/img/ibank/a-0-cib.jpg">'

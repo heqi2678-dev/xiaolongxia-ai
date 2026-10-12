@@ -30,7 +30,18 @@
 
   async function collectNow() {
     await triggerLazyLoad();
-    var product = XLXCollector.extractOffer({ url: location.href, html: fullHtml() });
+    var html = fullHtml();
+    var product = XLXCollector.extractOffer({ url: location.href, html: html });
+    // 详情描述长图在 detailUrl（itemcdn.tmall.com/1688offer/icoss*），另拉一次覆盖兜底详情图
+    if (product.detailUrl) {
+      try {
+        var resp = await fetch(product.detailUrl, { credentials: "omit" });
+        if (resp && resp.ok) {
+          var imgs = XLXCollector.extractDetailImages(await resp.text());
+          if (imgs.length) product.images.detail = imgs;
+        }
+      } catch (e) { /* 拉取失败时保留主图/详情图兜底结果 */ }
+    }
     return product;
   }
 

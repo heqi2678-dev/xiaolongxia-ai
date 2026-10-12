@@ -159,6 +159,30 @@
     return { found: true, main: main, detail: detail };
   }
 
+  // 详情描述地址：1688 详情页把「详情描述」长图托管在 detailUrl（itemcdn.tmall.com/1688offer/icoss*），
+  // 内容不在首屏 HTML 里，需再拉取一次。这里只负责从页面 JSON 取出该地址。
+  function extractDetailUrl(html) {
+    var m = String(html || "").match(/"detailUrl"\s*:\s*"(https?:\\?\/\\?\/[^"]+)"/i);
+    return m ? m[1].replace(/\\\//g, "/") : "";
+  }
+
+  // 从 detailUrl 返回的 JS 文本（var offer_details={"content":"<div>..<img src=..>..</div>"}）
+  // 中抽取详情描述长图：先还原转义，再取 <img src>。
+  function extractDetailImages(text) {
+    var s = String(text || "").replace(/\\"/g, '"').replace(/\\\//g, "/");
+    var out = [], seen = {}, re = /<img[^>]*\ssrc=["']?([^"'\s>]+)/gi, m;
+    while ((m = re.exec(s))) {
+      var raw = m[1];
+      if (!isAllowedImage(raw)) continue;
+      var url = normalizeImageUrl(raw);
+      if (isJunkImage(url)) continue;
+      if (seen[url]) continue;
+      seen[url] = 1;
+      out.push(url);
+    }
+    return out;
+  }
+
   // SKU 图：从页面 JSON 的 sku 图片字段抽取（兼容 1688 常见字段名）
   function extractSkuImages(html) {
     var out = [], seen = {}, re = /"(?:skuImage|skuImg|skuImageUrl|imageUrl)"\s*:\s*"(https?:\\?\/\\?\/[^"]+)"/gi, m;
@@ -319,6 +343,7 @@
       title: extractTitle(html),
       description: extractDescription(html),
       images: { main: main, detail: detail, sku: skuImages },
+      detailUrl: extractDetailUrl(html),
       skus: price > 0 ? buildSkus(specs, price, cover, skuImages) : [],
       category: { sourcePath: [] },
       pricing: { cost: price, price: price, currency: "CNY", ladder: ladder }
@@ -342,6 +367,8 @@
     classifyImages: classifyImages,
     extractJsonImageArray: extractJsonImageArray,
     extractStructuredGallery: extractStructuredGallery,
+    extractDetailUrl: extractDetailUrl,
+    extractDetailImages: extractDetailImages,
     extractSkuImages: extractSkuImages,
     extractTitle: extractTitle,
     extractPrice: extractPrice,
