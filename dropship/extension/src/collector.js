@@ -43,6 +43,7 @@
     var u = String(url || "").trim();
     if (u.indexOf("//") === 0) u = "https:" + u;
     u = u.replace(/\.(jpg|jpeg|png|webp)_[^/?#]*$/i, ".$1");
+    u = u.replace(/\.(?:search|summ|\d+x\d+)\.(jpg|jpeg|png|webp)$/i, ".$1");
     u = u.replace(/\?.*$/, "");
     return u;
   }
@@ -54,6 +55,9 @@
     if (/\.svg$|\.ico$/.test(u)) return true;
     if (u.indexOf("-tps-") >= 0 || u.indexOf("/tps/") >= 0 || u.indexOf("tps-") === 0) return true;
     if (u.indexOf("gg_dtc") >= 0 || u.indexOf("spacer.") >= 0) return true;
+    if (u.indexOf("/cms/upload/") >= 0) return true;
+    if (u.indexOf("/tfs/") >= 0) return true;
+    if (u.indexOf("tbvideo") >= 0) return true;
     if (/-rate[.-]|_rate[.-]|\/rate\//.test(u)) return true;
     return false;
   }
@@ -118,6 +122,41 @@
       .concat(iso.extra.map(function (r) { return r.url; }));
     if (!main.length) main = detail.splice(0, Math.min(MAX_MAIN, detail.length));
     return { main: main, detail: detail };
+  }
+
+  // 从页面内嵌 JSON 的某个 key 抽取图片数组（形如 "offerImgList":["https:\/\/..."]）
+  function extractJsonImageArray(html, key) {
+    var i = String(html || "").indexOf('"' + key + '":[');
+    if (i < 0) return [];
+    var j = html.indexOf("]", i);
+    if (j < 0) return [];
+    var seg = html.slice(i, j + 1);
+    var out = [], seen = {}, re = /"(https?:\\?\/\\?\/[^"]+)"/g, m;
+    while ((m = re.exec(seg))) {
+      var raw = m[1].replace(/\\\//g, "/");
+      if (!isAllowedImage(raw)) continue;
+      var url = normalizeImageUrl(raw);
+      if (isJunkImage(url)) continue;
+      if (seen[url]) continue;
+      seen[url] = 1;
+      out.push(url);
+    }
+    return out;
+  }
+
+  // 用页面内嵌 JSON 精确切分主图/详情图：1688 详情页
+  //   gallery.fields.mainImage   —— 权威“商品主图”列表
+  //   gallery.fields.offerImgList —— 主图 + 详情图全集
+  // 取到即为权威结果，不再依赖 DOM 顺序猜测；取不到再退回 DOM 启发式。
+  function extractStructuredGallery(html) {
+    var main = extractJsonImageArray(html, "mainImage");
+    var offer = extractJsonImageArray(html, "offerImgList");
+    if (!main.length && !offer.length) return { found: false, main: [], detail: [] };
+    if (!main.length) main = offer.slice(0, MAX_MAIN);
+    var mainSet = {};
+    main.forEach(function (u) { mainSet[u] = 1; });
+    var detail = offer.filter(function (u) { return !mainSet[u]; });
+    return { found: true, main: main, detail: detail };
   }
 
   // SKU 图：从页面 JSON 的 sku 图片字段抽取（兼容 1688 常见字段名）
@@ -254,17 +293,19 @@
     var url = (input && input.url) || "";
     var html = (input && input.html) || "";
     var offerId = extractOfferId(url);
-    var refs = collectImageRefs(html);
-    var split = classifyImages(refs);
+    // 主图/详情图：优先用页面内嵌 JSON（权威），取不到再退回 DOM 启发式
+    var structured = extractStructuredGallery(html);
+    var split = structured.found
+      ? { main: structured.main.slice(0, MAX_MAIN), detail: structured.detail }
+      : classifyImages(collectImageRefs(html));
     var skuImages = extractSkuImages(html);
     var price = extractPrice(html);
     var ladder = extractLadderPrices(html);
     if (!price && ladder.length) price = ladder[0].price;
     var specs = extractSpecs(html);
-    // 三组互斥：SKU 图不重复进主图；主图/详情图也不重复进 SKU 图
-    var main = split.main.filter(function (u) { return skuImages.indexOf(u) < 0; });
-    var detail = split.detail.filter(function (u) { return skuImages.indexOf(u) < 0; });
-    skuImages = skuImages.filter(function (u) { return main.indexOf(u) < 0 && detail.indexOf(u) < 0; });
+    // 主图/详情图/SKU 图三组各自独立取源，互不去重（同一张图可能既是 SKU 图又是详情图）
+    var main = split.main.slice();
+    var detail = split.detail.slice();
     var cover = main[0] || detail[0] || skuImages[0] || "";
     var product = {
       source: {
@@ -299,6 +340,8 @@
     imageUid: imageUid,
     isolateOfferImages: isolateOfferImages,
     classifyImages: classifyImages,
+    extractJsonImageArray: extractJsonImageArray,
+    extractStructuredGallery: extractStructuredGallery,
     extractSkuImages: extractSkuImages,
     extractTitle: extractTitle,
     extractPrice: extractPrice,

@@ -183,6 +183,7 @@ test("extractOffer 归纳主图/详情图/SKU图/价格，剔除推荐图与装�
   const p = C.extractOffer({ url: "https://detail.1688.com/offer/874025170740.html", html: IMG_PAGE });
   assert.deepEqual(p.images.main, [
     "https://cbu01.alicdn.com/img/ibank/O1CN-A1_!!888-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/O1CN-A2_!!888-0-cib.jpg",
     "https://cbu01.alicdn.com/img/ibank/O1CN-A3_!!888-0-cib.jpg",
     "https://cbu01.alicdn.com/img/ibank/O1CN-A4_!!888-0-cib.jpg",
     "https://cbu01.alicdn.com/img/ibank/O1CN-A5_!!888-0-cib.jpg"
@@ -197,6 +198,85 @@ test("extractOffer 归纳主图/详情图/SKU图/价格，剔除推荐图与装�
   const all = p.images.main.concat(p.images.detail);
   assert.ok(!all.some((u) => /-tps-|gg_dtc|-rate|!!111-/.test(u)));
 });
+
+const STRUCTURED_PAGE = `
+<html><body>
+<img src="https://cbu01.alicdn.com/cms/upload/2015/839/305/2503938_1964054271.png" />
+<img src="https://img.alicdn.com/imgextra/i1/xxx-2-tps-58-58.png" />
+<script>window.context = {"gallery":{"fields":{
+"offerImgList":[
+"https:\\/\\/cbu01.alicdn.com\\/img\\/ibank\\/M1_!!222-0-cib.jpg",
+"https:\\/\\/cbu01.alicdn.com\\/img\\/ibank\\/M2_!!222-0-cib.jpg",
+"https:\\/\\/cbu01.alicdn.com\\/img\\/ibank\\/M3_!!222-0-cib.jpg",
+"https:\\/\\/cbu01.alicdn.com\\/img\\/ibank\\/M4_!!222-0-cib.jpg",
+"https:\\/\\/cbu01.alicdn.com\\/img\\/ibank\\/M5_!!222-0-cib.jpg",
+"https:\\/\\/cbu01.alicdn.com\\/img\\/ibank\\/D1_!!222-0-cib.jpg",
+"https:\\/\\/cbu01.alicdn.com\\/img\\/ibank\\/D2_!!222-0-cib.jpg"
+],
+"mainImage":[
+"https:\\/\\/cbu01.alicdn.com\\/img\\/ibank\\/M1_!!222-0-cib.jpg",
+"https:\\/\\/cbu01.alicdn.com\\/img\\/ibank\\/M2_!!222-0-cib.jpg",
+"https:\\/\\/cbu01.alicdn.com\\/img\\/ibank\\/M3_!!222-0-cib.jpg",
+"https:\\/\\/cbu01.alicdn.com\\/img\\/ibank\\/M4_!!222-0-cib.jpg",
+"https:\\/\\/cbu01.alicdn.com\\/img\\/ibank\\/M5_!!222-0-cib.jpg"
+]}}};
+"skuModel":{"skuProps":[{"fid":1234,"prop":"规格","value":[
+{"imageUrl":"https://cbu01.alicdn.com/img/ibank/D1_!!222-0-cib.jpg","name":"房屋型"},
+{"imageUrl":"https://cbu01.alicdn.com/img/ibank/D2_!!222-0-cib.jpg","name":"手提型"}
+]}]};
+"price":"12.50";</script>
+</body></html>`;
+
+test("isJunkImage 拦截服务标/cms/tfs/视频封面等平台素材", () => {
+  assert.ok(C.isJunkImage("https://cbu01.alicdn.com/cms/upload/2015/839/305/2503938_1.png"));
+  assert.ok(C.isJunkImage("https://img.alicdn.com/tfs/TB1ZwSvqG6qK1RZ.png"));
+  assert.ok(C.isJunkImage("https://img.alicdn.com/imgextra/i2/x_!!6-0-tbvideo.jpg"));
+  assert.ok(!C.isJunkImage("https://cbu01.alicdn.com/img/ibank/O1CN-A1_!!888-0-cib.jpg"));
+});
+
+test("normalizeImageUrl 去掉 ibank 尺寸后缀变体", () => {
+  assert.equal(C.normalizeImageUrl("https://cbu01.alicdn.com/img/ibank/a_!!1-0-cib.220x220.jpg"), "https://cbu01.alicdn.com/img/ibank/a_!!1-0-cib.jpg");
+  assert.equal(C.normalizeImageUrl("https://cbu01.alicdn.com/img/ibank/a_!!1-0-cib.310x310.jpg"), "https://cbu01.alicdn.com/img/ibank/a_!!1-0-cib.jpg");
+  assert.equal(C.normalizeImageUrl("https://cbu01.alicdn.com/img/ibank/a_!!1-0-cib.search.jpg"), "https://cbu01.alicdn.com/img/ibank/a_!!1-0-cib.jpg");
+});
+
+test("extractStructuredGallery 用内嵌 JSON 精确切分主图/详情图", () => {
+  const g = C.extractStructuredGallery(STRUCTURED_PAGE);
+  assert.equal(g.found, true);
+  assert.deepEqual(g.main, [
+    "https://cbu01.alicdn.com/img/ibank/M1_!!222-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/M2_!!222-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/M3_!!222-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/M4_!!222-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/M5_!!222-0-cib.jpg"
+  ]);
+  assert.deepEqual(g.detail, [
+    "https://cbu01.alicdn.com/img/ibank/D1_!!222-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/D2_!!222-0-cib.jpg"
+  ]);
+});
+
+test("extractOffer 优先用内嵌 JSON 主图/详情图/SKU图，剔除平台装饰素材", () => {
+  const p = C.extractOffer({ url: "https://detail.1688.com/offer/1089621589938.html", html: STRUCTURED_PAGE });
+  assert.deepEqual(p.images.main, [
+    "https://cbu01.alicdn.com/img/ibank/M1_!!222-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/M2_!!222-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/M3_!!222-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/M4_!!222-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/M5_!!222-0-cib.jpg"
+  ]);
+  assert.deepEqual(p.images.detail, [
+    "https://cbu01.alicdn.com/img/ibank/D1_!!222-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/D2_!!222-0-cib.jpg"
+  ]);
+  assert.deepEqual(p.images.sku, [
+    "https://cbu01.alicdn.com/img/ibank/D1_!!222-0-cib.jpg",
+    "https://cbu01.alicdn.com/img/ibank/D2_!!222-0-cib.jpg"
+  ]);
+  const all = p.images.main.concat(p.images.detail, p.images.sku);
+  assert.ok(!all.some((u) => /cms\/upload|-tps-/.test(u)));
+});
+
 
 test("extractOffer 无阶梯价时用 ladder 兜底基础价", () => {
   const html = '<img src="https://cbu01.alicdn.com/img/ibank/a-0-cib.jpg">'
