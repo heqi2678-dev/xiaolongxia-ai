@@ -112,6 +112,7 @@ test("render：搜索框、编辑表单与失败任务重试按钮", async () =>
   assert.ok(doc.querySelector("#dpSource"), "有来源筛选");
   assert.ok(doc.querySelector("[data-edit='p1']"), "有编辑按钮");
   assert.ok(doc.querySelector("[data-editbox='p1'] [data-f='catId']"), "编辑表单含类目字段");
+  assert.ok(doc.querySelector("[data-del='p1']"), "有删除按钮");
   assert.ok(doc.querySelector("[data-retry='t9']"), "失败任务有重试按钮");
 });
 

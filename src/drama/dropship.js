@@ -98,6 +98,22 @@
 
   const filters = { q: "", source: "" };
   let ROOT = null;
+  let autoRefreshBound = false;
+
+  // 从别的标签页（如 1688 采集）切回助手、或重新聚焦窗口时，自动刷新货源库
+  function bindAutoRefresh() {
+    if (autoRefreshBound) return;
+    autoRefreshBound = true;
+    const refresh = () => {
+      if (ROOT && ROOT.querySelector && ROOT.querySelector("#dpBody")) load(ROOT);
+    };
+    if (typeof document !== "undefined" && document.addEventListener) {
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+    }
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("focus", refresh);
+    }
+  }
 
   function queryString() {
     const parts = [];
@@ -131,7 +147,8 @@
       + '<div class="dp-meta">' + esc(src.platform || "") + ' · ' + esc(src.itemId || "") + ' · ' + priceText(p) + ' · ' + mapped + ' · ' + arch + '</div></div>'
       + '<div class="dp-act"><button class="btn ghost" data-edit="' + esc(p.id) + '">编辑</button>'
       + '<button class="btn ghost" data-loc="' + esc(p.id) + '">归档图</button>'
-      + '<button class="btn primary" data-pub="' + esc(p.id) + '">上架</button></div>'
+      + '<button class="btn primary" data-pub="' + esc(p.id) + '">上架</button>'
+      + '<button class="btn ghost" data-del="' + esc(p.id) + '">删除</button></div>'
       + '</div>'
       + '<div class="dp-edit" data-editbox="' + esc(p.id) + '" hidden>'
       + '<div><label class="label">标题</label><input class="inp" data-f="title" value="' + esc(p.title || "") + '"></div>'
@@ -156,6 +173,7 @@
   function render(container) {
     if (!container) return;
     ROOT = container;
+    bindAutoRefresh();
     const cfg = getConfig();
     container.innerHTML = STYLE
       + '<div class="notice" style="font-size:12px;color:var(--text2);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:12px">'
@@ -266,6 +284,24 @@
     });
     body.querySelectorAll("[data-pub]").forEach(b => {
       b.onclick = () => publish([b.dataset.pub], body);
+    });
+    body.querySelectorAll("[data-del]").forEach(b => {
+      b.onclick = async () => {
+        const id = b.dataset.del;
+        const card = body.querySelector('.dp-card[data-id="' + id + '"]');
+        const title = card ? (card.querySelector(".dp-title").textContent || "") : id;
+        const ok = typeof confirm === "function" ? confirm("确定删除货源：" + title + "？") : true;
+        if (!ok) return;
+        b.disabled = true;
+        try {
+          await API.deleteProduct(id);
+          if (U.toast) U.toast("已删除货源", "ok");
+          load(ROOT || body);
+        } catch (err) {
+          if (U.toast) U.toast("删除失败：" + err.message, "err");
+          b.disabled = false;
+        }
+      };
     });
     body.querySelectorAll("[data-edit]").forEach(b => {
       b.onclick = () => {
