@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "铜龙铺货采集器",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "在 1688 商品页一键采集商品（标题/主图/详情图/SKU/价格/货号/供应商/阶梯价），支持预览勾选与列表页批量采集，回传到铜龙铺货后端；并在淘宝/天猫发布宝贝页辅助填表。",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [

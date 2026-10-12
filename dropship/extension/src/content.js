@@ -92,17 +92,27 @@
     function readSelection() {
       var fields = {};
       box.querySelectorAll("[data-field]").forEach(function (c) { fields[c.dataset.field] = c.checked; });
-      var sel = { fields: fields, main: [], detail: [] };
+      var sel = { fields: fields, main: [], detail: [], sku: [] };
       box.querySelectorAll('input[data-group]:checked').forEach(function (c) {
-        sel[c.dataset.group].push(parseInt(c.dataset.idx, 10));
+        var g = c.dataset.group;
+        if (!sel[g]) sel[g] = [];
+        sel[g].push(parseInt(c.dataset.idx, 10));
       });
       return sel;
     }
 
     box.querySelector(".xlx-pv-cancel").onclick = function () { box.remove(); };
     box.querySelector(".xlx-pv-ok").onclick = function () {
+      var selected;
+      try {
+        selected = XLXCollector.applySelection(product, readSelection());
+      } catch (e) {
+        var b = document.getElementById("xlx-collect-btn");
+        if (b) setState(b, "选择处理失败：" + (e.message || e), false);
+        return;
+      }
       box.remove();
-      onConfirm(XLXCollector.applySelection(product, readSelection()));
+      onConfirm(selected);
     };
     document.body.appendChild(box);
   }
