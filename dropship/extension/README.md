@@ -4,15 +4,21 @@
 支持采集预览勾选与列表页批量采集，回传到铜龙铺货后端。
 下载 API 普通开发者拿不到，所以读货这一侧走浏览器扩展读取用户当前打开的页面。
 
+> 淘宝店铺**无法申请开放平台自研应用**（自研准入仅面向天猫），因此淘宝上架不走官方 API，
+> 改由本扩展在淘宝/天猫「发布宝贝」页**辅助填表**（见下）。
+
 ## 目录
 
-- `manifest.json` — MV3 清单（1688 详情页 + 列表页匹配、后端 host 权限）
+- `manifest.json` — MV3 清单（1688 详情页 + 列表页匹配、淘宝发布页匹配、后端 host 权限）
 - `src/collector.js` — 采集核心，纯函数，浏览器与 node 测试台共用
 - `src/content.js` / `content.css` — 详情页悬浮按钮 + 懒加载滚动 + 采集预览面板
 - `src/list.js` — 列表页 / 收藏夹批量采集按钮
-- `src/background.js` — Service Worker，保存后端地址/令牌并 POST 到后端
+- `src/publisher.js` — 淘宝发布助手核心，纯函数（字段计划 / 描述文本 / 图片解析）
+- `src/publish.js` — 淘宝/天猫发布页注入面板：从铺货库选商品 → 辅助填表
+- `src/background.js` — Service Worker，保存后端地址/令牌、POST 采集、拉取货源库、代理取图
 - `src/popup.html` / `popup.js` — 配置后端地址与令牌、测试连接、采集当前页、批量采集
 - `test/collector.test.js` — `collector.js` 的 node 单测
+- `test/publisher.test.js` — `publisher.js` 的 node 单测
 
 ## 本地加载
 
@@ -46,3 +52,29 @@
 
 > 价格与 SKU 页面结构随 1688 频繁变动，当前为通用抽取 + 保守兜底；后续可在
 > `extractOffer` 内补充按需字段。系统要求采集后必须经「AI 加工 + 平台映射」再上架。
+
+## 淘宝发布助手（辅助填表）
+
+淘宝 C 店拿不到自研应用授权，官方 API 通道关闭，改走发布页辅助：
+
+1. 先在铺货后端「加工 / 映射」好商品（标题、价格、SKU、主图齐备）
+2. 打开淘宝/天猫**发布宝贝**页，右下角出现「从铺货库填入」按钮
+3. 点开面板，搜索并选商品，点「填入」→ 脚本尽力填入标题 / 一口价 / 库存
+4. 面板同时给出：已填/未找到字段、`复制全部字段`/`复制描述`、SKU 列表、主图下载入口
+5. 主图与富文本描述因淘宝发布页是复杂 SPA，仍需人工上传（脚本不能可靠代填）
+
+`fillTargets` 用「宝贝标题 / 一口价 / 库存」等文案关键词在页面上定位输入框；
+若淘宝改版导致定位失败，面板会提示改用「复制全部字段」手工粘贴。
+
+### 发布助手核心接口（`XLXPublisher`）
+
+| 函数 | 作用 |
+| --- | --- |
+| `joinUrl(base, path)` | 把后端相对图片地址拼成可访问地址 |
+| `resolveImage(item, base)` | 取图片可下载地址（优先本地归档） |
+| `mainImages(product, base)` | 解析去重主图列表 |
+| `totalStock(product)` / `listPrice(product)` | 汇总库存 / 取发布价 |
+| `skuSummary(product)` | 规格摘要 `[{label, price, stock}]` |
+| `buildFieldPlan(product, base)` | 汇总为发布页字段计划 |
+| `fillTargets(plan)` | 需自动填入的字段 + 定位关键词 |
+| `describeProduct(product, base)` | 生成可粘贴的整段文本 |

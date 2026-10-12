@@ -30,6 +30,34 @@ async function testConnection() {
   return resp.json();
 }
 
+async function apiGet(path) {
+  const cfg = await getConfig();
+  const url = cfg.backendUrl.replace(/\/$/, "") + path;
+  const headers = {};
+  if (cfg.token) headers["Authorization"] = "Bearer " + cfg.token;
+  const resp = await fetch(url, { headers });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || ("HTTP " + resp.status));
+  return data;
+}
+
+// 后端图片接口在 /api/* 下需要令牌，content 脚本不能直接 <a href>，
+// 这里带令牌取回并转成 data URL，供缩略图预览与下载。
+async function fetchImageDataUrl(url) {
+  const cfg = await getConfig();
+  const headers = {};
+  if (cfg.token) headers["Authorization"] = "Bearer " + cfg.token;
+  const resp = await fetch(url, { headers });
+  if (!resp.ok) throw new Error("HTTP " + resp.status);
+  const blob = await resp.blob();
+  return await new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = () => reject(new Error("读取图片失败"));
+    fr.readAsDataURL(blob);
+  });
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (!msg || !msg.type) return false;
   if (msg.type === "collect") {
@@ -40,6 +68,18 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   }
   if (msg.type === "test-connection") {
     testConnection().then((d) => reply({ ok: true, info: d })).catch((e) => reply({ ok: false, error: String(e) }));
+    return true;
+  }
+  if (msg.type === "list-products") {
+    apiGet("/api/products?limit=" + (msg.limit || 100))
+      .then((d) => reply({ ok: true, products: d.products || [], total: d.total || 0 }))
+      .catch((e) => reply({ ok: false, error: String(e.message || e) }));
+    return true;
+  }
+  if (msg.type === "fetch-image") {
+    fetchImageDataUrl(msg.url)
+      .then((dataUrl) => reply({ ok: true, dataUrl }))
+      .catch((e) => reply({ ok: false, error: String(e.message || e) }));
     return true;
   }
   if (msg.type === "get-config") {

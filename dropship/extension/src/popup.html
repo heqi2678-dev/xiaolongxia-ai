@@ -12,6 +12,7 @@
     .primary { background: linear-gradient(135deg, #ff7a3d, #ff4d6d); color: #fff; font-weight: 600; }
     .ghost { background: #eef1f6; color: #333; }
     #status { margin-top: 10px; font-size: 12px; min-height: 16px; color: #5f6b7a; }
+    .tip { margin: 12px 0 0; font-size: 11.5px; line-height: 1.5; color: #8a94a6; }
     .ok { color: #14a05a; }
     .err { color: #d64545; }
   </style>
@@ -32,6 +33,7 @@
   <div class="row">
     <button id="batch" class="ghost">批量采集本页商品</button>
   </div>
+  <p class="tip">上架淘宝：打开淘宝/天猫「发布宝贝」页，右下角会出现「从铺货库填入」按钮（淘宝店铺不支持自研 API，改用辅助填表）。</p>
   <div id="status"></div>
   <script src="popup.js"></script>
 </body>

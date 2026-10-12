@@ -75,3 +75,61 @@
 #xlx-preview .xlx-pv-cancel { background: #eef1f6; color: #5a6272; }
 #xlx-preview .xlx-pv-ok { background: linear-gradient(135deg, #ff7a3d, #ff4d6d); color: #fff; }
 
+/* 淘宝发布助手 · 入口按钮 */
+#xlx-publish-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 96px;
+  z-index: 2147483647;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff7a3d, #ff4d6d);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(255, 77, 109, 0.4);
+}
+
+/* 淘宝发布助手 · 面板 */
+#xlx-publish-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(420px, 94vw);
+  height: 100vh;
+  z-index: 2147483647;
+  background: #fff;
+  color: #1f2430;
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.25);
+  font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+#xlx-publish-panel .xlx-pub-inner { display: flex; flex-direction: column; height: 100%; padding: 14px 16px; box-sizing: border-box; }
+#xlx-publish-panel .xlx-pub-head { font-size: 15px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+#xlx-publish-panel .xlx-pub-close { cursor: pointer; color: #8a94a6; font-size: 20px; line-height: 1; padding: 0 4px; }
+#xlx-publish-panel .xlx-pub-search { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #d5dae3; border-radius: 8px; margin-bottom: 10px; font-size: 13px; }
+#xlx-publish-panel .xlx-pub-list { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+#xlx-publish-panel .xlx-pub-hint { font-size: 12px; color: #8a94a6; padding: 4px 2px; }
+#xlx-publish-panel .xlx-pub-row { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 8px; background: #f6f8fb; }
+#xlx-publish-panel .xlx-pub-thumb { width: 40px; height: 40px; flex: 0 0 auto; border-radius: 6px; background: #e6eaf1 center/cover no-repeat; }
+#xlx-publish-panel .xlx-pub-thumb-empty { background: repeating-linear-gradient(45deg, #eef1f6, #eef1f6 5px, #e3e8f0 5px, #e3e8f0 10px); }
+#xlx-publish-panel .xlx-pub-meta { flex: 1; min-width: 0; }
+#xlx-publish-panel .xlx-pub-t { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#xlx-publish-panel .xlx-pub-s { font-size: 11px; color: #8a94a6; margin-top: 2px; }
+#xlx-publish-panel .xlx-pub-fill { flex: 0 0 auto; padding: 6px 12px; border: none; border-radius: 7px; background: linear-gradient(135deg, #ff7a3d, #ff4d6d); color: #fff; font-weight: 600; cursor: pointer; }
+#xlx-publish-panel .xlx-pub-fill:disabled { opacity: 0.6; cursor: default; }
+#xlx-publish-panel .xlx-pub-detail { border-top: 1px solid #eef1f6; margin-top: 10px; padding-top: 10px; max-height: 42vh; overflow: auto; }
+#xlx-publish-panel .xlx-pub-dhead { font-size: 12px; font-weight: 700; color: #5a6272; margin: 8px 0 6px; }
+#xlx-publish-panel .xlx-pub-actions { display: flex; gap: 8px; margin-top: 6px; }
+#xlx-publish-panel .xlx-pub-copy { padding: 7px 12px; border: 1px solid #d5dae3; border-radius: 7px; background: #fff; cursor: pointer; font-size: 12.5px; }
+#xlx-publish-panel .xlx-pub-skus { display: flex; flex-wrap: wrap; gap: 6px; }
+#xlx-publish-panel .xlx-pub-sku { font-size: 11.5px; background: #eef1f6; border-radius: 6px; padding: 3px 8px; color: #5a6272; }
+#xlx-publish-panel .xlx-pub-imgs { display: flex; flex-wrap: wrap; gap: 6px; }
+#xlx-publish-panel .xlx-pub-img { font-size: 12px; padding: 5px 10px; border-radius: 7px; background: #eef1f6; color: #2f6fdd; text-decoration: none; }
+#xlx-publish-panel .xlx-pub-status { font-size: 12px; min-height: 16px; margin-top: 8px; color: #5f6b7a; }
+#xlx-publish-panel .xlx-pub-status.ok { color: #14a05a; }
+#xlx-publish-panel .xlx-pub-status.err { color: #d64545; }
+
