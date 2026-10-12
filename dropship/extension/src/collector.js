@@ -80,24 +80,43 @@
     return collectImageRefs(html).map(function (r) { return r.url; });
   }
 
-  // 主图上限：1688 详情页主图一般不超过 8 张
-  var MAX_MAIN = 8;
+  // 主图上限：1688 详情页主图一般 5 张
+  var MAX_MAIN = 5;
+  // 判定“本商品图”所需的最少同卖家图数量
+  var MIN_GROUP = 4;
 
-  // 按“详情板块”位置切分：详情块之前 → 主图，之后 → 详情图。
-  // 找不到详情块时退回“前 N 张为主图，其余为详情图”。
-  function classifyImages(html, refs) {
-    refs = refs || [];
-    var marker = html.search(/detail-desc|desc-lazyload|detail-content|mod-detail-description/i);
-    var main = [], detail = [];
-    refs.forEach(function (r) {
-      if (marker >= 0 && r.index >= marker) detail.push(r.url);
-      else main.push(r.url);
+  // 从 alicdn 图片 URL 提取卖家/账号 uid（形如 ..._!!2206904719491-0-cib.jpg）
+  function imageUid(url) {
+    var m = String(url || "").match(/!!(\d+)/);
+    return m ? m[1] : "";
+  }
+
+  // 隔离“本商品自己的图”：详情页会混入大量“推荐/相关商品”的缩略图（各自独立 uid），
+  // 本商品图共用同一卖家 uid。取占比最高的 uid 组为本商品图，无 uid 的图单独归入详情。
+  function isolateOfferImages(refs) {
+    var groups = {}, order = [], noUid = [];
+    (refs || []).forEach(function (r) {
+      var k = imageUid(r.url);
+      if (!k) { noUid.push(r); return; }
+      if (!groups[k]) { groups[k] = []; order.push(k); }
+      groups[k].push(r);
     });
+    var best = "", bestLen = 0;
+    order.forEach(function (k) {
+      if (groups[k].length > bestLen) { bestLen = groups[k].length; best = k; }
+    });
+    if (best && bestLen >= MIN_GROUP) return { own: groups[best], extra: noUid };
+    return { own: refs || [], extra: [] };
+  }
+
+  // 归纳主图/详情图：主图取本商品图前 MAX_MAIN 张，其余本商品图与无 uid 图归详情图
+  function classifyImages(refs) {
+    refs = refs || [];
+    var iso = isolateOfferImages(refs);
+    var main = iso.own.slice(0, MAX_MAIN).map(function (r) { return r.url; });
+    var detail = iso.own.slice(MAX_MAIN).map(function (r) { return r.url; })
+      .concat(iso.extra.map(function (r) { return r.url; }));
     if (!main.length) main = detail.splice(0, Math.min(MAX_MAIN, detail.length));
-    else if (main.length > MAX_MAIN) {
-      detail = main.slice(MAX_MAIN).concat(detail);
-      main = main.slice(0, MAX_MAIN);
-    }
     return { main: main, detail: detail };
   }
 
@@ -235,7 +254,7 @@
     var html = (input && input.html) || "";
     var offerId = extractOfferId(url);
     var refs = collectImageRefs(html);
-    var split = classifyImages(html, refs);
+    var split = classifyImages(refs);
     var skuImages = extractSkuImages(html);
     var price = extractPrice(html);
     var ladder = extractLadderPrices(html);
@@ -275,6 +294,8 @@
     normalizeImageUrl: normalizeImageUrl,
     collectImageRefs: collectImageRefs,
     collectImages: collectImages,
+    imageUid: imageUid,
+    isolateOfferImages: isolateOfferImages,
     classifyImages: classifyImages,
     extractSkuImages: extractSkuImages,
     extractTitle: extractTitle,
