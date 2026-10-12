@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body { width: 300px; margin: 0; padding: 14px; font: 13px/1.6 system-ui, -apple-system, "PingFang SC", sans-serif; color: #1f2430; }
+    h1 { font-size: 14px; margin: 0 0 10px; }
+    label { display: block; margin: 8px 0 2px; color: #5f6b7a; font-size: 12px; }
+    input { width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid #d5dae3; border-radius: 8px; }
+    .row { display: flex; gap: 8px; margin-top: 12px; }
+    button { flex: 1; padding: 8px 10px; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; }
+    .primary { background: linear-gradient(135deg, #ff7a3d, #ff4d6d); color: #fff; font-weight: 600; }
+    .ghost { background: #eef1f6; color: #333; }
+    #status { margin-top: 10px; font-size: 12px; min-height: 16px; color: #5f6b7a; }
+    .ok { color: #14a05a; }
+    .err { color: #d64545; }
+  </style>
+</head>
+<body>
+  <h1>铜龙铺货采集器</h1>
+  <label>铺货后端地址</label>
+  <input id="backendUrl" placeholder="http://127.0.0.1:9150" />
+  <label>访问令牌（后端 DROPSHIP_EXT_TOKEN）</label>
+  <input id="token" type="password" placeholder="可留空（开发环境）" />
+  <div class="row">
+    <button id="save" class="ghost">保存</button>
+    <button id="test" class="ghost">测试连接</button>
+  </div>
+  <div class="row">
+    <button id="collect" class="primary">采集当前页</button>
+  </div>
+  <div class="row">
+    <button id="batch" class="ghost">批量采集本页商品</button>
+  </div>
+  <div id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

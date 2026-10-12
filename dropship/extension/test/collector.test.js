@@ -1,0 +1,127 @@
+"use strict";
+const test = require("node:test");
+const assert = require("node:assert");
+const C = require("../src/collector.js");
+
+const PAGE = `
+<!doctype html><html><head>
+<meta property="og:title" content="纯棉短袖T恤 夏季新款" />
+<meta property="og:price:amount" content="19.90" />
+</head><body>
+<img src="//cbu01.alicdn.com/img/ibank/a.jpg_220x220.jpg" />
+<img data-src="https://cbu01.alicdn.com/img/ibank/a.jpg_440x440.jpg" />
+<img src="https://img.alicdn.com/bb/c.png" />
+<img src="https://evil.example.com/x.jpg" />
+<div class="detail-desc"><p>详情描述文本</p></div>
+<script>"price":"19.9","companyName":"杭州某某服饰有限公司"</script>
+</body></html>`;
+
+test("extractOfferId 从详情页 URL 取 ID", () => {
+  assert.equal(C.extractOfferId("https://detail.1688.com/offer/123456789.html?spm=a"), "123456789");
+  assert.equal(C.extractOfferId("https://m.1688.com/offer/987.html"), "987");
+  assert.equal(C.extractOfferId("https://detail.1688.com/"), "");
+});
+
+test("normalizeImageUrl 去缩略图后缀并补全协议", () => {
+  assert.equal(C.normalizeImageUrl("//cbu01.alicdn.com/a.jpg_220x220.jpg"), "https://cbu01.alicdn.com/a.jpg");
+  assert.equal(C.normalizeImageUrl("https://cbu01.alicdn.com/a.jpg?x=1"), "https://cbu01.alicdn.com/a.jpg");
+});
+
+test("isAllowedImage 只放行白名单图床", () => {
+  assert.ok(C.isAllowedImage("https://cbu01.alicdn.com/a.jpg"));
+  assert.ok(!C.isAllowedImage("https://evil.example.com/x.jpg"));
+  assert.ok(!C.isAllowedImage("data:image/png;base64,AAAA"));
+});
+
+test("collectImages 归一去重并保持顺序", () => {
+  const imgs = C.collectImages(PAGE);
+  assert.deepEqual(imgs, [
+    "https://cbu01.alicdn.com/img/ibank/a.jpg",
+    "https://img.alicdn.com/bb/c.png"
+  ]);
+});
+
+test("extractTitle 优先 og:title", () => {
+  assert.equal(C.extractTitle(PAGE), "纯棉短袖T恤 夏季新款");
+});
+
+test("extractPrice 解析价格", () => {
+  assert.equal(C.extractPrice(PAGE), 19.9);
+});
+
+test("extractOffer 产出统一原始商品结构", () => {
+  const p = C.extractOffer({ url: "https://detail.1688.com/offer/123456789.html", html: PAGE });
+  assert.equal(p.source.platform, "1688");
+  assert.equal(p.source.itemId, "123456789");
+  assert.equal(p.title, "纯棉短袖T恤 夏季新款");
+  assert.equal(p.images.main[0], "https://cbu01.alicdn.com/img/ibank/a.jpg");
+  assert.equal(p.skus.length, 1);
+  assert.equal(p.pricing.cost, 19.9);
+  assert.ok(p.source.collectedAt);
+});
+
+const RICH_PAGE = `
+<script>
+var data = {"productCode":"A-7788","companyName":"广州加丽服饰有限公司",
+"beginAmount":2,"price":"8.80","beginAmount":100,"price":"7.20",
+"color":["红色","蓝色"],"size":["S","M","L"]};
+</script>`;
+
+test("extractLadderPrices 解析阶梯价", () => {
+  const ladder = C.extractLadderPrices(RICH_PAGE);
+  assert.deepEqual(ladder, [{ minQty: 2, price: 8.8 }, { minQty: 100, price: 7.2 }]);
+});
+
+test("extractItemNo 取货号，extractSupplier 取供应商", () => {
+  assert.equal(C.extractItemNo(RICH_PAGE), "A-7788");
+  assert.equal(C.extractSupplier(RICH_PAGE), "广州加丽服饰有限公司");
+});
+
+test("extractSpecs 取颜色/尺码候选值", () => {
+  assert.deepEqual(C.extractSpecs(RICH_PAGE), { colors: ["红色", "蓝色"], sizes: ["S", "M", "L"] });
+});
+
+test("buildSkus 生成颜色×尺码组合", () => {
+  const skus = C.buildSkus({ colors: ["红", "蓝"], sizes: ["S", "M"] }, 9.9, "https://x/a.jpg");
+  assert.equal(skus.length, 4);
+  assert.deepEqual(skus[0].specs, { color: "红", size: "S" });
+  assert.equal(skus[3].specs.color, "蓝");
+  assert.equal(skus[0].price, 9.9);
+});
+
+test("extractOffer 带出货号、供应商、阶梯价、规格组合", () => {
+  const p = C.extractOffer({ url: "https://detail.1688.com/offer/1.html", html: RICH_PAGE });
+  assert.equal(p.source.articleNo, "A-7788");
+  assert.equal(p.source.shop, "广州加丽服饰有限公司");
+  assert.equal(p.pricing.ladder.length, 2);
+  assert.equal(p.skus.length, 6);
+});
+
+test("extractBatchLinks 提取列表页商品链接并去重", () => {
+  const html = '<a href="//detail.1688.com/offer/111.html?x=1">A</a>'
+    + '<a href="https://detail.1688.com/offer/222.html">B</a>'
+    + '<a href="https://detail.1688.com/offer/111.html">A2</a>'
+    + '<a href="/other">no</a>';
+  const links = C.extractBatchLinks(html);
+  assert.deepEqual(links, [
+    { itemId: "111", url: "https://detail.1688.com/offer/111.html?x=1" },
+    { itemId: "222", url: "https://detail.1688.com/offer/222.html" }
+  ]);
+});
+
+test("applySelection 按勾选裁剪字段与图片", () => {
+  const product = C.extractOffer({ url: "https://detail.1688.com/offer/1.html", html: PAGE });
+  product.images.main = ["m0", "m1", "m2"];
+  product.images.detail = ["d0", "d1"];
+  const out = C.applySelection(product, {
+    fields: { description: false, ladder: false, source: false },
+    main: [0, 2],
+    detail: [1]
+  });
+  assert.equal(out.title, product.title);
+  assert.equal(out.description, "");
+  assert.deepEqual(out.images.main, ["m0", "m2"]);
+  assert.deepEqual(out.images.detail, ["d1"]);
+  assert.equal(out.source.articleNo, undefined);
+  assert.equal(out.source.itemId, product.source.itemId);
+});

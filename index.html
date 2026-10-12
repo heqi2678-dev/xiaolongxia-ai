@@ -1424,6 +1424,8 @@ XLX.SKILLS = [
   { id: "video-watermark", cat: "video", name: "视频去水印", icon: "wand", desc: "免费解析抖音/快手/B站/淘宝等视频链接，去水印下载", action: "tool", tool: "videowm",
     prompt: "" },
   { id: "video-text", cat: "video", name: "视频提取文案", icon: "mic", desc: "选择本地视频/音频文件，浏览器本地AI转写说话内容（免费不上传）", action: "tool", tool: "vidtxt",
+    prompt: "" },
+  { id: "dropship-1688", cat: "ecom", name: "1688 铺货", icon: "box", desc: "1688 采集货源 → AI 加工 → 平台映射 → 一键铺货到淘宝 / TikTok", action: "tool", tool: "dropship",
     prompt: "" }
 ];
 
@@ -2822,7 +2824,8 @@ XLX.tools = (function () {
     { id: "itemdl", name: "商品图下载", icon: "download" },
     { id: "imgwm", name: "图片去水印", icon: "wand" },
     { id: "videowm", name: "视频去水印", icon: "video" },
-    { id: "vidtxt", name: "视频提取文案", icon: "mic" }
+    { id: "vidtxt", name: "视频提取文案", icon: "mic" },
+    { id: "dropship", name: "铺货", icon: "box" }
   ];
 
   /* 免费 CORS 代理（抓取第三方页面用） */
@@ -2869,6 +2872,7 @@ XLX.tools = (function () {
     else if (curTab === "imgwm") renderImgWM(panel);
     else if (curTab === "videowm") renderVideoWM(panel);
     else if (curTab === "vidtxt") renderVidTxt(panel);
+    else if (curTab === "dropship" && XLX.drama && XLX.drama.dropship) XLX.drama.dropship.render(panel);
   }
 
   function openTool(tab) {
@@ -4334,6 +4338,7 @@ XLX.studio = (function () {
 <script src="src/drama/ecom/ecom-gallery.js"></script>
 <script src="src/drama/ecom/ecom-chrome.js"></script>
 <script src="src/drama/shell.js"></script>
+<script src="src/drama/dropship.js"></script>
 <script>
 /* ===== 记忆习惯视图 & 客户端下载视图 ===== */
 

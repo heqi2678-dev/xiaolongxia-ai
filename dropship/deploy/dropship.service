@@ -1,0 +1,15 @@
+[Unit]
+Description=Xlx Dropship Backend (1688 collect / platform publish)
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+WorkingDirectory=/home/admin/work/xiaolongxia-ai
+EnvironmentFile=/etc/xlx-dropship.env
+ExecStart=/usr/bin/python3 -m dropship.server.app
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

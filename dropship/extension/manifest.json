@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "铜龙铺货采集器",
+  "version": "0.2.0",
+  "description": "在 1688 商品页一键采集商品（标题/主图/详情图/SKU/价格/货号/供应商/阶梯价），支持预览勾选与列表页批量采集，回传到铜龙铺货后端。",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "https://*.1688.com/*",
+    "https://cbu01.alicdn.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "http://47.108.14.206/*"
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "action": {
+    "default_title": "采集到铜龙铺货",
+    "default_popup": "src/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://detail.1688.com/offer/*", "https://m.1688.com/offer/*"],
+      "js": ["src/collector.js", "src/content.js"],
+      "css": ["src/content.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.1688.com/*"],
+      "js": ["src/collector.js", "src/list.js"],
+      "css": ["src/content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
