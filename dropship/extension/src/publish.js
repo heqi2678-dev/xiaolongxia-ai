@@ -72,8 +72,8 @@
 
   var IMAGE_KIND_RE = {
     main: /主图|商品图|宝贝图|白底图|1:1|3:4|白底|长图/,
-    sku: /规格图|销售属性图|sku\s*图|颜色图|颜色|属性图|销售规格/i,
-    detail: /详情图|宝贝详情|详情描述|图文详情|描述图|详情信息|详情页/
+    sku: /规格图|销售属性图|sku\s*图|颜色图|颜色分类|属性图|销售规格|颜色|规格|sku/i,
+    detail: /详情图|宝贝详情|详情描述|图文详情|描述图|详情信息|详情页|详情/
   };
   var KIND_TEXT = { main: "主图", sku: "SKU图", detail: "详情图" };
 
@@ -105,11 +105,10 @@
     return out;
   }
 
-  // 在发布页里找出指定类型的图片上传控件（主图 / SKU 图 / 详情图）；找不到返回 null
-  function findImageInput(kind) {
+  // 在发布页里找出指定类型的图片上传控件（主图 / SKU 图 / 详情图），按匹配度排序
+  function findImageInputs(kind) {
     var re = IMAGE_KIND_RE[kind] || IMAGE_KIND_RE.main;
     var all = collectFileInputs().filter(isFileInput);
-    if (!all.length) return null;
     function score(el) {
       var t = elContext(el, 5);
       var s = 0;
@@ -119,8 +118,13 @@
       try { if (el.getClientRects().length) s += 1; } catch (e) { /* ignore */ }
       return s;
     }
-    var sorted = all.slice().sort(function (a, b) { return score(b) - score(a); });
-    return score(sorted[0]) > 0 ? sorted[0] : null;
+    return all.filter(function (el) { return score(el) > 0; })
+      .sort(function (a, b) { return score(b) - score(a); });
+  }
+
+  function findImageInput(kind) {
+    var list = findImageInputs(kind);
+    return list.length ? list[0] : null;
   }
 
   // 找不到文件选择框时，退而求其次找「上传图片」拖拽区，用 drop 事件投喂
@@ -173,6 +177,32 @@
     });
   }
 
+  // 统计页面里 blob 预览图数量（上传成功后淘宝往往会生成 blob 缩略图），用于判断是否真的写入
+  function blobPreviewCount() {
+    var n = 0;
+    var imgs = document.querySelectorAll("img");
+    for (var i = 0; i < imgs.length; i++) {
+      if (/^blob:/.test(imgs[i].currentSrc || imgs[i].src || "")) n++;
+    }
+    return n;
+  }
+
+  // 用户手动绑定的上传控件（DOM 引用，页面不刷新时一直有效）
+  function boundNode(kind) {
+    var n = ROOT && ROOT._bound && ROOT._bound[kind];
+    if (!n) return null;
+    if (n.isConnected === false) return null;
+    return n;
+  }
+
+  function writeFilesToInput(input, files) {
+    var dt = new DataTransfer();
+    files.forEach(function (f) { dt.items.add(f); });
+    input.files = dt.files;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
   // 把指定类型的图片写入发布页对应上传控件（走 DataTransfer，等价于手动选图）
   async function uploadImages(kind, urls) {
     var label = KIND_TEXT[kind] || "图片";
@@ -184,25 +214,44 @@
       } catch (e) { failed++; }
     }
     if (!files.length) return { ok: false, error: label + "取图失败(" + failed + ")" };
-    var input = findImageInput(kind);
-    if (!input) {
+
+    var bound = boundNode(kind);
+    var before = blobPreviewCount();
+
+    // 手动绑定的控件优先：文件框直接写，普通元素走 drop
+    if (bound && !isFileInput(bound)) {
+      try {
+        dispatchDrop(bound, files);
+        await sleep(700);
+        return { ok: true, count: files.length, failed: failed, via: "bound-drop", verified: blobPreviewCount() > before };
+      } catch (e) { return { ok: false, error: label + "绑定区投喂失败：" + (e.message || e) }; }
+    }
+    var targets = bound ? [bound] : findImageInputs(kind);
+    if (!targets.length) {
       var zone = findDropZone(kind);
       if (zone) {
-        try { dispatchDrop(zone, files); return { ok: true, count: files.length, failed: failed, via: "drop" }; }
-        catch (e) { return { ok: false, error: label + "拖拽投喂失败：" + (e.message || e) }; }
+        try {
+          dispatchDrop(zone, files);
+          await sleep(700);
+          return { ok: true, count: files.length, failed: failed, via: "drop", verified: blobPreviewCount() > before };
+        } catch (e) { return { ok: false, error: label + "拖拽投喂失败：" + (e.message || e) }; }
       }
-      return { ok: false, error: "未找到" + label + "上传控件（请让该区域出现在当前可视区，或切到对应 tab 再试）" };
+      return { ok: false, error: "未找到" + label + "上传控件（可点「绑定上传控件」后在页面点选该上传方块）" };
     }
     try {
-      var dt = new DataTransfer();
-      files.forEach(function (f) { dt.items.add(f); });
-      input.files = dt.files;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
+      writeFilesToInput(targets[0], files);
+      // 主图常含 1:1 与 3:4 两排，其余匹配框也一并写入同一批图
+      if (kind === "main") {
+        for (var k = 1; k < targets.length; k++) {
+          try { writeFilesToInput(targets[k], files); } catch (e2) { /* ignore */ }
+        }
+      }
     } catch (e) {
       return { ok: false, error: "写入" + label + "上传控件失败：" + (e.message || e) };
     }
-    return { ok: true, count: files.length, failed: failed };
+    await sleep(700);
+    var ok = blobPreviewCount() > before;
+    return { ok: true, count: files.length, failed: failed, verified: ok, via: "input" };
   }
 
   // React/Vue 受控输入需要走原生 setter 再派发事件，页面才会识别
@@ -338,12 +387,24 @@
       + '<button class="xlx-pub-copy" data-copy="title">复制标题</button>'
       + '<button class="xlx-pub-copy" data-copy="desc">复制描述</button>'
       + '<button class="xlx-pub-copy" data-copy="skus">复制规格价格</button>'
+      + '<button class="xlx-pub-copy" data-copy="prices">复制价格清单</button>'
       + '<button class="xlx-pub-copy" data-copy="all">复制全部字段</button>'
+      + '</div>';
+    html += '<div class="xlx-pub-actions">'
+      + '<button class="xlx-pub-bind" data-bind="main">绑定主图上传区</button>'
+      + '<button class="xlx-pub-bind" data-bind="sku">绑定SKU图上传区</button>'
+      + '<button class="xlx-pub-bind" data-bind="detail">绑定详情图上传区</button>'
       + '</div>';
     if (plan.skus.length) {
       html += '<div class="xlx-pub-dhead">规格（' + plan.skus.length + '）</div>'
         + '<div class="xlx-pub-skus">' + plan.skus.map(function (s) {
           return '<span class="xlx-pub-sku">' + esc(s.label) + ' ¥' + esc(s.price) + ' / ' + esc(s.stock) + '</span>';
+        }).join("") + '</div>';
+    }
+    if (plan.prices && plan.prices.length) {
+      html += '<div class="xlx-pub-dhead">全部价格（' + plan.prices.length + '，可逐个复制）</div>'
+        + '<div class="xlx-pub-skus">' + plan.prices.map(function (p) {
+          return '<span class="xlx-pub-sku">' + esc(p.label) + ' ¥' + esc(p.price) + '</span>';
         }).join("") + '</div>';
     }
     if (plan.images.length) {
@@ -397,9 +458,12 @@
     var parts = [];
     if (filled.length) parts.push("已填 " + filled.join("、"));
     if (missed.length) parts.push("未找到 " + missed.join("、"));
-    done.forEach(function (r) { parts.push("已写" + r.label + " " + r.count + " 张"); });
+    done.forEach(function (r) {
+      parts.push("已写" + r.label + " " + r.count + " 张" + (r.verified === false ? "(未见预览)" : ""));
+    });
     bad.forEach(function (r) { parts.push(r.label + "：" + r.error); });
-    status(parts.join("　") || "无可填字段", bad.length === 0 && missed.length === 0);
+    var anyUnverified = done.some(function (r) { return r.verified === false; });
+    status(parts.join("　") || "无可填字段", bad.length === 0 && missed.length === 0 && !anyUnverified);
   }
 
   function copyValue(kind, product) {
@@ -408,6 +472,11 @@
     if (kind === "skus") {
       return XLXPublisher.buildFieldPlan(product, BASE).skus.map(function (s) {
         return s.label + " ¥" + s.price + " / " + s.stock;
+      }).join("\n");
+    }
+    if (kind === "prices") {
+      return XLXPublisher.buildFieldPlan(product, BASE).prices.map(function (p) {
+        return p.label + " ¥" + p.price;
       }).join("\n");
     }
     return XLXPublisher.describeProduct(product, BASE);
@@ -425,7 +494,31 @@
       .catch(function (e) { status("填入失败：" + (e.message || e), false); btn.disabled = false; });
   }
 
+  // 手动绑定上传控件：点按钮后，在页面点一下真实的上传方块，记录其文件框或拖拽区
+  function startBind(kind) {
+    var label = KIND_TEXT[kind] || "图片";
+    ROOT._bindKind = kind;
+    status("请在页面上点一下「" + label + "」的『上传图片』方块…");
+    var handler = function (ev) {
+      if (ROOT && ROOT.contains(ev.target)) return;
+      document.removeEventListener("click", handler, true);
+      var target = ev.target;
+      var node = null;
+      if (isFileInput(target)) node = target;
+      if (!node && target.closest) { var fi = target.closest("input[type=file]"); if (fi) node = fi; }
+      if (!node && target.querySelector) { var fi2 = target.querySelector("input[type=file]"); if (fi2) node = fi2; }
+      if (!node) node = target;
+      ROOT._bound = ROOT._bound || {};
+      ROOT._bound[kind] = node;
+      ROOT._bindKind = null;
+      status("已绑定" + label + "上传区" + (isFileInput(node) ? "（文件框）" : "（拖拽区）") + "，再点「写入" + label + "」重试", true);
+    };
+    document.addEventListener("click", handler, true);
+  }
+
   function onDetailClick(ev) {
+    var bindBtn = ev.target.closest(".xlx-pub-bind");
+    if (bindBtn) { startBind(bindBtn.getAttribute("data-bind") || "main"); return; }
     var fillBtn = ev.target.closest(".xlx-pub-fillall");
     if (fillBtn) {
       var p0 = ROOT._product;
@@ -445,8 +538,13 @@
       upBtn.disabled = true;
       status("正在写入" + label + " " + list.length + " 张…");
       uploadImages(kind, list).then(function (r) {
-        if (r.ok) status("已写入" + label + " " + r.count + " 张", true);
-        else status(label + "未写入：" + r.error, false);
+        if (r.ok && r.verified === false) {
+          status("已提交" + label + " " + r.count + " 张，但页面未出现预览：请点「绑定" + label + "上传区」在页面点选该方块后重试", false);
+        } else if (r.ok) {
+          status("已写入" + label + " " + r.count + " 张", true);
+        } else {
+          status(label + "未写入：" + r.error, false);
+        }
       }).then(function () { upBtn.disabled = false; });
       return;
     }

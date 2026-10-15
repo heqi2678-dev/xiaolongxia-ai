@@ -81,6 +81,23 @@ test("extractSpecs 取颜色/尺码候选值", () => {
   assert.deepEqual(C.extractSpecs(RICH_PAGE), { colors: ["红色", "蓝色"], sizes: ["S", "M", "L"] });
 });
 
+test("extractSpecs 无数组时从 specAttrs 文本归纳", () => {
+  const html = '<script>{"specAttrs":"颜色:红色;尺码:M"},{"specAttrs":"颜色:蓝色;尺码:L"}</script>';
+  const s = C.extractSpecs(html);
+  assert.deepEqual(s.colors, ["红色", "蓝色"]);
+  assert.deepEqual(s.sizes, ["M", "L"]);
+});
+
+test("extractLadderPrices 兼容 startQuantity 等键名", () => {
+  const html = '<script>{"startQuantity":5,"price":"3.50"},{"minQuantity":100,"price":"2.80"}</script>';
+  assert.deepEqual(C.extractLadderPrices(html), [{ minQty: 5, price: 3.5 }, { minQty: 100, price: 2.8 }]);
+});
+
+test("extractSkuPrices 以 specAttrs 为锚点抓价", () => {
+  const html = '<script>[{"specAttrs":"红;S","price":"9.90","skuId":"a"},{"specAttrs":"蓝;M","price":"12.30","skuId":"b"}]</script>';
+  assert.deepEqual(C.extractSkuPrices(html), [9.9, 12.3]);
+});
+
 test("buildSkus 生成颜色×尺码组合", () => {
   const skus = C.buildSkus({ colors: ["红", "蓝"], sizes: ["S", "M"] }, 9.9, "https://x/a.jpg");
   assert.equal(skus.length, 4);

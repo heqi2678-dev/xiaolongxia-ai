@@ -223,7 +223,8 @@
 
   // 阶梯价：[{minQty, price}]，1688 常见形如 {"beginAmount":N,"price":"P"}
   function extractLadderPrices(html) {
-    var out = [], seen = {}, re = /"beginAmount"\s*:\s*(\d+)\s*,\s*"price"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)"?/g, m;
+    var out = [], seen = {};
+    var re = /"(?:beginAmount|startQuantity|beginNum|minQuantity|startAmount)"\s*:\s*(\d+)\s*,\s*"price"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)"?/g, m;
     while ((m = re.exec(html))) {
       var key = m[1] + "-" + m[2];
       if (seen[key]) continue;
@@ -246,25 +247,47 @@
     return stripTags(m);
   }
 
-  // 规格组合：从页面 JSON 里取颜色/尺码候选值
+  // 规格组合：优先页面 JSON 数组，其次从 specAttrs 文本（如「颜色:红色;尺码:M」）归纳
   function extractSpecs(html) {
     function values(re) {
       var m = html.match(re);
       return m ? (m[1].match(/"([^"]+)"/g) || []).map(function (s) { return s.replace(/"/g, ""); }) : [];
     }
-    return {
-      colors: values(/"color"\s*:\s*\[([^\]]*)\]/i),
-      sizes: values(/"size"\s*:\s*\[([^\]]*)\]/i)
-    };
+    var colors = values(/"color"\s*:\s*\[([^\]]*)\]/i);
+    var sizes = values(/"size"\s*:\s*\[([^\]]*)\]/i);
+    if (!colors.length || !sizes.length) {
+      var seenC = {}, seenS = {};
+      var re = /"(?:specAttrs|skuAttrs|specProperties)"\s*:\s*"([^"]+)"/g, m;
+      while ((m = re.exec(html))) {
+        m[1].split(/[;&]/).forEach(function (part) {
+          var kv = part.split(/[:：,]/);
+          if (kv.length < 2) return;
+          var key = kv[0].trim(), val = kv.slice(1).join(":").trim();
+          if (!val) return;
+          if (/颜色|色彩|色|color/i.test(key) && !seenC[val]) { seenC[val] = 1; colors.push(val); }
+          else if (/尺码|尺寸|规格|size|型号/i.test(key) && !seenS[val]) { seenS[val] = 1; sizes.push(val); }
+        });
+      }
+    }
+    return { colors: colors, sizes: sizes };
   }
 
-  // 各 SKU 价格：从 skuId/price 片段里抓数值，去重保序；抓不到返回空数组
+  // 各 SKU 价格：以 skuId/specAttrs/cargoNumber 等为锚点，抓邻近 price 数值，去重保序
   function extractSkuPrices(html) {
     var out = [], seen = {};
-    var re = /"skuId"\s*:\s*"?[A-Za-z0-9_\-]+"?[\s\S]{0,200}?"price"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)"?/g, m;
-    while ((m = re.exec(html))) {
-      var p = parseFloat(m[1]);
-      if (!isNaN(p) && p > 0 && !seen[p]) { seen[p] = 1; out.push(p); }
+    function push(p) { if (!isNaN(p) && p > 0 && !seen[p]) { seen[p] = 1; out.push(p); } }
+    var anchors = /"(?:skuId|specAttrs|skuAttrs|skuAttr|specId|cargoNumber|skuProperty|saleProp)"\s*:\s*"[^"]*"/g, m;
+    var priceRe = /"price"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)"?/ig;
+    while ((m = anchors.exec(html))) {
+      var start = m.index + m[0].length;
+      priceRe.lastIndex = 0;
+      var pm = priceRe.exec(html.slice(start, start + 200));
+      if (pm) { push(parseFloat(pm[1])); continue; }
+      var before = html.slice(Math.max(0, m.index - 120), m.index);
+      priceRe.lastIndex = 0;
+      var last = null, mm;
+      while ((mm = priceRe.exec(before))) last = mm;
+      if (last) push(parseFloat(last[1]));
     }
     return out;
   }

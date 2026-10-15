@@ -84,6 +84,41 @@
     return Number((product && product.pricing && product.pricing.shipping) || 0);
   }
 
+  // 阶梯价：按起订量排列的 [{minQty, price}]，去重保序
+  function ladderPrices(product) {
+    var arr = (product && product.pricing && product.pricing.ladder) || [];
+    var out = [], seen = {};
+    for (var i = 0; i < arr.length; i++) {
+      var p = Number(arr[i] && arr[i].price) || 0;
+      var q = Number(arr[i] && arr[i].minQty) || 0;
+      if (!p) continue;
+      var key = q + "-" + p;
+      if (seen[key]) continue;
+      seen[key] = 1;
+      out.push({ minQty: q, price: p });
+    }
+    return out;
+  }
+
+  // 所有价格：上架价 / 货源价 / 成本 / 运费 / 各 SKU 价 / 阶梯价
+  function priceList(product) {
+    var pricing = (product && product.pricing) || {};
+    var out = [];
+    if (Number(pricing.cost)) out.push({ label: "成本价", price: Number(pricing.cost) });
+    if (Number(pricing.price)) out.push({ label: "货源价", price: Number(pricing.price) });
+    if (Number(pricing.listPrice)) out.push({ label: "上架价", price: Number(pricing.listPrice) });
+    if (Number(pricing.shipping)) out.push({ label: "运费", price: Number(pricing.shipping) });
+    var skus = skuSummary(product);
+    for (var i = 0; i < skus.length; i++) {
+      out.push({ label: "SKU " + skus[i].label, price: skus[i].price });
+    }
+    var ladder = ladderPrices(product);
+    for (var j = 0; j < ladder.length; j++) {
+      out.push({ label: "满" + ladder[j].minQty + "件", price: ladder[j].price });
+    }
+    return out;
+  }
+
   function skuSummary(product, backendBase) {
     var skus = (product && product.skus) || [];
     return skus.map(function (s) {
@@ -114,6 +149,8 @@
       skuImages: skuImages(product, backendBase),
       detailImages: detailImages(product, backendBase),
       skus: skuSummary(product, backendBase),
+      ladder: ladderPrices(product),
+      prices: priceList(product),
       attributes: product.attributes || {}
     };
   }
@@ -142,6 +179,11 @@
         return s.label + "(" + s.price + "/" + s.stock + ")";
       }).join("，"));
     }
+    if (plan.ladder && plan.ladder.length) {
+      lines.push("阶梯价：" + plan.ladder.map(function (l) {
+        return "满" + l.minQty + "件¥" + l.price;
+      }).join("，"));
+    }
     if (plan.description) lines.push("描述：\n" + plan.description);
     return lines.join("\n");
   }
@@ -157,6 +199,8 @@
     totalStock: totalStock,
     listPrice: listPrice,
     shipping: shipping,
+    ladderPrices: ladderPrices,
+    priceList: priceList,
     skuSummary: skuSummary,
     buildFieldPlan: buildFieldPlan,
     fillTargets: fillTargets,

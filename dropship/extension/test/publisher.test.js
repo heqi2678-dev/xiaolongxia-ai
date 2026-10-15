@@ -139,3 +139,32 @@ test("describeProduct 汇总为可粘贴文本", () => {
   assert.ok(text.includes("规格：红/S(19.9/5)，蓝/M(21.9/3)"));
   assert.ok(text.includes("描述：\n详情描述文本"));
 });
+
+test("ladderPrices 去重保序取阶梯价", () => {
+  const p = { pricing: { ladder: [{ minQty: 1, price: 2 }, { minQty: 10, price: 1.8 }, { minQty: 10, price: 1.8 }, { minQty: 100, price: 0 }] } };
+  assert.deepEqual(P.ladderPrices(p), [{ minQty: 1, price: 2 }, { minQty: 10, price: 1.8 }]);
+  assert.deepEqual(P.ladderPrices({}), []);
+});
+
+test("priceList 汇总成本/货源/上架/运费/SKU/阶梯价", () => {
+  const p = {
+    pricing: { cost: 2, price: 2.5, listPrice: 9.9, shipping: 6, ladder: [{ minQty: 1, price: 2.5 }, { minQty: 50, price: 2.2 }] },
+    skus: [{ specs: { color: "红" }, price: 2.5, stock: 1 }]
+  };
+  const list = P.priceList(p);
+  const labels = list.map((x) => x.label);
+  assert.ok(labels.includes("成本价"));
+  assert.ok(labels.includes("货源价"));
+  assert.ok(labels.includes("上架价"));
+  assert.ok(labels.includes("运费"));
+  assert.ok(labels.includes("SKU 红"));
+  assert.ok(labels.includes("满50件"));
+});
+
+test("buildFieldPlan 带出 ladder 与 prices", () => {
+  const p = { pricing: { price: 2.5, ladder: [{ minQty: 1, price: 2.5 }, { minQty: 50, price: 2.2 }] }, skus: [{ specs: {}, price: 2.5, stock: 1 }] };
+  const plan = P.buildFieldPlan(p, BACKEND);
+  assert.equal(plan.ladder.length, 2);
+  assert.ok(plan.prices.some((x) => x.label === "满50件"));
+  assert.ok(P.describeProduct(p, BACKEND).includes("阶梯价：满1件¥2.5，满50件¥2.2"));
+});
