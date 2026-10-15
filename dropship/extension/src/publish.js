@@ -71,38 +71,111 @@
   }
 
   var IMAGE_KIND_RE = {
-    main: /主图|商品图|宝贝图|白底图/,
-    sku: /规格图|销售属性图|sku\s*图|颜色图|属性图/i,
-    detail: /详情图|宝贝详情|详情描述|图文详情|描述图/
+    main: /主图|商品图|宝贝图|白底图|1:1|3:4|白底|长图/,
+    sku: /规格图|销售属性图|sku\s*图|颜色图|颜色|属性图|销售规格/i,
+    detail: /详情图|宝贝详情|详情描述|图文详情|描述图|详情信息|详情页/
   };
   var KIND_TEXT = { main: "主图", sku: "SKU图", detail: "详情图" };
+
+  // 收集元素及祖先节点的文案（穿透 shadow DOM 后的局部上下文）
+  function elContext(el, depth) {
+    var parts = [el.placeholder, el.getAttribute && el.getAttribute("aria-label"), el.id, el.name, el.className];
+    try {
+      if (el.labels && el.labels.length) {
+        for (var i = 0; i < el.labels.length; i++) parts.push(el.labels[i].innerText);
+      }
+    } catch (e) { /* ignore */ }
+    var p = el.parentElement;
+    for (var d = 0; p && d < (depth || 4); d++, p = p.parentElement) {
+      if (p.innerText) parts.push(p.innerText.slice(0, 160));
+    }
+    return parts.filter(Boolean).join(" ").toLowerCase();
+  }
+
+  // 递归收集文档及开放 shadow root 内的所有文件选择框
+  function collectFileInputs(root, out) {
+    out = out || [];
+    root = root || document;
+    var list = root.querySelectorAll('input[type=file]');
+    for (var i = 0; i < list.length; i++) out.push(list[i]);
+    var all = root.querySelectorAll('*');
+    for (var j = 0; j < all.length; j++) {
+      if (all[j].shadowRoot) collectFileInputs(all[j].shadowRoot, out);
+    }
+    return out;
+  }
 
   // 在发布页里找出指定类型的图片上传控件（主图 / SKU 图 / 详情图）；找不到返回 null
   function findImageInput(kind) {
     var re = IMAGE_KIND_RE[kind] || IMAGE_KIND_RE.main;
-    var all = Array.prototype.slice.call(document.querySelectorAll('input[type=file]')).filter(isFileInput);
+    var all = collectFileInputs().filter(isFileInput);
     if (!all.length) return null;
     function score(el) {
-      var t = fieldText(el);
-      var box = el.closest ? el.closest("div,li,section,td") : null;
-      if (box && box.innerText) t += " " + box.innerText.slice(0, 120);
+      var t = elContext(el, 5);
       var s = 0;
       if (re.test(t)) s += 5;
-      if (/上传|添加图片|点击上传|选择图片|拖拽/.test(t)) s += 1;
+      if (/上传图片|点击上传|选择图片|添加图片|拖拽|上传文件/.test(t)) s += 1;
       if (el.multiple) s += 1;
+      try { if (el.getClientRects().length) s += 1; } catch (e) { /* ignore */ }
       return s;
     }
     var sorted = all.slice().sort(function (a, b) { return score(b) - score(a); });
     return score(sorted[0]) > 0 ? sorted[0] : null;
   }
 
+  // 找不到文件选择框时，退而求其次找「上传图片」拖拽区，用 drop 事件投喂
+  function findDropZone(kind) {
+    var re = IMAGE_KIND_RE[kind] || IMAGE_KIND_RE.main;
+    var cands = document.querySelectorAll("div,span,button,li,section,td,a");
+    var best = null, bestScore = 0;
+    for (var i = 0; i < cands.length; i++) {
+      var el = cands[i];
+      var txt = (el.innerText || "").trim();
+      if (!txt || txt.length > 30) continue;
+      if (!/上传图片|点击上传|添加图片|上传文件/.test(txt)) continue;
+      var ctx = elContext(el, 4);
+      var s = re.test(ctx) ? 5 : 0;
+      if (!s) continue;
+      if (s > bestScore) { bestScore = s; best = el; }
+    }
+    return best;
+  }
+
   function findMainImageInput() { return findImageInput("main"); }
+
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  // 尽力展开某个板块（如「销售信息」里的一口价），只在正好命中短标签时点击
+  function ensureSection(re) {
+    try {
+      var els = document.querySelectorAll('[role=tab],a,button,li,span,div');
+      for (var i = 0; i < els.length; i++) {
+        var el = els[i];
+        if (el.closest && el.closest("#xlx-publish-panel")) continue;
+        var t = (el.innerText || "").trim();
+        if (!t || t.length > 6 || !re.test(t)) continue;
+        var target = el.closest('[role=tab],a,button,li') || el;
+        target.click();
+        return true;
+      }
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
+  function dispatchDrop(el, files) {
+    var dt = new DataTransfer();
+    files.forEach(function (f) { dt.items.add(f); });
+    ["dragenter", "dragover", "drop"].forEach(function (type) {
+      var ev;
+      try { ev = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }); }
+      catch (e) { ev = new Event(type, { bubbles: true, cancelable: true }); try { ev.dataTransfer = dt; } catch (e2) { /* ignore */ } }
+      el.dispatchEvent(ev);
+    });
+  }
 
   // 把指定类型的图片写入发布页对应上传控件（走 DataTransfer，等价于手动选图）
   async function uploadImages(kind, urls) {
     var label = KIND_TEXT[kind] || "图片";
-    var input = findImageInput(kind);
-    if (!input) return { ok: false, error: "未找到" + label + "上传控件（切到对应 tab 再试）" };
     var files = [], failed = 0;
     for (var i = 0; i < urls.length; i++) {
       try {
@@ -111,6 +184,15 @@
       } catch (e) { failed++; }
     }
     if (!files.length) return { ok: false, error: label + "取图失败(" + failed + ")" };
+    var input = findImageInput(kind);
+    if (!input) {
+      var zone = findDropZone(kind);
+      if (zone) {
+        try { dispatchDrop(zone, files); return { ok: true, count: files.length, failed: failed, via: "drop" }; }
+        catch (e) { return { ok: false, error: label + "拖拽投喂失败：" + (e.message || e) }; }
+      }
+      return { ok: false, error: "未找到" + label + "上传控件（请让该区域出现在当前可视区，或切到对应 tab 再试）" };
+    }
     try {
       var dt = new DataTransfer();
       files.forEach(function (f) { dt.items.add(f); });
@@ -298,6 +380,8 @@
     ROOT._product = product;
     ROOT._plan = plan;
     var price = readPriceInput(plan.price);
+    // 一口价通常在「销售信息」板块，先尝试展开再找输入框
+    if (ensureSection(/销售信息|销售属性|价格与库存|价格/)) await sleep(250);
     var targets = XLXPublisher.fillTargets(plan);
     var filled = [], missed = [];
     targets.forEach(function (t) {
