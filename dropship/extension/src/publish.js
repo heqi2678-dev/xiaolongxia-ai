@@ -31,18 +31,84 @@
     return parts.filter(Boolean).join(" ").toLowerCase();
   }
 
-  function findInput(keywords) {
-    var els = document.querySelectorAll('input[type=text],input[type=search],input[type=tel],input:not([type]),textarea');
+  function findInput(keywords, allowHidden) {
+    var els = document.querySelectorAll('input[type=text],input[type=search],input[type=tel],input[type=number],input:not([type]),textarea');
+    var fallback = null;
     for (var i = 0; i < els.length; i++) {
       var el = els[i];
       if (el.disabled || el.readOnly) continue;
-      if (el.offsetParent === null && el.getClientRects().length === 0) continue;
+      var hidden = (el.offsetParent === null && el.getClientRects().length === 0);
+      if (hidden && !allowHidden) continue;
       var text = fieldText(el);
+      var hit = false;
       for (var k = 0; k < keywords.length; k++) {
-        if (text.indexOf(keywords[k].toLowerCase()) >= 0) return el;
+        if (text.indexOf(keywords[k].toLowerCase()) >= 0) { hit = true; break; }
       }
+      if (!hit) continue;
+      if (hidden) { if (!fallback) fallback = el; continue; }
+      return el;
     }
-    return null;
+    return fallback;
+  }
+
+  // 把 data URL 还原成可直接喂给 <input type=file> 的 File
+  function dataURLToFile(dataUrl, name) {
+    var s = String(dataUrl || "");
+    var comma = s.indexOf(",");
+    if (comma < 0) throw new Error("图片数据无效");
+    var meta = s.slice(0, comma);
+    var body = s.slice(comma + 1);
+    var mime = (meta.match(/data:([^;]+)/) || [])[1] || "image/jpeg";
+    var bin = /;base64/i.test(meta) ? atob(body) : decodeURIComponent(body);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var ext = (mime.split("/")[1] || "jpg").replace("jpeg", "jpg");
+    return new File([bytes], (name || "xlx-image") + "." + ext, { type: mime });
+  }
+
+  function isFileInput(el) {
+    return el && el.tagName === "INPUT" && (el.type || "").toLowerCase() === "file" && !el.disabled;
+  }
+
+  // 在发布页里找出「主图」上传控件：优先文案命中「主图/白底图」、支持多选的
+  function findMainImageInput() {
+    var all = Array.prototype.slice.call(document.querySelectorAll('input[type=file]')).filter(isFileInput);
+    if (!all.length) return null;
+    function score(el) {
+      var t = fieldText(el);
+      var box = el.closest ? el.closest("div,li,section,td") : null;
+      if (box && box.innerText) t += " " + box.innerText.slice(0, 80);
+      var s = 0;
+      if (/主图|商品图|宝贝图|白底图/.test(t)) s += 4;
+      if (/上传|添加图片|点击上传|选择图片/.test(t)) s += 1;
+      if (el.multiple) s += 1;
+      return s;
+    }
+    return all.slice().sort(function (a, b) { return score(b) - score(a); })[0];
+  }
+
+  // 把商品主图写入发布页的上传控件（走 DataTransfer，等价于手动选图）
+  async function uploadImages(urls) {
+    var input = findMainImageInput();
+    if (!input) return { ok: false, error: "未找到主图上传控件（请切到主图所在 tab 再试）" };
+    var files = [], failed = 0;
+    for (var i = 0; i < urls.length; i++) {
+      try {
+        var dataUrl = await fetchImage(urls[i]);
+        files.push(dataURLToFile(dataUrl, "xlx-main-" + (i + 1)));
+      } catch (e) { failed++; }
+    }
+    if (!files.length) return { ok: false, error: "主图取图失败(" + failed + ")" };
+    try {
+      var dt = new DataTransfer();
+      files.forEach(function (f) { dt.items.add(f); });
+      input.files = dt.files;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    } catch (e) {
+      return { ok: false, error: "写入上传控件失败：" + (e.message || e) };
+    }
+    return { ok: true, count: files.length, failed: failed };
   }
 
   // React/Vue 受控输入需要走原生 setter 再派发事件，页面才会识别
@@ -168,6 +234,7 @@
     html += '<div class="xlx-pub-actions">'
       + '<button class="xlx-pub-copy" data-copy="all">复制全部字段</button>'
       + '<button class="xlx-pub-copy" data-copy="desc">复制描述</button>'
+      + (plan.images.length ? '<button class="xlx-pub-upload" data-up="1">写入主图（' + plan.images.length + '）</button>' : '')
       + '</div>';
     if (plan.skus.length) {
       html += '<div class="xlx-pub-dhead">规格（' + plan.skus.length + '）</div>'
@@ -191,14 +258,23 @@
     var targets = XLXPublisher.fillTargets(plan);
     var filled = [], missed = [];
     targets.forEach(function (t) {
-      var el = findInput(t.keywords);
+      var el = findInput(t.keywords, true);
       if (el) { setValue(el, t.value); filled.push(t.label); }
       else missed.push(t.label);
     });
+    var imgMsg = "", imgOk = true;
+    if (plan.images.length && ROOT._uploadedFor !== product.id) {
+      status("正在写入主图 " + plan.images.length + " 张…");
+      var up = await uploadImages(plan.images);
+      if (up.ok) { ROOT._uploadedFor = product.id; imgMsg = "已写入主图 " + up.count + " 张"; }
+      else { imgOk = false; imgMsg = "主图未写入：" + up.error; }
+    }
     renderDetail(plan, filled, missed);
-    if (targets.length && filled.length === targets.length) status("已填入 " + filled.join("、"), true);
-    else if (filled.length) status("部分填入（未找到：" + missed.join("、") + "），可「复制全部字段」手工粘贴", false);
-    else status("未识别到表单输入框，请用「复制全部字段」手工粘贴", false);
+    var parts = [];
+    if (filled.length) parts.push("已填 " + filled.join("、"));
+    if (missed.length) parts.push("未找到 " + missed.join("、"));
+    if (imgMsg) parts.push(imgMsg);
+    status(parts.join("　") || "无可填字段", missed.length === 0 && imgOk);
   }
 
   function onListClick(ev) {
@@ -214,6 +290,18 @@
   }
 
   function onDetailClick(ev) {
+    var upBtn = ev.target.closest(".xlx-pub-upload");
+    if (upBtn) {
+      var prod = ROOT._product, plan = ROOT._plan;
+      if (!prod || !plan) return;
+      upBtn.disabled = true;
+      status("正在写入主图 " + plan.images.length + " 张…");
+      uploadImages(plan.images).then(function (r) {
+        if (r.ok) { ROOT._uploadedFor = prod.id; status("已写入主图 " + r.count + " 张", true); }
+        else status("主图未写入：" + r.error, false);
+      }).then(function () { upBtn.disabled = false; });
+      return;
+    }
     var imgBtn = ev.target.closest(".xlx-pub-img");
     if (imgBtn) {
       var src = imgBtn.getAttribute("data-src");
