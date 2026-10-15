@@ -3,6 +3,7 @@
 import uuid
 
 from .base import PlatformAdapter, PublishResult
+from ..models import selling_price
 
 
 class MockAdapter(PlatformAdapter):
@@ -14,7 +15,7 @@ class MockAdapter(PlatformAdapter):
             "outer_id": product["source"]["itemId"],
             "title": product.get("title"),
             "num": sum(s.get("stock", 0) for s in product.get("skus", [])),
-            "price": (product.get("pricing") or {}).get("price", 0),
+            "price": selling_price(product),
             "images": [i["url"] for i in product["images"]["main"]],
         }
 

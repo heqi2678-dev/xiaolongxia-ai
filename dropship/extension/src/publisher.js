@@ -32,12 +32,31 @@
     return joinUrl(backendBase, item.local || item.remote || item.url || "");
   }
 
-  function mainImages(product, backendBase) {
-    var arr = (product && product.images && product.images.main) || [];
+  function imageList(arr, backendBase) {
     var out = [];
+    arr = arr || [];
     for (var i = 0; i < arr.length; i++) {
       var url = resolveImage(arr[i], backendBase);
       if (url && out.indexOf(url) < 0) out.push(url);
+    }
+    return out;
+  }
+
+  function mainImages(product, backendBase) {
+    return imageList(product && product.images && product.images.main, backendBase);
+  }
+
+  function detailImages(product, backendBase) {
+    return imageList(product && product.images && product.images.detail, backendBase);
+  }
+
+  // SKU 图：优先 sku 自身图片，其次 images.sku 汇总，最后退回主图
+  function skuImages(product, backendBase) {
+    var out = imageList(product && product.images && product.images.sku, backendBase);
+    var skus = (product && product.skus) || [];
+    for (var i = 0; i < skus.length; i++) {
+      var img = resolveImage(skus[i] && (skus[i].image || (skus[i].images && skus[i].images[0])), backendBase);
+      if (img && out.indexOf(img) < 0) out.push(img);
     }
     return out;
   }
@@ -50,7 +69,8 @@
   }
 
   function listPrice(product) {
-    var price = Number((product && product.pricing && product.pricing.price) || 0);
+    var pricing = (product && product.pricing) || {};
+    var price = Number(pricing.listPrice || pricing.price || 0);
     if (price) return price;
     var skus = (product && product.skus) || [];
     for (var i = 0; i < skus.length; i++) {
@@ -60,7 +80,11 @@
     return 0;
   }
 
-  function skuSummary(product) {
+  function shipping(product) {
+    return Number((product && product.pricing && product.pricing.shipping) || 0);
+  }
+
+  function skuSummary(product, backendBase) {
     var skus = (product && product.skus) || [];
     return skus.map(function (s) {
       var specs = (s && s.specs) || {};
@@ -71,7 +95,8 @@
       return {
         label: parts.join("/") || "默认",
         price: Number(s && s.price) || 0,
-        stock: Number(s && s.stock) || 0
+        stock: Number(s && s.stock) || 0,
+        image: resolveImage(s && (s.image || (s.images && s.images[0])), backendBase)
       };
     });
   }
@@ -81,11 +106,14 @@
     return {
       title: str(product.title).slice(0, 60),
       price: listPrice(product),
+      shipping: shipping(product),
       stock: totalStock(product),
       description: str(product.description),
       articleNo: str((product.source || {}).articleNo),
       images: mainImages(product, backendBase),
-      skus: skuSummary(product),
+      skuImages: skuImages(product, backendBase),
+      detailImages: detailImages(product, backendBase),
+      skus: skuSummary(product, backendBase),
       attributes: product.attributes || {}
     };
   }
@@ -103,9 +131,12 @@
   function describeProduct(product, backendBase) {
     var plan = buildFieldPlan(product, backendBase);
     var lines = ["标题：" + plan.title];
-    if (plan.price) lines.push("价格：" + plan.price);
+    if (plan.price) lines.push("上架价格：" + plan.price);
+    if (plan.shipping) lines.push("运费：" + plan.shipping);
     if (plan.stock) lines.push("库存：" + plan.stock);
     if (plan.articleNo) lines.push("货号：" + plan.articleNo);
+    if (plan.skuImages.length) lines.push("SKU 图：" + plan.skuImages.length + " 张");
+    if (plan.detailImages.length) lines.push("详情图：" + plan.detailImages.length + " 张");
     if (plan.skus.length) {
       lines.push("规格：" + plan.skus.map(function (s) {
         return s.label + "(" + s.price + "/" + s.stock + ")";
@@ -119,9 +150,13 @@
     DEFAULT_BACKEND: DEFAULT_BACKEND,
     joinUrl: joinUrl,
     resolveImage: resolveImage,
+    imageList: imageList,
     mainImages: mainImages,
+    detailImages: detailImages,
+    skuImages: skuImages,
     totalStock: totalStock,
     listPrice: listPrice,
+    shipping: shipping,
     skuSummary: skuSummary,
     buildFieldPlan: buildFieldPlan,
     fillTargets: fillTargets,

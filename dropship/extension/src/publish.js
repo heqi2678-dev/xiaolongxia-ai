@@ -70,35 +70,47 @@
     return el && el.tagName === "INPUT" && (el.type || "").toLowerCase() === "file" && !el.disabled;
   }
 
-  // 在发布页里找出「主图」上传控件：优先文案命中「主图/白底图」、支持多选的
-  function findMainImageInput() {
+  var IMAGE_KIND_RE = {
+    main: /主图|商品图|宝贝图|白底图/,
+    sku: /规格图|销售属性图|sku\s*图|颜色图|属性图/i,
+    detail: /详情图|宝贝详情|详情描述|图文详情|描述图/
+  };
+  var KIND_TEXT = { main: "主图", sku: "SKU图", detail: "详情图" };
+
+  // 在发布页里找出指定类型的图片上传控件（主图 / SKU 图 / 详情图）；找不到返回 null
+  function findImageInput(kind) {
+    var re = IMAGE_KIND_RE[kind] || IMAGE_KIND_RE.main;
     var all = Array.prototype.slice.call(document.querySelectorAll('input[type=file]')).filter(isFileInput);
     if (!all.length) return null;
     function score(el) {
       var t = fieldText(el);
       var box = el.closest ? el.closest("div,li,section,td") : null;
-      if (box && box.innerText) t += " " + box.innerText.slice(0, 80);
+      if (box && box.innerText) t += " " + box.innerText.slice(0, 120);
       var s = 0;
-      if (/主图|商品图|宝贝图|白底图/.test(t)) s += 4;
-      if (/上传|添加图片|点击上传|选择图片/.test(t)) s += 1;
+      if (re.test(t)) s += 5;
+      if (/上传|添加图片|点击上传|选择图片|拖拽/.test(t)) s += 1;
       if (el.multiple) s += 1;
       return s;
     }
-    return all.slice().sort(function (a, b) { return score(b) - score(a); })[0];
+    var sorted = all.slice().sort(function (a, b) { return score(b) - score(a); });
+    return score(sorted[0]) > 0 ? sorted[0] : null;
   }
 
-  // 把商品主图写入发布页的上传控件（走 DataTransfer，等价于手动选图）
-  async function uploadImages(urls) {
-    var input = findMainImageInput();
-    if (!input) return { ok: false, error: "未找到主图上传控件（请切到主图所在 tab 再试）" };
+  function findMainImageInput() { return findImageInput("main"); }
+
+  // 把指定类型的图片写入发布页对应上传控件（走 DataTransfer，等价于手动选图）
+  async function uploadImages(kind, urls) {
+    var label = KIND_TEXT[kind] || "图片";
+    var input = findImageInput(kind);
+    if (!input) return { ok: false, error: "未找到" + label + "上传控件（切到对应 tab 再试）" };
     var files = [], failed = 0;
     for (var i = 0; i < urls.length; i++) {
       try {
         var dataUrl = await fetchImage(urls[i]);
-        files.push(dataURLToFile(dataUrl, "xlx-main-" + (i + 1)));
+        files.push(dataURLToFile(dataUrl, "xlx-" + kind + "-" + (i + 1)));
       } catch (e) { failed++; }
     }
-    if (!files.length) return { ok: false, error: "主图取图失败(" + failed + ")" };
+    if (!files.length) return { ok: false, error: label + "取图失败(" + failed + ")" };
     try {
       var dt = new DataTransfer();
       files.forEach(function (f) { dt.items.add(f); });
@@ -106,7 +118,7 @@
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     } catch (e) {
-      return { ok: false, error: "写入上传控件失败：" + (e.message || e) };
+      return { ok: false, error: "写入" + label + "上传控件失败：" + (e.message || e) };
     }
     return { ok: true, count: files.length, failed: failed };
   }
@@ -195,7 +207,8 @@
     return '<div class="xlx-pub-row" data-id="' + esc(p.id) + '">'
       + thumb
       + '<div class="xlx-pub-meta"><div class="xlx-pub-t">' + esc(plan.title || "(无标题)") + '</div>'
-      + '<div class="xlx-pub-s">¥' + esc(plan.price || "—") + ' · 库存 ' + esc(plan.stock) + ' · 主图 ' + plan.images.length + '</div></div>'
+      + '<div class="xlx-pub-s">上架 ¥' + esc(plan.price || "—") + ' · 库存 ' + esc(plan.stock)
+      + ' · 主图 ' + plan.images.length + ' · SKU ' + plan.skuImages.length + ' · 详情 ' + plan.detailImages.length + '</div></div>'
       + '<button class="xlx-pub-fill">填入</button></div>';
   }
 
@@ -226,15 +239,24 @@
     renderList(hit);
   }
 
-  function renderDetail(plan, filled, missed) {
+  function renderDetail(plan, filled, missed, price) {
     var detail = ROOT.querySelector(".xlx-pub-detail");
-    var html = '<div class="xlx-pub-dhead">填充结果</div>';
+    var shown = (price == null ? plan.price : price);
+    var html = '<div class="xlx-pub-dhead">上架价格（可改）</div>'
+      + '<input class="xlx-pub-price" type="number" step="0.01" value="' + esc(shown || "") + '" placeholder="填入价格" />';
     html += '<div class="xlx-pub-hint">已填：' + (filled.length ? esc(filled.join("、")) : "无")
       + (missed.length ? '　未找到：' + esc(missed.join("、")) : "") + '</div>';
+    html += '<div class="xlx-pub-actions"><button class="xlx-pub-fillall">一键写入标题·价格·库存·图片</button></div>';
     html += '<div class="xlx-pub-actions">'
-      + '<button class="xlx-pub-copy" data-copy="all">复制全部字段</button>'
+      + (plan.images.length ? '<button class="xlx-pub-upload" data-up="main">写入主图（' + plan.images.length + '）</button>' : '')
+      + (plan.skuImages.length ? '<button class="xlx-pub-upload" data-up="sku">写入SKU图（' + plan.skuImages.length + '）</button>' : '')
+      + (plan.detailImages.length ? '<button class="xlx-pub-upload" data-up="detail">写入详情图（' + plan.detailImages.length + '）</button>' : '')
+      + '</div>';
+    html += '<div class="xlx-pub-actions">'
+      + '<button class="xlx-pub-copy" data-copy="title">复制标题</button>'
       + '<button class="xlx-pub-copy" data-copy="desc">复制描述</button>'
-      + (plan.images.length ? '<button class="xlx-pub-upload" data-up="1">写入主图（' + plan.images.length + '）</button>' : '')
+      + '<button class="xlx-pub-copy" data-copy="skus">复制规格价格</button>'
+      + '<button class="xlx-pub-copy" data-copy="all">复制全部字段</button>'
       + '</div>';
     if (plan.skus.length) {
       html += '<div class="xlx-pub-dhead">规格（' + plan.skus.length + '）</div>'
@@ -251,30 +273,60 @@
     detail.innerHTML = html;
   }
 
+  function readPriceInput(fallback) {
+    var inp = ROOT && ROOT.querySelector(".xlx-pub-price");
+    var v = inp ? parseFloat(inp.value) : NaN;
+    return (isNaN(v) || v <= 0) ? fallback : v;
+  }
+
+  async function uploadAll(plan) {
+    var jobs = [["main", plan.images], ["sku", plan.skuImages], ["detail", plan.detailImages]];
+    var out = [];
+    for (var i = 0; i < jobs.length; i++) {
+      var kind = jobs[i][0], list = jobs[i][1];
+      if (!list || !list.length) continue;
+      var r = await uploadImages(kind, list);
+      r.kind = kind;
+      r.label = KIND_TEXT[kind];
+      out.push(r);
+    }
+    return out;
+  }
+
   async function fillProduct(product) {
     var plan = XLXPublisher.buildFieldPlan(product, BASE);
     ROOT._product = product;
     ROOT._plan = plan;
+    var price = readPriceInput(plan.price);
     var targets = XLXPublisher.fillTargets(plan);
     var filled = [], missed = [];
     targets.forEach(function (t) {
       var el = findInput(t.keywords, true);
-      if (el) { setValue(el, t.value); filled.push(t.label); }
+      if (el) { setValue(el, t.key === "price" ? String(price) : t.value); filled.push(t.label); }
       else missed.push(t.label);
     });
-    var imgMsg = "", imgOk = true;
-    if (plan.images.length && ROOT._uploadedFor !== product.id) {
-      status("正在写入主图 " + plan.images.length + " 张…");
-      var up = await uploadImages(plan.images);
-      if (up.ok) { ROOT._uploadedFor = product.id; imgMsg = "已写入主图 " + up.count + " 张"; }
-      else { imgOk = false; imgMsg = "主图未写入：" + up.error; }
-    }
-    renderDetail(plan, filled, missed);
+    status("正在写入图片…");
+    var up = await uploadAll(plan);
+    renderDetail(plan, filled, missed, price);
+    var done = up.filter(function (r) { return r.ok; });
+    var bad = up.filter(function (r) { return !r.ok; });
     var parts = [];
     if (filled.length) parts.push("已填 " + filled.join("、"));
     if (missed.length) parts.push("未找到 " + missed.join("、"));
-    if (imgMsg) parts.push(imgMsg);
-    status(parts.join("　") || "无可填字段", missed.length === 0 && imgOk);
+    done.forEach(function (r) { parts.push("已写" + r.label + " " + r.count + " 张"); });
+    bad.forEach(function (r) { parts.push(r.label + "：" + r.error); });
+    status(parts.join("　") || "无可填字段", bad.length === 0 && missed.length === 0);
+  }
+
+  function copyValue(kind, product) {
+    if (kind === "title") return String(product.title || "");
+    if (kind === "desc") return String(product.description || "");
+    if (kind === "skus") {
+      return XLXPublisher.buildFieldPlan(product, BASE).skus.map(function (s) {
+        return s.label + " ¥" + s.price + " / " + s.stock;
+      }).join("\n");
+    }
+    return XLXPublisher.describeProduct(product, BASE);
   }
 
   function onListClick(ev) {
@@ -290,15 +342,27 @@
   }
 
   function onDetailClick(ev) {
+    var fillBtn = ev.target.closest(".xlx-pub-fillall");
+    if (fillBtn) {
+      var p0 = ROOT._product;
+      if (!p0) return;
+      fillBtn.disabled = true;
+      fillProduct(p0).then(function () { fillBtn.disabled = false; })
+        .catch(function (e) { status("写入失败：" + (e.message || e), false); fillBtn.disabled = false; });
+      return;
+    }
     var upBtn = ev.target.closest(".xlx-pub-upload");
     if (upBtn) {
-      var prod = ROOT._product, plan = ROOT._plan;
-      if (!prod || !plan) return;
+      var plan = ROOT._plan;
+      if (!plan) return;
+      var kind = upBtn.getAttribute("data-up") || "main";
+      var list = kind === "sku" ? plan.skuImages : kind === "detail" ? plan.detailImages : plan.images;
+      var label = KIND_TEXT[kind] || "图片";
       upBtn.disabled = true;
-      status("正在写入主图 " + plan.images.length + " 张…");
-      uploadImages(plan.images).then(function (r) {
-        if (r.ok) { ROOT._uploadedFor = prod.id; status("已写入主图 " + r.count + " 张", true); }
-        else status("主图未写入：" + r.error, false);
+      status("正在写入" + label + " " + list.length + " 张…");
+      uploadImages(kind, list).then(function (r) {
+        if (r.ok) status("已写入" + label + " " + r.count + " 张", true);
+        else status(label + "未写入：" + r.error, false);
       }).then(function () { upBtn.disabled = false; });
       return;
     }
@@ -325,9 +389,8 @@
     if (!btn) return;
     var product = ROOT._product;
     if (!product) return;
-    var text = btn.getAttribute("data-copy") === "desc"
-      ? XLXPublisher.buildFieldPlan(product, BASE).description
-      : XLXPublisher.describeProduct(product, BASE);
+    var text = copyValue(btn.getAttribute("data-copy"), product);
+    if (!text) { status("没有可复制的内容", false); return; }
     copyText(text).then(function () { status("已复制到剪贴板", true); });
   }
 

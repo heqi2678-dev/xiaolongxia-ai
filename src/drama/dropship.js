@@ -129,8 +129,12 @@
 
   function priceText(p) {
     const pr = p.pricing || {};
-    if (!pr.price) return "—";
-    return "¥" + pr.price;
+    const list = pr.listPrice || pr.price;
+    if (!list) return "—";
+    const parts = ["上架 ¥" + list];
+    if (pr.cost && pr.cost !== list) parts.push("成本 ¥" + pr.cost);
+    if (pr.shipping) parts.push("运费 ¥" + pr.shipping);
+    return parts.join(" · ");
   }
 
   function productRow(p) {
@@ -152,7 +156,8 @@
       + '</div>'
       + '<div class="dp-edit" data-editbox="' + esc(p.id) + '" hidden>'
       + '<div><label class="label">标题</label><input class="inp" data-f="title" value="' + esc(p.title || "") + '"></div>'
-      + '<div><label class="label">售价</label><input class="inp" type="number" step="0.01" data-f="price" value="' + esc(String((p.pricing && p.pricing.price) || "")) + '"></div>'
+      + '<div><label class="label">货源价</label><input class="inp" type="number" step="0.01" data-f="price" value="' + esc(String((p.pricing && p.pricing.price) || "")) + '"></div>'
+      + '<div><label class="label">上架价格</label><input class="inp" type="number" step="0.01" data-f="listPrice" value="' + esc(String((p.pricing && p.pricing.listPrice) || "")) + '" placeholder="留空则用货源价"></div>'
       + '<div><label class="label">平台类目 ID</label><input class="inp" data-f="catId" value="' + esc(target.id || "") + '" placeholder="如 50010850"></div>'
       + '<div style="display:flex;align-items:flex-end;gap:6px"><button class="btn primary" data-save="' + esc(p.id) + '">保存</button>'
       + '<button class="btn ghost" data-cancel="' + esc(p.id) + '">取消</button></div>'
@@ -357,12 +362,16 @@
     if (!box) return;
     const get = (f) => { const el = box.querySelector('[data-f="' + f + '"]'); return el ? el.value.trim() : ""; };
     const patch = { title: get("title") };
+    const pricing = {};
     const price = parseFloat(get("price"));
-    if (!isNaN(price)) patch.pricing = { price: price };
+    if (!isNaN(price)) pricing.price = price;
+    const listPrice = parseFloat(get("listPrice"));
+    if (!isNaN(listPrice)) pricing.listPrice = listPrice;
+    if (Object.keys(pricing).length) patch.pricing = pricing;
     const catId = get("catId");
+    if (catId) patch.category = { target: { id: catId } };
     try {
-      const r = await API.updateProduct(id, patch);
-      if (catId) await API.updateProduct(id, { category: { target: { id: catId } } });
+      await API.updateProduct(id, patch);
       if (U.toast) U.toast("已保存商品修改", "ok");
       load(ROOT || body);
     } catch (e) {

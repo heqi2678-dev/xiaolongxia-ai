@@ -12,6 +12,7 @@ import urllib.parse
 import urllib.request
 
 from .base import PlatformAdapter, PublishResult
+from ..models import selling_price
 
 TOP_GATEWAY = "https://eco.taobao.com/router/rest"
 
@@ -145,10 +146,11 @@ class TaobaoAdapter(PlatformAdapter):
     def map_fields(self, product, mapping=None):
         mapping = mapping or {}
         cat_id = ((product.get("category") or {}).get("target") or {}).get("id")
+        default_price = selling_price(product)
         sku_lines = []
         for s in product.get("skus", []):
             specs = s.get("specs") or {}
-            entry = {"price": s.get("price", 0), "quantity": s.get("stock", 0)}
+            entry = {"price": s.get("price") or default_price, "quantity": s.get("stock", 0)}
             if specs.get("color"):
                 entry["prop"] = entry.get("prop") or {}
                 entry["prop"]["颜色"] = specs["color"]
@@ -162,7 +164,7 @@ class TaobaoAdapter(PlatformAdapter):
             "outer_id": (product.get("source") or {}).get("itemId"),
             "desc": product.get("description") or "",
             "num": sum(s.get("stock", 0) for s in product.get("skus", [])),
-            "price": (product.get("pricing") or {}).get("price", 0),
+            "price": default_price,
             "sku": sku_lines,
             "images": [self._image_url(i) for i in product.get("images", {}).get("main", [])],
             "attributes": product.get("attributes") or {},

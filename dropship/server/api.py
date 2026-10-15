@@ -111,9 +111,18 @@ def _h_update_product(ctx, query, body, params):
     product = ctx.store.get_product(params["id"])
     if not product:
         return _err(404, "商品不存在")
+    merge_keys = ("images", "attributes", "category", "pricing")
     for key in ("title", "description", "sellingPoints", "images", "skus", "attributes", "category", "pricing"):
-        if key in body:
-            product[key] = body[key]
+        if key not in body:
+            continue
+        value = body[key]
+        # 嵌套对象做浅合并，避免只改一个子字段就清空其它字段（如改售价清掉成本/运费）
+        if key in merge_keys and isinstance(value, dict) and isinstance(product.get(key), dict):
+            merged = dict(product[key])
+            merged.update(value)
+            product[key] = merged
+        else:
+            product[key] = value
     saved = ctx.store.upsert_product(normalize_product(product))
     return 200, {"product": saved}
 

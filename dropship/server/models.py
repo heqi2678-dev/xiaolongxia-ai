@@ -112,7 +112,9 @@ def normalize_product(raw):
         "pricing": {
             "cost": _num((raw.get("pricing") or {}).get("cost")),
             "price": _num((raw.get("pricing") or {}).get("price")),
+            "listPrice": _num((raw.get("pricing") or {}).get("listPrice")),
             "markup": _num((raw.get("pricing") or {}).get("markup")),
+            "shipping": _num((raw.get("pricing") or {}).get("shipping")),
             "currency": (raw.get("pricing") or {}).get("currency") or CURRENCY,
         },
         "publish": raw.get("publish") or [],
@@ -122,6 +124,20 @@ def normalize_product(raw):
     if not product["images"]["main"]:
         raise ValueError("缺少主图 images.main")
     return product
+
+
+def selling_price(product):
+    """上架售价：优先人工填的「上架价格」(listPrice)，其次货源价(price)/首个 SKU 价。"""
+    pricing = product.get("pricing") or {}
+    for key in ("listPrice", "price"):
+        v = _num(pricing.get(key))
+        if v:
+            return v
+    for s in product.get("skus", []):
+        v = _num(s.get("price"))
+        if v:
+            return v
+    return 0.0
 
 
 def validate_for_publish(product, mapping):

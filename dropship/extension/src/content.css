@@ -123,7 +123,10 @@
 #xlx-publish-panel .xlx-pub-fill:disabled { opacity: 0.6; cursor: default; }
 #xlx-publish-panel .xlx-pub-detail { border-top: 1px solid #eef1f6; margin-top: 10px; padding-top: 10px; max-height: 42vh; overflow: auto; }
 #xlx-publish-panel .xlx-pub-dhead { font-size: 12px; font-weight: 700; color: #5a6272; margin: 8px 0 6px; }
-#xlx-publish-panel .xlx-pub-actions { display: flex; gap: 8px; margin-top: 6px; }
+#xlx-publish-panel .xlx-pub-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+#xlx-publish-panel .xlx-pub-price { width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid #d5dae3; border-radius: 7px; font-size: 13px; }
+#xlx-publish-panel .xlx-pub-fillall { padding: 8px 14px; border: none; border-radius: 7px; background: linear-gradient(135deg, #ff7a3d, #ff4d6d); color: #fff; font-weight: 700; font-size: 12.5px; cursor: pointer; }
+#xlx-publish-panel .xlx-pub-fillall:disabled { opacity: .6; cursor: default; }
 #xlx-publish-panel .xlx-pub-copy { padding: 7px 12px; border: 1px solid #d5dae3; border-radius: 7px; background: #fff; cursor: pointer; font-size: 12.5px; }
 #xlx-publish-panel .xlx-pub-upload { padding: 7px 12px; border: none; border-radius: 7px; background: linear-gradient(135deg, #2f6fdd, #5b8def); color: #fff; font-weight: 600; font-size: 12.5px; cursor: pointer; }
 #xlx-publish-panel .xlx-pub-upload:disabled { opacity: .6; cursor: default; }

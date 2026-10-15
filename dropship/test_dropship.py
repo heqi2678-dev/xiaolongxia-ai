@@ -13,7 +13,7 @@ from dropship.server.adapters.taobao import TaobaoAdapter, TopError, build_multi
 from dropship.server.app import AppContext
 from dropship.server.auth import AuthCenter
 from dropship.server.db import Store
-from dropship.server.models import normalize_product, validate_for_publish
+from dropship.server.models import normalize_product, selling_price, validate_for_publish
 from dropship.server.queue import PublishQueue
 from dropship.server.storage import ImageStore
 
@@ -75,6 +75,20 @@ class ModelTests(unittest.TestCase):
         raw["images"]["main"] = []
         with self.assertRaises(ValueError):
             normalize_product(raw)
+
+    def test_normalize_keeps_list_price_and_shipping(self):
+        raw = sample_raw()
+        raw["pricing"] = {"cost": 12.5, "price": 12.5, "listPrice": 29.9, "shipping": 6.0}
+        p = normalize_product(raw)
+        self.assertEqual(p["pricing"]["listPrice"], 29.9)
+        self.assertEqual(p["pricing"]["shipping"], 6.0)
+
+    def test_selling_price_prefers_list_price(self):
+        raw = sample_raw()
+        raw["pricing"] = {"cost": 12.5, "price": 12.5, "listPrice": 29.9}
+        self.assertEqual(selling_price(normalize_product(raw)), 29.9)
+        raw["pricing"] = {"cost": 12.5, "price": 12.5}
+        self.assertEqual(selling_price(normalize_product(raw)), 12.5)
 
     def test_validate_requires_category_mapping(self):
         p = normalize_product(sample_raw())
@@ -183,6 +197,17 @@ class ApiTests(unittest.TestCase):
         self.ctx.app.queue.worker_once()
         status, payload = self.ctx.call("GET", "/api/tasks")
         self.assertEqual(payload["tasks"][0]["status"], "success")
+
+    def test_put_merges_nested_pricing_and_category(self):
+        _, payload = self.ctx.call("POST", "/api/collect", sample_raw())
+        pid = payload["product"]["id"]
+        _, payload = self.ctx.call("PUT", "/api/products/%s" % pid, {"pricing": {"listPrice": 39.9}})
+        pricing = payload["product"]["pricing"]
+        self.assertEqual(pricing["listPrice"], 39.9)
+        self.assertEqual(pricing["cost"], 12.5)
+        _, payload = self.ctx.call("PUT", "/api/products/%s" % pid, {"category": {"target": {"id": "1"}}})
+        self.assertEqual(payload["product"]["category"]["target"]["id"], "1")
+        self.assertEqual(payload["product"]["category"]["sourcePath"], ["女装", "T恤"])
 
     def test_not_found(self):
         status, _ = self.ctx.call("GET", "/api/products/missing")

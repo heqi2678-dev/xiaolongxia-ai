@@ -258,20 +258,44 @@
     };
   }
 
-  // images 为 SKU 图候选，按顺序循环分配给各 SKU；无 SKU 图时退回主图
-  function buildSkus(specs, price, image, images) {
+  // 各 SKU 价格：从 skuId/price 片段里抓数值，去重保序；抓不到返回空数组
+  function extractSkuPrices(html) {
+    var out = [], seen = {};
+    var re = /"skuId"\s*:\s*"?[A-Za-z0-9_\-]+"?[\s\S]{0,200}?"price"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)"?/g, m;
+    while ((m = re.exec(html))) {
+      var p = parseFloat(m[1]);
+      if (!isNaN(p) && p > 0 && !seen[p]) { seen[p] = 1; out.push(p); }
+    }
+    return out;
+  }
+
+  // 运费：从页面 JSON 里取快递费/运费；取不到返回 0（0 表示包邮或未标）
+  function extractShipping(html) {
+    var keys = ["freight", "postFee", "expressFee", "shippingFee", "deliveryFee", "freightFee"];
+    for (var i = 0; i < keys.length; i++) {
+      var m = firstMatch(html, new RegExp('"' + keys[i] + '"\\s*:\\s*"?([0-9]+(?:\\.[0-9]+)?)"?', "i"));
+      var n = parseFloat(m);
+      if (!isNaN(n)) return n;
+    }
+    return 0;
+  }
+
+  // images 为 SKU 图候选，按顺序循环分配给各 SKU；prices 为各 SKU 价格候选（可选）
+  function buildSkus(specs, price, image, images, prices) {
     var colors = (specs && specs.colors && specs.colors.length) ? specs.colors : [""];
     var sizes = (specs && specs.sizes && specs.sizes.length) ? specs.sizes : [""];
     var pool = (images && images.length) ? images : (image ? [image] : []);
+    var pricePool = (prices && prices.length) ? prices : (price ? [price] : []);
     var out = [];
     colors.forEach(function (c) {
       sizes.forEach(function (s) {
+        var idx = out.length;
         out.push({
-          skuId: "sku-" + (out.length + 1),
+          skuId: "sku-" + (idx + 1),
           specs: { color: c, size: s },
-          price: price,
+          price: pricePool.length ? pricePool[idx % pricePool.length] : price,
           stock: 1,
-          image: pool.length ? pool[out.length % pool.length] : ""
+          image: pool.length ? pool[idx % pool.length] : ""
         });
       });
     });
@@ -326,6 +350,8 @@
     var price = extractPrice(html);
     var ladder = extractLadderPrices(html);
     if (!price && ladder.length) price = ladder[0].price;
+    var skuPrices = extractSkuPrices(html);
+    var shipping = extractShipping(html);
     var specs = extractSpecs(html);
     // 主图/详情图/SKU 图三组各自独立取源，互不去重（同一张图可能既是 SKU 图又是详情图）
     var main = split.main.slice();
@@ -344,9 +370,9 @@
       description: extractDescription(html),
       images: { main: main, detail: detail, sku: skuImages },
       detailUrl: extractDetailUrl(html),
-      skus: price > 0 ? buildSkus(specs, price, cover, skuImages) : [],
+      skus: price > 0 ? buildSkus(specs, price, cover, skuImages, skuPrices) : [],
       category: { sourcePath: [] },
-      pricing: { cost: price, price: price, currency: "CNY", ladder: ladder }
+      pricing: { cost: price, price: price, shipping: shipping, currency: "CNY", ladder: ladder }
     };
     return product;
   }
@@ -377,6 +403,8 @@
     extractItemNo: extractItemNo,
     extractSupplier: extractSupplier,
     extractSpecs: extractSpecs,
+    extractSkuPrices: extractSkuPrices,
+    extractShipping: extractShipping,
     buildSkus: buildSkus,
     extractBatchLinks: extractBatchLinks,
     applySelection: applySelection,

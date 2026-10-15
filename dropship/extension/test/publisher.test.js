@@ -60,12 +60,51 @@ test("listPrice 无定价时回落到首个 SKU 价格", () => {
 });
 
 test("skuSummary 组合规格并给默认标签", () => {
-  const s = P.skuSummary(PRODUCT);
+  const s = P.skuSummary(PRODUCT, BACKEND);
   assert.deepEqual(s, [
-    { label: "红/S", price: 19.9, stock: 5 },
-    { label: "蓝/M", price: 21.9, stock: 3 }
+    { label: "红/S", price: 19.9, stock: 5, image: "" },
+    { label: "蓝/M", price: 21.9, stock: 3, image: "" }
   ]);
-  assert.equal(P.skuSummary({ skus: [{ specs: {}, price: 9, stock: 1 }] })[0].label, "默认");
+  assert.equal(P.skuSummary({ skus: [{ specs: {}, price: 9, stock: 1 }] }, BACKEND)[0].label, "默认");
+});
+
+test("listPrice 优先取上架价格 listPrice", () => {
+  assert.equal(P.listPrice({ pricing: { price: 10, listPrice: 15 } }), 15);
+});
+
+test("shipping 读取运费", () => {
+  assert.equal(P.shipping({ pricing: { shipping: 6 } }), 6);
+  assert.equal(P.shipping({}), 0);
+});
+
+test("skuImages / detailImages 解析并去重", () => {
+  const p = {
+    images: {
+      sku: [{ url: "https://cbu01.alicdn.com/s1.jpg" }],
+      detail: [{ url: "https://cbu01.alicdn.com/d1.jpg" }, { local: "/api/images/d2.jpg" }]
+    },
+    skus: [{ image: "https://cbu01.alicdn.com/s1.jpg" }, { image: "https://cbu01.alicdn.com/s2.jpg" }]
+  };
+  assert.deepEqual(P.skuImages(p, BACKEND), [
+    "https://cbu01.alicdn.com/s1.jpg",
+    "https://cbu01.alicdn.com/s2.jpg"
+  ]);
+  assert.deepEqual(P.detailImages(p, BACKEND), [
+    "https://cbu01.alicdn.com/d1.jpg",
+    "http://127.0.0.1:9150/api/images/d2.jpg"
+  ]);
+});
+
+test("buildFieldPlan 含 skuImages/detailImages/shipping", () => {
+  const p = {
+    images: { sku: [{ url: "https://cbu01.alicdn.com/s.jpg" }], detail: [{ url: "https://cbu01.alicdn.com/d.jpg" }] },
+    pricing: { listPrice: 12, shipping: 5 }
+  };
+  const plan = P.buildFieldPlan(p, BACKEND);
+  assert.equal(plan.price, 12);
+  assert.equal(plan.shipping, 5);
+  assert.equal(plan.skuImages.length, 1);
+  assert.equal(plan.detailImages.length, 1);
 });
 
 test("buildFieldPlan 产出发布页所需字段", () => {

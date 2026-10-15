@@ -333,3 +333,28 @@ test("applySelection 支持裁剪 SKU 图", () => {
   const out = C.applySelection(product, { sku: [0, 2] });
   assert.deepEqual(out.images.sku, ["s0", "s2"]);
 });
+
+test("extractShipping 抓运费字段，取不到为 0", () => {
+  assert.equal(C.extractShipping('<script>{"postFee":"6.00"}</script>'), 6);
+  assert.equal(C.extractShipping('<script>{"freight":8}</script>'), 8);
+  assert.equal(C.extractShipping('<script>{"title":"x"}</script>'), 0);
+});
+
+test("extractSkuPrices 去重保序抓各 SKU 价", () => {
+  const html = '<script>[{"skuId":"s1","price":"9.90"},{"skuId":"s2","price":"11.50"},{"skuId":"s3","price":"9.90"}]</script>';
+  assert.deepEqual(C.extractSkuPrices(html), [9.9, 11.5]);
+});
+
+test("buildSkus 按价格池循环分配各 SKU 价", () => {
+  const skus = C.buildSkus({ colors: ["红", "蓝"] }, 9.9, "cover.jpg", ["a.jpg", "b.jpg"], [9.9, 11.5]);
+  assert.equal(skus.length, 2);
+  assert.equal(skus[0].price, 9.9);
+  assert.equal(skus[1].price, 11.5);
+});
+
+test("extractOffer 带出运费与 SKU 价格", () => {
+  const html = '<img src="https://cbu01.alicdn.com/img/ibank/a-0-cib.jpg">'
+    + '<script>{"price":"9.90","postFee":"6.00","color":["红","蓝"],"skuId":"s1","sellerId":"1","price":"11.50"}</script>';
+  const p = C.extractOffer({ url: "https://detail.1688.com/offer/1.html", html: html });
+  assert.equal(p.pricing.shipping, 6);
+});
