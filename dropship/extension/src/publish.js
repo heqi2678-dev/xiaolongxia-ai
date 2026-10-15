@@ -25,8 +25,8 @@
       }
     } catch (e) { /* ignore */ }
     var p = el.parentElement;
-    for (var d = 0; p && d < 2; d++, p = p.parentElement) {
-      if (p.innerText) parts.push(p.innerText.slice(0, 60));
+    for (var d = 0; p && d < 4; d++, p = p.parentElement) {
+      if (p.innerText) parts.push(p.innerText.slice(0, 120));
     }
     return parts.filter(Boolean).join(" ").toLowerCase();
   }
@@ -145,6 +145,22 @@
     return best;
   }
 
+  function allFileInputs() {
+    return collectFileInputs().filter(isFileInput);
+  }
+
+  // 按文案找一个短标签的可点击元素（本地上传 / 确定 等）
+  function findButton(re) {
+    var els = document.querySelectorAll("button,a,div,span,li,label");
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (ROOT && ROOT.contains(el)) continue;
+      var t = (el.innerText || "").trim();
+      if (t && t.length <= 8 && re.test(t)) return el;
+    }
+    return null;
+  }
+
   function findMainImageInput() { return findImageInput("main"); }
 
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
@@ -175,6 +191,63 @@
       catch (e) { ev = new Event(type, { bubbles: true, cancelable: true }); try { ev.dataTransfer = dt; } catch (e2) { /* ignore */ } }
       el.dispatchEvent(ev);
     });
+  }
+
+  // 淘宝主图/详情图的「上传图片」格子点开的是「图片空间」选择器，页面默认没有 <input type=file>。
+  // 这里尝试：点格子 → 等弹窗 → 找弹窗里的文件框（或点「本地上传」后找）→ 写入 → 尝试确定。
+  async function uploadViaPicker(kind, files) {
+    var tile = findDropZone(kind);
+    if (!tile) return null;
+    try { tile.click(); } catch (e) { return null; }
+    await sleep(900);
+    var cand = allFileInputs();
+    var input = cand.length ? cand[cand.length - 1] : null;
+    if (!input) {
+      var up = findButton(/本地上传|上传本地|选择文件/);
+      if (up) { try { up.click(); } catch (e) { /* ignore */ } await sleep(600); cand = allFileInputs(); input = cand.length ? cand[cand.length - 1] : null; }
+    }
+    if (!input) {
+      // 进不去就关掉弹窗，避免挡住页面
+      try {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true }));
+        window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true }));
+      } catch (e) { /* ignore */ }
+      return null;
+    }
+    try { writeFilesToInput(input, files); } catch (e) { return null; }
+    await sleep(2000);
+    var ok = findButton(/^(确定|确认|完成)/);
+    if (ok) { try { ok.click(); } catch (e) { /* ignore */ } }
+    await sleep(600);
+    return { via: "picker" };
+  }
+
+  // 扫描页面控件，输出可复制文本，便于定位真实上传控件（诊断用）
+  function scanReport() {
+    var lines = [];
+    var inputs = allFileInputs();
+    lines.push("文件框数量: " + inputs.length);
+    inputs.slice(0, 12).forEach(function (el, i) {
+      var hidden = false, shadow = false;
+      try { hidden = el.offsetParent === null && el.getClientRects().length === 0; } catch (e) { /* ignore */ }
+      try { shadow = !document.documentElement.contains(el); } catch (e) { /* ignore */ }
+      lines.push("#" + i + " hidden=" + hidden + " shadow=" + shadow + " multiple=" + !!el.multiple
+        + " accept=" + (el.accept || "-") + " ctx=" + elContext(el, 3).slice(0, 80));
+    });
+    var kw = /上传图片|本地上传|选择图片|图片空间|一口价|销售信息|添加图片|确定|确认/;
+    var els = document.querySelectorAll("button,a,div,span,li,label");
+    var seen = {}, shown = 0;
+    for (var i = 0; i < els.length && shown < 40; i++) {
+      var el = els[i];
+      if (ROOT && ROOT.contains(el)) continue;
+      var t = (el.innerText || "").trim();
+      if (!t || t.length > 10 || !kw.test(t) || seen[t]) continue;
+      seen[t] = 1; shown++;
+      lines.push('TEXT <' + el.tagName.toLowerCase() + '> "' + t + '" cls=' + String(el.className || "").slice(0, 40));
+    }
+    var dialogs = document.querySelectorAll('[class*="dialog"],[class*="Dialog"],[role=dialog]');
+    lines.push("疑似弹窗节点: " + dialogs.length);
+    return lines.join("\n");
   }
 
   // 统计页面里 blob 预览图数量（上传成功后淘宝往往会生成 blob 缩略图），用于判断是否真的写入
@@ -230,6 +303,11 @@
     }
     var targets = bound ? [bound] : findImageInputs(kind);
     if (!targets.length) {
+      // 页面无直接文件框：淘宝走「图片空间」选择器，尝试点格子→弹窗→本地上传
+      var picked = await uploadViaPicker(kind, files);
+      if (picked) {
+        return { ok: true, count: files.length, failed: failed, via: "picker", verified: blobPreviewCount() > before };
+      }
       var zone = findDropZone(kind);
       if (zone) {
         try {
@@ -396,6 +474,7 @@
       + '<button class="xlx-pub-bind" data-bind="main">绑定主图上传区</button>'
       + '<button class="xlx-pub-bind" data-bind="sku">绑定SKU图上传区</button>'
       + '<button class="xlx-pub-bind" data-bind="detail">绑定详情图上传区</button>'
+      + '<button class="xlx-pub-scan">扫描页面上传控件</button>'
       + '</div>';
     if (plan.skus.length) {
       html += '<div class="xlx-pub-dhead">规格（' + plan.skus.length + '）</div>'
@@ -519,6 +598,20 @@
   }
 
   function onDetailClick(ev) {
+    var scanBtn = ev.target.closest(".xlx-pub-scan");
+    if (scanBtn) {
+      var report = scanReport();
+      var box = ROOT.querySelector(".xlx-pub-scanout");
+      if (!box) {
+        box = document.createElement("pre");
+        box.className = "xlx-pub-scanout";
+        ROOT.querySelector(".xlx-pub-detail").appendChild(box);
+      }
+      box.textContent = report;
+      copyText(report).then(function () { status("已扫描并复制到剪贴板，可粘贴给我", true); })
+        .catch(function () { status("已扫描，见下方结果", true); });
+      return;
+    }
     var bindBtn = ev.target.closest(".xlx-pub-bind");
     if (bindBtn) { startBind(bindBtn.getAttribute("data-bind") || "main"); return; }
     var fillBtn = ev.target.closest(".xlx-pub-fillall");
