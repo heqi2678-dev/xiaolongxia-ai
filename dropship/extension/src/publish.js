@@ -184,6 +184,8 @@
     for (var i = 0; i < imgs.length; i++) {
       if (/^blob:/.test(imgs[i].currentSrc || imgs[i].src || "")) n++;
     }
+    var styled = document.querySelectorAll('[style*="blob:"]');
+    n += styled.length;
     return n;
   }
 
