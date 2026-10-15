@@ -130,6 +130,8 @@
   // 找不到文件选择框时，退而求其次找「上传图片」拖拽区，用 drop 事件投喂
   function findDropZone(kind) {
     var re = IMAGE_KIND_RE[kind] || IMAGE_KIND_RE.main;
+    var items = dragItems(re);
+    if (items.length) return items[0];
     var cands = document.querySelectorAll("div,span,button,li,section,td,a");
     var best = null, bestScore = 0;
     for (var i = 0; i < cands.length; i++) {
@@ -185,36 +187,74 @@
   function dispatchDrop(el, files) {
     var dt = new DataTransfer();
     files.forEach(function (f) { dt.items.add(f); });
+    try { dt.effectAllowed = "all"; dt.dropEffect = "copy"; } catch (e) { /* ignore */ }
+    var rect = { x: 0, y: 0 };
+    try { rect = el.getBoundingClientRect(); } catch (e) { /* ignore */ }
+    var cx = Math.round(rect.left + rect.width / 2) || 0;
+    var cy = Math.round(rect.top + rect.height / 2) || 0;
     ["dragenter", "dragover", "drop"].forEach(function (type) {
       var ev;
-      try { ev = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }); }
+      try { ev = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt, clientX: cx, clientY: cy }); }
       catch (e) { ev = new Event(type, { bubbles: true, cancelable: true }); try { ev.dataTransfer = dt; } catch (e2) { /* ignore */ } }
       el.dispatchEvent(ev);
     });
   }
 
+  // 优先命中淘宝「上传图片」格子（class 常含 drag-item）
+  function dragItems(re) {
+    var els = document.querySelectorAll('[class*="drag-item"],[class*="dragItem"],div,li');
+    var out = [];
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (ROOT && ROOT.contains(el)) continue;
+      var t = (el.innerText || "").trim();
+      if (t !== "上传图片" && !/^上传图片/.test(t)) continue;
+      var ctx = elContext(el, 4);
+      if (re && !re.test(ctx)) continue;
+      out.push(el);
+    }
+    return out;
+  }
+
   // 淘宝主图/详情图的「上传图片」格子点开的是「图片空间」选择器，页面默认没有 <input type=file>。
   // 这里尝试：点格子 → 等弹窗 → 找弹窗里的文件框（或点「本地上传」后找）→ 写入 → 尝试确定。
+  // 等一个新的 file 框出现（点「本地上传」后可能是动态创建）
+  function waitForFileInput(ms) {
+    return new Promise(function (resolve) {
+      var existing = allFileInputs();
+      if (existing.length) return resolve(existing[existing.length - 1]);
+      var obs = new MutationObserver(function () {
+        var l = allFileInputs();
+        if (l.length) { obs.disconnect(); resolve(l[l.length - 1]); }
+      });
+      try { obs.observe(document.documentElement, { childList: true, subtree: true }); } catch (e) { /* ignore */ }
+      setTimeout(function () {
+        obs.disconnect();
+        var l = allFileInputs();
+        resolve(l.length ? l[l.length - 1] : null);
+      }, ms);
+    });
+  }
+
+  function closeDialog() {
+    try {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true }));
+    } catch (e) { /* ignore */ }
+  }
+
   async function uploadViaPicker(kind, files) {
     var tile = findDropZone(kind);
     if (!tile) return null;
     try { tile.click(); } catch (e) { return null; }
     await sleep(900);
-    var cand = allFileInputs();
-    var input = cand.length ? cand[cand.length - 1] : null;
+    var input = allFileInputs().slice(-1)[0] || null;
     if (!input) {
       var up = findButton(/本地上传|上传本地|选择文件/);
-      if (up) { try { up.click(); } catch (e) { /* ignore */ } await sleep(600); cand = allFileInputs(); input = cand.length ? cand[cand.length - 1] : null; }
+      if (up) { try { up.click(); } catch (e) { /* ignore */ } input = await waitForFileInput(2500); }
     }
-    if (!input) {
-      // 进不去就关掉弹窗，避免挡住页面
-      try {
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true }));
-        window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true }));
-      } catch (e) { /* ignore */ }
-      return null;
-    }
-    try { writeFilesToInput(input, files); } catch (e) { return null; }
+    if (!input) { closeDialog(); return null; }
+    try { writeFilesToInput(input, files); } catch (e) { closeDialog(); return null; }
     await sleep(2000);
     var ok = findButton(/^(确定|确认|完成)/);
     if (ok) { try { ok.click(); } catch (e) { /* ignore */ } }
@@ -303,20 +343,23 @@
     }
     var targets = bound ? [bound] : findImageInputs(kind);
     if (!targets.length) {
-      // 页面无直接文件框：淘宝走「图片空间」选择器，尝试点格子→弹窗→本地上传
-      var picked = await uploadViaPicker(kind, files);
-      if (picked) {
-        return { ok: true, count: files.length, failed: failed, via: "picker", verified: blobPreviewCount() > before };
-      }
+      // 1) 先试把图片直接 drop 到「上传图片」格子（class 常含 drag-item）
       var zone = findDropZone(kind);
       if (zone) {
         try {
           dispatchDrop(zone, files);
-          await sleep(700);
-          return { ok: true, count: files.length, failed: failed, via: "drop", verified: blobPreviewCount() > before };
-        } catch (e) { return { ok: false, error: label + "拖拽投喂失败：" + (e.message || e) }; }
+          await sleep(900);
+          if (blobPreviewCount() > before) {
+            return { ok: true, count: files.length, failed: failed, via: "drop", verified: true };
+          }
+        } catch (e) { /* 继续尝试图片空间选择器 */ }
       }
-      return { ok: false, error: "未找到" + label + "上传控件（可点「绑定上传控件」后在页面点选该上传方块）" };
+      // 2) 再试图片空间：点格子→弹窗→本地上传→文件框
+      var picked = await uploadViaPicker(kind, files);
+      if (picked) {
+        return { ok: true, count: files.length, failed: failed, via: "picker", verified: blobPreviewCount() > before };
+      }
+      return { ok: false, error: "未找到" + label + "上传控件（淘宝图片空间不支持脚本上传，请手动上传或用下方下载）" };
     }
     try {
       writeFilesToInput(targets[0], files);
@@ -469,6 +512,11 @@
       + '<button class="xlx-pub-copy" data-copy="skus">复制规格价格</button>'
       + '<button class="xlx-pub-copy" data-copy="prices">复制价格清单</button>'
       + '<button class="xlx-pub-copy" data-copy="all">复制全部字段</button>'
+      + '</div>';
+    html += '<div class="xlx-pub-actions">'
+      + (plan.images.length ? '<button class="xlx-pub-dlall" data-dl="main">下载全部主图（' + plan.images.length + '）</button>' : '')
+      + (plan.skuImages.length ? '<button class="xlx-pub-dlall" data-dl="sku">下载全部SKU图（' + plan.skuImages.length + '）</button>' : '')
+      + (plan.detailImages.length ? '<button class="xlx-pub-dlall" data-dl="detail">下载全部详情图（' + plan.detailImages.length + '）</button>' : '')
       + '</div>';
     html += '<div class="xlx-pub-actions">'
       + '<button class="xlx-pub-bind" data-bind="main">绑定主图上传区</button>'
@@ -641,6 +689,35 @@
           status(label + "未写入：" + r.error, false);
         }
       }).then(function () { upBtn.disabled = false; });
+      return;
+    }
+    var dlBtn = ev.target.closest(".xlx-pub-dlall");
+    if (dlBtn) {
+      var dplan = ROOT._plan;
+      if (!dplan) return;
+      var dkind = dlBtn.getAttribute("data-dl") || "main";
+      var dlist = dkind === "sku" ? dplan.skuImages : dkind === "detail" ? dplan.detailImages : dplan.images;
+      var dlabel = KIND_TEXT[dkind] || "图片";
+      dlBtn.disabled = true;
+      (async function () {
+        var got = 0;
+        for (var i = 0; i < dlist.length; i++) {
+          status("下载" + dlabel + " " + (i + 1) + "/" + dlist.length + "…");
+          try {
+            var d = await fetchImage(dlist[i]);
+            var a = document.createElement("a");
+            a.href = d;
+            a.download = "xlx-" + dkind + "-" + (i + 1) + ".jpg";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            got++;
+          } catch (e) { /* 跳过失败项 */ }
+          await sleep(400);
+        }
+        status("已下载" + dlabel + " " + got + "/" + dlist.length + " 张，可批量上传到图片空间（浏览器若拦截多文件下载请允许）", true);
+        dlBtn.disabled = false;
+      })();
       return;
     }
     var imgBtn = ev.target.closest(".xlx-pub-img");
